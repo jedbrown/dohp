@@ -1,0 +1,100 @@
+\documentclass[a4paper]{article}
+\usepackage{amsmath,amssymb,bm,hyperref}
+\title{DOHP: Implementation of the Dual Order $hp$ element method}
+\author{Jed Brown}
+
+\newcommand{\struct}[1]{\texttt{#1}}
+\newcommand{\trl}[1]{\texttt{#1}}
+
+\begin{document}
+\maketitle
+
+\section{MFS: Mesh Function Space}
+Each element has exactly one quadrature rule.  It is chosen to be sufficient to
+integrate the highest order approximation used.  The element coordinate mapping
+must be evaluated at quadrature points.  For affine mappings, the Jacobian is
+constant on each element so this is trivial.  For parametric mappings, element
+Jacobian storage is needed at each quadrature point.  We abstract this by having
+a function EFSGetJacobian which returns the Jacobian evaluated at quadrature
+points.  For affine maps, this function will just write the constant Jacobian
+for each quadrature point into the array; for parametric maps, it can be a
+memcpy or can compute the Jacobian on the fly.
+
+An \struct{ElemQuotient} is stored once for every element in the mesh. It
+contains a quadrature rule, a coordinate mapping, and an offset into the stored
+Jacobian context.
+
+One problem may have several fields with different order approximation.  Each
+field can have any number of degrees of freedom.  All fields use the same
+quadrature rule and the same Jacobian storage.\footnote{It would be possible to
+  use separate Jacobian storage for each block of the Jacobian.  This would
+  minimize memory access when evaluating the action of any particular block, but
+  I conjecture that it would not a big win and would add significant coding
+  complexity to several components.}  That is, each \trl{EFS} (Element Function
+Space) is relative to a \struct{ElemQuotient}.  An \trl{MFS} extends an
+\trl{EFS} to a subdomain of a \trl{Mesh} and supports multiple fields which may
+have any number of degrees of freedom.  A problem normally has multiple
+\trl{MFS}, but frequently any block of the Jacobian containing more than one
+\trl{MFS} is indefinite.\footnote{For this reason, we are not overly concerned
+  with generating explicit (preconditioning) matrices for blocks corresponding
+  to multiple \trl{MFS}.  However, an optimization for very low order elements
+  is to actually generate the matrix entries so we still want it to be
+  possible.}
+
+\section{DohpDM}
+An eventual goal is to have a PETSc DM which manages the solution process.  Note
+that there is not actually a DM object, just a common set of functions shared by
+DA and DMComposite.  It would be similar to a DMComposite, but could we use just
+use DMComposite for the multi-component part?  The Krylov solver needs the
+coupled global vector.  The Schur complement preconditioner sees separate global
+vectors.  Evaluation of residuals and forming the matrix-free Jacobian needs all
+the local vectors.  The implementation of high-order blocks of the Jacobian
+(used in the SchurPC) will see individual local vectors.  Is there an advantage
+to having a coupled local vector?  The DM interface is simple enough so we may
+as well write our own version.  Also, DMComposite seems to be somewhat in flux
+and isn't much code to duplicate.  DohpDM will need
+\begin{itemize}
+\item Mesh containing orientation and domain information
+\item Quadrature rule on the mesh
+\item One or more MFS (Mesh Function Space)
+\item One or more Field, each associated with an MFS
+\end{itemize}
+Residual evaluation maps all fields to the quadrature points.
+
+\section{Mesh management}
+Most mesh representations are tuned for conforming meshes which enables certain
+optimizations.  For instance, MOAB stores the vertex connectivity for each mesh
+entity, but does not store the inter-entity connectivity.  Since we need to
+accomodate nonconforming meshes, we need the inter-entity connectivity.  The
+ITAPS/MOAB model is entirely sufficient to store our meshes, but it will give
+the wrong adjacency information so we need to store adjacencies manually.  Thus
+we define the tags ``\trl{dohp_adj_region_face}'' and
+``\trl{dohp_adj_face_edge}'' to store complete adjacency information.  Adjacency
+alone is not enough for our computations, we need orientation as well.  It is
+possible to infer this from existing connectivity information, but it is cheap
+enough to store explicitly so we also define the tags
+``\trl{dohp_orient_region_face}'' and ``\trl{dohp_orient_face_edge}''.  Note
+that vertex-adjacency is well defined by the mesh representation so we do not
+need to store it separately.  The current implementation needs some adjustments
+if we want to support element types other than Hex regions and Quad faces.
+
+\section{$*$ spaces}
+A processor local space contains a vertex space $V$, an edge space $E$, a face
+space $F$, and a region space $R$.  The product $A = V \times E \times F \times R$
+defines the total local degrees of freedom.  These spaces consist of only
+``internal'' degrees of freedom.  Fast computation kernels operate on entire
+regions $R^*$, not just internal degrees of freedom.  We would like to perform all
+problem specific operations on $R^*$ (and $F^*$ for boundary conditions) which
+requires a fast $*$ operation.  We would like it to be as memory friendly as
+possible while keeping the operation count low.  One option is
+\begin{eqnarray*}  \label{eq:star}
+  V^* &=& V \\
+  (V^*,E) &\to& E^* \\
+  (E^*,F) &\to& F^* \\
+  (F^*,R) &\to& R^*
+\end{eqnarray*}
+The last step uses the most memory and can easily be hoisted into the
+computation loop.  Hoisting other computations will duplicate computation and
+reduce memory locality.
+
+\end{document}
