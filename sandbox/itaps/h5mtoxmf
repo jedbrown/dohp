@@ -1,0 +1,93 @@
+#!/usr/bin/python
+
+
+import os, optparse, re, tempfile, warnings
+import tables as T
+import xml.etree.ElementTree as E
+
+def appendData(elem, data):
+    if data is not None:
+        elem.append(data)
+
+class GenXdmf:
+    def __init__(self, hf):
+        self.hf = hf
+        self.h5filename = hf.filename
+        self.translateTopology = {'Edge2':'Polyline', 'Quad4':'Quadrilateral', 'Hex8':'Hexahedron'}
+        self.translateType = {'float':'Float', 'int':'Int' }
+        self.translateType.setdefault(None)
+        warnings.filterwarnings('ignore', message="Type of attribute 'element_type' in node", category=UserWarning, module='tables', lineno=318)
+        warnings.filterwarnings('ignore', message="leaf ", category=UserWarning, module='tables', lineno=378)
+    def createDataItem(self, d, path):
+        shape = d.shape
+        if not (hasattr(d, 'atom') and hasattr(d.atom, 'kind')): return None
+        kind = self.translateType.get(d.atom.kind)
+        if not kind: return None
+        prec = d.atom.itemsize
+        dim = {1:lambda s:'%d'%s, 2:lambda s:'%d %d'%s, 3:lambda s:'%d %d %d'%s}[len(shape)](shape)
+        s = E.Element("DataItem", Format="HDF", Dimensions=dim, DataType=kind, Precision='%d'%prec)
+        s.text = '%s:%s' % (self.h5filename, path)
+        print s.text
+        return s
+    def createTopElem(self, t):
+        name = t._v_name
+        nels, nfacets = t.connectivity.shape
+        e = E.Element("Topology", Type=self.translateTopology[name], NumberOfElements='%d'%nels, BaseOffset="1")
+        appendData(e, self.createDataItem(t.connectivity, '/tstt/elements/%s/connectivity'%name))
+        return e
+    def createGeom(self,n):
+        g = E.Element("Geometry", Type="XYZ")
+        appendData(g, self.createDataItem(n.coordinates, '/tstt/nodes/coordinates'))
+        return g
+    def createTag(self, tag):
+        name = tag._v_name
+        if not set(['id_list','values']).issubset(set(tag._v_children.keys())):
+            return None
+        t = E.Element("Attribute", Name=name ,Type="Scalar", Center="Node")
+        appendData(t, self.createDataItem(tag.id_list, '/tstt/tags/%s/id_list'%name))
+        appendData(t, self.createDataItem(tag.values, '/tstt/tags/%s/values'%name))
+        id_list = self.createDataItem(tag.id_list, '/tstt/tags/%s/id_list'%name)
+        return t
+    def run(self):
+        xdmf = E.Element("Xdmf", Version="2.0")
+        domain = E.Element("Domain")
+        grid = E.Element("Grid", Name="ITAPS")
+        for top in self.hf.getNode('/tstt/elements'):
+            grid.append(self.createTopElem(top))
+        grid.append(self.createGeom(self.hf.getNode('/tstt/nodes')))
+        for tag in self.hf.getNode('/tstt/tags'):
+            tagdata = self.createTag(tag)
+            appendData(grid, tagdata)
+        xdmf.append(domain)
+        domain.append(grid)
+        return xdmf
+
+
+def main():
+    parser = optparse.OptionParser()
+    parser.add_option("-o", "--output", dest="output", help="Output file")
+    opts, args = parser.parse_args()
+    h5filename = args[0]
+    xmffilename = re.sub(r'.h5m$', r'.xmf', h5filename)
+    if opts.output:
+        xmffilename = opts.output
+    print "%s -> %s" % (h5filename, xmffilename)
+    hf = T.openFile(h5filename, "r")
+    
+    gen = GenXdmf(hf)
+    xdmf = gen.run()
+    hf.close()
+
+    tree = E.ElementTree(xdmf)
+    #out = open(xmffilename, 'w')
+    tmp = tempfile.NamedTemporaryFile('w')
+    out = tmp.file
+    out.write('<?xml version="1.0" ?>')
+    out.write('<!DOCTYPE Xdmf SYSTEM "xdmf.dtd">')
+    tree.write(out)
+    out.flush()
+    os.system('xmllint --format %s > %s' % (tmp.name, xmffilename))
+    tmp.close()
+
+if __name__ == "__main__":
+    main()
