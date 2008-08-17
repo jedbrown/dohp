@@ -3,6 +3,8 @@
 
 #include "petsc.h"
 #include "iMesh.h"
+#include <stdlib.h>
+#include <string.h>
 
 PETSC_EXTERN_CXX_BEGIN
 
@@ -10,9 +12,9 @@ typedef int MeshInt;
 typedef double MeshReal;
 typedef iBase_EntityHandle MeshEH;
 
-extern const char *iBase_ErrorString[];
+EXTERN const char *iBase_ErrorString[];
 
-#define ICHKERRQ(n) if (n) { SETERRQ(1,"ITAPS error: %s", iBase_ErrorString[n]); }
+#define ICHKERRQ(n) if (n) { SETERRQ1(1,"ITAPS error: %s", iBase_ErrorString[n]); }
 
 #define USE_ORIENT_ENUM 0
 #if USE_ORIENT_ENUM
@@ -31,6 +33,11 @@ typedef unsigned short DohpOrient;
 #endif
 
 typedef struct {
+  char *v;
+  MeshInt a,s;
+} MeshListData;
+
+typedef struct {
   MeshReal *v;
   MeshInt a, s;
 } MeshListReal;
@@ -45,16 +52,26 @@ typedef struct {
 } MeshListEH;
 
 typedef struct {
+  iBase_EntitySetHandle *v;
+  MeshInt a,s;
+} MeshListESH;
+
+typedef struct {
   PetscInt start, stride, end;
 } DohpLoopBounds;
 
 #define MeshListFree(m) { if ((m).a) free((m).v); memset(&(m),0,sizeof(m)); }
-#define MeshListMalloc(m,n) { (m).a = (m).s = n; (m).v = malloc((m).a*sizeof(m.v[0])); }
+#define MeshListMalloc(m,n) { (m).s = 0; (m).a = n; (m).v = malloc((m).a*sizeof(m.v[0])); }
 
-const char *DOHP_TAG_ADJ_REGION_FACE = "dohp_adj_region_face";
-const char *DOHP_TAG_ADJ_FACE_EDGE = "dohp_adj_face_edge";
-const char *DOHP_TAG_ORIENT_REGION_FACE = "dohp_orient_region_face";
-const char *DOHP_TAG_ORIENT_FACE_EDGE = "dohp_orient_face_edge";
+/* These tags are used to give full adjacencies because the builtin adjacencies are broken for nonconforming meshes */
+#define DOHP_TAG_ADJ_REGION_FACE    "dohp_adj_region_face"
+#define DOHP_TAG_ADJ_FACE_EDGE      "dohp_adj_face_edge"
+#define DOHP_TAG_ORIENT_REGION_FACE "dohp_orient_region_face"
+#define DOHP_TAG_ORIENT_FACE_EDGE   "dohp_orient_face_edge"
+
+#define DOHP_ENT_SET_NAME           "dohp_ent_set_name"
+#define DOHP_BDY_ROOT               "dohp_bdy_root"
+#define DOHP_TAG_BDY_NUM            "dohp_bdy_num"
 
 /* Assign a canonical orientation of the faces on a hex.  The ordering of faces
 * and vertices of the hex is defined by iMesh.  The ordering of edges and
@@ -73,13 +90,9 @@ static const int DohpHexQuad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}
 * */
 static const int DohpQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,4}};
 
-#undef __FUNCT__
-#define __FUNCT__ "MeshListIntView"
-PetscErrorCode MeshListIntView(MeshListInt *m, const char *name) {
-  CHKERRQ(PetscPrintf(PETSC_COMM_SELF,"# %s [%d]\n", name, m->s));
-  CHKERRQ(PetscIntView(m->s,m->v,PETSC_VIEWER_STDOUT_SELF));
-  PetscFunctionReturn(0);
-}
+EXTERN PetscErrorCode MeshListIntView(MeshListInt *,const char *);
+EXTERN PetscErrorCode DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *,const iBase_EntityHandle *,PetscInt,DohpOrient*);
+EXTERN PetscErrorCode DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *,const iBase_EntityHandle *,PetscInt,DohpOrient*);
 
 PETSC_EXTERN_CXX_END
 #endif

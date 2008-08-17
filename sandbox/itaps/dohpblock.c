@@ -1,33 +1,15 @@
-static const char help[] = "Enhance a mesh with hex element and vertices to include explicit reference to facets.\n";
+static const char help[] = "Create a hexahedral mesh of a block domain with full connectivity.\n";
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "iMesh.h"
-#include "petsc.h"
-#include "dohpmesh.h"
+
+#include "private/dohpimpl.h"
 
 #define CHK(err) if (err) { printf("iMesh error at %s:%d\n", __FILE__, __LINE__); exit(1); }
 #define ERR(str) { printf("error at %s:%d ",__FILE__,__LINE__); exit(2); }
 #define NAME_LEN 256
 #define DATA_LEN 256
-
-/* Assign a canonical orientation of the faces on a hex.  The ordering of faces
-* and vertices of the hex is defined by iMesh.  The ordering of edges and
-* vertices of the faces are also defined.  We need to find out which rotation of
-* the face (in 3D) is required so that the face is in standard orientation.
-* Equivalently, we need to know how to compute loop bounds on the face dofs so
-* that they are traversed in the forward order when the hex face dofs are
-* traversed in forward order.  We will need the permutation P such that for face 'i'
-*   region_vertex[hexquad[i][j]] = face_vertex[P[j]]
-* */
-const int hexquad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}, {0,3,2,1}, {4,5,6,7}};
-
-/* Assign a canonical orientation of the edges of a quad.  This is a much simpler analogue of hexquad.
-* We will need the permutation P such that for edge 'i'
-*   face_vertex[quadline[i][j]] = edge_vertex[P[j]]
-* */
-const int quadline[4][2] = {{0,1},{1,2},{2,3},{3,4}};
 
 #if (USE_ORIENT_ENUM)
 #undef __FUNCT__
@@ -71,69 +53,77 @@ PetscErrorCode DohpLoopBounds_Quad(PetscInt dof, PetscInt foff, const PetscInt *
 }
 #endif
 
+#define DOHP_MESH_FUNCTIONS 1
+#if DOHP_MESH_FUNCTIONS
+
 #undef __FUNCT__
-#define __FUNCT__ "DohpOrientFindPerm_HexQuad"
-PetscErrorCode DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *rv, const iBase_EntityHandle *fv,
-                                          int fnum, DohpOrient *orient)
+#define __FUNCT__ "DohpMeshCreate"
+PetscErrorCode DohpMeshCreate(DohpMesh m)
 {
-  PetscInt i;
-  const PetscInt perm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},
-                               {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
-  const DohpOrient permorient[8] = {0,1,2,3,4,5,6,7};
+  int err;
 
   PetscFunctionBegin;
-#if 0
-  printf("# rv:");              /* The vertices of face fnum on this region in canonical order. */
-  for (i=0; i<4; i++) { printf(" %ld",(long)rv[hexquad[fnum][i]]); }
-  printf("\n# fv:");
-  /* The order of vertices on the face.  We want to find a permutation of these
-  vertices to matches the canonical order. */
-  for (i=0; i<4; i++) { printf(" %ld",(long)fv[i]); }
-  printf("\n");
-#endif
-  for (i=0; i<8; i++) { /* loop over permutations */
-    if (fv[perm[i][0]] == rv[hexquad[fnum][0]] && fv[perm[i][1]] == rv[hexquad[fnum][1]]) {
-      /* we have found a match, as an extra check we can check that the other vertices match */
-      if (fv[perm[i][2]] != rv[hexquad[fnum][2]] || fv[perm[i][3]] != rv[hexquad[fnum][3]]) {
-        SETERRQ(1,"Faces cannot be matched.");
-      }
-      *orient = permorient[i];
-      break;
-    }
-  }
-  if (i==8) SETERRQ(1,"Faces cannot be matched.");
+  iMesh_newMesh("",&m->mi,&err,0);ICHKERRQ(err);
   PetscFunctionReturn(0);
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpOrientFindPerm_QuadLine"
-PetscErrorCode DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *fv, const iBase_EntityHandle *ev,
-                                          int en, DohpOrient *orient)
+#define __FUNCT__ "DohpMeshLoad"
+PetscErrorCode DohpMeshLoad(DohpMesh m,const char fname[],const char opt[])
 {
-  const PetscInt perm[2][2] = {{0,1},{1,0}};
-  const DohpOrient permorient[4] = {0,1,2,3};
-  PetscInt i;
+  iBase_TagHandle arf,afe,orf,ofe;
+  MeshListInt off={0};
+  PetscErrorCode ierr;
 
   PetscFunctionBegin;
-#if 0
-  printf("# fv:");              /* The vertices of edge en on this face in canonical order. */
-  for (i=0; i<2; i++) { printf(" %ld",(long)fv[quadline[en][i]]); }
-  printf("\n# ev:");
-  /* The order of vertices on the edge.  We want to find a permutation of these
-  vertices to matches the canonical order. */
-  for (i=0; i<2; i++) { printf(" %ld",(long)ev[i]); }
-  printf("\n");
-#endif
-  for (i=0; i<2; i++) { /* loop over permutations */
-    if (ev[perm[i][0]] == fv[quadline[en][0]] && ev[perm[i][1]] == fv[quadline[en][1]]) {
-      *orient = permorient[i];
-      break;
-    }
-  }
-  if (i==4) SETERRQ(1,"Edges cannot be matched.");
+  iMesh_load(m->mi,0,fname,opt,&ierr,strlen(fname),strlen(opt));ICHKERRQ(ierr);
+  iMesh_getRootSet(m->mi,&m->root,&ierr);ICHKERRQ(ierr);
+  /* Get all entities of each type. */
+  iMesh_getEntities(m->mi,m->root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&m->r.v,&m->r.a,&m->r.s,&ierr);ICHKERRQ(ierr);
+  iMesh_getEntities(m->mi,m->root,iBase_FACE,iMesh_ALL_TOPOLOGIES,&m->f.v,&m->f.a,&m->f.s,&ierr);ICHKERRQ(ierr);
+  iMesh_getEntities(m->mi,m->root,iBase_EDGE,iMesh_ALL_TOPOLOGIES,&m->e.v,&m->e.a,&m->e.s,&ierr);ICHKERRQ(ierr);
+  iMesh_getEntities(m->mi,m->root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&m->v.v,&m->v.a,&m->v.s,&ierr);ICHKERRQ(ierr);
+  /* Get tags for custom adjacencies, needed since our meshes are nonconforming with respect to the adjacent lower dim entity */
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ADJ_REGION_FACE,&arf,&ierr,strlen(DOHP_TAG_ADJ_REGION_FACE));ICHKERRQ(ierr);
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ADJ_FACE_EDGE,&afe,&ierr,strlen(DOHP_TAG_ADJ_FACE_EDGE));ICHKERRQ(ierr);
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ORIENT_REGION_FACE,&orf,&ierr,strlen(DOHP_TAG_ORIENT_REGION_FACE));ICHKERRQ(ierr);
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ORIENT_FACE_EDGE,&ofe,&ierr,strlen(DOHP_TAG_ORIENT_FACE_EDGE));ICHKERRQ(ierr);
+  /* Get full adjacencies */
+  iMesh_getEHArrData(m->mi,m->r.v,m->r.s,arf,&m->arf.v,&m->arf.a,&m->arf.s,&ierr);ICHKERRQ(ierr); /* region -> face */
+  iMesh_getEHArrData(m->mi,m->f.v,m->f.s,afe,&m->afe.v,&m->afe.a,&m->afe.s,&ierr);ICHKERRQ(ierr); /* face -> edge */
+  iMesh_getEntArrAdj(m->mi,m->e.v,m->e.s,iBase_VERTEX,&m->aev.v,&m->aev.a,&m->aev.s,&off.v,&off.a,&off.s,&ierr);ICHKERRQ(ierr); /* edge -> vertex */
+  MeshListFree(off);      /* We don't use the offsets because we know there are always exactly two vertices per edge. */
+  /* Get orientation of lower dimensional entities, we don't need vertex orientation */
+  iMesh_getArrData(m->mi,m->r.v,m->r.s,orf,&m->orf.v,&m->orf.a,&m->orf.s,&ierr);ICHKERRQ(ierr); /* region[face] */
+  iMesh_getArrData(m->mi,m->f.v,m->f.s,ofe,&m->ofe.v,&m->ofe.a,&m->ofe.s,&ierr);ICHKERRQ(ierr); /* face[edge] */
   PetscFunctionReturn(0);
 }
 
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshNumberNodes"
+
+#if 0
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshSetQuotient"
+PetscErrorCode DohpMeshSetQuotient(DohpMesh m,DohpQuotient q)
+{
+
+  PetscFunctionBegin;
+
+  PetscFunctionReturn(0);
+}
+#endif
+
+/* Create a tag over the region, face, edge, vertex sets.  Number the tags in increasing order, then
+* get them (iMesh_getArrData) for the adjacent entity sets. */
+
+#undef __FUNCT__
+#define __FUNCT__ "MFSCreate"
+
+#undef __FUNCT__
+#define __FUNCT__ "MFSSetQuotient"
+
+#endif  /* DOHP_MESH_FUNCTIONS */
 
 #undef __FUNCT__
 #define __FUNCT__ "main"
@@ -144,7 +134,7 @@ int main(int argc, char *argv[])
   iBase_EntitySetHandle root;
   iBase_TagHandle pTag,feOrientTag,feAdjTag,rfOrientTag,rfAdjTag;
   MeshListEH v={0},e={0},f={0},r={0},c={0},ev={0},fv={0},rv={0};
-  MeshListDouble x={0};
+  MeshListReal x={0};
   MeshListInt s={0},part={0},feo={0},in={0},fvo={0},evo={0},rfo={0},rvo={0};
   DohpOrient *feOrient,*rfOrient;
   PetscInt feOrientSize,rfOrientSize;
@@ -313,10 +303,10 @@ int main(int argc, char *argv[])
       ierr = DohpOrientFindPerm_QuadLine(&fv.v[fvo.v[i]],&ev.v[evo.v[feo.v[i]+j]],j,&feOrient[feo.v[i]+j]);CHKERRQ(ierr);
     }
   }
-  iMesh_createTag(mesh,DOHP_ORIENT_FACE_EDGE,4*sizeof(DohpOrient),iBase_BYTES,
-                  &feOrientTag,&err,strlen(DOHP_ORIENT_FACE_EDGE));CHK(err);
+  iMesh_createTag(mesh,DOHP_TAG_ORIENT_FACE_EDGE,4*sizeof(DohpOrient),iBase_BYTES,
+                  &feOrientTag,&err,strlen(DOHP_TAG_ORIENT_FACE_EDGE));CHK(err);
   iMesh_setArrData(mesh,f.v,f.s,feOrientTag,(const char*)feOrient,feOrientSize*sizeof(DohpOrient),&err);CHK(err);
-  iMesh_createTag(mesh,DOHP_ADJ_FACE_EDGE,4,iBase_ENTITY_HANDLE,&feAdjTag,&err,strlen(DOHP_ADJ_FACE_EDGE));CHK(err);
+  iMesh_createTag(mesh,DOHP_TAG_ADJ_FACE_EDGE,4,iBase_ENTITY_HANDLE,&feAdjTag,&err,strlen(DOHP_TAG_ADJ_FACE_EDGE));CHK(err);
   iMesh_setEHArrData(mesh,f.v,f.s,feAdjTag,e.v,e.s,&err);CHK(err);
 
   MeshListFree(f); MeshListFree(e); MeshListFree(feo); MeshListFree(fv); MeshListFree(fvo);
@@ -343,16 +333,138 @@ int main(int argc, char *argv[])
       ierr = DohpOrientFindPerm_HexQuad(&rv.v[rvo.v[i]],&fv.v[fvo.v[rfo.v[i]+j]],j,&rfOrient[rfo.v[i]+j]);CHKERRQ(ierr);
     }
   }
-  iMesh_createTag(mesh,DOHP_ORIENT_REGION_FACE,6*sizeof(DohpOrient),iBase_BYTES,
-                  &rfOrientTag,&err,strlen(DOHP_ORIENT_REGION_FACE));CHK(err);
+  iMesh_createTag(mesh,DOHP_TAG_ORIENT_REGION_FACE,6*sizeof(DohpOrient),iBase_BYTES,
+                  &rfOrientTag,&err,strlen(DOHP_TAG_ORIENT_REGION_FACE));CHK(err);
   iMesh_setArrData(mesh,r.v,r.s,rfOrientTag,(const char*)rfOrient,rfOrientSize*sizeof(DohpOrient),&err);CHK(err);
-  iMesh_createTag(mesh,DOHP_ADJ_REGION_FACE,6,iBase_ENTITY_HANDLE,&rfAdjTag,&err,strlen(DOHP_ADJ_REGION_FACE));CHK(err);
+  iMesh_createTag(mesh,DOHP_TAG_ADJ_REGION_FACE,6,iBase_ENTITY_HANDLE,&rfAdjTag,&err,strlen(DOHP_TAG_ADJ_REGION_FACE));CHK(err);
   iMesh_setEHArrData(mesh,r.v,r.s,rfAdjTag,f.v,f.s,&err);CHK(err);
   MeshListFree(r); MeshListFree(f); MeshListFree(rfo); MeshListFree(rv); MeshListFree(rvo);
   MeshListFree(fv); MeshListFree(fvo);
   ierr = PetscFree(rfOrient);CHKERRQ(ierr);
 
+  /* Create the boundary parent set. */
+  {
+    typedef int OnBdyFunc(double[]);
+    const int nbdy = 3;
+    const char bdyName[3][DOHP_NAME_LEN] = {DOHP_BDY_ROOT,"WALL","LID"};
+    int on_wall(double x[]) {return (x[0] == x0 || x[0] == x1 || x[1] == y0 || x[1] == y1 || x[2] == z0);}
+    int on_lid(double x[])  {return (x[2] == z1); }
+    OnBdyFunc *onBdy[] = {0,on_wall,on_lid};/* We should never call onBdy[0], we use union instead. */
+    iBase_EntitySetHandle bdy[3];
+    iBase_TagHandle nameTag;
+    MeshListEH b={0};
+    MeshListInt off={0};
+    PetscInt type,onbdy,flg;
+
+    /* Create entity sets to hold boundary facets, all inherit from the root boundary set. */
+    for (i=0; i<nbdy; i++) {
+      iMesh_createEntSet(mesh,0,&bdy[i],&ierr);ICHKERRQ(ierr);
+      if (i > 0) {
+        iMesh_addPrntChld(mesh,&bdy[0],&bdy[i],&ierr);ICHKERRQ(ierr);
+      }
+    }
+    /* Set name tags over all the boundary entity sets */
+    iMesh_createTag(mesh,DOHP_ENT_SET_NAME,DOHP_NAME_LEN,iBase_BYTES,&nameTag,&ierr,strlen(DOHP_ENT_SET_NAME));ICHKERRQ(ierr);
+    for (i=0; i<nbdy; i++) {
+      iMesh_setEntSetData(mesh,bdy[i],nameTag,bdyName[i],strlen(bdyName[i]),&ierr);ICHKERRQ(ierr);
+    }
+    /* Put the boundary vertices in the appropriate sets, defined by their coordinates */
+    iMesh_getEntities(mesh,0,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&ierr);ICHKERRQ(ierr);
+    iMesh_getVtxArrCoords(mesh,v.v,v.s,&order,&x.v,&x.a,&x.s,&ierr);ICHKERRQ(ierr);
+    if (3*v.s != x.s) SETERRQ(1,"Wrong number of coordinates returned.");
+    MeshListMalloc(b,v.s);
+    for (i=1; i<nbdy; i++) {  /* All but the boundary root set */
+      b.s = 0;
+      for (j=0; j<v.s; j++) { /* All the vertices */
+        if (onBdy[i](&x.v[3*j])) b.v[b.s++] = v.v[j];
+      }
+      iMesh_addEntArrToSet(mesh,b.v,b.s,&bdy[i],&ierr);ICHKERRQ(ierr);
+    }
+    MeshListFree(b); MeshListFree(v);
+    /* Get entities of each dimension and adjacent vertices, check the vertices for membership, add entities to appropriate boundary sets */
+    for (type=iBase_EDGE; type<=iBase_REGION; type++) {
+      iMesh_getEntities(mesh,0,type,iMesh_ALL_TOPOLOGIES,&e.v,&e.a,&e.s,&ierr);ICHKERRQ(ierr);
+      iMesh_getEntArrAdj(mesh,e.v,e.s,iBase_VERTEX,&v.v,&v.a,&v.s,&off.v,&off.a,&off.s,&ierr);ICHKERRQ(ierr);
+      for (i=1; i<nbdy; i++) { /* all boundaries but root */
+        for (j=0; j<e.s; j++) {   /* for each entity */
+          onbdy = 1;
+          /* An entity is in the set if all its vertices are in the set */
+          for (k=off.v[j]; k<off.v[j+1]; k++) { /* for each vertex adjacent to the entity */
+            iMesh_isEntContained(mesh,bdy[i],v.v[k],&flg,&ierr);ICHKERRQ(ierr);
+            onbdy = onbdy && flg;
+          }
+          if (onbdy)  {iMesh_addEntToSet(mesh,e.v[j],&bdy[i],&ierr);ICHKERRQ(ierr);}
+        }
+      }
+      MeshListFree(e); MeshListFree(v); MeshListFree(off);
+    }
+    /* add all the boundary sets to the root boundary set */
+    for (i=1; i<nbdy; i++) {
+      iMesh_addEntSet(mesh,bdy[i],&bdy[0],&ierr);ICHKERRQ(ierr);
+    }
+  }
+
+                                /* Color the boundary entities */
+  {
+    iBase_TagHandle nameTag,bdyNum;
+    iBase_EntitySetHandle bdyRoot=0;
+    MeshListESH allESH={0},bdy={0};
+    MeshListData name={0};
+    MeshListInt type={0};
+    PetscTruth match;
+
+    iMesh_getTagHandle(mesh,DOHP_ENT_SET_NAME,&nameTag,&ierr,strlen(DOHP_ENT_SET_NAME));ICHKERRQ(ierr);
+    iMesh_getEntSets(mesh,0,0,&allESH.v,&allESH.a,&allESH.s,&ierr);ICHKERRQ(ierr);
+    for (i=0; i<allESH.s; i++) {
+      iMesh_getEntSetData(mesh,allESH.v[i],nameTag,&name.v,&name.a,&name.s,&ierr);ICHKERRQ(ierr);
+      ierr = PetscStrcmp(DOHP_BDY_ROOT,name.v,&match);CHKERRQ(ierr);
+      /* printf("checking tag %d/%d: %s\n",i+1,allESH.s,name.v); */
+      MeshListFree(name);
+      if (match) {
+        bdyRoot = allESH.v[i];
+        MeshListFree(allESH);
+        break;
+      }
+    }
+    if (!bdyRoot) SETERRQ1(1,"%s not found",DOHP_BDY_ROOT);
+    iMesh_getChldn(mesh,bdyRoot,0,&bdy.v,&bdy.a,&bdy.s,&ierr);ICHKERRQ(ierr);
+    iMesh_createTag(mesh,DOHP_TAG_BDY_NUM,1,iBase_INTEGER,&bdyNum,&ierr,strlen(DOHP_TAG_BDY_NUM));ICHKERRQ(ierr);
+    for (i=0; i<bdy.s; i++) {
+      iMesh_getEntSetData(mesh,bdy.v[i],nameTag,&name.v,&name.a,&name.s,&ierr);ICHKERRQ(ierr);
+      ierr = PetscPrintf(PETSC_COMM_WORLD,"Found boundary %d/%d: %s\n",i+1,bdy.s,name.v);CHKERRQ(ierr);
+      MeshListFree(name);
+      iMesh_setEntSetIntData(mesh,bdy.v[i],bdyNum,i,&ierr);ICHKERRQ(ierr);
+      iMesh_getEntities(mesh,bdy.v[i],iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&e.v,&e.a,&e.s,&ierr);ICHKERRQ(ierr);
+      iMesh_getEntArrTopo(mesh,e.v,e.s,&type.v,&type.a,&type.s,&ierr);ICHKERRQ(ierr);
+      for (j=0; j<e.s; j++) {
+        if (type.v[j] > iBase_VERTEX || 1) {
+          iMesh_setIntData(mesh,e.v[j],bdyNum,i,&ierr);ICHKERRQ(ierr);
+        }
+      }
+      MeshListFree(e);
+    }
+    MeshListFree(bdy);
+  }
+                                /* Add a real valued tag over the vertices. */
+  {
+    static const char *myTagName = "pressure";
+    iBase_TagHandle myTag;
+    double *myData;
+
+    iMesh_getEntities(mesh,0,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&ierr);ICHKERRQ(ierr);
+    iMesh_createTag(mesh,myTagName,1,iBase_DOUBLE,&myTag,&ierr,strlen(myTagName));ICHKERRQ(ierr);
+    ierr = PetscMalloc(v.s*sizeof(double),&myData);CHKERRQ(ierr);
+    for (i=0; i<v.s; i++) { myData[i] = 1.0 * i; }
+    iMesh_setDblArrData(mesh,v.v,v.s,myTag,myData,v.s,&ierr);ICHKERRQ(ierr);
+    ierr = PetscFree(myData);CHKERRQ(ierr);
+    MeshListFree(v);
+  }
+
   iMesh_save(mesh,0,outfile,outopts,&err,strlen(outfile),strlen(outopts));CHK(err);
   ierr = PetscFinalize();CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshCreateBoundary"

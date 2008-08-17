@@ -10,49 +10,65 @@
 \maketitle
 
 \section{MFS: Mesh Function Space}
-Each element has exactly one quadrature rule.  It is chosen to be sufficient to
-integrate the highest order approximation used.  The element coordinate mapping
-must be evaluated at quadrature points.  For affine mappings, the Jacobian is
-constant on each element so this is trivial.  For parametric mappings, element
-Jacobian storage is needed at each quadrature point.  We abstract this by having
-a function EFSGetJacobian which returns the Jacobian evaluated at quadrature
-points.  For affine maps, this function will just write the constant Jacobian
-for each quadrature point into the array; for parametric maps, it can be a
-memcpy or can compute the Jacobian on the fly.
+Each element has exactly one quadrature rule.  It is chosen to be sufficient to integrate the highest order
+approximation used.  The element coordinate mapping must be evaluated at quadrature points.  For affine mappings, the
+Jacobian is constant on each element so this is trivial.  For parametric mappings, element Jacobian storage is needed at
+each quadrature point.  We abstract this by having a function EFSGetJacobian which returns the Jacobian evaluated at
+quadrature points.  For affine maps, this function will just write the constant Jacobian for each quadrature point into
+the array; for parametric maps, it can be a memcpy or can compute the Jacobian on the fly.
 
-An \struct{ElemQuotient} is stored once for every element in the mesh. It
-contains a quadrature rule, a coordinate mapping, and an offset into the stored
-Jacobian context.
-
-One problem may have several fields with different order approximation.  Each
-field can have any number of degrees of freedom.  All fields use the same
-quadrature rule and the same Jacobian storage.\footnote{It would be possible to
-  use separate Jacobian storage for each block of the Jacobian.  This would
-  minimize memory access when evaluating the action of any particular block, but
-  I conjecture that it would not a big win and would add significant coding
-  complexity to several components.}  That is, each \trl{EFS} (Element Function
-Space) is relative to a \struct{ElemQuotient}.  An \trl{MFS} extends an
-\trl{EFS} to a subdomain of a \trl{Mesh} and supports multiple fields which may
-have any number of degrees of freedom.  A problem normally has multiple
-\trl{MFS}, but frequently any block of the Jacobian containing more than one
-\trl{MFS} is indefinite.\footnote{For this reason, we are not overly concerned
-  with generating explicit (preconditioning) matrices for blocks corresponding
-  to multiple \trl{MFS}.  However, an optimization for very low order elements
-  is to actually generate the matrix entries so we still want it to be
+One problem may have several fields with different order approximation.  Each field can have any number of degrees of
+freedom.  All fields use the same quadrature rule and the same Jacobian storage.\footnote{It would be possible to use
+  separate Jacobian storage for each block of the Jacobian.  This would minimize memory access when evaluating the
+  action of any particular block, but I conjecture that it would not a big win and would add significant coding
+  complexity to several components.}  That is, each \trl{EFS} (Element Function Space) is relative to a \struct{Rule}.
+An \trl{MFS} extends an \trl{EFS} to a subdomain of a \trl{Mesh} and supports multiple fields.  The number of degrees of
+freedom per node is set by the \trl{MFS}.\footnote{This is not essential, but it reduces complexity and I conjecture
+  that the performance hit is acceptable.}  A problem normally has multiple \trl{MFS}, but frequently any block of the
+Jacobian containing more than one \trl{MFS} is indefinite.\footnote{For this reason, we are not overly concerned with
+  generating explicit (preconditioning) matrices for blocks corresponding to multiple \trl{MFS}.  However, an
+  optimization for very low order elements is to actually generate the matrix entries so we still want it to be
   possible.}
 
+\subsection{Setup}
+As much as possible, we want to store domain and approximation information in the \trl{Mesh}.  This ensures consistency
+and should make our life easier when repartitioning and migrating data.  To define the subdomains in a mesh, we use
+Entity Sets with tag ``\trl{dohp\_domain}'' and value equal to the user-defined name of the domain (for instance
+``\trl{ice velocity space}'').  Names are case sensitive null terminated strings with length less than
+\trl{DOHP\_NAME\_LEN} (currently 128).
+
+\subsubsection{Boundary conditions}
+A domain may have any number of boundary conditions.  These are stored as child entity sets with tag
+``\trl{dohp\_boundary}'' set to a user-defined name string.  Normal direction needs to be specified for the boundary
+faces.  To do this, define a byte tag over the faces with user-defined name and value set to $0$ if the face normal
+coincides with the boundary normal and $1$ if they are opposite.  Registering a boundary condition with a \trl{MFS}
+amounts to specifying the name of the boundary entity set, the name of the normal direction flag, and a
+\trl{DohpBC} structure which will handle application of the boundary condition.
+
+For Neumann and Robin conditions, the number of degrees of freedom remains the same, but an integral over the face must
+be done.  To combine this case with the (semi-)Dirichlet case, we require that boundary condition application has access
+to the element context (since it may need to perform derivatives), to Jacobian storage space (for nonlinear conditions),
+and to the output vector.  The boundary contribution will normally be added to the output vector during the first phase
+(i.e. before region operations).
+
+During the \trl{MFS} setup phase, we concatenate all boundary conditions.  We keep a list of faces with an active
+boundary condition as well as pointers to a function table and pointers to private storage.  Boundary conditions are
+applied by iterating through the boundary faces and applying the functions in the function table.
+
+\subsubsection{Approximation order}
+To indicate the order of approximation, a tag with user-defined name must be available over the elements in a domain.
+Since we do not anticipate approximation orders above 255, we simply use $d$ bytes per element of topological dimension
+$d$ to represent the tensor product basis size.  Non-tensor product bases can use the space as opaque storage.
+
 \section{DohpDM}
-An eventual goal is to have a PETSc DM which manages the solution process.  Note
-that there is not actually a DM object, just a common set of functions shared by
-DA and DMComposite.  It would be similar to a DMComposite, but could we use just
-use DMComposite for the multi-component part?  The Krylov solver needs the
-coupled global vector.  The Schur complement preconditioner sees separate global
-vectors.  Evaluation of residuals and forming the matrix-free Jacobian needs all
-the local vectors.  The implementation of high-order blocks of the Jacobian
-(used in the SchurPC) will see individual local vectors.  Is there an advantage
-to having a coupled local vector?  The DM interface is simple enough so we may
-as well write our own version.  Also, DMComposite seems to be somewhat in flux
-and isn't much code to duplicate.  DohpDM will need
+An eventual goal is to have a PETSc \trl{DM} which manages the solution process.  Note that there is not actually a
+\trl{DM} object, just a common set of functions shared by \trl{DA} and \trl{DMComposite}.  It would be similar to a
+\trl{DMComposite}, but could we use just use \trl{DMComposite} for the multi-component part?  The Krylov solver needs
+the coupled global vector.  The Schur complement preconditioner sees separate global vectors.  Evaluation of residuals
+and forming the matrix-free Jacobian needs all the local vectors.  The implementation of high-order blocks of the
+Jacobian (used in the SchurPC) will see individual local vectors.  Is there an advantage to having a coupled local
+vector?  The \trl{DM} implementation is simple enough so we may as well write our own version.  Also, \trl{DMComposite}
+seems to be somewhat in flux and isn't much code to duplicate.  \trl{DohpDM} will need
 \begin{itemize}
 \item Mesh containing orientation and domain information
 \item Quadrature rule on the mesh
@@ -61,40 +77,65 @@ and isn't much code to duplicate.  DohpDM will need
 \end{itemize}
 Residual evaluation maps all fields to the quadrature points.
 
-\section{Mesh management}
-Most mesh representations are tuned for conforming meshes which enables certain
-optimizations.  For instance, MOAB stores the vertex connectivity for each mesh
-entity, but does not store the inter-entity connectivity.  Since we need to
-accomodate nonconforming meshes, we need the inter-entity connectivity.  The
-ITAPS/MOAB model is entirely sufficient to store our meshes, but it will give
-the wrong adjacency information so we need to store adjacencies manually.  Thus
-we define the tags ``\trl{dohp_adj_region_face}'' and
-``\trl{dohp_adj_face_edge}'' to store complete adjacency information.  Adjacency
-alone is not enough for our computations, we need orientation as well.  It is
-possible to infer this from existing connectivity information, but it is cheap
-enough to store explicitly so we also define the tags
-``\trl{dohp_orient_region_face}'' and ``\trl{dohp_orient_face_edge}''.  Note
-that vertex-adjacency is well defined by the mesh representation so we do not
-need to store it separately.  The current implementation needs some adjustments
-if we want to support element types other than Hex regions and Quad faces.
+\subsection{Blocks}
+For preconditioning, we need to apply blocks of the Jacobian and assemble associated preconditioners.  Doing this
+efficiently requires partial saturation of the element space.  That is, we would like to only saturate the fields
+required by the block on the elements where the block has degrees of freedom.  We could store the block structure in the
+\trl{DohpDM} or build it using the \trl{DohpDM}.  Modularity suggests the latter.  I anticipate it will be tricky to get
+dependence on the implementation of \trl{DohpDM} out of the code for \trl{DohpBlock}.
 
-\section{$*$ spaces}
-A processor local space contains a vertex space $V$, an edge space $E$, a face
-space $F$, and a region space $R$.  The product $A = V \times E \times F \times R$
-defines the total local degrees of freedom.  These spaces consist of only
-``internal'' degrees of freedom.  Fast computation kernels operate on entire
-regions $R^*$, not just internal degrees of freedom.  We would like to perform all
-problem specific operations on $R^*$ (and $F^*$ for boundary conditions) which
-requires a fast $*$ operation.  We would like it to be as memory friendly as
-possible while keeping the operation count low.  One option is
+\section{Mesh management}
+Most mesh representations are tuned for conforming meshes which enables certain optimizations.  For instance, MOAB
+stores the vertex connectivity for each mesh entity, but does not store the inter-entity connectivity.  Since we need to
+accomodate nonconforming meshes, we need the inter-entity connectivity.  The ITAPS/MOAB model is entirely sufficient to
+store our meshes, but it will give the wrong adjacency information so we need to store adjacencies manually.  Thus we
+define the tags ``\trl{dohp\_adj\_region\_face}'' and ``\trl{dohp\_adj\_face\_edge}'' to store complete adjacency information.
+Adjacency alone is not enough for our computations, we need orientation as well.  It is possible to infer this from
+existing connectivity information, but it is cheap enough to store explicitly so we also define the tags
+``\trl{dohp\_orient\_region\_face}'' and ``\trl{dohp\_orient\_face\_edge}''.  Note that vertex-adjacency is well defined by
+the mesh representation so we do not need to store it separately.  The current implementation needs some adjustments if
+we want to support element types other than Hex regions and Quad faces.
+
+\section{Saturating and desaturating the facet spaces: the $*$ operation}
+A processor local space contains a vertex space $V$, an edge space $E$, a face space $F$, and a region space $R$.  The
+product $A = V \times E \times F \times R$ defines the total local degrees of freedom.  These spaces consist of only
+``internal'' degrees of freedom.  Fast computation kernels operate on entire regions $R^*$, not just internal degrees of
+freedom.  We would like to perform all problem specific operations on $R^*$ (and $F^*$ for boundary conditions) which
+requires a fast $*$ operation.  We would like it to be as memory friendly as possible while keeping the operation count
+low.  One option is
 \begin{eqnarray*}  \label{eq:star}
   V^* &=& V \\
   (V^*,E) &\to& E^* \\
   (E^*,F) &\to& F^* \\
   (F^*,R) &\to& R^*
 \end{eqnarray*}
-The last step uses the most memory and can easily be hoisted into the
-computation loop.  Hoisting other computations will duplicate computation and
-reduce memory locality.
+The last step uses the most memory and can easily be hoisted into the computation loop.  Hoisting other computations
+will duplicate computation and reduce memory locality.
+
+\section{Constrained degrees of freedom}
+The performance of iterative linear algebra is improved if constrained degrees of freedom are removed from the system
+rather than being implemented strongly, by penalty, or by introducing Lagrange multipliers.  We achieve this in a
+two-step process, taking function evaluation as the prototype nonlinear operation and matrix-free Jacobian application
+as the prototype linear operation.  Functionally, these operations are very similar: the global vector is scattered to a
+local vector which is used to saturate the facet space, then element operations are applied and the result is put back
+into a local vector (by desaturating the facet space) which is scattered to a global vector.  For Dirichlet boundary
+conditions, there are no degrees of freedom in the saturated facet space.  For slip conditions, there are degrees of
+freedom corresponding to the tangent space, but not the normal component of velocity.  To treat these conditions in a
+uniform manner, we apply boundary conditions at the end of facet space saturation and at the beginning of facet space
+desaturation.  A boundary condition function uses a normal vector and an array of boundary values to modify a field over
+a saturated facet.  For Dirichlet values, there will be nothing in the saturated facet and all values will be in the
+boundary array.  For slip conditions, the saturated facet will be $2/3$ full (tangent velocity), the other $1/3$ will be
+in the boundary array (normal velocity), and the normal vector tells us how to transform these into full vector fields
+in the normal basis.  At the beginning of the desaturation phase, this operation is reversed.  During function
+evaluation, inhomogeneous boundary values are provided to the boundary condition function while during Jacobian
+application, only homogeneous values are provided.
+
+For mixed fields (we take the velocity-pressure formulation of the Stokes problem as a prototype) it is frequently the
+case that conditions are removed differently for each field.  That is, no-slip and slip conditions have no pressure
+constraints and pressure conditions (a good inflow and outflow condition is hydrostatic pressure) leave velocity
+components unconstrained.  This is no extra difficulty because the fields are constructed over a different MFS.  For
+optimization problems where multiple fields (state and adjoint) may be constructed over the same MFS, the boundary
+conditions are of the same type (always?) so the boundary condition may be associated with the MFS just like in the
+continuum analysis.
 
 \end{document}

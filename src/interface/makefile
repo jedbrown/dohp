@@ -5,7 +5,7 @@ FFLAGS   =
 SOURCEC  = dohp.c mesh.c
 SOURCEF  =
 SOURCEH  =
-OBJSC    = dohp.o
+OBJSC    = $(SOURCEC:.c=.o)
 OBJSF    =
 LIBBASE  = libdohp
 MANSEC   = DOHP

@@ -14,6 +14,8 @@ enum DohpDeriv {
   DERIV_Z     = 0x8
 };
 
+#define DOHP_NAME_LEN 128
+
 /* Function to define the quadrature order on a given mesh. */
 typedef PetscErrorCode (*DohpQuotientFunction1)(const PetscReal*,PetscInt*);
 /* Function to define an approximation space given a mesh and a quadrature order. */
@@ -24,6 +26,9 @@ typedef struct _p_DohpDM *DohpDM;
 typedef struct _p_DohpMFS *DohpMFS;
 typedef struct _p_DohpMesh *DohpMesh;
 typedef struct _p_DohpWF *DohpWF;
+typedef struct _p_DohpBlock* DohpBlock;
+
+typedef struct _p_DohpEFS* DohpEFS;
 
 /* Quadrature rules.  Currently we support tensor-product type Gauss, Gauss-Lobatto, and
 * Gauss-Radau.  Tensor product spaces and quadrature rules are central to the efficiency of the
@@ -123,6 +128,9 @@ EXTERN PetscErrorCode DohpDMGetVecs(DohpDM,const char*[],Vec*[]);
 EXTERN PetscErrorCode DohpDMGetLocalVec(DohpDM,Vec*);
 EXTERN PetscErrorCode DohpDMGetLocalVecs(DohpDM,const char*[],Vec*[]);
 
+EXTERN PetscErrorCode DohpBlockGetMatrices(DohpBlock,const MatType,Mat*,Mat*);
+EXTERN PetscErrorCode DohpBlockMatMult(Mat,Vec,Vec);
+
 /* EXTERN PetscErrorCode DohpQuotientCreate(DohpQuotient); */
 /* EXTERN PetscErrorCode DohpQuotientSetMesh(DohpQuotient,DohpMesh); */
 /* EXTERN PetscErrorCode DohpQuotientSetFunction(DohpQuotient,DohpQuotientFunction1); */
@@ -130,8 +138,10 @@ EXTERN PetscErrorCode DohpDMGetLocalVecs(DohpDM,const char*[],Vec*[]);
 EXTERN PetscErrorCode DohpMFSCreate(MPI_Comm,DohpMFS);
 /* EXTERN PetscErrorCode DohpMFSSetQuotient(DohpMFS,DohpQuotient); */
 EXTERN PetscErrorCode DohpMFSSetFunction(DohpMFS,DohpMFSFunction1);
-EXTERN PetscErrorCode DohpMFSSetup(DohpMFS);
-
+EXTERN PetscErrorCode DohpMFSSetUp(DohpMFS);
+EXTERN PetscErrorCode DohpMFSApplyMinimumRule(DohpMFS,const MeshListInt*);
+EXTERN PetscErrorCode DohpMFSSetUpElementBases(DohpMFS,const MeshListInt*);
+EXTERN PetscErrorCode DohpMFSSetUpElemFacetProjections(DohpMFS);
 
 /* DohpQuotient: this is not actually an object, just a combination of quadrature rule and element
 * map.  The element map operations need to know about the quadrature rule so we keep them together. */

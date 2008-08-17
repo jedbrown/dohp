@@ -1,9 +1,6 @@
 #include "include/private/dohpimpl.h"
 #include "src/inline/ilu.h"
 
-PetscCookie DOHP_COOKIE;
-PetscLogEvent DOHP_MatMult, DOHP_FunctionEval, DOHP_JacobianEval;
-
 inline void DohpConvexComb_2_4(PetscReal x,PetscReal y,const PetscReal v[],const PetscInt p[],PetscReal f[])
 {
   PetscInt i;
@@ -50,5 +47,99 @@ PetscErrorCode DohpQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const DohpRu
       }
     }
   }
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMFSSetUp"
+PetscErrorCode DohpMFSSetUp(DohpMFS mfs)
+{
+  DohpMesh m=mfs->mesh;
+  iMesh_Instance mi=m->mi;
+  iBase_TagHandle sizetag;
+  MeshListInt s={0};
+  size_t namelen;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  /* Get the requested order of elements out of the mesh. */
+  ierr = PetscStrlen(mfs->sizetagname,&namelen);CHKERRQ(ierr);
+  iMesh_getTagHandle(mi,mfs->sizetagname,&sizetag,&ierr,(int)namelen);ICHKERRQ(ierr);
+  iMesh_getIntArrData(mi,m->r.v,m->r.s,sizetag,&s.v,&s.a,&s.s,&ierr);ICHKERRQ(ierr);
+
+  /* Assign orders to the facet space by applying the minimum rule. */
+  ierr = DohpMFSApplyMinimumRule(mfs,&s);CHKERRQ(ierr);
+  /* Set up the element operations to be compatible with the quadrature and requested approximation order. */
+  ierr = DohpMFSSetUpElementBases(mfs,&s);CHKERRQ(ierr);
+  /* Set up the facet-element mapping functions to be compatible with the respective approximation orders. */
+  ierr = DohpMFSSetUpElemFacetProjections(mfs);CHKERRQ(ierr);
+
+  MeshListFree(s);
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMFSApplyMinimumRule"
+PetscErrorCode DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
+{
+  DohpMesh m=mfs->mesh;
+  iMesh_Instance mi=m->mi;
+  PetscInt i,j;
+  PetscErrorCode ierr;
+#define SIZE(f,m,n)             /* Decrease the order of face number f to (m,n) */
+  /* Element order is 3 int values starting at s->v[i*3] */
+
+  /* Iterate over the regions in the support of the function space and set adjacent face basis size
+  * to be no more than the region basis size.  Then iterate over the faces and set adjacent edge
+  * basis size to be no more than the face.  Each boundary face will be conforming so it will only
+  * get set once.  Each interior face will get hit at least twice, more if it is nonconforming.
+  * Each edge will get hit multiple times.  The active vertices (those adjacent to active edges) are
+  * always a node. */
+
+  PetscFunctionBegin;
+  for (i=0; i<m->r.s; i++) {      /* Each element */
+    SIZE(0,0,2);
+    SIZE(1,1,2);
+    SIZE(2,0,2);
+    SIZE(3,1,2);
+    SIZE(4,1,0);
+    SIZE(5,0,1);
+  }
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMFSSetUpElementBases"
+PetscErrorCode DohpMFSSetUpElementBases(DohpMFS mfs,const MeshListInt *s)
+{
+
+  PetscFunctionBegin;
+  SETERRQ(1,"not implemented");
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMFSSetUpElemFacetProjections"
+PetscErrorCode DohpMFSSetUpElemFacetProjections(DohpMFS mfs)
+{
+
+  PetscFunctionBegin;
+  SETERRQ(1,"not implemented");
+  PetscFunctionReturn(0);
+}
+
+/*
+  To accomodate removal of Dirichlet degrees of freedom, we make the Dirichlet face degrees of freedom point to a
+  special vector.  When applying the Jacobian, we put zeros in this vector because we are solving for the homogeneous
+  part of the solution.  When we are evaluating residuals, we put the actual Dirichlet values in this vector which is
+  consistent with splitting the solution into a homogeneous and inhomogeneous part.  See the design documentation.
+*/
+#undef __FUNCT__
+#define __FUNCT__ "DohpMFSSetUpBoundaryTypes"
+PetscErrorCode DohpMFSSetUpBoundaryTypes(DohpMFS mfs)
+{
+
+  PetscFunctionBegin;
+  SETERRQ(1,"not implemented");
   PetscFunctionReturn(0);
 }

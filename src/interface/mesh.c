@@ -28,6 +28,14 @@ const char *iBase_ErrorString[] = {
 };
 
 #undef __FUNCT__
+#define __FUNCT__ "MeshListIntView"
+PetscErrorCode MeshListIntView(MeshListInt *m, const char *name) {
+  CHKERRQ(PetscPrintf(PETSC_COMM_SELF,"# %s [%d]\n", name, m->s));
+  CHKERRQ(PetscIntView(m->s,m->v,PETSC_VIEWER_STDOUT_SELF));
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
 #define __FUNCT__ "DohpOrientFindPerm_HexQuad"
 PetscErrorCode DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *rv, const iBase_EntityHandle *fv,
                                           int fnum, DohpOrient *orient)
