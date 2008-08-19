@@ -1,14 +1,6 @@
 #include "include/private/dohpimpl.h"
 #include "src/inline/ilu.h"
 
-inline void DohpConvexComb_2_4(PetscReal x,PetscReal y,const PetscReal v[],const PetscInt p[],PetscReal f[])
-{
-  PetscInt i;
-  for (i=0; i<3; i++) {
-    f[i] = 0.25*((-1-x)*((-1-y)*v[p[0]*3+i] + (1+y)*v[p[3]*3+i]) + (1+x)*((-1-y)*v[p[1]*3+i] + (1+y)*v[p[2]*3+i]));
-  }
-}
-
 /* Evaluate the Jacobian at quadrature points, this implementation simply uses the vertex
 coordinates (placed in emap) to define the coordinate transformation.  Later implementations can use
 higher order parametrically mapped elements or can optimize for affine mappings. */
@@ -28,12 +20,12 @@ PetscErrorCode DohpQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const DohpRu
         I = (i*r[1].size + j)*r[2].size + k; /* Index of the current quadrature point. */
         J = &Jac[I*9];                       /* To ease indexing while we build the Jacobian in the output array. */
         /* Compute coordinates at the projection of the quadrature point on each face. */
-        DohpConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[0],f[0]);
-        DohpConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[1],f[1]);
-        DohpConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[2],f[2]);
-        DohpConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[3],f[3]);
-        DohpConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[4],f[4]);
-        DohpConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[5],f[5]);
+        GeomConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[0],f[0]);
+        GeomConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[1],f[1]);
+        GeomConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[2],f[2]);
+        GeomConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[3],f[3]);
+        GeomConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[4],f[4]);
+        GeomConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[5],f[5]);
         for (l=0; l<3; l++) {
           J[0*3+l] = 0.5*(f[1][l] - f[3][l]);
           J[1*3+l] = 0.5*(f[2][l] - f[0][l]);
@@ -57,7 +49,7 @@ PetscErrorCode DohpMFSSetUp(DohpMFS mfs)
   DohpMesh m=mfs->mesh;
   iMesh_Instance mi=m->mi;
   iBase_TagHandle sizetag;
-  MeshListInt s={0};
+  MeshListInt s=MLZ;
   size_t namelen;
   PetscErrorCode ierr;
 

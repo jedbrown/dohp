@@ -1,4 +1,5 @@
 #include "dohp.h"
+#include "private/dohpimpl.h"
 
 const char *iBase_ErrorString[] = {
   "iBase_SUCCESS",
@@ -269,5 +270,22 @@ PetscErrorCode EFSFacetToElem_QuadLine_Conforming(PetscInt dof,const PetscInt fs
   if (!(fi==fl.end && ei==el.end)) {
     SETERRQ(1,"Loop bounds do not agree.  Is this relation conforming?");
   }
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshGetTagName"
+/*@
+   DohpMeshGetTagName - 
+
+@*/
+PetscErrorCode DohpMeshGetTagName(DohpMesh m,DohpTag tag,PetscInt n,char *name)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(m,DOHP_MESH_COOKIE,1);
+  PetscValidPointer(name,2);
+  iMesh_getTagName(m->mi,tag,name,&ierr,n);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

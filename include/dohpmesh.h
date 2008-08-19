@@ -5,12 +5,15 @@
 #include "iMesh.h"
 #include <stdlib.h>
 #include <string.h>
+#include "dohpbase.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
 typedef int MeshInt;
 typedef double MeshReal;
-typedef iBase_EntityHandle MeshEH;
+typedef iBase_EntityHandle DohpEH;
+typedef iBase_TagHandle DohpTag;
+typedef iBase_EntitySetHandle DohpESH;
 
 EXTERN const char *iBase_ErrorString[];
 
@@ -47,21 +50,23 @@ typedef struct {
 } MeshListInt;
 
 typedef struct {
-  MeshEH *v;
+  DohpEH *v;
   MeshInt a, s;
 } MeshListEH;
 
 typedef struct {
-  iBase_EntitySetHandle *v;
+  DohpESH *v;
   MeshInt a,s;
 } MeshListESH;
+
+/* Use this macro to zero a MeshListXXX, i.e. MeshListInt a=MLZ; */
+#define MLZ {0,0,0}
+#define MeshListFree(m) { if ((m).a) free((m).v); (m).v=0; (m).a=0; (m).s=0; }
+#define MeshListMalloc(m,n) { (m).s = 0; (m).a = n; (m).v = malloc((m).a*sizeof(m.v[0])); }
 
 typedef struct {
   PetscInt start, stride, end;
 } DohpLoopBounds;
-
-#define MeshListFree(m) { if ((m).a) free((m).v); memset(&(m),0,sizeof(m)); }
-#define MeshListMalloc(m,n) { (m).s = 0; (m).a = n; (m).v = malloc((m).a*sizeof(m.v[0])); }
 
 /* These tags are used to give full adjacencies because the builtin adjacencies are broken for nonconforming meshes */
 #define DOHP_TAG_ADJ_REGION_FACE    "dohp_adj_region_face"
@@ -72,6 +77,7 @@ typedef struct {
 #define DOHP_ENT_SET_NAME           "dohp_ent_set_name"
 #define DOHP_BDY_ROOT               "dohp_bdy_root"
 #define DOHP_TAG_BDY_NUM            "dohp_bdy_num"
+#define DOHP_TAG_BDY_NORMAL         "dohp_bdy_normal"
 
 /* Assign a canonical orientation of the faces on a hex.  The ordering of faces
 * and vertices of the hex is defined by iMesh.  The ordering of edges and
@@ -93,6 +99,12 @@ static const int DohpQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,4}};
 EXTERN PetscErrorCode MeshListIntView(MeshListInt *,const char *);
 EXTERN PetscErrorCode DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *,const iBase_EntityHandle *,PetscInt,DohpOrient*);
 EXTERN PetscErrorCode DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *,const iBase_EntityHandle *,PetscInt,DohpOrient*);
+
+typedef struct _p_DohpMesh *DohpMesh;
+extern PetscCookie DOHP_MESH_COOKIE;
+
+EXTERN PetscErrorCode DohpMeshGetLocalNodeNumbering(DohpMesh,PetscInt,PetscInt*,PetscInt*);
+EXTERN PetscErrorCode DohpMeshGetTagName(DohpMesh m,DohpTag tag,PetscInt n,char *name);
 
 PETSC_EXTERN_CXX_END
 #endif

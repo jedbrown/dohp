@@ -101,7 +101,7 @@ struct _EFSOps {
 // Held once for every Function Space with support on this element.
 struct _p_DohpEFS {
   // Normally a constant pointer to the operations for a basis type, but could point to unrolled versions.
-  struct _EFSOps ops;
+  struct _EFSOps *ops;
   // Private storage to define the basis operations.  For Hex elements, this
   // would be three pointers to the line contexts in the tensor product.
   // Used by EFSOps for operations in the star space. Must agree with quadrature order.
@@ -167,7 +167,7 @@ typedef struct {
 } ElemFacets_Hex;
 
 
-/* The Mesh Quotient map.  A quadrature rule and element coordinate mapping
+/* The Quotient map.  A quadrature rule and element coordinate mapping
  defines a quotient map on the Hilbert space $H^1(\Omega)$ which induces a
  finite topology.  The same quotient map can be used for many different function
  spaces $X \subset H^1$. */
@@ -177,11 +177,22 @@ typedef struct {
 // local to global communication.  For now, we can just use flat arrays of
 // pointers on the local process, but this will require some thought when we
 // want to do dynamic load balancing.
-typedef struct _p_MQuot *MQuot;
-struct _p_MQuot {
-  PETSCHEADER(struct _MQuotOps);
-  void **equad; // locally owned element quadrature context
-  void **emap; // locally owned element map context
+struct _DohpQuotientOps {
+  PetscErrorCode (*update)(DohpQuotient);
+  PetscErrorCode (*setup)(DohpQuotient);
+  PetscErrorCode (*setfromoptions)(DohpQuotient);
+  PetscErrorCode (*view)(DohpQuotient,PetscViewer);
+  PetscErrorCode (*destroy)(DohpQuotient);
+};
+struct _p_DohpQuotient {
+  PETSCHEADER(struct _DohpQuotientOps);
+  DohpMesh   mesh;
+  DohpTag    qsizetag;
+  DohpESH    loc;
+  PetscInt   nelems;
+  void     **quad;              // element quadrature context for locally owned elements
+  void     **map;               // locally owned element map context, compatible with equad
+  PetscInt   setupcalled;
 };
 
 #endif /* _DOHPIMPL_H */

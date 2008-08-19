@@ -13,3 +13,7 @@ DOHP_LIB =  ${CC_LINKER_SLFLAG}${DOHP_LIB_DIR} -L${DOHP_LIB_DIR} -ldohp ${PETSC_
 SHLIBS = libdohp
 
 ETAGS = etags.emacs
+
+include ${DOHP_DIR}/${PETSC_ARCH}/conf/dohpvariables
+
+PCC_FLAGS += ${DCC_FLAGS}

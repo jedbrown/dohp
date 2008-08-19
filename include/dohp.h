@@ -1,7 +1,7 @@
 #if !defined(_DOHP_H)
 #define _DOHP_H
 #include "petscsnes.h"
-#include "dohpmesh.h"
+#include "dohpquotient.h"
 PETSC_EXTERN_CXX_BEGIN
 
 // Needed by (automatic) user code to perform element operations
@@ -24,7 +24,6 @@ typedef PetscErrorCode (*DohpMFSFunction1)(const PetscReal*,const PetscInt*,Pets
 /* Central user-visible objects. */
 typedef struct _p_DohpDM *DohpDM;
 typedef struct _p_DohpMFS *DohpMFS;
-typedef struct _p_DohpMesh *DohpMesh;
 typedef struct _p_DohpWF *DohpWF;
 typedef struct _p_DohpBlock* DohpBlock;
 
