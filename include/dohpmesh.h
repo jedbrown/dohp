@@ -101,10 +101,15 @@ EXTERN PetscErrorCode DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *,cons
 EXTERN PetscErrorCode DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *,const iBase_EntityHandle *,PetscInt,DohpOrient*);
 
 typedef struct _p_DohpMesh *DohpMesh;
-extern PetscCookie DOHP_MESH_COOKIE;
 
 EXTERN PetscErrorCode DohpMeshGetLocalNodeNumbering(DohpMesh,PetscInt,PetscInt*,PetscInt*);
 EXTERN PetscErrorCode DohpMeshGetTagName(DohpMesh m,DohpTag tag,PetscInt n,char *name);
+EXTERN PetscErrorCode DohpMeshLoad(DohpMesh m,const char fname[],const char opt[]);
+EXTERN PetscErrorCode DohpMeshCreate(MPI_Comm comm,DohpMesh *inm);
+EXTERN PetscErrorCode DohpMeshOrientFacets(DohpMesh m);
+EXTERN PetscErrorCode DohpMeshDestroy(DohpMesh);
+EXTERN PetscErrorCode DohpMeshView(DohpMesh,PetscViewer);
+EXTERN PetscErrorCode DohpMeshRegisterAll(const char path[]);
 
 PETSC_EXTERN_CXX_END
 #endif

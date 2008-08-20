@@ -1,4 +1,6 @@
+ALL : lib
+
 DIRS = interface impls examples
-LOCDIR = src/quotient
+LOCDIR = src/quotient/
 include ${DOHP_DIR}/conf/base
 include ${DOHP_DIR}/conf/test

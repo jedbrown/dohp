@@ -9,10 +9,11 @@ int main(int argc,char *argv[])
   DohpQuotient quot;
   DohpMesh mesh;
   MPI_Comm comm = PETSC_COMM_WORLD;
+  PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = PetscInitialize(argc,argv,0,help);CHKERRQ(ierr);
-  ierr = DohpMeshCreate(comm,&mesh);CHKERRQ(ierr);
+  ierr = PetscInitialize(&argc,&argv,0,help);CHKERRQ(ierr);
+  ierr = DohpMeshCreate(PETSC_COMM_WORLD,&mesh);CHKERRQ(ierr);
   ierr = DohpMeshLoad(mesh,"dblock.h5m","");CHKERRQ(ierr);
   ierr = DohpMeshView(mesh,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   ierr = PetscFinalize();CHKERRQ(ierr);

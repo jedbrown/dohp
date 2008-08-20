@@ -7,7 +7,7 @@ static const struct _DohpQuotientOps DohpQuotientDefaultOps = {
   .destroy = 0
 };
 
-PetscCookie DOHP_QUOTIENT_COOKIE;
+PetscCookie DOHP_QUOTIENT_COOKIE,DOHP_MESH_COOKIE;
 static PetscFList DohpQuotientList = 0;
 
 #undef __FUNCT__
@@ -57,7 +57,7 @@ PetscErrorCode DohpQuotientCreate(DohpMesh m,DohpESH loc,DohpTag qsizetag,DohpQu
   PetscValidPointer(inq,4);
   *inq = 0;
   ierr = PetscObjectGetComm((PetscObject)m,&comm);CHKERRQ(ierr);
-#if defined(PETSC_USE_DYNAMIC_LIBRARIES)
+#if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   ierr = DohpQuotientInitializePackage(PETSC_NULL);CHKERRQ(ierr);
 #endif
   ierr = PetscHeaderCreate(q,_p_DohpQuotient,struct _DohpQuotientOps,DOHP_QUOTIENT_COOKIE,-1,"DohpQuotient",comm,DohpQuotientDestroy,DohpQuotientView);CHKERRQ(ierr);
@@ -165,10 +165,6 @@ PetscErrorCode DohpQuotientRegister(const char sname[],const char path[],const c
   PetscFunctionReturn(0);
 }
 
-PETSC_EXTERN_CXX_BEGIN
-EXTERN PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient);
-PETSC_EXTERN_CXX_END
-
 #undef __FUNCT__
 #define __FUNCT__ "DohpQuotientRegisterAll"
 /*@
@@ -267,5 +263,26 @@ PetscErrorCode DohpQuotientView(DohpQuotient q,PetscViewer viewer)
       ierr = (*q->ops->view)(q,viewer);CHKERRQ(ierr);
     }
   }
+  ierr = DohpMeshView(q->mesh,viewer);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpQuotientInitializePackage"
+/*@
+   DohpQuotientInitializePackage - 
+
+@*/
+PetscErrorCode DohpQuotientInitializePackage(const char path[])
+{
+  static PetscTruth initialized = PETSC_FALSE;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  if (initialized) PetscFunctionReturn(0);
+  ierr = PetscCookieRegister("Quotient map",&DOHP_QUOTIENT_COOKIE);CHKERRQ(ierr);
+  ierr = PetscCookieRegister("Mesh",&DOHP_MESH_COOKIE);CHKERRQ(ierr);
+  ierr = DohpMeshRegisterAll(path);CHKERRQ(ierr);
+  ierr = DohpQuotientRegisterAll(path);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

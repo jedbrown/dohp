@@ -37,10 +37,11 @@ PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient quot)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = PetscPrintf(((PetscObject)quot)->comm,quot "DohpQuotientCreate_Gauss\n");CHKERRQ(ierr);
+  ierr = PetscPrintf(((PetscObject)quot)->comm,"DohpQuotientCreate_Gauss (nothing to do)\n");CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
+#if 0
 
 #undef __FUNCT__
 #define __FUNCT__ "EQuotGetJacobian_Affine3"
@@ -98,3 +99,5 @@ PetscErrorCode EQuadGetSize_Hex(void *q, PetscInt *size)
 
 #undef __FUNCT__
 #define __FUNCT__ "MQuotSetSize"
+
+#endif

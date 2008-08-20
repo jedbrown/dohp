@@ -55,50 +55,6 @@ PetscErrorCode DohpLoopBounds_Quad(PetscInt dof, PetscInt foff, const PetscInt *
 
 #define DOHP_MESH_FUNCTIONS 1
 #if DOHP_MESH_FUNCTIONS
-
-#undef __FUNCT__
-#define __FUNCT__ "DohpMeshCreate"
-PetscErrorCode DohpMeshCreate(DohpMesh m)
-{
-  int err;
-
-  PetscFunctionBegin;
-  iMesh_newMesh("",&m->mi,&err,0);ICHKERRQ(err);
-  PetscFunctionReturn(0);
-}
-
-#undef __FUNCT__
-#define __FUNCT__ "DohpMeshLoad"
-PetscErrorCode DohpMeshLoad(DohpMesh m,const char fname[],const char opt[])
-{
-  iBase_TagHandle arf,afe,orf,ofe;
-  MeshListInt off=MLZ;
-  PetscErrorCode ierr;
-
-  PetscFunctionBegin;
-  iMesh_load(m->mi,0,fname,opt,&ierr,strlen(fname),strlen(opt));ICHKERRQ(ierr);
-  iMesh_getRootSet(m->mi,&m->root,&ierr);ICHKERRQ(ierr);
-  /* Get all entities of each type. */
-  iMesh_getEntities(m->mi,m->root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&m->r.v,&m->r.a,&m->r.s,&ierr);ICHKERRQ(ierr);
-  iMesh_getEntities(m->mi,m->root,iBase_FACE,iMesh_ALL_TOPOLOGIES,&m->f.v,&m->f.a,&m->f.s,&ierr);ICHKERRQ(ierr);
-  iMesh_getEntities(m->mi,m->root,iBase_EDGE,iMesh_ALL_TOPOLOGIES,&m->e.v,&m->e.a,&m->e.s,&ierr);ICHKERRQ(ierr);
-  iMesh_getEntities(m->mi,m->root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&m->v.v,&m->v.a,&m->v.s,&ierr);ICHKERRQ(ierr);
-  /* Get tags for custom adjacencies, needed since our meshes are nonconforming with respect to the adjacent lower dim entity */
-  iMesh_getTagHandle(m->mi,DOHP_TAG_ADJ_REGION_FACE,&arf,&ierr,strlen(DOHP_TAG_ADJ_REGION_FACE));ICHKERRQ(ierr);
-  iMesh_getTagHandle(m->mi,DOHP_TAG_ADJ_FACE_EDGE,&afe,&ierr,strlen(DOHP_TAG_ADJ_FACE_EDGE));ICHKERRQ(ierr);
-  iMesh_getTagHandle(m->mi,DOHP_TAG_ORIENT_REGION_FACE,&orf,&ierr,strlen(DOHP_TAG_ORIENT_REGION_FACE));ICHKERRQ(ierr);
-  iMesh_getTagHandle(m->mi,DOHP_TAG_ORIENT_FACE_EDGE,&ofe,&ierr,strlen(DOHP_TAG_ORIENT_FACE_EDGE));ICHKERRQ(ierr);
-  /* Get full adjacencies */
-  iMesh_getEHArrData(m->mi,m->r.v,m->r.s,arf,&m->arf.v,&m->arf.a,&m->arf.s,&ierr);ICHKERRQ(ierr); /* region -> face */
-  iMesh_getEHArrData(m->mi,m->f.v,m->f.s,afe,&m->afe.v,&m->afe.a,&m->afe.s,&ierr);ICHKERRQ(ierr); /* face -> edge */
-  iMesh_getEntArrAdj(m->mi,m->e.v,m->e.s,iBase_VERTEX,&m->aev.v,&m->aev.a,&m->aev.s,&off.v,&off.a,&off.s,&ierr);ICHKERRQ(ierr); /* edge -> vertex */
-  MeshListFree(off);      /* We don't use the offsets because we know there are always exactly two vertices per edge. */
-  /* Get orientation of lower dimensional entities, we don't need vertex orientation */
-  iMesh_getArrData(m->mi,m->r.v,m->r.s,orf,&m->orf.v,&m->orf.a,&m->orf.s,&ierr);ICHKERRQ(ierr); /* region[face] */
-  iMesh_getArrData(m->mi,m->f.v,m->f.s,ofe,&m->ofe.v,&m->ofe.a,&m->ofe.s,&ierr);ICHKERRQ(ierr); /* face[edge] */
-  PetscFunctionReturn(0);
-}
-
 #if 0
 #undef __FUNCT__
 #define __FUNCT__ "DohpMeshGetLocalNodeNumbering"

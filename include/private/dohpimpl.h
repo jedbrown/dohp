@@ -9,6 +9,8 @@ PetscLogEvent DOHP_MatMult, DOHP_FunctionEval, DOHP_JacobianEval;
 
 struct _DohpMeshOps {
   PetscErrorCode(*orientfacets)(DohpMesh);
+  PetscErrorCode(*view)(DohpMesh,PetscViewer);
+  PetscErrorCode(*destroy)(DohpMesh);
 };
 
 struct _p_DohpMesh {
@@ -194,5 +196,10 @@ struct _p_DohpQuotient {
   void     **map;               // locally owned element map context, compatible with equad
   PetscInt   setupcalled;
 };
+
+
+PETSC_EXTERN_CXX_BEGIN
+EXTERN PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient);
+PETSC_EXTERN_CXX_END
 
 #endif /* _DOHPIMPL_H */

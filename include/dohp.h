@@ -1,7 +1,9 @@
 #if !defined(_DOHP_H)
 #define _DOHP_H
+
 #include "petscsnes.h"
 #include "dohpquotient.h"
+
 PETSC_EXTERN_CXX_BEGIN
 
 // Needed by (automatic) user code to perform element operations

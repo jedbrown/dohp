@@ -1,4 +1,3 @@
-#include "dohp.h"
 #include "private/dohpimpl.h"
 
 const char *iBase_ErrorString[] = {
@@ -287,5 +286,163 @@ PetscErrorCode DohpMeshGetTagName(DohpMesh m,DohpTag tag,PetscInt n,char *name)
   PetscValidHeaderSpecific(m,DOHP_MESH_COOKIE,1);
   PetscValidPointer(name,2);
   iMesh_getTagName(m->mi,tag,name,&ierr,n);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshCreate"
+PetscErrorCode DohpMeshCreate(MPI_Comm comm,DohpMesh *inm)
+{
+  static const struct _DohpMeshOps dfltOps = { .orientfacets = DohpMeshOrientFacets };
+  DohpMesh m;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidPointer(inm,2);
+#if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
+  ierr = DohpQuotientInitializePackage(PETSC_NULL);CHKERRQ(ierr);
+#endif
+  *inm = 0;
+  ierr = PetscHeaderCreate(m,_p_DohpMesh,struct _DohpMeshOps,DOHP_MESH_COOKIE,-1,"DohpMesh",comm,DohpMeshDestroy,DohpMeshView);CHKERRQ(ierr);
+  iMesh_newMesh("",&m->mi,&ierr,0);ICHKERRQ(ierr);
+  ierr = PetscMemcpy(m->ops,&dfltOps,sizeof(dfltOps));CHKERRQ(ierr);
+  ierr = PetscObjectChangeTypeName((PetscObject)m,"DohpMesh");CHKERRQ(ierr);
+  *inm = m;
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshLoad"
+PetscErrorCode DohpMeshLoad(DohpMesh m,const char fname[],const char opt[])
+{
+  iBase_TagHandle arf,afe,orf,ofe;
+  MeshListInt off=MLZ;
+  size_t fnamelen,optlen;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscStrlen(fname,&fnamelen);CHKERRQ(ierr);
+  ierr = PetscStrlen(opt,&optlen);CHKERRQ(ierr);
+  iMesh_load(m->mi,0,fname,opt,&ierr,(int)fnamelen,(int)optlen);ICHKERRQ(ierr);
+  iMesh_getRootSet(m->mi,&m->root,&ierr);ICHKERRQ(ierr);
+  /* Get all entities of each type. */
+  iMesh_getEntities(m->mi,m->root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&m->r.v,&m->r.a,&m->r.s,&ierr);ICHKERRQ(ierr);
+  iMesh_getEntities(m->mi,m->root,iBase_FACE,iMesh_ALL_TOPOLOGIES,&m->f.v,&m->f.a,&m->f.s,&ierr);ICHKERRQ(ierr);
+  iMesh_getEntities(m->mi,m->root,iBase_EDGE,iMesh_ALL_TOPOLOGIES,&m->e.v,&m->e.a,&m->e.s,&ierr);ICHKERRQ(ierr);
+  iMesh_getEntities(m->mi,m->root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&m->v.v,&m->v.a,&m->v.s,&ierr);ICHKERRQ(ierr);
+  /* Get tags for custom adjacencies, needed since our meshes are nonconforming with respect to the adjacent lower dim entity */
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ADJ_REGION_FACE,&arf,&ierr,strlen(DOHP_TAG_ADJ_REGION_FACE));ICHKERRQ(ierr);
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ADJ_FACE_EDGE,&afe,&ierr,strlen(DOHP_TAG_ADJ_FACE_EDGE));ICHKERRQ(ierr);
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ORIENT_REGION_FACE,&orf,&ierr,strlen(DOHP_TAG_ORIENT_REGION_FACE));ICHKERRQ(ierr);
+  iMesh_getTagHandle(m->mi,DOHP_TAG_ORIENT_FACE_EDGE,&ofe,&ierr,strlen(DOHP_TAG_ORIENT_FACE_EDGE));ICHKERRQ(ierr);
+  /* Get full adjacencies */
+  iMesh_getEHArrData(m->mi,m->r.v,m->r.s,arf,&m->arf.v,&m->arf.a,&m->arf.s,&ierr);ICHKERRQ(ierr); /* region -> face */
+  iMesh_getEHArrData(m->mi,m->f.v,m->f.s,afe,&m->afe.v,&m->afe.a,&m->afe.s,&ierr);ICHKERRQ(ierr); /* face -> edge */
+  iMesh_getEntArrAdj(m->mi,m->e.v,m->e.s,iBase_VERTEX,&m->aev.v,&m->aev.a,&m->aev.s,&off.v,&off.a,&off.s,&ierr);ICHKERRQ(ierr); /* edge -> vertex */
+  MeshListFree(off);      /* We don't use the offsets because we know there are always exactly two vertices per edge. */
+  /* Get orientation of lower dimensional entities, we don't need vertex orientation */
+  iMesh_getArrData(m->mi,m->r.v,m->r.s,orf,&m->orf.v,&m->orf.a,&m->orf.s,&ierr);ICHKERRQ(ierr); /* region[face] */
+  iMesh_getArrData(m->mi,m->f.v,m->f.s,ofe,&m->ofe.v,&m->ofe.a,&m->ofe.s,&ierr);ICHKERRQ(ierr); /* face[edge] */
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshOrientFacets"
+/*@
+   DohpMeshOrientFacets - 
+
+@*/
+PetscErrorCode DohpMeshOrientFacets(DohpMesh m)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  SETERRQ(1,"not implemented");
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshView"
+/*@
+   DohpMeshView - 
+
+@*/
+PetscErrorCode DohpMeshView(DohpMesh m,PetscViewer viewer)
+{
+  const char *type;
+  char tagname[DOHP_NAME_LEN];
+  PetscTruth iascii;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(m,DOHP_MESH_COOKIE,1);
+  if (!viewer) {
+    ierr = PetscViewerASCIIGetStdout(((PetscObject)m)->comm,&viewer);CHKERRQ(ierr);
+  }
+  PetscValidHeaderSpecific(viewer,DOHP_MESH_COOKIE,2);
+  PetscCheckSameComm(m,1,viewer,2);
+  ierr = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);CHKERRQ(ierr);
+  if (iascii) {
+    ierr = PetscObjectGetType((PetscObject)m,&type);CHKERRQ(ierr);
+    if (((PetscObject)m)->prefix) {
+      ierr = PetscViewerASCIIPrintf(viewer,"DohpMesh object:(%s)\n",((PetscObject)m)->prefix);CHKERRQ(ierr);
+    } else {
+      ierr = PetscViewerASCIIPrintf(viewer,"DohpMesh object:\n");CHKERRQ(ierr);
+    }
+    ierr = PetscViewerASCIIPrintf(viewer,"type: %s\n",(type ? type : "not yet set"));CHKERRQ(ierr);
+    if (m->ops->view) {
+      ierr = PetscViewerASCIIPushTab(viewer);CHKERRQ(ierr);
+      ierr = (*m->ops->view)(m,viewer);CHKERRQ(ierr);
+      ierr = PetscViewerASCIIPopTab(viewer);CHKERRQ(ierr);
+    }
+    ierr = PetscViewerASCIIPrintf(viewer,"entity count by type: V=%d E=%d F=%d R=%d\n",m->v.s,m->e.s,m->f.s,m->r.s);CHKERRQ(ierr);
+  } else {
+    if (m->ops->view) {
+      ierr = (*m->ops->view)(m,viewer);CHKERRQ(ierr);
+    }
+  }
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshDestroy"
+/*@
+   DohpMeshDestroy - 
+
+@*/
+PetscErrorCode DohpMeshDestroy(DohpMesh m)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(m,DOHP_MESH_COOKIE,1);
+  if (m->ops->destroy) {
+    ierr = (*m->ops->destroy)(m);CHKERRQ(ierr);
+  }
+  MeshListFree(m->v); MeshListFree(m->e); MeshListFree(m->f); MeshListFree(m->r);
+  MeshListFree(m->arf); MeshListFree(m->afe); MeshListFree(m->aev);
+  MeshListFree(m->orf); MeshListFree(m->ofe);
+  MeshListFree(m->x);
+  iMesh_dtor(m->mi,&ierr);ICHKERRQ(ierr);
+  ierr = PetscHeaderDestroy(m);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpMeshRegisterAll"
+/*@
+   DohpMeshRegisterAll - 
+
+@*/
+PetscErrorCode DohpMeshRegisterAll(const char path[])
+{
+  static PetscTruth registered = PETSC_FALSE;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  if (registered) PetscFunctionReturn(0);
+  ierr = PetscPrintf(PETSC_COMM_WORLD,"DohpMeshRegisterAll: %s (nothing to do)\n",path);CHKERRQ(ierr);
+  registered = PETSC_TRUE;
   PetscFunctionReturn(0);
 }
