@@ -1,2 +1,13 @@
 *.[oa]
 TAGS
+*.vtk
+*.h5m
+*.g
+*.xmf
+*.aux
+*.dvi
+*.log
+*.out
+sandbox
+*~
+ompic

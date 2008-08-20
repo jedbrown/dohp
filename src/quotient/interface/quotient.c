@@ -8,7 +8,6 @@ static const struct _DohpQuotientOps DohpQuotientDefaultOps = {
 };
 
 PetscCookie DOHP_QUOTIENT_COOKIE;
-static PetscTruth DohpQuotientRegisterAllCalled = PETSC_FALSE;
 static PetscFList DohpQuotientList = 0;
 
 #undef __FUNCT__
@@ -115,7 +114,7 @@ PetscErrorCode DohpQuotientSetFromOptions(DohpQuotient q)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(q,DOHP_QUOTIENT_COOKIE,1);
   ierr = PetscOptionsBegin(((PetscObject)q)->comm,((PetscObject)q)->prefix,"Quotient (quadrature rule and element map) options","DohpQuotient");CHKERRQ(ierr);
-  if (!DohpQuotientRegisterAllCalled) {ierr = DohpQuotientRegisterAll(PETSC_NULL);CHKERRQ(ierr);}
+  ierr = DohpQuotientRegisterAll(PETSC_NULL);CHKERRQ(ierr);
   if (((PetscObject)q)->type_name) { deft = ((PetscObject)q)->type_name; }
   ierr = PetscOptionsList("-dquot_type","Quotient type","DohpQuotientSetType",DohpQuotientList,deft,type,256,&flg);CHKERRQ(ierr);
   ierr = DohpQuotientSetType(q,type);CHKERRQ(ierr);
@@ -178,11 +177,13 @@ PETSC_EXTERN_CXX_END
 @*/
 PetscErrorCode DohpQuotientRegisterAll(const char path[])
 {
+  static PetscTruth registered = PETSC_FALSE;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  DohpQuotientRegisterAllCalled = PETSC_TRUE;
+  if (registered) PetscFunctionReturn(0);
   ierr = DohpQuotientRegisterDynamic(DohpQuotientGauss,path,"DohpQuotientCreate_Gauss",DohpQuotientCreate_Gauss);CHKERRQ(ierr);
+  registered = PETSC_TRUE;
   PetscFunctionReturn(0);
 }
 

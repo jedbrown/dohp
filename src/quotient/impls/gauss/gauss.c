@@ -27,6 +27,22 @@ typedef struct {
 } EMap_Affine3;
 
 #undef __FUNCT__
+#define __FUNCT__ "DohpQuotientCreate_Gauss"
+/*@
+   DohpQuotientCreate_Gauss - 
+
+@*/
+PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient quot)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscPrintf(((PetscObject)quot)->comm,quot "DohpQuotientCreate_Gauss\n");CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "EQuotGetJacobian_Affine3"
 PetscErrorCode EQuotGetJacobian_Affine3(EQuot q, PetscInt qsize, PetscReal *jac, PetscReal *jinv, PetscReal *jdet)
 {
