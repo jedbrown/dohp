@@ -1,6 +1,6 @@
 ALL :
 DIRS = 
-LOCDIR = src/quotient/examples/tests
+LOCDIR = src/quotient/examples/tests/
 EXAMPLES_C = ex1.c
 
 include ${DOHP_DIR}/conf/base

@@ -333,54 +333,54 @@ int main(int argc, char *argv[])
 
     /* Create entity sets to hold boundary facets, all inherit from the root boundary set. */
     for (i=0; i<nbdy; i++) {
-      iMesh_createEntSet(mesh,0,&bdy[i],&ierr);ICHKERRQ(ierr);
+      iMesh_createEntSet(mesh,0,&bdy[i],&ierr);ICHKERRQ(mesh,ierr);
       if (i > 0) {
-        iMesh_addPrntChld(mesh,&bdy[0],&bdy[i],&ierr);ICHKERRQ(ierr);
+        iMesh_addPrntChld(mesh,&bdy[0],&bdy[i],&ierr);ICHKERRQ(mesh,ierr);
       }
     }
     /* Set name tags over all the boundary entity sets */
-    iMesh_createTag(mesh,DOHP_ENT_SET_NAME,DOHP_NAME_LEN,iBase_BYTES,&nameTag,&ierr,strlen(DOHP_ENT_SET_NAME));ICHKERRQ(ierr);
+    iMesh_createTag(mesh,DOHP_ENT_SET_NAME,DOHP_NAME_LEN,iBase_BYTES,&nameTag,&ierr,strlen(DOHP_ENT_SET_NAME));ICHKERRQ(mesh,ierr);
     for (i=0; i<nbdy; i++) {
-      iMesh_setEntSetData(mesh,bdy[i],nameTag,bdyName[i],strlen(bdyName[i]),&ierr);ICHKERRQ(ierr);
+      iMesh_setEntSetData(mesh,bdy[i],nameTag,bdyName[i],strlen(bdyName[i]),&ierr);ICHKERRQ(mesh,ierr);
       if (i > 0) { /* For each set other than root, create a tag indicating whether face normal points in or out of the region. */
         ierr = PetscSNPrintf(normalName,sizeof(normalName),"%s+%s",DOHP_TAG_BDY_NORMAL,bdyName[i]);CHKERRQ(ierr);
-        iMesh_createTag(mesh,normalName,1,iBase_BYTES,&bdyNormal[i],&ierr,strlen(normalName));ICHKERRQ(ierr);
+        iMesh_createTag(mesh,normalName,1,iBase_BYTES,&bdyNormal[i],&ierr,strlen(normalName));ICHKERRQ(mesh,ierr);
       }
     }
     /* Put the boundary vertices in the appropriate sets, defined by their coordinates */
-    iMesh_getEntities(mesh,0,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&ierr);ICHKERRQ(ierr);
-    iMesh_getVtxArrCoords(mesh,v.v,v.s,&order,&x.v,&x.a,&x.s,&ierr);ICHKERRQ(ierr);
+    iMesh_getEntities(mesh,0,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&ierr);ICHKERRQ(mesh,ierr);
+    iMesh_getVtxArrCoords(mesh,v.v,v.s,&order,&x.v,&x.a,&x.s,&ierr);ICHKERRQ(mesh,ierr);
     if (3*v.s != x.s) SETERRQ(1,"Wrong number of coordinates returned.");
-    MeshListMalloc(b,v.s);
+    MeshListMalloc(v.s,b);
     for (i=1; i<nbdy; i++) {  /* All but the boundary root set */
       b.s = 0;
       for (j=0; j<v.s; j++) { /* All the vertices */
         if (onBdy[i](&x.v[3*j])) b.v[b.s++] = v.v[j];
       }
-      iMesh_addEntArrToSet(mesh,b.v,b.s,&bdy[i],&ierr);ICHKERRQ(ierr);
+      iMesh_addEntArrToSet(mesh,b.v,b.s,&bdy[i],&ierr);ICHKERRQ(mesh,ierr);
     }
     MeshListFree(b); MeshListFree(v); MeshListFree(x);
     /* Get entities of each dimension and adjacent vertices, check the vertices for membership, add entities to appropriate boundary sets */
     for (type=iBase_EDGE; type<=iBase_REGION; type++) {
-      iMesh_getEntities(mesh,0,type,iMesh_ALL_TOPOLOGIES,&e.v,&e.a,&e.s,&ierr);ICHKERRQ(ierr);
-      iMesh_getEntArrAdj(mesh,e.v,e.s,iBase_VERTEX,&v.v,&v.a,&v.s,&off.v,&off.a,&off.s,&ierr);ICHKERRQ(ierr);
-      iMesh_getVtxArrCoords(mesh,v.v,v.s,&order,&x.v,&x.a,&x.s,&ierr);ICHKERRQ(ierr);
-      iMesh_getEntArrTopo(mesh,e.v,e.s,&top.v,&top.a,&top.s,&ierr);ICHKERRQ(ierr);
+      iMesh_getEntities(mesh,0,type,iMesh_ALL_TOPOLOGIES,&e.v,&e.a,&e.s,&ierr);ICHKERRQ(mesh,ierr);
+      iMesh_getEntArrAdj(mesh,e.v,e.s,iBase_VERTEX,&v.v,&v.a,&v.s,&off.v,&off.a,&off.s,&ierr);ICHKERRQ(mesh,ierr);
+      iMesh_getVtxArrCoords(mesh,v.v,v.s,&order,&x.v,&x.a,&x.s,&ierr);ICHKERRQ(mesh,ierr);
+      iMesh_getEntArrTopo(mesh,e.v,e.s,&top.v,&top.a,&top.s,&ierr);ICHKERRQ(mesh,ierr);
       for (i=1; i<nbdy; i++) { /* all boundaries but root */
         for (j=0; j<e.s; j++) {   /* for each entity */
           onbdy = 1;
           /* An entity is in the set if all its vertices are in the set */
           for (k=off.v[j]; k<off.v[j+1]; k++) { /* for each vertex adjacent to the entity */
-            iMesh_isEntContained(mesh,bdy[i],v.v[k],&flg,&ierr);ICHKERRQ(ierr);
+            iMesh_isEntContained(mesh,bdy[i],v.v[k],&flg,&ierr);ICHKERRQ(mesh,ierr);
             onbdy = onbdy && flg;
           }
           if (onbdy)  {
-            iMesh_addEntToSet(mesh,e.v[j],&bdy[i],&ierr);ICHKERRQ(ierr);
+            iMesh_addEntToSet(mesh,e.v[j],&bdy[i],&ierr);ICHKERRQ(mesh,ierr);
             if (top.v[j] == iMesh_QUADRILATERAL) { /* Set the normal indicator for this boundary.  Normal=0 if face normal points outward. */
               xx = &x.v[off.v[j]*3]; /* The base for points of this face */
               GeomVecMeanI(4,xx,y);  /* coordinate of center of face */
               normal = (GeomQuadParallel(xx,y)) ? 0 : 1; /* If the normal is parallel to the center vector, we say the normal faces out. */
-              iMesh_setData(mesh,e.v[j],bdyNormal[i],&normal,1,&ierr);ICHKERRQ(ierr);
+              iMesh_setData(mesh,e.v[j],bdyNormal[i],&normal,1,&ierr);ICHKERRQ(mesh,ierr);
             }
           }
         }
@@ -389,7 +389,7 @@ int main(int argc, char *argv[])
     }
     /* add all the boundary sets to the root boundary set */
     for (i=1; i<nbdy; i++) {
-      iMesh_addEntSet(mesh,bdy[i],&bdy[0],&ierr);ICHKERRQ(ierr);
+      iMesh_addEntSet(mesh,bdy[i],&bdy[0],&ierr);ICHKERRQ(mesh,ierr);
     }
   }
 
@@ -402,10 +402,10 @@ int main(int argc, char *argv[])
     MeshListInt type=MLZ;
     PetscTruth match;
 
-    iMesh_getTagHandle(mesh,DOHP_ENT_SET_NAME,&nameTag,&ierr,strlen(DOHP_ENT_SET_NAME));ICHKERRQ(ierr);
-    iMesh_getEntSets(mesh,0,0,&allESH.v,&allESH.a,&allESH.s,&ierr);ICHKERRQ(ierr);
+    iMesh_getTagHandle(mesh,DOHP_ENT_SET_NAME,&nameTag,&ierr,strlen(DOHP_ENT_SET_NAME));ICHKERRQ(mesh,ierr);
+    iMesh_getEntSets(mesh,0,0,&allESH.v,&allESH.a,&allESH.s,&ierr);ICHKERRQ(mesh,ierr);
     for (i=0; i<allESH.s; i++) {
-      iMesh_getEntSetData(mesh,allESH.v[i],nameTag,&name.v,&name.a,&name.s,&ierr);ICHKERRQ(ierr);
+      iMesh_getEntSetData(mesh,allESH.v[i],nameTag,&name.v,&name.a,&name.s,&ierr);ICHKERRQ(mesh,ierr);
       ierr = PetscStrcmp(DOHP_BDY_ROOT,name.v,&match);CHKERRQ(ierr);
       /* printf("checking tag %d/%d: %s\n",i+1,allESH.s,name.v); */
       MeshListFree(name);
@@ -416,18 +416,18 @@ int main(int argc, char *argv[])
       }
     }
     if (!bdyRoot) SETERRQ1(1,"%s not found",DOHP_BDY_ROOT);
-    iMesh_getChldn(mesh,bdyRoot,0,&bdy.v,&bdy.a,&bdy.s,&ierr);ICHKERRQ(ierr);
-    iMesh_createTag(mesh,DOHP_TAG_BDY_NUM,1,iBase_INTEGER,&bdyNum,&ierr,strlen(DOHP_TAG_BDY_NUM));ICHKERRQ(ierr);
+    iMesh_getChldn(mesh,bdyRoot,0,&bdy.v,&bdy.a,&bdy.s,&ierr);ICHKERRQ(mesh,ierr);
+    iMesh_createTag(mesh,DOHP_TAG_BDY_NUM,1,iBase_INTEGER,&bdyNum,&ierr,strlen(DOHP_TAG_BDY_NUM));ICHKERRQ(mesh,ierr);
     for (i=0; i<bdy.s; i++) {
-      iMesh_getEntSetData(mesh,bdy.v[i],nameTag,&name.v,&name.a,&name.s,&ierr);ICHKERRQ(ierr);
+      iMesh_getEntSetData(mesh,bdy.v[i],nameTag,&name.v,&name.a,&name.s,&ierr);ICHKERRQ(mesh,ierr);
       ierr = PetscPrintf(PETSC_COMM_WORLD,"Found boundary %d/%d: %s\n",i+1,bdy.s,name.v);CHKERRQ(ierr);
       MeshListFree(name);
-      iMesh_setEntSetIntData(mesh,bdy.v[i],bdyNum,i,&ierr);ICHKERRQ(ierr);
-      iMesh_getEntities(mesh,bdy.v[i],iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&e.v,&e.a,&e.s,&ierr);ICHKERRQ(ierr);
-      iMesh_getEntArrTopo(mesh,e.v,e.s,&type.v,&type.a,&type.s,&ierr);ICHKERRQ(ierr);
+      iMesh_setEntSetIntData(mesh,bdy.v[i],bdyNum,i,&ierr);ICHKERRQ(mesh,ierr);
+      iMesh_getEntities(mesh,bdy.v[i],iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&e.v,&e.a,&e.s,&ierr);ICHKERRQ(mesh,ierr);
+      iMesh_getEntArrTopo(mesh,e.v,e.s,&type.v,&type.a,&type.s,&ierr);ICHKERRQ(mesh,ierr);
       for (j=0; j<e.s; j++) {
         if (type.v[j] > iBase_VERTEX || 1) {
-          iMesh_setIntData(mesh,e.v[j],bdyNum,i,&ierr);ICHKERRQ(ierr);
+          iMesh_setIntData(mesh,e.v[j],bdyNum,i,&ierr);ICHKERRQ(mesh,ierr);
         }
       }
       MeshListFree(e);
@@ -440,11 +440,11 @@ int main(int argc, char *argv[])
     iBase_TagHandle myTag;
     double *myData;
 
-    iMesh_getEntities(mesh,0,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&ierr);ICHKERRQ(ierr);
-    iMesh_createTag(mesh,myTagName,1,iBase_DOUBLE,&myTag,&ierr,strlen(myTagName));ICHKERRQ(ierr);
+    iMesh_getEntities(mesh,0,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&ierr);ICHKERRQ(mesh,ierr);
+    iMesh_createTag(mesh,myTagName,1,iBase_DOUBLE,&myTag,&ierr,strlen(myTagName));ICHKERRQ(mesh,ierr);
     ierr = PetscMalloc(v.s*sizeof(double),&myData);CHKERRQ(ierr);
     for (i=0; i<v.s; i++) { myData[i] = 1.0 * i; }
-    iMesh_setDblArrData(mesh,v.v,v.s,myTag,myData,v.s,&ierr);ICHKERRQ(ierr);
+    iMesh_setDblArrData(mesh,v.v,v.s,myTag,myData,v.s,&ierr);ICHKERRQ(mesh,ierr);
     ierr = PetscFree(myData);CHKERRQ(ierr);
     MeshListFree(v);
   }

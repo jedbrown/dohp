@@ -60,7 +60,7 @@ PetscErrorCode DohpQuotientCreate(DohpMesh m,DohpESH loc,DohpTag qsizetag,DohpQu
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   ierr = DohpQuotientInitializePackage(PETSC_NULL);CHKERRQ(ierr);
 #endif
-  ierr = PetscHeaderCreate(q,_p_DohpQuotient,struct _DohpQuotientOps,DOHP_QUOTIENT_COOKIE,-1,"DohpQuotient",comm,DohpQuotientDestroy,DohpQuotientView);CHKERRQ(ierr);
+  ierr = PetscHeaderCreate(q,_p_DohpQuotient,struct _DohpQuotientOps,DOHP_QUOTIENT_COOKIE,0,"DohpQuotient",comm,DohpQuotientDestroy,DohpQuotientView);CHKERRQ(ierr);
 
   q->mesh        = m;
   q->loc         = loc;
@@ -229,17 +229,17 @@ PetscErrorCode DohpQuotientGetType(DohpQuotient q,const DohpQuotientType *type)
 @*/
 PetscErrorCode DohpQuotientView(DohpQuotient q,PetscViewer viewer)
 {
-  const DohpQuotientType type;
-  char tagname[DOHP_NAME_LEN];
-  PetscTruth iascii;
-  PetscErrorCode ierr;
+  const DohpQuotientType  type;
+  char                   *tagname;
+  PetscTruth              iascii;
+  PetscErrorCode          ierr;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(q,DOHP_QUOTIENT_COOKIE,1);
   if (!viewer) {
     ierr = PetscViewerASCIIGetStdout(((PetscObject)q)->comm,&viewer);CHKERRQ(ierr);
   }
-  PetscValidHeaderSpecific(viewer,DOHP_QUOTIENT_COOKIE,2);
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_COOKIE,2);
   PetscCheckSameComm(q,1,viewer,2);
   ierr = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);CHKERRQ(ierr);
   if (iascii) {
@@ -256,8 +256,10 @@ PetscErrorCode DohpQuotientView(DohpQuotient q,PetscViewer viewer)
       ierr = PetscViewerASCIIPopTab(viewer);CHKERRQ(ierr);
     }
     ierr = PetscViewerASCIIPrintf(viewer,"numbor of elements: %d\n",q->nelems);CHKERRQ(ierr);
-    ierr = DohpMeshGetTagName(q->mesh,q->qsizetag,sizeof(tagname),tagname);CHKERRQ(ierr);
-    ierr = PetscViewerASCIIPrintf(viewer,"quadrature size tag: %s\n",tagname);CHKERRQ(ierr);
+    if (q->qsizetag) {
+      ierr = DohpMeshGetTagName(q->mesh,q->qsizetag,&tagname);CHKERRQ(ierr);
+      ierr = PetscViewerASCIIPrintf(viewer,"quadrature size tag: %s\n",tagname);CHKERRQ(ierr);
+    }
   } else {
     if (q->ops->view) {
       ierr = (*q->ops->view)(q,viewer);CHKERRQ(ierr);
@@ -284,5 +286,6 @@ PetscErrorCode DohpQuotientInitializePackage(const char path[])
   ierr = PetscCookieRegister("Mesh",&DOHP_MESH_COOKIE);CHKERRQ(ierr);
   ierr = DohpMeshRegisterAll(path);CHKERRQ(ierr);
   ierr = DohpQuotientRegisterAll(path);CHKERRQ(ierr);
+  initialized = PETSC_TRUE;
   PetscFunctionReturn(0);
 }

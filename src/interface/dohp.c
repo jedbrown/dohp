@@ -56,8 +56,8 @@ PetscErrorCode DohpMFSSetUp(DohpMFS mfs)
   PetscFunctionBegin;
   /* Get the requested order of elements out of the mesh. */
   ierr = PetscStrlen(mfs->sizetagname,&namelen);CHKERRQ(ierr);
-  iMesh_getTagHandle(mi,mfs->sizetagname,&sizetag,&ierr,(int)namelen);ICHKERRQ(ierr);
-  iMesh_getIntArrData(mi,m->r.v,m->r.s,sizetag,&s.v,&s.a,&s.s,&ierr);ICHKERRQ(ierr);
+  iMesh_getTagHandle(mi,mfs->sizetagname,&sizetag,&ierr,(int)namelen);ICHKERRQ(mi,ierr);
+  iMesh_getIntArrData(mi,m->r.v,m->r.s,sizetag,&s.v,&s.a,&s.s,&ierr);ICHKERRQ(mi,ierr);
 
   /* Assign orders to the facet space by applying the minimum rule. */
   ierr = DohpMFSApplyMinimumRule(mfs,&s);CHKERRQ(ierr);
@@ -66,7 +66,7 @@ PetscErrorCode DohpMFSSetUp(DohpMFS mfs)
   /* Set up the facet-element mapping functions to be compatible with the respective approximation orders. */
   ierr = DohpMFSSetUpElemFacetProjections(mfs);CHKERRQ(ierr);
 
-  MeshListFree(s);
+  ierr = MeshListFree(s);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
