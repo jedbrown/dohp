@@ -186,15 +186,20 @@ struct _DohpQuotientOps {
   PetscErrorCode (*view)(DohpQuotient,PetscViewer);
   PetscErrorCode (*destroy)(DohpQuotient);
 };
+
 struct _p_DohpQuotient {
   PETSCHEADER(struct _DohpQuotientOps);
-  DohpMesh   mesh;
-  DohpTag    qsizetag;
-  DohpESH    loc;
-  PetscInt   nelems;
-  void     **quad;              // element quadrature context for locally owned elements
-  void     **map;               // locally owned element map context, compatible with equad
-  PetscInt   setupcalled;
+  DohpMesh                    mesh;
+  DohpTag                     qsizetag;
+  DohpESH                     loc;
+  PetscInt                    nelems;
+  PetscInt                   *degree;
+  void                      **quad; // element quadrature context for locally owned elements
+  void                      **map; // locally owned element map context, compatible with equad
+  PetscInt                    setupcalled;
+  DohpQuotientSetDegreeFunc   setdegreefunc;
+  void                       *setdegreectx;
+  PetscTruth                  setdegreeset;
 };
 
 

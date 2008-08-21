@@ -19,6 +19,8 @@ int main(int argc,char *argv[])
   ierr = DohpMeshCreate(comm,&mesh);CHKERRQ(ierr);
   ierr = DohpMeshLoad(mesh,"dblock.h5m","");CHKERRQ(ierr);
   ierr = DohpQuotientCreate(mesh,0,0,&quot);CHKERRQ(ierr);
+  ierr = DohpQuotientSetFromOptions(quot);CHKERRQ(ierr);
+  ierr = DohpQuotientSetUp(quot);CHKERRQ(ierr);
   ierr = DohpQuotientView(quot,viewer);CHKERRQ(ierr);
   ierr = PetscFinalize();CHKERRQ(ierr);
   PetscFunctionReturn(0);

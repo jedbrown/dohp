@@ -2,6 +2,9 @@
 
 #include "private/dohpimpl.h"
 
+static PetscErrorCode DohpQuotientUpdate_Gauss(DohpQuotient q);
+static PetscErrorCode DohpQuotientSetUp_Gauss(DohpQuotient q);
+
 typedef struct {
   PetscReal *nodes;
   PetscReal *weights;
@@ -37,9 +40,50 @@ PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient quot)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
+  quot->ops->setup = DohpQuotientSetUp_Gauss;
+  quot->ops->update = DohpQuotientUpdate_Gauss;
   ierr = PetscPrintf(((PetscObject)quot)->comm,"DohpQuotientCreate_Gauss (nothing to do)\n");CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpQuotientSetUp_Gauss"
+/*@
+   DohpQuotientSetUp_Gauss - 
+
+@*/
+PetscErrorCode DohpQuotientSetUp_Gauss(DohpQuotient quot)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscPrintf(((PetscObject)quot)->comm,"DohpQuotientSetUp_Gauss (nothing to do)\n");CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpQuotientUpdate_Gauss"
+/*@
+   DohpQuotientUpdate_Gauss - 
+
+@*/
+static PetscErrorCode DohpQuotientUpdate_Gauss(DohpQuotient q)
+{
+  PetscInt *newdegree;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscMalloc(3*q->nelems*sizeof(PetscInt),&newdegree);CHKERRQ(ierr);
+  if (q->setdegreefunc) {
+    ierr = (*q->setdegreefunc)(q,q->setdegreectx,q->nelems,newdegree);CHKERRQ(ierr);
+  } else {
+    SETERRQ(1,"SetDegreeFunc not set");
+  }
+  ierr = PetscIntView(q->nelems,newdegree,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  ierr = PetscFree(newdegree);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
 
 #if 0
 

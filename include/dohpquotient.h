@@ -10,6 +10,7 @@ PETSC_EXTERN_CXX_BEGIN
 typedef struct _p_DohpQuotient *DohpQuotient;
 
 extern PetscCookie DOHP_QUOTIENT_COOKIE,DOHP_MESH_COOKIE;
+typedef PetscErrorCode (*DohpQuotientSetDegreeFunc)(DohpQuotient,void*,PetscInt,PetscInt[]);
 
 #define DohpQuotientGauss "gauss"
 
@@ -24,6 +25,8 @@ EXTERN PetscErrorCode DohpQuotientRegisterAll(const char path[]);
 EXTERN PetscErrorCode DohpQuotientGetType(DohpQuotient q,const DohpQuotientType *type);
 EXTERN PetscErrorCode DohpQuotientView(DohpQuotient q,PetscViewer viewer);
 EXTERN PetscErrorCode DohpQuotientInitializePackage(const char path[]);
+EXTERN PetscErrorCode DohpQuotientSetSetDegree(DohpQuotient q,DohpQuotientSetDegreeFunc func,void *ctx);
+EXTERN PetscErrorCode DohpQuotientSetDegreeConst(DohpQuotient q,void *vval,PetscInt n,PetscInt *degree);
 
 PETSC_EXTERN_CXX_END
 

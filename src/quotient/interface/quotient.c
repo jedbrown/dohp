@@ -10,6 +10,8 @@ static const struct _DohpQuotientOps DohpQuotientDefaultOps = {
 PetscCookie DOHP_QUOTIENT_COOKIE,DOHP_MESH_COOKIE;
 static PetscFList DohpQuotientList = 0;
 
+static PetscErrorCode DohpQuotientSetUp_Private(DohpQuotient q);
+
 #undef __FUNCT__
 #define __FUNCT__ "DohpQuotientUpdate"
 /*@
@@ -26,7 +28,11 @@ PetscErrorCode DohpQuotientUpdate(DohpQuotient q)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(q,DOHP_QUOTIENT_COOKIE,1);
-  ierr = (*q->ops->update)(q);CHKERRQ(ierr);
+  if (q->ops->update) {
+    ierr = (*q->ops->update)(q);CHKERRQ(ierr);
+  } else {
+    SETERRQ(1,"No update function given");
+  }
   PetscObjectStateIncrease((PetscObject)q);
   PetscFunctionReturn(0);
 }
@@ -62,10 +68,12 @@ PetscErrorCode DohpQuotientCreate(DohpMesh m,DohpESH loc,DohpTag qsizetag,DohpQu
 #endif
   ierr = PetscHeaderCreate(q,_p_DohpQuotient,struct _DohpQuotientOps,DOHP_QUOTIENT_COOKIE,0,"DohpQuotient",comm,DohpQuotientDestroy,DohpQuotientView);CHKERRQ(ierr);
 
-  q->mesh        = m;
-  q->loc         = loc;
-  q->qsizetag    = qsizetag;
-  q->ops->update = 0;
+  q->mesh          = m;
+  q->loc           = loc;
+  q->qsizetag      = qsizetag;
+  q->setdegreefunc = DohpQuotientSetDegreeConst;
+  q->setdegreectx  = 0;
+  q->setdegreeset  = PETSC_FALSE;
 
   *inq = q;
   PetscFunctionReturn(0);
@@ -106,7 +114,8 @@ PetscErrorCode DohpQuotientSetType(DohpQuotient q,const DohpQuotientType type)
 @*/
 PetscErrorCode DohpQuotientSetFromOptions(DohpQuotient q)
 {
-  PetscTruth flg;
+  PetscTruth typeSet,cdegSet;
+  PetscInt cdeg;
   const DohpQuotientType deft = DohpQuotientGauss;
   char type[256];
   PetscErrorCode ierr;
@@ -116,8 +125,18 @@ PetscErrorCode DohpQuotientSetFromOptions(DohpQuotient q)
   ierr = PetscOptionsBegin(((PetscObject)q)->comm,((PetscObject)q)->prefix,"Quotient (quadrature rule and element map) options","DohpQuotient");CHKERRQ(ierr);
   ierr = DohpQuotientRegisterAll(PETSC_NULL);CHKERRQ(ierr);
   if (((PetscObject)q)->type_name) { deft = ((PetscObject)q)->type_name; }
-  ierr = PetscOptionsList("-dquot_type","Quotient type","DohpQuotientSetType",DohpQuotientList,deft,type,256,&flg);CHKERRQ(ierr);
-  ierr = DohpQuotientSetType(q,type);CHKERRQ(ierr);
+  ierr = PetscOptionsList("-dquot_type","Quotient type","DohpQuotientSetType",DohpQuotientList,deft,type,256,&typeSet);CHKERRQ(ierr);
+  ierr = PetscOptionsInt("-dquot_cdeg","Constant degree","DohpQuotientSetDegreeConst",5,&cdeg,&cdegSet);CHKERRQ(ierr);
+  if (typeSet) {
+    ierr = DohpQuotientSetType(q,type);CHKERRQ(ierr);
+  } else if (!((PetscObject)q)->type_name) {
+    ierr = DohpQuotientSetType(q,deft);CHKERRQ(ierr);
+  }
+  if (cdegSet || !q->setdegreeset) {
+    q->setdegreefunc = DohpQuotientSetDegreeConst;
+    ierr = PetscMalloc(1*sizeof(void*),&q->setdegreectx);CHKERRQ(ierr);
+    ((PetscInt*)q->setdegreectx)[0] = cdeg ? cdeg : 5;
+  }
   if (q->ops->setfromoptions) {
     ierr = (*q->ops->setfromoptions)(q);CHKERRQ(ierr);
   }
@@ -138,10 +157,31 @@ PetscErrorCode DohpQuotientSetUp(DohpQuotient q)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(q,DOHP_QUOTIENT_COOKIE,1);
+  ierr = DohpQuotientSetUp_Private(q);CHKERRQ(ierr);
   if (!q->setupcalled) {
     ierr = (*q->ops->setup)(q);CHKERRQ(ierr);
   }
+  if (q->ops->update) {
+    ierr = (*q->ops->update)(q);
+  }
   q->setupcalled = 1;
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpQuotientSetUp_Private"
+/*@
+   DohpQuotientSetUp_Private - 
+
+   This function should determine which subdomain of the mesh is in use.
+
+@*/
+PetscErrorCode DohpQuotientSetUp_Private(DohpQuotient q)
+{
+  //PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  q->nelems = q->mesh->r.s;
   PetscFunctionReturn(0);
 }
 
@@ -287,5 +327,41 @@ PetscErrorCode DohpQuotientInitializePackage(const char path[])
   ierr = DohpMeshRegisterAll(path);CHKERRQ(ierr);
   ierr = DohpQuotientRegisterAll(path);CHKERRQ(ierr);
   initialized = PETSC_TRUE;
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpQuotientSetSetDegree"
+/*@
+   DohpQuotientSetSetDegree - 
+
+@*/
+PetscErrorCode DohpQuotientSetSetDegree(DohpQuotient q,DohpQuotientSetDegreeFunc func,void *ctx)
+{
+  //PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(q,DOHP_QUOTIENT_COOKIE,1);
+  PetscValidPointer(func,2);
+  PetscValidPointer(ctx,3);
+  q->setdegreefunc = func;
+  q->setdegreectx  = ctx;
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DohpQuotientSetDegreeConst"
+/*@
+   DohpQuotientSetDegreeConst - 
+
+@*/
+PetscErrorCode DohpQuotientSetDegreeConst(DohpQuotient q,void *vval,PetscInt n,PetscInt *degree)
+{
+  PetscInt i,*val=(PetscInt *)vval;
+
+  PetscFunctionBegin;
+  for (i=0; i<n; i++) {
+    degree[3*i] = degree[3*i+1] = degree[3*i+2] = val[0];
+  }
   PetscFunctionReturn(0);
 }
