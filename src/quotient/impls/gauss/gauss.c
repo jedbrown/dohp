@@ -4,6 +4,7 @@
 
 static PetscErrorCode DohpQuotientUpdate_Gauss(DohpQuotient q);
 static PetscErrorCode DohpQuotientSetUp_Gauss(DohpQuotient q);
+static PetscErrorCode DohpQuotientDestroy_Gauss(DohpQuotient q);
 
 typedef struct {
   PetscReal *nodes;
@@ -37,12 +38,11 @@ typedef struct {
 @*/
 PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient quot)
 {
-  PetscErrorCode ierr;
 
   PetscFunctionBegin;
   quot->ops->setup = DohpQuotientSetUp_Gauss;
   quot->ops->update = DohpQuotientUpdate_Gauss;
-  ierr = PetscPrintf(((PetscObject)quot)->comm,"DohpQuotientCreate_Gauss (nothing to do)\n");CHKERRQ(ierr);
+  quot->ops->destroy = DohpQuotientDestroy_Gauss;
   PetscFunctionReturn(0);
 }
 
@@ -54,10 +54,13 @@ PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient quot)
 @*/
 PetscErrorCode DohpQuotientSetUp_Gauss(DohpQuotient quot)
 {
+  PetscInt nelems;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = PetscPrintf(((PetscObject)quot)->comm,"DohpQuotientSetUp_Gauss (nothing to do)\n");CHKERRQ(ierr);
+  PetscValidHeaderSpecific(quot,DOHP_QUOTIENT_COOKIE,1);
+  nelems = quot->nelems;
+  ierr = PetscMalloc2(nelems,EQuad_Hex,&quot->quad,nelems,EMap_Affine3,&quot->emap);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -69,7 +72,7 @@ PetscErrorCode DohpQuotientSetUp_Gauss(DohpQuotient quot)
 @*/
 static PetscErrorCode DohpQuotientUpdate_Gauss(DohpQuotient q)
 {
-  PetscInt *newdegree;
+  PetscInt *newdegree,i;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
@@ -79,11 +82,27 @@ static PetscErrorCode DohpQuotientUpdate_Gauss(DohpQuotient q)
   } else {
     SETERRQ(1,"SetDegreeFunc not set");
   }
-  ierr = PetscIntView(q->nelems,newdegree,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  for (i=0; i<q->nelems; i++) {
+    //ierr = DohpGeomCompute
+  }
   ierr = PetscFree(newdegree);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
+#undef __FUNCT__
+#define __FUNCT__ "DohpQuotientDestroy_Gauss"
+/*@
+   DohpQuotientDestroy_Gauss - 
+
+@*/
+PetscErrorCode DohpQuotientDestroy_Gauss(DohpQuotient q)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscFree2(q->quad,q->emap);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
 
 #if 0
 

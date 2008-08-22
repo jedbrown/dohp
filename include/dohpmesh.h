@@ -15,9 +15,9 @@ typedef iBase_EntityHandle DohpEH;
 typedef iBase_TagHandle DohpTag;
 typedef iBase_EntitySetHandle DohpESH;
 
-EXTERN const char *iBase_ErrorString[];
-EXTERN const char *iMesh_TopologyName[];
-EXTERN const char *iBase_TagValueTypeName[];
+EXTERN const char *const iBase_ErrorString[];
+EXTERN const char *const iMesh_TopologyName[];
+EXTERN const char *const iBase_TagValueTypeName[];
 
 // #define ICHKERRQ(n) if (n) { SETERRQ1(1,"ITAPS error: %s", iBase_ErrorString[n]); }
 

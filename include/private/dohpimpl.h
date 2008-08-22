@@ -195,7 +195,7 @@ struct _p_DohpQuotient {
   PetscInt                    nelems;
   PetscInt                   *degree;
   void                      **quad; // element quadrature context for locally owned elements
-  void                      **map; // locally owned element map context, compatible with equad
+  void                      **emap; // locally owned element map context, compatible with quad
   PetscInt                    setupcalled;
   DohpQuotientSetDegreeFunc   setdegreefunc;
   void                       *setdegreectx;

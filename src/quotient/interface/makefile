@@ -1,4 +1,5 @@
 ALL : lib
+
 SOURCEC = quotient.c
 OBJSC   = $(SOURCEC:.c=.o)
 LIBBASE = libdohp

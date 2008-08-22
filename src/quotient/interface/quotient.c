@@ -108,10 +108,13 @@ PetscErrorCode DohpQuotientSetType(DohpQuotient q,const DohpQuotientType type)
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpQuotientSetFromOptions"
-/*@
-   DohpQuotientSetFromOptions - 
-
-@*/
+/** 
+* Use the options database to determine type and other settings for the quotient
+* 
+* @param q the Quotient
+* 
+* @return ierr
+*/
 PetscErrorCode DohpQuotientSetFromOptions(DohpQuotient q)
 {
   PetscTruth typeSet,cdegSet;
@@ -170,13 +173,14 @@ PetscErrorCode DohpQuotientSetUp(DohpQuotient q)
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpQuotientSetUp_Private"
-/*@
-   DohpQuotientSetUp_Private - 
-
-   This function should determine which subdomain of the mesh is in use.
-
-@*/
-PetscErrorCode DohpQuotientSetUp_Private(DohpQuotient q)
+/** 
+* This function should determine which subdomain of the mesh is in use.  For now, we assume that it is always the whole
+* mesh.
+* 
+* @param q The quotient
+* 
+* @return ierr
+*/PetscErrorCode DohpQuotientSetUp_Private(DohpQuotient q)
 {
   //PetscErrorCode ierr;
 
@@ -190,18 +194,24 @@ PetscErrorCode DohpQuotientSetUp_Private(DohpQuotient q)
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpQuotientRegister"
-/*@
-   DohpQuotientRegister - 
-
-@*/
-PetscErrorCode DohpQuotientRegister(const char sname[],const char path[],const char name[],PetscErrorCode (*function)(DohpQuotient))
+/** 
+* Register a new Quotient type in the quotient list.  It can then be selected with \fn DohpQuotientSetType or on the
+* command line.
+* 
+* @param name type name
+* @param path source file containing implementation (\p cname)
+* @param cname name of function to create an object of this type
+* @param function pointer to function \p cname
+* 
+* @return ierr
+*/PetscErrorCode DohpQuotientRegister(const char name[],const char path[],const char cname[],PetscErrorCode (*function)(DohpQuotient))
 {
   char           fullname[PETSC_MAX_PATH_LEN];
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = PetscFListConcat(path,name,fullname);CHKERRQ(ierr);
-  ierr = PetscFListAdd(&DohpQuotientList,sname,fullname,(void (*)(void))function);CHKERRQ(ierr);
+  ierr = PetscFListConcat(path,cname,fullname);CHKERRQ(ierr);
+  ierr = PetscFListAdd(&DohpQuotientList,name,fullname,(void (*)(void))function);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -239,7 +249,7 @@ PetscErrorCode DohpQuotientDestroy(DohpQuotient q)
     ierr = (*q->ops->destroy)(q);CHKERRQ(ierr);
   }
   ierr = PetscFree(q->quad);CHKERRQ(ierr);
-  ierr = PetscFree(q->map);CHKERRQ(ierr);
+  ierr = PetscFree(q->emap);CHKERRQ(ierr);
   ierr = PetscHeaderDestroy(q);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -355,7 +365,7 @@ PetscErrorCode DohpQuotientSetSetDegree(DohpQuotient q,DohpQuotientSetDegreeFunc
    DohpQuotientSetDegreeConst - 
 
 @*/
-PetscErrorCode DohpQuotientSetDegreeConst(DohpQuotient q,void *vval,PetscInt n,PetscInt *degree)
+PetscErrorCode DohpQuotientSetDegreeConst(DohpQuotient q __attribute__((unused)),void *vval,PetscInt n,PetscInt *degree)
 {
   PetscInt i,*val=(PetscInt *)vval;
 

@@ -3,7 +3,7 @@
 
 static PetscErrorCode DohpMeshView_EntSet(DohpMesh m,DohpESH root,PetscViewer viewer);
 
-const char *iBase_ErrorString[] = {
+const char *const iBase_ErrorString[] = {
   "iBase_SUCCESS",
   "iBase_MESH_ALREADY_LOADED",
   "iBase_NO_MESH_DATA",
@@ -30,7 +30,7 @@ const char *iBase_ErrorString[] = {
   "iBase_FAILURE"
 };
 
-const char *iMesh_TopologyName[] = {
+const char *const iMesh_TopologyName[] = {
   "iMesh_POINT",
   "iMesh_LINE_SEGMENT",
   "iMesh_POLYGON",
@@ -45,7 +45,7 @@ const char *iMesh_TopologyName[] = {
   "iMesh_ALL_TOPOLOGIES"
 };
 
-const char *iBase_TagValueTypeName[] = {
+const char *const iBase_TagValueTypeName[] = {
   "iBase_INTEGER",
   "iBase_DOUBLE",
   "iBase_ENTITY_HANDLE",
