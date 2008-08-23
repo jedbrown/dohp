@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "dohpbase.h"
+#include "dohptype.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
@@ -19,15 +20,15 @@ EXTERN const char *const iBase_ErrorString[];
 EXTERN const char *const iMesh_TopologyName[];
 EXTERN const char *const iBase_TagValueTypeName[];
 
-// #define ICHKERRQ(n) if (n) { SETERRQ1(1,"ITAPS error: %s", iBase_ErrorString[n]); }
+// #define ICHKERRQ(n) if (n) { dERROR(1,"ITAPS error: %s", iBase_ErrorString[n]); }
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
-#define ICHKERRQ(mesh,ierr)                                     \
-  if (ierr) {                                                   \
-    PetscErrorCode _l_ret = ierr;                               \
+#define ICHKERRQ(mesh,err)                                     \
+  if (err) {                                                   \
+    dErr _l_ret = err;                               \
     char           _l_desc[512];                                \
-    iMesh_getDescription(mesh,_l_desc,&ierr,512);CHKERRQ(ierr); \
-    SETERRQ2(1,"%s: %s",iBase_ErrorString[_l_ret],_l_desc);     \
+    iMesh_getDescription(mesh,_l_desc,&err,512);dCHK(err); \
+    dERROR(1,"%s: %s",iBase_ErrorString[_l_ret],_l_desc);     \
   }
 
 #define USE_ORIENT_ENUM 0
@@ -81,19 +82,19 @@ typedef struct {
 #define MeshListMalloc(m,n) ( m ? ((n).s=0,(n).a=m,(n).v=malloc((n).a*sizeof(n.v[0])),!(n.v)) : MeshListFree(n))
 
 typedef struct {
-  PetscInt start, stride, end;
+  dInt start, stride, end;
 } DohpLoopBounds;
 
 /* These tags are used to give full adjacencies because the builtin adjacencies are broken for nonconforming meshes */
-#define DOHP_TAG_ADJ_REGION_FACE    "dohp_adj_region_face"
-#define DOHP_TAG_ADJ_FACE_EDGE      "dohp_adj_face_edge"
-#define DOHP_TAG_ORIENT_REGION_FACE "dohp_orient_region_face"
-#define DOHP_TAG_ORIENT_FACE_EDGE   "dohp_orient_face_edge"
+#define dTAG_ADJ_REGION_FACE    "dohp_adj_region_face"
+#define dTAG_ADJ_FACE_EDGE      "dohp_adj_face_edge"
+#define dTAG_ORIENT_REGION_FACE "dohp_orient_region_face"
+#define dTAG_ORIENT_FACE_EDGE   "dohp_orient_face_edge"
 
-#define DOHP_ENT_SET_NAME           "dohp_ent_set_name"
-#define DOHP_BDY_ROOT               "dohp_bdy_root"
-#define DOHP_TAG_BDY_NUM            "dohp_bdy_num"
-#define DOHP_TAG_BDY_NORMAL         "dohp_bdy_normal"
+#define dENT_SET_NAME           "dohp_ent_set_name"
+#define dBDY_ROOT               "dohp_bdy_root"
+#define dTAG_BDY_NUM            "dohp_bdy_num"
+#define dTAG_BDY_NORMAL         "dohp_bdy_normal"
 
 /* Assign a canonical orientation of the faces on a hex.  The ordering of faces
 * and vertices of the hex is defined by iMesh.  The ordering of edges and
@@ -112,21 +113,21 @@ static const int DohpHexQuad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}
 * */
 static const int DohpQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,4}};
 
-EXTERN PetscErrorCode MeshListIntView(MeshListInt *,const char *);
-EXTERN PetscErrorCode DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *,const iBase_EntityHandle *,PetscInt,DohpOrient*);
-EXTERN PetscErrorCode DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *,const iBase_EntityHandle *,PetscInt,DohpOrient*);
+EXTERN dErr MeshListIntView(MeshListInt *,const char *);
+EXTERN dErr DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *,const iBase_EntityHandle *,dInt,DohpOrient*);
+EXTERN dErr DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *,const iBase_EntityHandle *,dInt,DohpOrient*);
 
-typedef struct _p_DohpMesh *DohpMesh;
+typedef struct p_dMesh *dMesh;
 
-EXTERN PetscErrorCode DohpMeshGetLocalNodeNumbering(DohpMesh,PetscInt,PetscInt*,PetscInt*);
-EXTERN PetscErrorCode DohpMeshGetTagName(DohpMesh m,DohpTag tag,char **name);
-EXTERN PetscErrorCode DohpMeshLoad(DohpMesh m,const char fname[],const char opt[]);
-EXTERN PetscErrorCode DohpMeshCreate(MPI_Comm comm,DohpMesh *inm);
-EXTERN PetscErrorCode DohpMeshOrientFacets(DohpMesh m);
-EXTERN PetscErrorCode DohpMeshDestroy(DohpMesh);
-EXTERN PetscErrorCode DohpMeshView(DohpMesh,PetscViewer);
-EXTERN PetscErrorCode DohpMeshRegisterAll(const char path[]);
-EXTERN PetscErrorCode DohpMeshGetEntSetName(DohpMesh m,DohpESH set,char **str);
+EXTERN dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
+EXTERN dErr dMeshGetTagName(dMesh m,DohpTag tag,char **name);
+EXTERN dErr dMeshLoad(dMesh m,const char fname[],const char opt[]);
+EXTERN dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
+EXTERN dErr dMeshOrientFacets(dMesh m);
+EXTERN dErr dMeshDestroy(dMesh);
+EXTERN dErr dMeshView(dMesh,PetscViewer);
+EXTERN dErr dMeshRegisterAll(const char path[]);
+EXTERN dErr dMeshGetEntSetName(dMesh m,DohpESH set,char **str);
 
 PETSC_EXTERN_CXX_END
 #endif

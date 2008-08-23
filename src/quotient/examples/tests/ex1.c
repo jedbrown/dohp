@@ -1,4 +1,4 @@
-static const char help[] = "Test the construction of DohpQuotient objects.\n";
+static const char help[] = "Test the construction of dQuotient objects.\n";
 
 #include "dohp.h"
 #include "dohpjacobi.h"
@@ -7,30 +7,30 @@ static const char help[] = "Test the construction of DohpQuotient objects.\n";
 #define __FUNCT__ "main"
 int main(int argc,char *argv[])
 {
-  DohpQuotient quot;
-  DohpJacobi jac;
-  DohpMesh mesh;
+  dQuotient quot;
+  dJacobi jac;
+  dMesh mesh;
   MPI_Comm comm;
   PetscViewer viewer;
-  PetscErrorCode ierr;
+  dErr err;
 
-  PetscFunctionBegin;
-  ierr = PetscInitialize(&argc,&argv,0,help);CHKERRQ(ierr);
+  dFunctionBegin;
+  err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
-  ierr = DohpMeshCreate(comm,&mesh);CHKERRQ(ierr);
-  ierr = DohpMeshLoad(mesh,"dblock.h5m","");CHKERRQ(ierr);
-  ierr = DohpQuotientCreate(mesh,0,0,&quot);CHKERRQ(ierr);
-  ierr = DohpQuotientSetFromOptions(quot);CHKERRQ(ierr);
-  ierr = DohpQuotientSetUp(quot);CHKERRQ(ierr);
-  ierr = DohpQuotientView(quot,viewer);CHKERRQ(ierr);
-  ierr = DohpQuotientDestroy(quot);CHKERRQ(ierr);
+  err = dMeshCreate(comm,&mesh);dCHK(err);
+  err = dMeshLoad(mesh,"dblock.h5m","");dCHK(err);
+  err = dQuotientCreate(mesh,0,0,&quot);dCHK(err);
+  err = dQuotientSetFromOptions(quot);dCHK(err);
+  err = dQuotientSetUp(quot);dCHK(err);
+  err = dQuotientView(quot,viewer);dCHK(err);
+  err = dQuotientDestroy(quot);dCHK(err);
 
-  ierr = DohpJacobiCreate(comm,&jac);CHKERRQ(ierr);
-  ierr = DohpJacobiSetFromOptions(jac);CHKERRQ(ierr);
-  ierr = DohpJacobiView(jac,viewer);CHKERRQ(ierr);
-  ierr = DohpJacobiSetUp(jac);CHKERRQ(ierr);
-  ierr = DohpJacobiDestroy(jac);CHKERRQ(ierr);
-  ierr = PetscFinalize();CHKERRQ(ierr);
-  PetscFunctionReturn(0);
+  err = dJacobiCreate(comm,&jac);dCHK(err);
+  err = dJacobiSetFromOptions(jac);dCHK(err);
+  err = dJacobiView(jac,viewer);dCHK(err);
+  err = dJacobiSetUp(jac);dCHK(err);
+  err = dJacobiDestroy(jac);dCHK(err);
+  err = PetscFinalize();dCHK(err);
+  dFunctionReturn(0);
 }

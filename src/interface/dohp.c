@@ -5,27 +5,27 @@
 coordinates (placed in emap) to define the coordinate transformation.  Later implementations can use
 higher order parametrically mapped elements or can optimize for affine mappings. */
 #undef __FUNCT__
-#define __FUNCT__ "DohpQuotientComputeElemJac_Hex"
-PetscErrorCode DohpQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const DohpRule_Hex *rule,PetscReal *detJ,PetscReal *Jac,PetscReal *invJ)
+#define __FUNCT__ "dQuotientComputeElemJac_Hex"
+dErr dQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const dRule_Hex *rule,dReal *detJ,dReal *Jac,dReal *invJ)
 {
-  const DohpRule_Line *r=rule->l;
-  PetscReal *J,f[6][3];
-  PetscInt i,j,k,l,I;
-  PetscErrorCode ierr;
+  const dRule_Line *r=rule->l;
+  dReal *J,f[6][3];
+  dInt i,j,k,l,I;
+  dErr err;
 
-  PetscFunctionBegin;
+  dFunctionBegin;
   for (i=0; i<r[0].size; i++) {
     for (j=0; j<r[1].size; j++) {
       for (k=0; k<r[2].size; k++) {
         I = (i*r[1].size + j)*r[2].size + k; /* Index of the current quadrature point. */
         J = &Jac[I*9];                       /* To ease indexing while we build the Jacobian in the output array. */
         /* Compute coordinates at the projection of the quadrature point on each face. */
-        GeomConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[0],f[0]);
-        GeomConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[1],f[1]);
-        GeomConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[2],f[2]);
-        GeomConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[3],f[3]);
-        GeomConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[4],f[4]);
-        GeomConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[5],f[5]);
+        dGeomConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[0],f[0]);
+        dGeomConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[1],f[1]);
+        dGeomConvexComb_2_4(r[0].coord[i],r[2].coord[k],e->vtx,DohpHexQuad[2],f[2]);
+        dGeomConvexComb_2_4(r[1].coord[j],r[2].coord[k],e->vtx,DohpHexQuad[3],f[3]);
+        dGeomConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[4],f[4]);
+        dGeomConvexComb_2_4(r[0].coord[i],r[1].coord[j],e->vtx,DohpHexQuad[5],f[5]);
         for (l=0; l<3; l++) {
           J[0*3+l] = 0.5*(f[1][l] - f[3][l]);
           J[1*3+l] = 0.5*(f[2][l] - f[0][l]);
@@ -34,50 +34,50 @@ PetscErrorCode DohpQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const DohpRu
         detJ[I] = (J[0*3+0]*(J[1*3+1]*J[2*3+2] - J[1*3+2]*J[2*3+1]) +
                    J[0*3+1]*(J[1*3+2]*J[2*3+0] - J[1*3+0]*J[2*3+2]) +
                    J[0*3+2]*(J[1*3+0]*J[2*3+1] - J[1*3+1]*J[2*3+0]));
-        ierr = PetscMemcpy(&invJ[I*9],J,9*sizeof(PetscReal));CHKERRQ(ierr);
-        ierr = Kernel_A_gets_inverse_A_3(&invJ[I*9],0.0);CHKERRQ(ierr);
+        err = PetscMemcpy(&invJ[I*9],J,9*sizeof(dReal));dCHK(err);
+        err = Kernel_A_gets_inverse_A_3(&invJ[I*9],0.0);dCHK(err);
       }
     }
   }
-  PetscFunctionReturn(0);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSSetUp"
-PetscErrorCode DohpMFSSetUp(DohpMFS mfs)
+dErr DohpMFSSetUp(DohpMFS mfs)
 {
-  DohpMesh m=mfs->mesh;
+  dMesh m=mfs->mesh;
   iMesh_Instance mi=m->mi;
   iBase_TagHandle sizetag;
   MeshListInt s=MLZ;
   size_t namelen;
-  PetscErrorCode ierr;
+  dErr err;
 
-  PetscFunctionBegin;
+  dFunctionBegin;
   /* Get the requested order of elements out of the mesh. */
-  ierr = PetscStrlen(mfs->sizetagname,&namelen);CHKERRQ(ierr);
-  iMesh_getTagHandle(mi,mfs->sizetagname,&sizetag,&ierr,(int)namelen);ICHKERRQ(mi,ierr);
-  iMesh_getIntArrData(mi,m->r.v,m->r.s,sizetag,&s.v,&s.a,&s.s,&ierr);ICHKERRQ(mi,ierr);
+  err = PetscStrlen(mfs->sizetagname,&namelen);dCHK(err);
+  iMesh_getTagHandle(mi,mfs->sizetagname,&sizetag,&err,(int)namelen);ICHKERRQ(mi,err);
+  iMesh_getIntArrData(mi,m->r.v,m->r.s,sizetag,&s.v,&s.a,&s.s,&err);ICHKERRQ(mi,err);
 
   /* Assign orders to the facet space by applying the minimum rule. */
-  ierr = DohpMFSApplyMinimumRule(mfs,&s);CHKERRQ(ierr);
+  err = DohpMFSApplyMinimumRule(mfs,&s);dCHK(err);
   /* Set up the element operations to be compatible with the quadrature and requested approximation order. */
-  ierr = DohpMFSSetUpElementBases(mfs,&s);CHKERRQ(ierr);
+  err = DohpMFSSetUpElementBases(mfs,&s);dCHK(err);
   /* Set up the facet-element mapping functions to be compatible with the respective approximation orders. */
-  ierr = DohpMFSSetUpElemFacetProjections(mfs);CHKERRQ(ierr);
+  err = DohpMFSSetUpElemFacetProjections(mfs);dCHK(err);
 
-  ierr = MeshListFree(s);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
+  err = MeshListFree(s);dCHK(err);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSApplyMinimumRule"
-PetscErrorCode DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
+dErr DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
 {
-  DohpMesh m=mfs->mesh;
+  dMesh m=mfs->mesh;
   iMesh_Instance mi=m->mi;
-  PetscInt i,j;
-  PetscErrorCode ierr;
+  dInt i,j;
+  dErr err;
 #define SIZE(f,m,n)             /* Decrease the order of face number f to (m,n) */
   /* Element order is 3 int values starting at s->v[i*3] */
 
@@ -88,7 +88,7 @@ PetscErrorCode DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
   * Each edge will get hit multiple times.  The active vertices (those adjacent to active edges) are
   * always a node. */
 
-  PetscFunctionBegin;
+  dFunctionBegin;
   for (i=0; i<m->r.s; i++) {      /* Each element */
     SIZE(0,0,2);
     SIZE(1,1,2);
@@ -97,27 +97,27 @@ PetscErrorCode DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
     SIZE(4,1,0);
     SIZE(5,0,1);
   }
-  PetscFunctionReturn(0);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSSetUpElementBases"
-PetscErrorCode DohpMFSSetUpElementBases(DohpMFS mfs,const MeshListInt *s)
+dErr DohpMFSSetUpElementBases(DohpMFS mfs,const MeshListInt *s)
 {
 
-  PetscFunctionBegin;
-  SETERRQ(1,"not implemented");
-  PetscFunctionReturn(0);
+  dFunctionBegin;
+  dERROR(1,"not implemented");
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSSetUpElemFacetProjections"
-PetscErrorCode DohpMFSSetUpElemFacetProjections(DohpMFS mfs)
+dErr DohpMFSSetUpElemFacetProjections(DohpMFS mfs)
 {
 
-  PetscFunctionBegin;
-  SETERRQ(1,"not implemented");
-  PetscFunctionReturn(0);
+  dFunctionBegin;
+  dERROR(1,"not implemented");
+  dFunctionReturn(0);
 }
 
 /*
@@ -128,10 +128,10 @@ PetscErrorCode DohpMFSSetUpElemFacetProjections(DohpMFS mfs)
 */
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSSetUpBoundaryTypes"
-PetscErrorCode DohpMFSSetUpBoundaryTypes(DohpMFS mfs)
+dErr DohpMFSSetUpBoundaryTypes(DohpMFS mfs)
 {
 
-  PetscFunctionBegin;
-  SETERRQ(1,"not implemented");
-  PetscFunctionReturn(0);
+  dFunctionBegin;
+  dERROR(1,"not implemented");
+  dFunctionReturn(0);
 }

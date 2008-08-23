@@ -5,28 +5,28 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
-//typedef char *DohpQuotientType;
-#define DohpQuotientType char*
-typedef struct _p_DohpQuotient *DohpQuotient;
+//typedef char *dQuotientType;
+#define dQuotientType char*
+typedef struct p_dQuotient *dQuotient;
 
-extern PetscCookie DOHP_QUOTIENT_COOKIE,DOHP_MESH_COOKIE;
-typedef PetscErrorCode (*DohpQuotientSetDegreeFunc)(DohpQuotient,void*,PetscInt,PetscInt[]);
+extern PetscCookie dQUOTIENT_COOKIE,dMESH_COOKIE;
+typedef dErr (*dQuotientSetDegreeFunc)(dQuotient,void*,dInt,dInt[]);
 
-#define DohpQuotientGauss "gauss"
+#define dQuotientGauss "gauss"
 
-EXTERN PetscErrorCode DohpQuotientUpdate(DohpQuotient);
-EXTERN PetscErrorCode DohpQuotientCreate(DohpMesh m,DohpESH loc,DohpTag qsizetag,DohpQuotient *inq);
-EXTERN PetscErrorCode DohpQuotientSetType(DohpQuotient q,const DohpQuotientType type);
-EXTERN PetscErrorCode DohpQuotientSetFromOptions(DohpQuotient q);
-EXTERN PetscErrorCode DohpQuotientSetUp(DohpQuotient q);
-EXTERN PetscErrorCode DohpQuotientDestroy(DohpQuotient q);
-EXTERN PetscErrorCode DohpQuotientRegister(const char sname[],const char path[],const char name[],PetscErrorCode (*function)(DohpQuotient));
-EXTERN PetscErrorCode DohpQuotientRegisterAll(const char path[]);
-EXTERN PetscErrorCode DohpQuotientGetType(DohpQuotient q,const DohpQuotientType *type);
-EXTERN PetscErrorCode DohpQuotientView(DohpQuotient q,PetscViewer viewer);
-EXTERN PetscErrorCode DohpQuotientInitializePackage(const char path[]);
-EXTERN PetscErrorCode DohpQuotientSetSetDegree(DohpQuotient q,DohpQuotientSetDegreeFunc func,void *ctx);
-EXTERN PetscErrorCode DohpQuotientSetDegreeConst(DohpQuotient q,void *vval,PetscInt n,PetscInt *degree);
+EXTERN dErr dQuotientUpdate(dQuotient);
+EXTERN dErr dQuotientCreate(dMesh m,DohpESH loc,DohpTag qsizetag,dQuotient *inq);
+EXTERN dErr dQuotientSetType(dQuotient q,const dQuotientType type);
+EXTERN dErr dQuotientSetFromOptions(dQuotient q);
+EXTERN dErr dQuotientSetUp(dQuotient q);
+EXTERN dErr dQuotientDestroy(dQuotient q);
+EXTERN dErr dQuotientRegister(const char sname[],const char path[],const char name[],dErr (*function)(dQuotient));
+EXTERN dErr dQuotientRegisterAll(const char path[]);
+EXTERN dErr dQuotientGetType(dQuotient q,const dQuotientType *type);
+EXTERN dErr dQuotientView(dQuotient q,PetscViewer viewer);
+EXTERN dErr dQuotientInitializePackage(const char path[]);
+EXTERN dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx);
+EXTERN dErr dQuotientSetDegreeConst(dQuotient q,void *vval,dInt n,dInt *degree);
 
 PETSC_EXTERN_CXX_END
 

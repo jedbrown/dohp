@@ -2,14 +2,14 @@
 
 #include "private/dohpimpl.h"
 
-static PetscErrorCode DohpQuotientUpdate_Gauss(DohpQuotient q);
-static PetscErrorCode DohpQuotientSetUp_Gauss(DohpQuotient q);
-static PetscErrorCode DohpQuotientDestroy_Gauss(DohpQuotient q);
+static dErr dQuotientUpdate_Gauss(dQuotient q);
+static dErr dQuotientSetUp_Gauss(dQuotient q);
+static dErr dQuotientDestroy_Gauss(dQuotient q);
 
 typedef struct {
-  PetscReal *nodes;
-  PetscReal *weights;
-  PetscInt size;
+  dReal *nodes;
+  dReal *weights;
+  dInt size;
 } EQuad_Base;
 
 typedef struct {
@@ -25,138 +25,138 @@ typedef struct {
 } EQuad_Hex;
 
 typedef struct {
-  PetscReal jac[9];
-  PetscReal jinv[9];
-  PetscReal jdet;
+  dReal jac[9];
+  dReal jinv[9];
+  dReal jdet;
 } EMap_Affine3;
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpQuotientCreate_Gauss"
+#define __FUNCT__ "dQuotientCreate_Gauss"
 /*@
-   DohpQuotientCreate_Gauss - 
+   dQuotientCreate_Gauss - 
 
 @*/
-PetscErrorCode DohpQuotientCreate_Gauss(DohpQuotient quot)
+dErr dQuotientCreate_Gauss(dQuotient quot)
 {
 
-  PetscFunctionBegin;
-  quot->ops->setup = DohpQuotientSetUp_Gauss;
-  quot->ops->update = DohpQuotientUpdate_Gauss;
-  quot->ops->destroy = DohpQuotientDestroy_Gauss;
-  PetscFunctionReturn(0);
+  dFunctionBegin;
+  quot->ops->setup = dQuotientSetUp_Gauss;
+  quot->ops->update = dQuotientUpdate_Gauss;
+  quot->ops->destroy = dQuotientDestroy_Gauss;
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpQuotientSetUp_Gauss"
+#define __FUNCT__ "dQuotientSetUp_Gauss"
 /*@
-   DohpQuotientSetUp_Gauss - 
+   dQuotientSetUp_Gauss - 
 
 @*/
-PetscErrorCode DohpQuotientSetUp_Gauss(DohpQuotient quot)
+dErr dQuotientSetUp_Gauss(dQuotient quot)
 {
-  PetscInt nelems;
-  PetscErrorCode ierr;
+  dInt nelems;
+  dErr err;
 
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(quot,DOHP_QUOTIENT_COOKIE,1);
+  dFunctionBegin;
+  PetscValidHeaderSpecific(quot,dQUOTIENT_COOKIE,1);
   nelems = quot->nelems;
-  ierr = PetscMalloc2(nelems,EQuad_Hex,&quot->quad,nelems,EMap_Affine3,&quot->emap);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
+  err = PetscMalloc2(nelems,EQuad_Hex,&quot->quad,nelems,EMap_Affine3,&quot->emap);dCHK(err);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpQuotientUpdate_Gauss"
+#define __FUNCT__ "dQuotientUpdate_Gauss"
 /*@
-   DohpQuotientUpdate_Gauss - 
+   dQuotientUpdate_Gauss - 
 
 @*/
-static PetscErrorCode DohpQuotientUpdate_Gauss(DohpQuotient q)
+static dErr dQuotientUpdate_Gauss(dQuotient q)
 {
-  PetscInt *newdegree,i;
-  PetscErrorCode ierr;
+  dInt *newdegree,i;
+  dErr err;
 
-  PetscFunctionBegin;
-  ierr = PetscMalloc(3*q->nelems*sizeof(PetscInt),&newdegree);CHKERRQ(ierr);
+  dFunctionBegin;
+  err = PetscMalloc(3*q->nelems*sizeof(dInt),&newdegree);dCHK(err);
   if (q->setdegreefunc) {
-    ierr = (*q->setdegreefunc)(q,q->setdegreectx,q->nelems,newdegree);CHKERRQ(ierr);
+    err = (*q->setdegreefunc)(q,q->setdegreectx,q->nelems,newdegree);dCHK(err);
   } else {
-    SETERRQ(1,"SetDegreeFunc not set");
+    dERROR(1,"SetDegreeFunc not set");
   }
   for (i=0; i<q->nelems; i++) {
-    //ierr = DohpGeomCompute
+    //err = DohpGeomCompute
   }
-  ierr = PetscFree(newdegree);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
+  err = PetscFree(newdegree);dCHK(err);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpQuotientDestroy_Gauss"
+#define __FUNCT__ "dQuotientDestroy_Gauss"
 /*@
-   DohpQuotientDestroy_Gauss - 
+   dQuotientDestroy_Gauss - 
 
 @*/
-PetscErrorCode DohpQuotientDestroy_Gauss(DohpQuotient q)
+dErr dQuotientDestroy_Gauss(dQuotient q)
 {
-  PetscErrorCode ierr;
+  dErr err;
 
-  PetscFunctionBegin;
-  ierr = PetscFree2(q->quad,q->emap);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
+  dFunctionBegin;
+  err = PetscFree2(q->quad,q->emap);dCHK(err);
+  dFunctionReturn(0);
 }
 
 #if 0
 
 #undef __FUNCT__
 #define __FUNCT__ "EQuotGetJacobian_Affine3"
-PetscErrorCode EQuotGetJacobian_Affine3(EQuot q, PetscInt qsize, PetscReal *jac, PetscReal *jinv, PetscReal *jdet)
+dErr EQuotGetJacobian_Affine3(EQuot q, dInt qsize, dReal *jac, dReal *jinv, dReal *jdet)
 {
   const EMap_Affine3 emap = (EMap_Affine3 *)q->emap;
-  PetscInt size, i;
-  PetscErrorCode ierr;
+  dInt size, i;
+  dErr err;
 
-  PetscFunctionBegin;
+  dFunctionBegin;
   for (i=0; i<qsize; i++) {
-    ierr = PetscMemcpy(&jac[i*9], emap->jac, 9*sizeof(PetscReal));CHKERRQ(ierr);
-    ierr = PetscMemcpy(&jinv[i*9], emap->jinv, 9*sizeof(PetscReal));CHKERRQ(ierr);
+    err = PetscMemcpy(&jac[i*9], emap->jac, 9*sizeof(dReal));dCHK(err);
+    err = PetscMemcpy(&jinv[i*9], emap->jinv, 9*sizeof(dReal));dCHK(err);
     jdet[i] = emap->jdet;
   }
-  PetscFunctionReturn(0);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
 #define __FUNCT__ "EQuadGetSize_Line"
-PetscErrorCode EQuadGetSize_Line(void *q, PetscInt *size)
+dErr EQuadGetSize_Line(void *q, dInt *size)
 {
   EQuad_Line *quad = (EQuad_Line *)q;
-  PetscErrorCode ierr;
+  dErr err;
 
-  PetscFunctionBegin;
+  dFunctionBegin;
   *size = quad->base[0]->size;
-  PetscFunctionReturn(0);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
 #define __FUNCT__ "EQuadGetSize_Quad"
-PetscErrorCode EQuadGetSize_Quad(void *q, PetscInt *size)
+dErr EQuadGetSize_Quad(void *q, dInt *size)
 {
   EQuad_Quad *quad = (EQuad_Quad *)q;
-  PetscErrorCode ierr;
+  dErr err;
 
-  PetscFunctionBegin;
+  dFunctionBegin;
   *size = quad->base[0]->size * quad->base[1]->size;
-  PetscFunctionReturn(0);
+  dFunctionReturn(0);
 }
 
 #undef __FUNCT__
 #define __FUNCT__ "EQuadGetSize_Hex"
-PetscErrorCode EQuadGetSize_Hex(void *q, PetscInt *size)
+dErr EQuadGetSize_Hex(void *q, dInt *size)
 {
   EQuad_Hex *quad = (EQuad_Hex *)q;
-  PetscErrorCode ierr;
+  dErr err;
 
-  PetscFunctionBegin;
+  dFunctionBegin;
   *size = quad->base[0]->size * quad->base[1]->size * quad->base[2]->size;
-  PetscFunctionReturn(0);
+  dFunctionReturn(0);
 }
 
 
