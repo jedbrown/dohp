@@ -12,97 +12,40 @@
 * provide unrolled versions for small to modest basis sizes.  In particular, the tightest loops (dofs/node, basis in
 * minor dimension, nodes in minor dimension) can be arbitrarily unrolled.  This should reduce overhead of the \a hp
 * method for regions of low order.
+*
+* The idea is that when building a #dMFS we would like the maximum possible sharing and flexibility.  The #dJacobi
+* assembles a #dRule and #dEFS for use by any part of the #dMFS.  All the real data (like interpolation and
+* differentiation matrices) are shared.
 * 
 */
 
 #include "dohptype.h"
-#include "private/petscimpl.h"
+// #include "private/petscimpl.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
 /**
-* This isn't actually an opaque structure.  Note that it is necessarily \c const since it will normally point to shared
-* memory space.
+* Handle for manipulating EFS objects.  Since these are actually stored in arrays, the handle is the actual object
+* rather than just a pointer.
 * 
 */
-typedef const struct m_dRule * dRule;
+typedef struct m_dEFS dEFS;
 
 /**
-* Minimal struct to hold a 1-D quadrature rule.
-*
-* Although this does not support any functions, we still make it opaque.  This is so we can work with a dRule by
-* passing pointers and it will look like any other Petsc/Dohp object.
+* As above, the handle is the actual object.
 * 
 */
-struct m_dRule {
-  const dReal *node;              /**< nodal coordinates on the reference element [-1,1] */
-  const dReal *weight;            /**< quadrature weights at the nodes  */
-  dInt size;                /**< total number of points */
-};
+typedef struct m_dRule dRule;
 
 
 /**
-* The handle for basis evaluation.
-*
-* The basis must always be compatible with a quadrature rule.  Eventually we'll have wrapper functions, but for now,
-* just use the member functions.  Note that it is \c const since it will normally point to shared space.
-* 
-*/
-typedef const struct m_dBasis *dBasis;
-
-/**
-* Holds interpolation and differentiation context.
-*
-* This is implemented as pointers to the matrices and (possibly) unrolled versions of functions to apply those vectors
-* across a 3D block of values.  This is the mutable handle, it should only be used during setup.
-* 
-*/
-struct m_dBasis {
-  dErr (*mult)(dInt,dInt,dInt,dInt,dInt,dInt,dInt,const dReal[],const dReal[],const dReal[],dReal[]);
-  dErr (*multtrans)(dInt,dInt,dInt,dInt,dInt,dInt,dInt,const dReal[],const dReal[],const dReal[],dReal[]);
-  const dReal *bmat;        /**< pointer to the basis matrix */
-  const dReal *dmat;        /**< pointer to the derivative matrix */
-  dRule rule;                /**< the rule on which the basis has been constructed, redundant */
-  dInt bsize;               /**< basis size, should be redundant */
-  dInt qsize;               /**< quadrature size, should be redundant */
-};
-
-/**
-* Handle for setting up #dRule and #dBasis.
+* Handle for setting up #dRule and #dEFS contexts.
 * 
 */
 typedef struct p_dJacobi *dJacobi;
 
-
-/**
-* Generic operations provided by a #dJacobi implementation.
-* 
-*/
-struct _dJacobiOps {
-  dErr (*setup)(dJacobi);
-  dErr (*setfromoptions)(dJacobi);
-  dErr (*destroy)(dJacobi);
-  dErr (*view)(dJacobi,PetscViewer);
-  dErr (*getrule)(dJacobi,dInt,dRule*);
-  dErr (*getbasis)(dJacobi,dInt,dInt,dBasis*);
-};
-
-/**
-* Private Jacobi table context.
-* 
-*/
-struct p_dJacobi {
-  PETSCHEADER(struct _dJacobiOps);
-  dInt basisdegree;         /**< the maximum degree basis functions to be supported */
-  dInt ruleexcess;          /**< the amount of over-integration to be supported */
-  dBool setupcalled;
-  void *impl;                   /**< private implementation context */
-};
-
 #define dJacobiType char *
-#define dJACOBI_LGL "lgl"
-
-EXTERN dErr dJacobiCreate_LGL(dJacobi);
+#define dJACOBI_TENSOR "tensor"
 
 EXTERN dErr dJacobiCreate(MPI_Comm,dJacobi*);
 EXTERN dErr dJacobiSetType(dJacobi,dJacobiType);
@@ -117,9 +60,11 @@ EXTERN dErr dJacobiRegisterAll(const char[]);
 EXTERN dErr dJacobiInitializePackage(const char[]);
 
 EXTERN dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
-EXTERN dErr dJacobiGetRule(dJacobi,dInt,dRule*);
-EXTERN dErr dJacobiGetBasis(dJacobi,dInt,dInt,dBasis*);
+EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
+EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes);
 
+  // EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
+// EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes);
 
 PETSC_EXTERN_CXX_END
 

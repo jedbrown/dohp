@@ -2,6 +2,7 @@
 #define _DOHPTYPE_H
 
 #include "petsc.h"
+#include "iMesh.h"
 
 
 /**
@@ -16,6 +17,13 @@ typedef PetscScalar    dScalar;
 typedef PetscTruth     dBool;
 typedef PetscErrorCode dErr;
 typedef PetscObject    dObject;
+typedef PetscViewer    dViewer;
+
+#define dTopology      enum iMesh_EntityTopology
+
+
+#define dCHK(err) CHKERRQ(err);
+#define dERROR(n,...) {return PetscError(__LINE__,__FUNCT__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
 
 #define dPrintf PetscPrintf
 #define dMemcpy(a,b,c) PetscMemcpy(a,b,c)
@@ -23,15 +31,26 @@ typedef PetscObject    dObject;
 #define dValidHeader(a,b,c) PetscValidHeaderSpecific(a,b,c)
 #define dValidPointer(a,b) PetscValidPointer(a,b)
 #define dMalloc(a,b) PetscMalloc(a,b)
-#define dCHK(err) CHKERRQ(err);
+#define dNew(a,b) PetscNew(a,b)
+#define dFree(a) PetscFree(a)
+#define dNewM(n,t,p) (dMalloc((n)*sizeof(t),(p)) || dMemzero(*(p),(n)*sizeof(t)))
+#define dMallocM(n,t,p) (dMalloc((n)*sizeof(t),(p)))
+
+#define dMax(a,b) PetscMax(a,b)
+#define dMin(a,b) PetscMin(a,b)
+#define dSqr(a) PetscSqr(a)
+
+#define dGamma(a) tgamma(a) /* This is defined in math.h as of C99. */
 
 #ifndef false
 # define false PETSC_FALSE
 #endif
-
 #ifndef true
 # define true PETSC_TRUE
 #endif
+
+#define dMAX_PATH_LEN PETSC_MAX_PATH_LEN
+#define dNAME_LEN     256
 
 #define dFunctionBegin \
   {\
@@ -52,7 +71,5 @@ typedef PetscObject    dObject;
   {\
   PetscStackPop; \
   return;}
-
-#define dERROR(n,...) {return PetscError(__LINE__,__FUNCT__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
 
 #endif

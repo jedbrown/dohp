@@ -3,9 +3,10 @@
 
 #include "dohp.h"
 #include "src/dm/dmimpl.h"
+// #include "private/fsimpl.h"
 
 PetscCookie dDM_COOKIE;
-PetscLogEvent DOHP_MatMult, DOHP_FunctionEval, DOHP_JacobianEval;
+PetscLogEvent dLOG_MatMult, dLOG_FunctionEval, dLOG_JacobianEval;
 
 struct _dMeshOps {
   dErr(*orientfacets)(dMesh);
@@ -30,8 +31,6 @@ typedef struct {
   dErr (*unapply)(dInt,dInt,const dScalar*,const dScalar*,dScalar*,dScalar*);
 } DohpBCOps;
 
-typedef unsigned char DohpUInt8;
-
 struct _DohpMFSOps {
   dErr (*lots)();
 };
@@ -47,8 +46,10 @@ struct p_dohpDM {
   dMesh mesh;
 
   /* Defined on the locally owned portion of the mesh, can be reconstructed from information stored in the mesh. */
-  dRule_Hex  *ruleR;
-  dRule_Quad *ruleF;
+  dRule *ruleR;
+  dRule *ruleF;
+  dEFS *efsR;
+  dEFS *efsF;
   DohpEMap_Hex  *emapR;
   DohpEMap_Quad *emapF;
 
@@ -75,7 +76,7 @@ struct _DohpBlockOps {
   dErr (*stuffhere)();
 };
 
-struct p_dohpBlock {
+struct p_dBlock {
   PETSCHEADER(struct _DohpBlockOps);
   DohpDM dm;
   Sliced sliced;
@@ -90,33 +91,7 @@ struct p_dohpBlock {
   dInt *ind;                /* [nelems] starting index of interior dofs in local vector */
 };
 
-struct _EFSOps {
-  dErr (*deriv)(void *,const dScalar *,dScalar *); /* evaluate derivatives at quadrature points */
-  dErr (*derivt)(void *,const dScalar *,dScalar *); /* weak derivatives of test functions */
-  dErr (*getnodes)(void *,dReal **);                   /* coordinates of the nodal basis */
-  dErr (*getqweights)(void *,dReal **);                /* weights at quadrature points  */
-  dErr (*getqnodes)(void *,dReal *);                   /* nodes */
-  dErr (*loctoint)(void *,const dScalar *,dScalar *);
-  dErr (*inttoloc)(void *,const dScalar *,dScalar *);
-  dErr (*facettoelem)(void *,void *,const dScalar *,dScalar *);
-  dErr (*elemtofacet)(void *,void *,const dScalar *,dScalar *);
-};
-
-
-// Held once for every Function Space with support on this element.
-struct p_dohpEFS {
-  // Normally a constant pointer to the operations for a basis type, but could point to unrolled versions.
-  struct _EFSOps *ops;
-  // Private storage to define the basis operations.  For Hex elements, this
-  // would be three pointers to the line contexts in the tensor product.
-  // Used by EFSOps for operations in the star space. Must agree with quadrature order.
-  void *elem;
-  // Private storage, defines how to project to/from facets.
-  // An example implementation would have pointers to projection matrices.
-  void *facet;
-};
-
-struct p_dohpMFS {
+struct p_dMFS {
   PETSCHEADER(struct _DohpMFSOps);
   dMesh  mesh;
   char     *name;               /* name of the domain, used to find the corresponding entity set in the mesh */
@@ -132,8 +107,8 @@ struct p_dohpMFS {
 
   /* Element operations */
   dInt nelems;              /* Number of elements in this function space */
-  DohpEFS **efs;                /* Pointers to the function space operations */
-  DohpUInt8 *efssize;           /* Stored size at each element, stride is topological dimension of the element */
+  dEFS **efs;                /* Pointers to the function space operations */
+  dInt *efssize;           /* Stored size at each element, stride is topological dimension of the element */
 };
 
 // For every Field, we need only the number of degrees of freedom and the local offset.

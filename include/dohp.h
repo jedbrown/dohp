@@ -16,37 +16,17 @@ enum DohpDeriv {
   DERIV_Z     = 0x8
 };
 
-#define dNAME_LEN 128
-
 /* Function to define the quadrature order on a given mesh. */
 typedef dErr (*dQuotientFunction1)(const dReal*,dInt*);
 /* Function to define an approximation space given a mesh and a quadrature order. */
 typedef dErr (*DohpMFSFunction1)(const dReal*,const dInt*,dInt*);
 
 /* Central user-visible objects. */
-typedef struct p_dohpDM *DohpDM;
-typedef struct p_dohpMFS *DohpMFS;
-typedef struct p_dohpWF *DohpWF;
-typedef struct p_dohpBlock* DohpBlock;
+typedef struct p_dDM *DohpDM;
+typedef struct p_dMFS *DohpMFS;
+typedef struct p_dWF *DohpWF;
+typedef struct p_dBlock *DohpBlock;
 
-typedef struct p_dohpEFS* DohpEFS;
-
-/* Quadrature rules.  Currently we support tensor-product type Gauss, Gauss-Lobatto, and
-* Gauss-Radau.  Tensor product spaces and quadrature rules are central to the efficiency of the
-* method, but the implementation should become private. */
-typedef struct {
-  dReal   *coord;
-  dReal   *weight;
-  dInt     size;
-} dRule_Line;
-
-typedef struct {
-  dRule_Line l[2];
-} dRule_Quad;
-
-typedef struct {
-  dRule_Line l[3];
-} dRule_Hex;
 
 /* Element coordinate mappings, these should become private eventually. */
 
@@ -59,7 +39,7 @@ typedef struct {
 } DohpEMap_Affine3;
 
 /* We can do a poor man's parametric map by using vertex coordinates and computing Jacobians at
-* quadrature points on the fly.  For this, we need only store the vertex coordinates in interlaced
+* quadrature points on the fly.  For this, we need only store the vertex coordinates in interleaved
 * ordering. */
 typedef struct {
   dReal vtx[2*3];
@@ -85,28 +65,6 @@ typedef struct {
 
 /* Element basis functions.  Should become private. */
 
-/* We build these for a range of sizes and quadrature sizes.  Such a table can be compiled in or
-* created at runtime depending on the size range needed. */
-typedef struct {
-  dScalar *basis;  // (size*qsize), basis[i*size+j] = phi_j(q_i)
-  dScalar *deriv;  // (size*qsize), deriv[i*size+j] = phi_j'(q_i)
-  dReal   *ncoord; // (size), nodes of Lagrange polynomial
-  dInt     size;
-} DohpBase;
-
-/* At each element, we just need to store pointers to the parts of the tensor product. */
-typedef struct {
-  DohpBase *l;
-} DohpElem_Line;
-
-typedef struct {
-  DohpBase *l[2];
-} DohpElem_Quad;
-
-typedef struct {
-  DohpBase *l[3];
-} DohpElem_Hex;
-
 
 /* DohpDM: the distributed domain manager consists of
 * - 1  DohpWF: continuum statement of the problem
@@ -118,7 +76,6 @@ typedef struct {
 * */
 EXTERN dErr DohpDMCreate(MPI_Comm,DohpDM);
 EXTERN dErr DohpDMSetMesh(DohpDM,dMesh);
-EXTERN dErr DohpDMGetRule(DohpDM,dRule_Hex**);
 EXTERN dErr DohpDMGetMFS(DohpDM,const char[],DohpMFS*);
 EXTERN dErr DohpDMCreateMFS(DohpDM,const char[],DohpMFS*);
 EXTERN dErr DohpDMGetMesh(DohpDM,dMesh*);
@@ -143,10 +100,6 @@ EXTERN dErr DohpMFSSetUp(DohpMFS);
 EXTERN dErr DohpMFSApplyMinimumRule(DohpMFS,const MeshListInt*);
 EXTERN dErr DohpMFSSetUpElementBases(DohpMFS,const MeshListInt*);
 EXTERN dErr DohpMFSSetUpElemFacetProjections(DohpMFS);
-
-/* dQuotient: this is not actually an object, just a combination of quadrature rule and element
-* map.  The element map operations need to know about the quadrature rule so we keep them together. */
-EXTERN dErr dQuotientComputeElemJac_Hex(const DohpEMap_Hex*,const dRule_Hex*,dReal*,dReal*,dReal*);
 
 PETSC_EXTERN_CXX_END
 #endif /* _DOHP_H */

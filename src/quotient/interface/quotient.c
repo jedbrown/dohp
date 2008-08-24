@@ -120,7 +120,7 @@ dErr dQuotientSetFromOptions(dQuotient q)
   dBool typeSet,cdegSet;
   dInt cdeg;
   const dQuotientType deft = dQuotientGauss;
-  char type[256];
+  char type[dNAME_LEN];
   dErr err;
 
   dFunctionBegin;
@@ -128,7 +128,7 @@ dErr dQuotientSetFromOptions(dQuotient q)
   err = PetscOptionsBegin(((PetscObject)q)->comm,((PetscObject)q)->prefix,"Quotient (quadrature rule and element map) options","dQuotient");dCHK(err);
   err = dQuotientRegisterAll(PETSC_NULL);dCHK(err);
   if (((PetscObject)q)->type_name) { deft = ((PetscObject)q)->type_name; }
-  err = PetscOptionsList("-dquot_type","Quotient type","dQuotientSetType",dQuotientList,deft,type,256,&typeSet);dCHK(err);
+  err = PetscOptionsList("-dquot_type","Quotient type","dQuotientSetType",dQuotientList,deft,type,dNAME_LEN,&typeSet);dCHK(err);
   err = PetscOptionsInt("-dquot_cdeg","Constant degree","dQuotientSetDegreeConst",5,&cdeg,&cdegSet);dCHK(err);
   if (typeSet) {
     err = dQuotientSetType(q,type);dCHK(err);

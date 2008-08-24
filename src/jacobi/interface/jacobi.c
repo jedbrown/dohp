@@ -10,6 +10,7 @@
 
 #include "petsc.h"
 #include "dohpjacobi.h"
+#include "private/fsimpl.h"
 
 PetscCookie dJACOBI_COOKIE;
 static PetscFList dJacobiList = 0;
@@ -95,7 +96,7 @@ dErr dJacobiSetType(dJacobi jac,dJacobiType type)
 */
 dErr dJacobiSetFromOptions(dJacobi jac)
 {
-  char type[256] = dJACOBI_LGL;
+  char type[dNAME_LEN] = dJACOBI_TENSOR;
   dBool typeSet;
   dErr err;
 
@@ -103,7 +104,7 @@ dErr dJacobiSetFromOptions(dJacobi jac)
   PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
   err = PetscOptionsBegin(((PetscObject)jac)->comm,((PetscObject)jac)->prefix,"Jacobi options (type and size of basis/quadrature rules)","dJacobi");dCHK(err);
   err = PetscOptionsList("-djac_type","Basis/Quadrature type","dJacobiSetType",dJacobiList,
-                          (((PetscObject)jac)->type_name?((PetscObject)jac)->type_name:type),type,256,&typeSet);dCHK(err);
+                          (((PetscObject)jac)->type_name?((PetscObject)jac)->type_name:type),type,dNAME_LEN,&typeSet);dCHK(err);
   if (typeSet) {
     err = dJacobiSetType(jac,type);dCHK(err);
   }
@@ -214,7 +215,7 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
 #define __FUNCT__ "dJacobiRegister"
 dErr dJacobiRegister(const char name[],const char path[],const char cname[],dErr(*create)(dJacobi))
 {
-  char fullname[PETSC_MAX_PATH_LEN];
+  char fullname[dMAX_PATH_LEN];
   dErr err;
 
   dFunctionBegin;
@@ -232,7 +233,7 @@ dErr dJacobiRegisterAll(const char path[])
   dErr err;
 
   dFunctionBegin;
-  err = dJacobiRegisterDynamic(dJACOBI_LGL,path,"dJacobiCreate_LGL",dJacobiCreate_LGL);dCHK(err);
+  err = dJacobiRegisterDynamic(dJACOBI_TENSOR,path,"dJacobiCreate_Tensor",dJacobiCreate_Tensor);dCHK(err);
   called = PETSC_TRUE;
   dFunctionReturn(0);
 }
@@ -284,30 +285,37 @@ dErr dJacobiSetDegrees(dJacobi jac,dInt basisdegree,dInt ruleexcess)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dJacobiGetRule"
 /** 
-* Get a pointer to the rule.
+* Writes a new Rule into the buffer pointed to by \a rule.  The number of bytes required is returned in \a bytes.  The
+* \c dRule struct has an array of private pointers at the end.  Different topology and/or basis types may need a
+* different number of pointers.
+*
+* @example An anisotropic tensor product rule for a Hexahedron needs 3 data pointers hence \a bytes will be
+* 'sizeof(dRule)+3*sizeof(void*)'
 * 
-* @param[in] jac context
-* @param[in] n number of quadrature nodes in requested rule
-* @param[out] rule rule handle
+* @param jac the context
+* @param top topology of the element
+* @param rsize number of points in each Cartesian direction
+* @param left number of bytes left in \a rule
+* @param rule place to put the newly constructed dRule
+* @param bytes number of bytes used
 * 
-* @return 
+* @return err
 */
-dErr dJacobiGetRule(dJacobi jac,dInt n,dRule *rule)
+EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes)
 {
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
-  err = jac->ops->getrule(jac,n,rule);dCHK(err);
+  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidPointer(rsize,3);
+  dValidPointer(rule,5);
+  dValidPointer(bytes,6);
+  err = jac->ops->getrule(jac,top,rsize,left,rule,bytes);dCHK(err);
   dFunctionReturn(0);
 }
 
 
-#undef __FUNCT__
-#define __FUNCT__ "dJacobiGetBasis"
 /** 
 * Get a basis context.
 * 
@@ -318,12 +326,16 @@ dErr dJacobiGetRule(dJacobi jac,dInt n,dRule *rule)
 * 
 * @return 
 */
-dErr dJacobiGetBasis(dJacobi jac,dInt bsize,dInt qsize,dBasis *basis)
+EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes)
 {
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
-  err = jac->ops->getbasis(jac,bsize,qsize,basis);dCHK(err);
+  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidPointer(bsize,3);
+  dValidPointer(rule,4);
+  dValidPointer(efs,6);
+  dValidPointer(bytes,7);
+  err = jac->ops->getefs(jac,top,bsize,rule,left,efs,bytes);dCHK(err);
   dFunctionReturn(0);
 }
