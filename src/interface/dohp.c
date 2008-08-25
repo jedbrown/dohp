@@ -1,12 +1,13 @@
 #include "include/private/dohpimpl.h"
 #include "src/inline/ilu.h"
 
+#if 0
 /* Evaluate the Jacobian at quadrature points, this implementation simply uses the vertex
 coordinates (placed in emap) to define the coordinate transformation.  Later implementations can use
 higher order parametrically mapped elements or can optimize for affine mappings. */
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientComputeElemJac_Hex"
-dErr dQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const dRule_Hex *rule,dReal *detJ,dReal *Jac,dReal *invJ)
+dErr dQuotientComputeElemJac_Hex(const DohpEMap *e,const dRule *rule,dReal detJ[],dReal Jac[],dReal *invJ)
 {
   const dRule_Line *r=rule->l;
   dReal *J,f[6][3];
@@ -14,6 +15,7 @@ dErr dQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const dRule_Hex *rule,dRe
   dErr err;
 
   dFunctionBegin;
+  
   for (i=0; i<r[0].size; i++) {
     for (j=0; j<r[1].size; j++) {
       for (k=0; k<r[2].size; k++) {
@@ -41,6 +43,7 @@ dErr dQuotientComputeElemJac_Hex(const DohpEMap_Hex *e,const dRule_Hex *rule,dRe
   }
   dFunctionReturn(0);
 }
+#endif
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSSetUp"

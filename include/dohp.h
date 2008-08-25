@@ -3,6 +3,7 @@
 
 #include "petscsnes.h"
 #include "dohpquotient.h"
+#include "dohpjacobi.h"
 
 PETSC_EXTERN_CXX_BEGIN
 

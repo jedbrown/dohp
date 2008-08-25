@@ -195,7 +195,7 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
     err = PetscViewerASCIIPrintf(viewer,"type: %s\n",
                                   ((PetscObject)jac)->type_name ? ((PetscObject)jac)->type_name : "type not set");dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"max basis degree: %d\n",jac->basisdegree);dCHK(err);
-    err = PetscViewerASCIIPrintf(viewer,"rule excess: %d\n",jac->basisdegree);dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"rule excess: %d\n",jac->ruleexcess);dCHK(err);
     if (!jac->setupcalled) {
       err = PetscViewerASCIIPrintf(viewer,"Object has not been set up.\n",jac->basisdegree);dCHK(err);
     }
