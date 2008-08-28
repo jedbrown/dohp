@@ -92,6 +92,7 @@ static dErr dJacobiSetUp_Tensor(dJacobi jac)
   dErr   err;
 
   dFunctionBegin;
+  if (this->setupcalled) dFunctionReturn(0);
   err = TensorBuilderCreate((void*)this->ruleOpts,&this->ruleBuilder);dCHK(err);
   err = TensorBuilderCreate((void*)this->basisOpts,&this->basisBuilder);dCHK(err);
   this->N = N = jac->basisdegree;                     /* all valid basis degrees are < P */
@@ -115,7 +116,8 @@ static dErr dJacobiSetUp_Tensor(dJacobi jac)
       err = TensorBasisCreate(this->basisBuilder,rule,j,&this->basis[i*N+j]);dCHK(err);
     }
   }
-
+  err = dJacobiRuleOpsSetUp_Tensor(jac);dCHK(err);
+  err = dJacobiEFSOpsSetUp_Tensor(jac);dCHK(err);
   this->setupcalled = true;
   dFunctionReturn(0);
 }
@@ -542,3 +544,4 @@ static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
   *out = this->basis[m*this->N+n];
   dFunctionReturn(0);
 }
+

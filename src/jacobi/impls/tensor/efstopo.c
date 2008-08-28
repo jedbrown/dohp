@@ -1,5 +1,84 @@
 #include "tensor.h"
 
+#ifdef _F
+# undef _F
+#endif
+#define _F(f) static dErr f(dEFS*,PetscViewer) /* dEFSView */
+_F(dEFSView_Tensor_Line);
+_F(dEFSView_Tensor_Quad);
+_F(dEFSView_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dEFS*,dInt*,dInt*,dInt*) /* dEFSGetSizes */
+_F(dEFSGetSizes_Tensor_Line);
+_F(dEFSGetSizes_Tensor_Quad);
+_F(dEFSGetSizes_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyType,InsertMode) /* dEFSApply */
+_F(dEFSApply_Tensor_Line);
+_F(dEFSApply_Tensor_Quad);
+_F(dEFSApply_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dEFS*,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
+_F(dEFSScatterInt_Tensor_Line);
+_F(dEFSScatterInt_Tensor_Quad);
+_F(dEFSScatterInt_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterFacet */
+_F(dEFSScatterFacet_Tensor_Line);
+_F(dEFSScatterFacet_Tensor_Quad);
+_F(dEFSScatterFacet_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dInt D,const dInt P[],const dInt Q[],dInt *wlen,dScalar *restrict* work,dReal *A[],dTransposeMode tpose[],const dScalar f[],dScalar g[restrict],InsertMode imode)
+_F(TensorMult_Line);
+_F(TensorMult_Quad);
+_F(TensorMult_Hex);
+#undef _F
+
+
+/** 
+* Set up the EFS ops table for each topology.  This is the only exported function in this file.
+* 
+* @param jac 
+* 
+* @return 
+*/
+dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
+{
+  static const struct v_dEFSOps efsOpsLine = { .view = dEFSView_Tensor_Line,
+                                               .getSizes = dEFSGetSizes_Tensor_Line,
+                                               .apply = dEFSApply_Tensor_Line,
+                                               .scatterInt = 0,
+                                               .scatterFacet = 0 };
+  static const struct v_dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
+                                               .getSizes = dEFSGetSizes_Tensor_Quad,
+                                               .apply = dEFSApply_Tensor_Quad,
+                                               .scatterInt = 0,
+                                               .scatterFacet = 0 };
+  static const struct v_dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
+                                               .getSizes = dEFSGetSizes_Tensor_Hex,
+                                               .apply = dEFSApply_Tensor_Hex,
+                                               .scatterInt = 0,
+                                               .scatterFacet = 0 };
+  Tensor this = (Tensor)jac->impl;
+  dErr err;
+
+  dFunctionBegin;
+  if (!this->efsOpsLine) {
+    err = dMalloc(sizeof(struct v_dEFSOps),&this->efsOpsLine);dCHK(err);
+    err = dMemcpy(this->efsOpsLine,&efsOpsLine,sizeof(struct v_dEFSOps));
+  }
+  if (!this->efsOpsQuad) {
+    err = dMalloc(sizeof(struct v_dEFSOps),&this->efsOpsQuad);dCHK(err);
+    err = dMemcpy(this->efsOpsQuad,&efsOpsQuad,sizeof(struct v_dEFSOps));
+  }
+  if (!this->efsOpsHex) {
+    err = dMalloc(sizeof(struct v_dEFSOps),&this->efsOpsHex);dCHK(err);
+    err = dMemcpy(this->efsOpsHex,&efsOpsHex,sizeof(struct v_dEFSOps));
+  }
+  dFunctionReturn(0);
+}
+
+
 /** 
 * The core computational kernel.  Performs a tensor product operation with the matrices A,B,C.
 * 
@@ -16,7 +95,7 @@
 * 
 * @return err
 */
-dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dInt *wlen,dScalar *restrict* work,
+static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dInt *wlen,dScalar *restrict* work,
                            dReal *A[3],dTransposeMode tpose[3],const dScalar f[],dScalar g[restrict],InsertMode imode)
 {
   dInt i,j,k,l,d,idx;

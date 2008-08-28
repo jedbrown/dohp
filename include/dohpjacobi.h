@@ -20,6 +20,7 @@
 */
 
 #include "dohptype.h"
+#include "petscsys.h"
 // #include "private/petscimpl.h"
 
 PETSC_EXTERN_CXX_BEGIN
@@ -46,6 +47,12 @@ typedef struct p_dRule dRule;
 typedef enum { dTRANSPOSE_NO=113634,dTRANSPOSE_YES=853467 } dTransposeMode;
 
 /**
+* Indicates what type of basis operation to do, see dEFSApply().
+* 
+*/
+typedef enum { dAPPLY_INTERP=40001,dAPPLY_INTERP_TRANSPOSE=40002,dAPPLY_GRAD=40003,dAPPLY_GRAD_TRANSPOSE=40004 } dApplyMode;
+
+/**
 * Handle for setting up #dRule and #dEFS contexts.
 * 
 */
@@ -69,9 +76,6 @@ EXTERN dErr dJacobiInitializePackage(const char[]);
 EXTERN dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
 EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
 EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
-
-// EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
-// EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes);
 
 PETSC_EXTERN_CXX_END
 

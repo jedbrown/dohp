@@ -10,7 +10,8 @@ PETSC_EXTERN_CXX_BEGIN
 * 
 */
 struct v_dRuleOps {
-  dErr (*getSize)(dRule*,dInt*,dInt*); /**< topological dimension of the space, number of nodes */
+  dErr (*view)(dRule*,PetscViewer);
+  dErr (*getSize)(dRule*,dInt*,dInt*); /**< topological dimension of the space, total number of nodes */
   dErr (*getNodeWeight)(dRule*,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
   dErr (*getTensorNodeWeight)(dRule*,dInt*,dInt[],const dReal**,const dReal**); /**< topological dimension, number of
                                                                                * nodes in each direction, weights in
@@ -21,6 +22,7 @@ struct p_dRule {
   struct v_dRuleOps *ops;
   void              *data;
 };
+#define dRuleView(rule,view)                                    (*rule->ops->view)(rule,view)
 #define dRuleGetSize(rule,dim,nnodes)                           (*rule->ops->getSize)(rule,dim,nnodes)
 #define dRuleGetNodeWeight(rule,coord,weight)                   (*rule->ops->getNodeWeight)(rule,coord,weight)
 #define dRuleGetTensorNodeWeight(rule,dim,nnodes,coord,weights) (*rule->ops->getTensorNodeWeight)(rule,dim,nnodes,coord,weights)
@@ -30,20 +32,21 @@ struct p_dRule {
 * 
 */
 struct v_dEFSOps {
-  dErr (*applyBasis)(dEFS,dInt,const dScalar *,dScalar *,dScalar *); /**< dofs/node, modal values, nodal values, work */
-  dErr (*applyBasisT)(dEFS,dInt,const dScalar *,dScalar *,dScalar *);
-  dErr (*applyDeriv)(dEFS,dInt,const dScalar *,dScalar *,dScalar *);
-  dErr (*applyDerivT)(dEFS,dInt,const dScalar *,dScalar *,dScalar *);
-  dErr (*getNodes)(dEFS,dInt*,dReal[]); /**< coordinates of the nodal basis, not always implemented */
-  dErr (*scatterToInt)(dEFS,dInt,dInt,const dScalar[],dScalar[]); /**< dofs/node, offset of interior dofs, array, local array */
-  dErr (*scatterFromInt)(dEFS,dInt,dInt,const dScalar[],dScalar[]);
+  dErr (*view)(dEFS*,PetscViewer);
+  dErr (*getSizes)(dEFS*,dInt*,dInt*,dInt*); /**< topological dimension, number of interior nodes, total number of nodes */
+  dErr (*apply)(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode);
+  /**< dofs/node, work length, work, modal values, nodal values */
+  dErr (*scatterInt)(dEFS*,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
   /**
-  * @bug It's not yet clear to me how to implement these.
+  * @bug It's not yet clear to me how to implement this.
   * 
   */
-  dErr (*facettoelem)(void *,void *,const dScalar *,dScalar *);
-  dErr (*elemtofacet)(void *,void *,const dScalar *,dScalar *);
+  dErr (*scatterFacet)(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode);
 };
+
+#define dEFSView(efs,viewer) (*efs->ops->view)(efs,viewer)
+#define dEFSGetSizes(efs,inodes,total) (*efs->ops->getSizes)(efs,inodes,total)
+#define dEFSApply(efs,dofs,wlen,work,in,out,mtype,imode) (*efs->ops->apply)(ofs,dofs,wlen,work,in,out,mtype,imode)
 
 /**
 * This is held once for every function space on every element.  This part of the implementation is not really private.

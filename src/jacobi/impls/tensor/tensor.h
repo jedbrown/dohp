@@ -76,20 +76,18 @@ struct s_TensorRule {
   dReal *weight,*coord;            /**< weights and nodal coordinates */
 };
 
+typedef dErr (*TensorMultFunction)(dInt,const dInt*,const dInt*,dInt*,dScalar**restrict,const dReal**,const dTransposeMode*,const dScalar*,dScalar*restrict,InsertMode);
+
 typedef struct s_TensorBasis *TensorBasis;
 /**
 * Stores a one-dimensional part of a Tensor product basis.  Includes optimized functions for 3D tensor multiplication.
 * 
 */
 struct s_TensorBasis {
-  dErr (*mult)(dInt,const dInt[],const dInt[],dInt*,dScalar**restrict,const dReal**,const dTransposeMode[],const dScalar[],dScalar[restrict],InsertMode);
+  TensorMultFunction mult;
   dInt  P,Q;
   dReal *interp,*deriv,*node;
 };
-dErr TensorMult_Line(dInt,const dInt[1],const dInt[1],dInt*,dScalar**restrict,const dReal**,const dTransposeMode[1],const dScalar[],dScalar[restrict],InsertMode);
-dErr TensorMult_Quad(dInt,const dInt[2],const dInt[2],dInt*,dScalar**restrict,const dReal**,const dTransposeMode[2],const dScalar[],dScalar[restrict],InsertMode);
-dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dInt *wlen,dScalar *restrict* work,
-                    dReal *A[3],dTransposeMode tpose[3],const dScalar f[],dScalar g[restrict],InsertMode imode);
 
 typedef struct s_TensorBasisOptions *TensorBasisOptions;
 struct s_TensorBasisOptions {
@@ -153,6 +151,9 @@ struct s_dEFS_Tensor_Quad {
 struct s_dEFS_Tensor_Hex {
   TensorBasis basis[3];
 };
+
+EXTERN dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac);
+EXTERN dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);
 
 PETSC_EXTERN_CXX_END
 
