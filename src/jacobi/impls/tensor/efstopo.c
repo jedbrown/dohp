@@ -13,7 +13,7 @@ _F(dEFSGetSizes_Tensor_Line);
 _F(dEFSGetSizes_Tensor_Quad);
 _F(dEFSGetSizes_Tensor_Hex);
 #undef _F
-#define _F(f) static dErr f(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyType,InsertMode) /* dEFSApply */
+#define _F(f) static dErr f(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode) /* dEFSApply */
 _F(dEFSApply_Tensor_Line);
 _F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);

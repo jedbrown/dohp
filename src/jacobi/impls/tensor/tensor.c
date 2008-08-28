@@ -17,11 +17,9 @@ static dErr TensorBuilderDestroy(TensorBuilder);
 
 static dErr TensorRuleCreate(TensorBuilder,dInt,TensorRule*);
 static dErr TensorRuleDestroy(TensorRule);
-static dErr TensorRuleView(const TensorRule,PetscViewer);
 
 static dErr TensorBasisCreate(TensorBuilder,const TensorRule,dInt,TensorBasis*);
 static dErr TensorBasisDestroy(TensorBasis);
-static dErr TensorBasisView(const TensorBasis,PetscViewer);
 
 static dErr dJacobiSetUp_Tensor(dJacobi);
 static dErr dJacobiDestroy_Tensor(dJacobi);
@@ -417,7 +415,7 @@ static dErr TensorRuleDestroy(TensorRule rule)
   dFunctionReturn(0);
 }
 
-static dErr TensorRuleView(const TensorRule rule,PetscViewer viewer)
+dErr TensorRuleView(const TensorRule rule,PetscViewer viewer) /* exported so that topology implementation can use it */
 {
   dBool ascii;
   dErr err;
@@ -489,7 +487,7 @@ static dErr TensorBasisDestroy(TensorBasis basis)
   dFunctionReturn(0);
 }
 
-static dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer)
+dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so that topology implementations can see it */
 {
   dBool ascii;
   dErr err;

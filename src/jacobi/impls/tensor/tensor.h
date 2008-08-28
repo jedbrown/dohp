@@ -155,6 +155,9 @@ struct s_dEFS_Tensor_Hex {
 EXTERN dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac);
 EXTERN dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);
 
+EXTERN dErr TensorRuleView(const TensorRule,PetscViewer);
+EXTERN dErr TensorBasisView(const TensorBasis,PetscViewer);
+
 PETSC_EXTERN_CXX_END
 
 #endif  /* _TENSOR_H */
