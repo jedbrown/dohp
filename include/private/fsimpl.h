@@ -10,20 +10,20 @@ PETSC_EXTERN_CXX_BEGIN
 * 
 */
 struct v_dRuleOps {
-  dErr (*getSize)(dRule,dInt*,dInt*); /**< topological dimension of the space, number of nodes */
-  dErr (*getNodeWeight)(dRule,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
-  dErr (*getTensorNodeWeight)(dRule,dInt*,dInt[],const dReal**,const dReal**); /**< topological dimension, number of
+  dErr (*getSize)(dRule*,dInt*,dInt*); /**< topological dimension of the space, number of nodes */
+  dErr (*getNodeWeight)(dRule*,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
+  dErr (*getTensorNodeWeight)(dRule*,dInt*,dInt[],const dReal**,const dReal**); /**< topological dimension, number of
                                                                                * nodes in each direction, weights in
                                                                                * each direction.  Does not copy, may not
                                                                                * be implemented.  */
 };
-struct m_dRule {
+struct p_dRule {
   struct v_dRuleOps *ops;
-  void              *data[];
+  void              *data;
 };
-#define dRuleGetSize(rule,dim,nnodes)                           (*rule->getSize)(rule,dim,nnodes)
-#define dRuleGetNodeWeight(rule,coord,weight)                   (*rule->getNodeWeight)(rule,coord,weight)
-#define dRuleGetTensorNodeWeight(rule,dim,nnodes,coord,weights) (*rule->getTensorNodeWeight)(rule,dim,nnodes,coord,weights)
+#define dRuleGetSize(rule,dim,nnodes)                           (*rule->ops->getSize)(rule,dim,nnodes)
+#define dRuleGetNodeWeight(rule,coord,weight)                   (*rule->ops->getNodeWeight)(rule,coord,weight)
+#define dRuleGetTensorNodeWeight(rule,dim,nnodes,coord,weights) (*rule->ops->getTensorNodeWeight)(rule,dim,nnodes,coord,weights)
 
 /**
 * Operations required for an EFS.  Defined here so that these function calls can be inlined.
@@ -46,16 +46,13 @@ struct v_dEFSOps {
 };
 
 /**
-* The mutable #dEFS context.  This is held once for every function space on every element.  Depending on the element
-* type, the data segment may vary in length.  The implementation is not really private, but after assembly, it should be
-* manipulated with the immutable handle #dEFS.
+* This is held once for every function space on every element.  This part of the implementation is not really private.
 * 
 */
-struct m_dEFS {
+struct p_dEFS {
   struct v_dEFSOps *ops;        /**< The element operations, normally constructed by #dJacobi */
-  void             *data[];     /**< Private storage to define the basis operations.  For Hex elements, this would start
-                                * with three pointers to the line contexts in the tensor product.  It must also store
-                                * enough information to define projection to facets. */
+  dRule            *rule;       /**< The rule this EFS was built on, probably redundant */
+  void             *data;       /**< Private storage to define the basis operations */
 };
 
 /**
@@ -69,8 +66,9 @@ struct _dJacobiOps {
   dErr (*view)(dJacobi,PetscViewer);
   //dErr (*getrule)(dJacobi,dInt,const dInt[],dRule*,dInt*);            /**< put a dRule into the output buffer */
   //dErr (*getefs)(dJacobi,dInt,const dInt[],const dInt[],dEFS*,dInt*); /**< put a dEFS into the output buffer */
-  dErr (*getrule)(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
-  dErr  (*getefs)(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes);
+  dErr (*getrulesize)(dJacobi,dTopology,dInt*);
+  dErr (*getrule)(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
+  dErr (*getefs)(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
 };
 
 /**

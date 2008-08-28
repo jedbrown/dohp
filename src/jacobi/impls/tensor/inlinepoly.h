@@ -763,7 +763,7 @@ void Imgrjp(double *im,double *zgrj, double *zm, int nz, int mz,
 
 */
 
-void Imglj(double *im, double *zglj, double *zm, int nz, int mz,
+void Imglj(double *im, double *zglj, const double *zm, int nz, int mz,
 	   double alpha, double beta)
 {
   double zp;

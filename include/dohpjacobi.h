@@ -26,17 +26,24 @@ PETSC_EXTERN_CXX_BEGIN
 
 /**
 * Handle for manipulating EFS objects.  Since these are actually stored in arrays, the handle is the actual object
-* rather than just a pointer.
+* rather than just a pointer.  This means that a certain amount of library code (dFS) will have to be able to see the
+* struct definition (in order to know the size, to make an array).  This is okay since the objects are so simple
+* (everything is implementation-dependent, the details of which are still hidden).
 * 
 */
-typedef struct m_dEFS dEFS;
+typedef struct p_dEFS dEFS;
 
 /**
 * As above, the handle is the actual object.
 * 
 */
-typedef struct m_dRule dRule;
+typedef struct p_dRule dRule;
 
+/**
+* Indicates whether or not to apply the transpose of a interpolation/derivative matrix.
+* 
+*/
+typedef enum { dTRANSPOSE_NO=113634,dTRANSPOSE_YES=853467 } dTransposeMode;
 
 /**
 * Handle for setting up #dRule and #dEFS contexts.
@@ -60,10 +67,10 @@ EXTERN dErr dJacobiRegisterAll(const char[]);
 EXTERN dErr dJacobiInitializePackage(const char[]);
 
 EXTERN dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
-EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
-EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes);
+EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
+EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
 
-  // EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
+// EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
 // EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes);
 
 PETSC_EXTERN_CXX_END

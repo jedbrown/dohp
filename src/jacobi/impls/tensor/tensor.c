@@ -9,138 +9,28 @@
 * 
 */
 
-#include "petsc.h"
-#include "dohpjacobi.h"
-// #include "private/dohpimpl.h"
-#include "private/fsimpl.h"
-// #include "uthash.h"
+#include "tensor.h"
 #include "inlinepoly.h"
-#include "blist.h"
 
-/* If pointer is not aligned to a cache line boundary, advance it so that it is. */
+static dErr TensorBuilderCreate(void*,TensorBuilder*);
+static dErr TensorBuilderDestroy(TensorBuilder);
 
-#define CACHE_LINE    64l       /* my cache lines are 64 bytes long */
-#define DEFAULT_ALIGN 16l       /* SSE instructions require 16 byte alignment */
+static dErr TensorRuleCreate(TensorBuilder,dInt,TensorRule*);
+static dErr TensorRuleDestroy(TensorRule);
+static dErr TensorRuleView(const TensorRule,PetscViewer);
 
-#define dNextCacheAligned(p) dNextAlignedAddr(CACHE_LINE,p)
-#define dNextAligned(p)      dNextAlignedAddr(DEFAULT_ALIGN,p)
-
-/** 
-* Returns the next address which satisfies the given alignment.
-*
-* This function cannot fail.
-* 
-* @param alignment must be a power of 2
-* @param ptr The pointer
-* 
-* @return aligned address
-*/
-static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
-{
-  size_t base = (size_t)ptr;
-  size_t mask = alignment-1;
-  if (base & mask) return (void*)(base + (alignment - (base & mask)));
-  return (void*)base;
-}
-
-typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
-
-/**
-* The Rule and Basis building functions need work space that is freeable later (mostly just so that valgrind won't
-* complain, it's not a serious memory leak, but this design is more flexible than internal static memory management.
-* 
-*/
-typedef struct {
-  void *options;
-  dInt workLength;
-  dReal *work;
-} TensorBuilder;
-static dErr TensorBuilderInit(void*,TensorBuilder*);
-static dErr TensorBuilderDestroy(TensorBuilder*);
-
-typedef struct {
-  dReal       alpha,beta;
-  GaussFamily family;
-} TensorRuleOptions;
-
-/**
-* We make no particular attempt to align the beginning of the structure, however we would like to align the arrays,
-* especially the large derivative arrays, at least to 16-byte boundaries (to enable SSE) and preferably to cache line
-* boundaries.
-* 
-*/
-typedef struct {
-  dInt  size;                     /**< number of quadrature points */
-  dInt  weightOffset,coordOffset; /**< index into \c data where coordinates start  */
-  dReal data[];                   /**< weights = data[0...size], nodes = data[coordOffset...coordOffset+size] */
-} TensorRule;
-static dErr TensorRuleCreate(TensorBuilder*,dInt,dInt,TensorRule*,dInt*);
-
-typedef struct {
-  dReal       alpha,beta;
-  GaussFamily family;
-} TensorBasisOptions;
-typedef struct {
-  dErr (*mult)(dInt,dInt,dInt,dInt,dInt,dInt,dInt,const dReal[],const dReal[],const dReal[],dReal[]);
-  dErr (*multtrans)(dInt,dInt,dInt,dInt,dInt,dInt,dInt,const dReal[],const dReal[],const dReal[],dReal[]);
-  dInt  ruleSize,basisSize;
-  dInt  basisOffset,derivOffset,nodeOffset;
-  dReal data[];
-} TensorBasis;
-static dErr TensorBasisCreate(TensorBuilder*,const TensorRule*,dInt,dInt,TensorBasis*,dInt*);
-
-typedef struct m_Tensor *Tensor;
-/**
-* There are several factors in play which justify the storage method used.  First, we would like rapid lookup of
-* TensorRule and TensorBasis objects since many lookups are needed any time the approximation order changes.  More
-* importantly, we would like to be able to generate the best possible code and data alignment for the kernel operations,
-* particularly multiplication of derivative and interpolation matrices across the data arrays.  For this, it is ideal to
-* have these matrices aligned to a cache line boundary.  This leaves the maximum possible cache available for data and
-* may allow SSE instructions, especially if we can find a way to guarantee that the data arrays are also at least
-* 16-byte aligned.
-*
-* To achieve this, we will use raw buffers to store the TensorRule and TensorBasis.  The dBufferList is a simple way to
-* manage these buffers since it is difficult to determine in advance how much room is needed.  When filling in a new
-* TensorRule or TensorBasis fails, we just get a new base pointer from dBufferList and retry.
-*
-* For rule data, it is cheap to just generate rules for every size up to the maximum needed.  For basis data, it isn't
-* necessarily so simple since there could be lots of Basis/Rule combinations when the spectral order becomes very large.
-* To cope with this, we store our collection of TensorBasis is CSR format.  That is, the array \c basisOffsetByRule
-* holds the start of the bases for each rule size.  To find a basis on a rule \a m with \a n functions, we search for
-* order \a n in 'basisSizeFlat[]' between indices range 'basisOffsetByRule[m]' to 'basisOffsetByRule[m+1]-1'.
-* 
-*/
-struct m_Tensor {
-  TensorBuilder ruleBuilder,basisBuilder;
-  dBufferList ruleData,basisData; /**< The actual storage for rules. */
-  TensorRule  **rule;              /**< Array of 1D rule pointers.  The rule with \a m points is indexed as \a rule[\a m]. */
-  TensorBasis **basis;             /**< Array of 1D basis pointers, length \a N.  Consider basis with \a m quadrature
-                                  * points and \a n basis functions.
-                                  *
-                                  * If the quadrature points are \f$ q_i, i = 0,1,\dotsc,m-1 \f$
-                                  *
-                                  * and the nodes are \f$ x_j, j=0,1,\dotsc,n-1 \f$
-                                  * 
-                                  * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
-  dInt M,N;                     /**< length of arrays \a rule and \a basis */
-  dInt *basisOffsetByRule;      /**< Array of length \a M+1, that is, the number of rules plus one. */
-  dInt *basisSizeFlat;          /**< Array of length \a N,  */
-  TensorRuleOptions ruleOpts;
-  TensorBasisOptions basisOpts;
-  dBufferList data;
-  struct v_dRuleOps *ruleOpsLine,*ruleOpsQuad;
-  struct v_dEFSOps *efsOpsLine,*efsOpsQuad;
-  dBool setupcalled;
-};
+static dErr TensorBasisCreate(TensorBuilder,const TensorRule,dInt,TensorBasis*);
+static dErr TensorBasisDestroy(TensorBasis);
+static dErr TensorBasisView(const TensorBasis,PetscViewer);
 
 static dErr dJacobiSetUp_Tensor(dJacobi);
 static dErr dJacobiDestroy_Tensor(dJacobi);
 static dErr dJacobiView_Tensor(dJacobi,PetscViewer);
-static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes);
-static dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes);
+static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
+static dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
 
-static dErr TensorGetRule(Tensor this,dInt n,TensorRule **out);
-static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis **out);
+static dErr TensorGetRule(Tensor this,dInt n,TensorRule *out);
+static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out);
 
 static dErr TensorJacobiHasBasis(dJacobi,dInt,dInt,dBool*);
 
@@ -164,24 +54,26 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
     .getrule = dJacobiGetRule_Tensor,
     .getefs = dJacobiGetEFS_Tensor
   };
-  TensorRuleOptions *ropt;
-  TensorBasisOptions *bopt;
+  TensorRuleOptions ropt;
+  TensorBasisOptions bopt;
   dErr err;
 
   dFunctionBegin;
-  err = dPrintf(((PetscObject)jac)->comm,"dJacobiCreate_Tensor()\n");dCHK(err);
+  err = dPrintf(((PetscObject)jac)->comm,"dJacobiCreate_Tensor()\n");dCHK(err); /* diagnostic */
   err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
-  err = dNew(struct m_Tensor,&jac->impl);dCHK(err);
+  err = dNew(struct s_Tensor,&jac->impl);dCHK(err);
+  err = dNew(struct s_TensorRuleOptions,&ropt);dCHK(err);
+  err = dNew(struct s_TensorBasisOptions,&bopt);dCHK(err);
 
-  ropt         = &((Tensor)jac->impl)->ruleOpts;
   ropt->alpha  = 0.0;
   ropt->beta   = 0.0;
   ropt->family = GAUSS;
+  ((Tensor)jac->impl)->ruleOpts = ropt;
 
-  bopt         = &((Tensor)jac->impl)->basisOpts;
   bopt->alpha  = 0.0;
   bopt->beta   = 0.0;
   bopt->family = GAUSS_LOBATTO;
+  ((Tensor)jac->impl)->basisOpts = bopt;
   dFunctionReturn(0);
 }
 
@@ -194,86 +86,64 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
 */
 static dErr dJacobiSetUp_Tensor(dJacobi jac)
 {
-  Tensor impl = (Tensor)(jac->impl);
+  Tensor this = (Tensor)(jac->impl);
   dInt   M,N;
+  dBool  has;
   dErr   err;
 
   dFunctionBegin;
-  err = TensorBuilderInit((void*)&impl->ruleOpts,&impl->ruleBuilder);dCHK(err);
-  err = TensorBuilderInit((void*)&impl->basisOpts,&impl->basisBuilder);dCHK(err);
-  impl->N = N = jac->basisdegree;                     /* all valid basis degrees are < P */
-  impl->M = M = N + jac->ruleexcess;                  /* all valid rule degrees are < M */
+  err = TensorBuilderCreate((void*)this->ruleOpts,&this->ruleBuilder);dCHK(err);
+  err = TensorBuilderCreate((void*)this->basisOpts,&this->basisBuilder);dCHK(err);
+  this->N = N = jac->basisdegree;                     /* all valid basis degrees are < P */
+  this->M = M = N + jac->ruleexcess;                  /* all valid rule degrees are < M */
 
-  err = dMallocM(M,TensorRule*,&impl->rule);dCHK(err); /* Get space to store all the rule pointers as an array. */
-  impl->rule[0] = NULL;                               /* There is no rule with zero points. */
-  {
-    const size_t chunkSize = sizeof(dReal)*M*M/2 + M*sizeof(impl->rule[0]); /* Not quite enough because of alignment issues */
-    TensorRule *z,*znext;
-    dInt        used,left = 0;
-    for (dInt i=1; i<M; i++) {
-      do {
-        used = 0;
-        if (!left) {
-          err = dBufferListMalloc(&impl->ruleData,chunkSize,(void**)&z);dCHK(err);
-          left = (dInt)chunkSize;
-        }
-        err = TensorRuleCreate(&impl->ruleBuilder,i,left,z,&used);dCHK(err); /* If there is insufficient space 'left', used=0 */
-        znext = dNextAligned((void*)((size_t)z + used));
-        left -= (dInt)((size_t)znext - (size_t)z);
-        if (!used) left = 0;
-      } while (!used);          /* This should loop once at most. */
-      impl->rule[i] = z;
-      z = znext;
-    }
+  err = dMallocM(M,TensorRule,&this->rule);dCHK(err); /* Get space to store all the rule pointers */
+  this->rule[0] = NULL;
+  for (dInt i=1; i<M; i++) {
+    err = TensorRuleCreate(this->ruleBuilder,i,&this->rule[i]);dCHK(err);
   }
 
-  err = dMallocM(M*N,TensorBasis*,&impl->basis);dCHK(err);
-  {
-    const size_t chunkSize = M*N*((2*M*N+N)*sizeof(dReal) + sizeof(TensorBasis))/2; /* Adjust this for alignment. */
-    TensorBasis *z,*znext;
-    dInt         used,left = 0;
-    dBool        has;
-
-    for (dInt i=0; i<M; i++) {
-      TensorRule *rule = impl->rule[i];
-      for (dInt j=0; j<N; j++) {
-        err = TensorJacobiHasBasis(jac,i,j,&has);dCHK(err);
-        if (!has || !rule) {
-          impl->basis[i*N+j] = NULL;
-          continue;
-        }
-        do {
-          used = 0;
-          if (!left) {
-            err = dBufferListMalloc(&impl->basisData,chunkSize,(void**)&z);dCHK(err);
-            left = (dInt)chunkSize;
-          }
-          err = TensorBasisCreate(&impl->basisBuilder,rule,j,left,z,&used);dCHK(err);
-          znext = dNextAligned((void*)((size_t)z + used));
-          left -= (dInt)((size_t)znext - (size_t)z);
-          if (!used) left = 0;
-        } while (!used);        /* should loop at most once */
-        impl->basis[i*N+j] = z;
-        z = znext;
+  err = dMallocM(M*N,TensorBasis,&this->basis);dCHK(err);
+  for (dInt i=0; i<M; i++) {
+    TensorRule rule = this->rule[i];
+    for (dInt j=0; j<N; j++) {
+      err = TensorJacobiHasBasis(jac,i,j,&has);dCHK(err);
+      if (!has || !rule) {
+        this->basis[i*N+j] = NULL;
+        continue;
       }
+      err = TensorBasisCreate(this->basisBuilder,rule,j,&this->basis[i*N+j]);dCHK(err);
     }
   }
-  impl->setupcalled = true;
+
+  this->setupcalled = true;
   dFunctionReturn(0);
 }
 
 static dErr dJacobiDestroy_Tensor(dJacobi jac)
 {
-  Tensor impl = (Tensor)jac->impl;
+  Tensor this = (Tensor)jac->impl;
   dErr err;
 
   dFunctionBegin;
-  err = dFree(impl->rule);dCHK(err);
-  err = dFree(impl->basis);dCHK(err);
-  err = dBufferListFree(&impl->ruleData);dCHK(err);
-  err = dBufferListFree(&impl->basisData);dCHK(err);
-  err = TensorBuilderDestroy(&impl->ruleBuilder);dCHK(err);
-  err = TensorBuilderDestroy(&impl->basisBuilder);dCHK(err);
+  if (this->rule) {
+    for (dInt i=0; i<this->M; i++) {
+      if (this->rule[i]) { err = TensorRuleDestroy(this->rule[i]);dCHK(err); this->rule[i] = NULL; }
+    }
+    err = dFree(this->rule);dCHK(err);
+  }
+  if (this->basis) {
+    for (dInt i=0; i<this->M; i++) {
+      for (dInt j=0; j<this->N; j++) {
+        dInt idx = i*this->N + j;
+        if (this->basis[idx]) { err = TensorBasisDestroy(this->basis[idx]);dCHK(err); this->basis[idx] = NULL; }
+      }
+    }
+    err = dFree(this->basis);dCHK(err);
+  }
+  if (this->ruleBuilder) { err = TensorBuilderDestroy(this->ruleBuilder);dCHK(err); }
+  if (this->basisBuilder) { err = TensorBuilderDestroy(this->basisBuilder);dCHK(err); }
+  err = dFree(this);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -281,8 +151,8 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
 {
   Tensor this = (Tensor)jac->impl;
   dBool ascii;
-  const TensorRule *r;
-  TensorBasis *b;
+  TensorRule r;
+  TensorBasis b;
   dErr err;
 
   dFunctionBegin;
@@ -290,14 +160,10 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"Tensor based Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"TensorRule database.\n");dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"TensorRule database:\n");dCHK(err);
   for (dInt i=0; i<this->M; i++) {
     r = this->rule[i];
-    if (r) {
-      err = PetscViewerASCIIPrintf(viewer,"TensorRule with %d nodes.\n",r->size);dCHK(err);
-      err = dRealTableView(1,i,&r->data[r->coordOffset],"q",viewer);dCHK(err);
-      err = dRealTableView(1,i,&r->data[r->weightOffset],"w",viewer);dCHK(err);
-    }
+    if (r) {err = TensorRuleView(r,viewer);dCHK(err);}
   }
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis database.\n");dCHK(err);
   for (dInt i=1; i<this->M; i++) {
@@ -305,8 +171,7 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
       b = 0;
       err = TensorGetBasis(this,i,j,&b);dCHK(err);
       if (b) {
-        err = PetscViewerASCIIPrintf(viewer,"TensorBasis with nodes=%d basis=%d.\n");dCHK(err);
-        err = dRealTableView(i,j,&b->data[b->basisOffset],"basis",viewer);dCHK(err);
+        err = TensorBasisView(b,viewer);dCHK(err);
       }
     }
   }
@@ -324,12 +189,14 @@ static dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dVie
   if (!ascii) dFunctionReturn(0);
   for (dInt i=0; i<m; i++) {
     if (name) {
-      err = PetscViewerASCIIPrintf(viewer,"%s[%d][%d:%d] ",name,i,0,n-1);dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n-1);dCHK(err);
     }
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_NO);dCHK(err);
     for (dInt j=0; j<n; j++) {
-      err = PetscViewerASCIIPrintf(viewer,"%12.5g ",mat[i*n+j]);dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer," % 9.5f",mat[i*n+j]);dCHK(err);
     }
     err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_YES);dCHK(err);
   }
   dFunctionReturn(0);
 }
@@ -349,194 +216,292 @@ static dErr TensorJacobiHasBasis(dJacobi jac,dInt rule,dInt basis,dBool *has)
 * @param jac Jacobi context
 * @param top topology
 * @param rsize rule size in each dimension, normally
-* @param left number of bytes left in the buffer which \a rule points to
-* @param[in,out] rule space to write the rule
-* @param bytes number of bytes taken by rule
+* @param rule space to write the rule
+* @param base base of array to write the private data, if NULL, write nothing
+* @param[in,out] index into \a data to write the private data, incremented to point to the next free space
 * 
 * @return 
 */
-static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dInt left,dRule *rule,dInt *bytes)
+static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index)
 {
   Tensor this = (Tensor)jac->impl;
-  dInt needed;
+  void **start = &base[*index];
+  struct s_dRule_Tensor_Line *line;
+  struct s_dRule_Tensor_Quad *quad;
+  struct s_dRule_Tensor_Hex *hex;
   dErr err;
 
   dFunctionBegin;
   switch (top) {
     case iMesh_LINE_SEGMENT:
-      needed = offsetof(struct m_dRule,data[1]);
-      if (needed > left) dERROR(1,"not enough space in buffer");
-      *bytes = needed;
-      err = TensorGetRule(this,rsize[0],(TensorRule**)&rule->data[0]);dCHK(err);
-      rule->ops = this->ruleOpsLine;
+      if (base) {
+        rule->ops = this->ruleOpsLine;
+        rule->data = start;
+        line = (struct s_dRule_Tensor_Line*)&start;
+        err = TensorGetRule(this,rsize[0],(TensorRule*)&line->rule[0]);dCHK(err);
+      }
+      *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
       break;
     case iMesh_QUADRILATERAL:
-      needed = offsetof(struct m_dRule,data[2]);dCHK(err);
-      if (needed > left) dERROR(1,"not enough space in buffer");
-      *bytes = needed;
-      err = TensorGetRule(this,rsize[0],(TensorRule**)&rule->data[0]);dCHK(err);
-      err = TensorGetRule(this,rsize[1],(TensorRule**)&rule->data[1]);dCHK(err);
-      rule->ops = this->ruleOpsQuad;
+      if (base) {
+        rule->ops = this->ruleOpsQuad;
+        rule->data = start;
+        quad = (struct s_dRule_Tensor_Quad*)&start;
+        err = TensorGetRule(this,rsize[0],(TensorRule*)&quad->rule[0]);dCHK(err);
+        err = TensorGetRule(this,rsize[1],(TensorRule*)&quad->rule[1]);dCHK(err);
+      }
+      *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
       break;
     case iMesh_HEXAHEDRON:
+      if (base) {
+        rule->ops = this->ruleOpsHex;
+        rule->data = start;
+        hex = (struct s_dRule_Tensor_Hex*)start;
+        err = TensorGetRule(this,rsize[0],(TensorRule*)&hex->rule[0]);dCHK(err);
+        err = TensorGetRule(this,rsize[1],(TensorRule*)&hex->rule[1]);dCHK(err);
+      }
+      *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
+      break;
     default:
       dERROR(1,"no rule available for given topology");
   }
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],const dRule *rule,dInt left,dEFS *efs,dInt *bytes)
+/** 
+* Fill in an EFS of the specified order.
+* 
+* @param jac context
+* @param top topology (from the iMesh_Topology enum)
+* @param bsize vector of basis sizes in each direction
+* @param rule rule on which the dEFS resides
+* @param efs dEFS context, must be allocated
+* @param base start of array in which to put private data, or NULL to only calculate private space requirement
+* @param index index into base to start putting private data, updated on exit
+* 
+* @return 
+*/
+dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index)
 {
   Tensor this = (Tensor)jac->impl;
-  dInt needed;
+  void **start = &base[*index];
+  struct s_dEFS_Tensor_Line *line;
+  struct s_dEFS_Tensor_Quad *quad;
+  struct s_dEFS_Tensor_Hex *hex;
+  dInt rdim,rsize[3];
   dErr err;
 
   dFunctionBegin;
+  err = dRuleGetSize(rule,&rdim,rsize);dCHK(err);
   switch (top) {
     case iMesh_LINE_SEGMENT:
-      needed = offsetof(struct m_dEFS,data[1]);
-      if (needed > left) dERROR(1,"not enough space in buffer");
-      *bytes = needed;
-      err = TensorGetBasis(this,((TensorRule*)rule->data[0])->size,bsize[0],(TensorBasis**)&efs->data[0]);dCHK(err);
-      efs->ops = this->efsOpsLine;
+      if (rdim != 1) dERROR(1,"Incompatible Rule size %d, expected 1",rdim);
+      if (base) {
+        efs->ops = this->efsOpsLine;
+        efs->rule = rule;
+        efs->data = start;
+        line = (struct s_dEFS_Tensor_Line*)start;
+        err = TensorGetBasis(this,rsize[0],bsize[0],&line->basis[0]);dCHK(err);
+      }
+      *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
       break;
     case iMesh_QUADRILATERAL:
-      needed = offsetof(struct m_dEFS,data[2]);dCHK(err);
-      if (needed > left) dERROR(1,"not enough space in buffer");
-      *bytes = needed;
-      err = TensorGetBasis(this,((TensorRule*)rule->data[0])->size,bsize[0],(TensorBasis**)&efs->data[0]);dCHK(err);
-      err = TensorGetBasis(this,((TensorRule*)rule->data[1])->size,bsize[1],(TensorBasis**)&efs->data[1]);dCHK(err);
-      efs->ops = this->efsOpsQuad;
+      if (rdim != 2) dERROR(1,"Incompatible Rule size %d, expected 2",rdim);
+      if (base) {
+        efs->ops = this->efsOpsQuad;
+        efs->rule = rule;
+        efs->data = start;
+        quad = (struct s_dEFS_Tensor_Quad*)start;
+        for (dInt i=0; i<2; i++) {
+          err = TensorGetBasis(this,rsize[i],bsize[i],&quad->basis[i]);dCHK(err);
+        }
+      }
+      *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
       break;
     case iMesh_HEXAHEDRON:
+      if (rdim != 3) dERROR(1,"Incompatible Rule size %d, expected 3",rdim);
+      if (base) {
+        efs->ops = this->efsOpsHex;
+        efs->rule = rule;
+        efs->data = start;
+        hex = (struct s_dEFS_Tensor_Hex*)start;
+        for (dInt i=0; i<3; i++) {
+          err = TensorGetBasis(this,rsize[i],bsize[i],&hex->basis[i]);dCHK(err);
+        }
+      }
+      *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
+      break;
     default:
-      dERROR(1,"no rule available for given topology");
+      dERROR(1,"no basis available for given topology");
   }
   dFunctionReturn(0);
 }
   
 
-static dErr TensorBuilderInit(void *opts,TensorBuilder *out)
+static dErr TensorBuilderCreate(void *opts,TensorBuilder *out)
 {
+  dErr err;
+  TensorBuilder new;
+
   dFunctionBegin;
-  out->options = opts;
-  out->workLength = 0;
-  out->work = NULL;
+  err = dNew(struct s_TensorBuilder,&new);dCHK(err);
+  new->options = opts;
+  new->workLength = 0;
+  new->work = NULL;
+  *out = new;
   dFunctionReturn(0);
 }
 
-static dErr TensorBuilderDestroy(TensorBuilder *build)
+static dErr TensorBuilderGetArray(TensorBuilder build,dInt size,dReal **a)
 {
-  dErr err;
-  
-  dFunctionBegin;
-  build->options = NULL;
-  err = dFree(build->work);dCHK(err);
-  build->workLength = 0;
-  dFunctionReturn(0);
-}
-
-static dErr TensorRuleCreate(TensorBuilder *build,dInt size,dInt bytesRemaining,TensorRule *rule,dInt *bytesUsed)
-{
-  TensorRuleOptions *opt = (TensorRuleOptions*)build->options;
-  dReal *base,*weight,*coord;
-  dInt bytesNeeded;
   dErr err;
 
   dFunctionBegin;
-  /* Determine how much output space we will use */
-  base = &rule->data[0];
-  weight = dNextCacheAligned(base); 
-  coord = dNextCacheAligned(weight + size);
-  bytesNeeded = (dInt)((size_t)(coord + size) - (size_t)rule);
-  if (bytesNeeded > bytesRemaining) {
-    *bytesUsed = 0;
-    dFunctionReturn(0);
-    /* For now, also throw an error, just to see when this fires. */
-    dERROR(1,"Not enough space in buffer, %d bytes needed, %d remaining",bytesNeeded,bytesRemaining);
-  }
-  if (build->workLength < size) { /* make sure we have enough work space */
+  if (build->workLength < size) { /* make sure we have enough work space, we're currently not using this space. */
     err = dFree(build->work);dCHK(err);
-    build->workLength = dMax(2*build->workLength,2*size);
+    build->workLength = 2*size;
     err = dMalloc(build->workLength*sizeof(dReal),&build->work);dCHK(err);
   }
-  rule->size = size;
-  rule->weightOffset = (dInt)(weight - base);
-  rule->coordOffset = (dInt)(coord - base);
+  *a = build->work;
+  dFunctionReturn(0);
+}
+
+static dErr TensorBuilderDestroy(TensorBuilder build)
+{
+  dErr err;
+  
+  dFunctionBegin;
+  err = dFree(build->work);dCHK(err);
+  err = dFree(build);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr TensorRuleCreate(TensorBuilder build,dInt size,TensorRule *rule)
+{
+  TensorRuleOptions opt = (TensorRuleOptions)build->options;
+  dReal *work;
+  TensorRule r;
+  dErr err;
+
+  dFunctionBegin;
+  if (!(0 < size && size < 50)) dERROR(1,"rule size out of bounds.");
   /* Check options */
   if (!opt) dERROR(1,"TensorRuleOptions not set.");
   if (opt->family != GAUSS) dERROR(1,"GaussFamily %d not supported",opt->family);
+  err = dNew(struct s_TensorRule,rule);dCHK(err);
+
+  r = *rule;
+  err = PetscMalloc2(size,dReal,&r->weight,size,dReal,&r->coord);dCHK(err);
+  err = TensorBuilderGetArray(build,size,&work);dCHK(err); /* We're not using this now */
+ 
+  r->size = size;
   if (size == 1) {              /* Polylib function fails for this size. */
-    weight[0] = 2.0;
-    coord[0] = 0.0;
+    r->weight[0] = 2.0;
+    r->coord[0] = 0.0;
   } else {
-    zwgj(coord,weight,size,opt->alpha,opt->beta); /* polylib function */
+    zwgj(r->coord,r->weight,size,opt->alpha,opt->beta); /* polylib function */
   }
-  *bytesUsed = bytesNeeded;
   dFunctionReturn(0);
 }
 
-static dErr TensorBasisCreate(TensorBuilder *build,const TensorRule *rule,dInt basisSize,dInt bytesRemaining,TensorBasis *tbasis,dInt *bytesUsed)
+static dErr TensorRuleDestroy(TensorRule rule)
 {
-  TensorBasisOptions *opt = (TensorBasisOptions*)build->options;
-  const dInt ruleSize=rule->size,N=ruleSize*basisSize;
-  dReal *base,*basis,*deriv,*node;
-  dInt bytesNeeded;
   dErr err;
 
   dFunctionBegin;
-  /* Determine how much output space we will use */
-  base = &tbasis->data[0];
-  basis = dNextCacheAligned(base);
-  deriv = dNextCacheAligned(basis + N);
-  node = dNextCacheAligned(deriv + N);
-  bytesNeeded = (dInt)((size_t)(node+basisSize) - (size_t)tbasis);
-  if (bytesNeeded > bytesRemaining) {
-    *bytesUsed = 0;
-    dFunctionReturn(0);
-    dERROR(1,"Not enough space in buffer, %d bytes needed, %d remaining",bytesNeeded,bytesRemaining);
-  }
-  if (build->workLength < 2*N) { /* make sure we have enough work space */
-    err = dFree(build->work);dCHK(err);
-    build->workLength = dMax(2*build->workLength,2*N);
-    err = dMalloc(build->workLength*sizeof(dReal),&build->work);dCHK(err);
-  }
+  if (!rule) dFunctionReturn(0);
+  err = PetscFree2(rule->weight,rule->coord);dCHK(err);
+  err = dFree(rule);dCHK(err);
+  dFunctionReturn(0);
+}
 
-  tbasis->ruleSize    = ruleSize;
-  tbasis->basisSize   = basisSize;
-  tbasis->basisOffset = (dInt)(basis - base);
-  tbasis->derivOffset = (dInt)(deriv - base);
-  tbasis->nodeOffset  = (dInt)(node - base);
-  /* Check options */
+static dErr TensorRuleView(const TensorRule rule,PetscViewer viewer)
+{
+  dBool ascii;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  if (!ascii) dFunctionReturn(0);
+  err = PetscViewerASCIIPrintf(viewer,"TensorRule with %d nodes.\n",rule->size);dCHK(err);
+  err = dRealTableView(1,rule->size,rule->coord,"q",viewer);dCHK(err);
+  err = dRealTableView(1,rule->size,rule->weight,"w",viewer);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,TensorBasis *basis)
+{
+  TensorBasisOptions opt = (TensorBasisOptions)build->options;
+  TensorBasis b;
+  const dInt Q=rule->size;
+  dReal *work;
+  dErr err;
+
+  dFunctionBegin;
+  if (!(0 < P && P <= Q)) dERROR(1,"Requested TensorBasis size %d out of bounds.",P);
   if (!opt) dERROR(1,"TensorRuleOptions not set.");
   if (opt->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %d not supported",opt->family);
-  if (basisSize == 1) {         /* degenerate case */
-    node[0] = 0.0; basis[0] = 1.0; deriv[0] = 0.0;
+  err = dNew(struct s_TensorBasis,&b);dCHK(err);
+  err = PetscMalloc3(P*Q,dReal,&b->interp,P*Q,dReal,&b->deriv,P,dReal,&b->node);dCHK(err);
+  err = TensorBuilderGetArray(build,2*P*Q,&work);dCHK(err); /* We're not using this now */
+  b->Q = Q;
+  b->P = P;
+
+  if (P == 1) {         /* degenerate case */
+    b->interp[0] = 1.0;
+    b->deriv[0] = 0.0;
+    b->node[0] = 0.0;
     dFunctionReturn(0);
-  }
-  {
+  } else {
     const dReal alpha=opt->alpha,beta=opt->beta;
-    dReal *cDeriv = build->work;
-    dReal *cDerivT = build->work + dSqr(basisSize);
-    dReal *coord = build->work;
-    err = dMemcpy(coord,&rule->data[rule->coordOffset],rule->size);dCHK(err);
-    node[0] = -1.0; node[basisSize-1] = 1.0;
-    jacobz(basisSize-2,node+1,alpha+1.0,beta+1.0);
-    Imglj(basis,node,coord,basisSize,ruleSize,alpha,beta);
-    Dglj(cDeriv,cDerivT,node,basisSize,alpha,beta);
-    for (dInt i=0; i<ruleSize; i++) {
-      for (dInt j=0; j<basisSize; j++) {
+    dReal *cDeriv = work;        /* collocation derivative at Gauss-Lobatto points */
+    dReal *cDerivT = work + P*Q; /* useless matrix spewed out of Dglj() */
+    dReal *interp = b->interp;
+    dReal *node = b->node;
+    node[0] = -1.0; node[P-1] = 1.0;
+    jacobz(P-2,node+1,alpha+1.0,beta+1.0);        /* Gauss-Lobatto nodes */
+    Imglj(interp,node,rule->coord,P,Q,alpha,beta); /* interpolation matrix */
+    Dglj(cDeriv,cDerivT,node,P,alpha,beta);       /* collocation derivative matrix */
+    for (dInt i=0; i<Q; i++) {
+      for (dInt j=0; j<P; j++) {
         dReal z = 0;
-        for (dInt k=0; k<basisSize; k++) {
-          z += basis[i*basisSize+k] * deriv[k*basisSize+j];
+        for (dInt k=0; k<P; k++) {
+          z += interp[i*P+k] * cDeriv[k*P+j];
         }
-        deriv[i*basisSize+j] = z;
+        b->deriv[i*P+j] = z;
       }
     }
   }
-  *bytesUsed = bytesNeeded;
+  *basis = b;
   dFunctionReturn(0);
 }
+
+static dErr TensorBasisDestroy(TensorBasis basis)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!basis) dFunctionReturn(0);
+  err = PetscFree3(basis->interp,basis->deriv,basis->node);dCHK(err);
+  err = dFree(basis);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer)
+{
+  dBool ascii;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  if (!ascii) dFunctionReturn(0);
+  err = PetscViewerASCIIPrintf(viewer,"TensorBasis with rule=%d basis=%d.\n",basis->Q,basis->P);dCHK(err);
+  err = dRealTableView(basis->Q,basis->P,basis->interp,"interp",viewer);dCHK(err);
+  err = dRealTableView(basis->Q,basis->P,basis->deriv,"deriv",viewer);dCHK(err);
+  err = dRealTableView(1,basis->P,basis->node,"node",viewer);dCHK(err);
+  dFunctionReturn(0);
+}
+
 
 /** 
 * Just an error checking indexing function.
@@ -547,7 +512,7 @@ static dErr TensorBasisCreate(TensorBuilder *build,const TensorRule *rule,dInt b
 * 
 * @return 
 */
-static dErr TensorGetRule(Tensor this,dInt m,TensorRule **out)
+static dErr TensorGetRule(Tensor this,dInt m,TensorRule *out)
 {
 
   dFunctionBegin;
@@ -567,7 +532,7 @@ static dErr TensorGetRule(Tensor this,dInt m,TensorRule **out)
 * 
 * @return 
 */
-static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis **out)
+static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
 {
 
   dFunctionBegin;

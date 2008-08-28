@@ -39,7 +39,7 @@ double hglj    (int, double, double *, int, double, double);
 void  Imgj  (double*, double*, double*, int, int, double, double);
 void  Imgrjm(double*, double*, double*, int, int, double, double);
 void  Imgrjp(double*, double*, double*, int, int, double, double);
-void  Imglj (double*, double*, double*, int, int, double, double);
+void  Imglj (double*, double*, const double*, int, int, double, double);
 
 /* Polynomial functions */
 void jacobfd (int, double *, double *, double *, int , double, double);
