@@ -1,6 +1,7 @@
 static const char help[] = "Tests the dJacobi object.";
 
 #include "dohpjacobi.h"
+#include "private/fsimpl.h"
 
 dErr checkRulesAndEFS(dJacobi);
   
@@ -21,9 +22,9 @@ int main(int argc,char *argv[])
   err = dJacobiSetDegrees(jac,8,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
-  err = dJacobiView(jac,viewer);dCHK(err);
+  /* err = dJacobiView(jac,viewer);dCHK(err); */
   err = dJacobiSetUp(jac);dCHK(err);
-  err = getRules(jac);dCHK(err);  
+  err = checkRulesAndEFS(jac);dCHK(err);  
   err = dJacobiDestroy(jac);dCHK(err);
   err = PetscFinalize();dCHK(err);
   dFunctionReturn(0);
@@ -39,6 +40,7 @@ dErr checkRulesAndEFS(dJacobi jac)
   MPI_Comm comm = ((PetscObject)jac)->comm;
   dRule *rule;
   dEFS *efs;
+  dInt index;
   void **rbase,**ebase;
   dErr err;
 
@@ -58,7 +60,7 @@ dErr checkRulesAndEFS(dJacobi jac)
   
   for (dInt i=0; i<N; i++) {
     err = dPrintf(comm,"Rule for element %d\n",i);dCHK(err);
-    err = dRuleView(&rule,viewer);dCHK(err);
+    err = dRuleView(&rule[i],viewer);dCHK(err);
   }
   dFunctionReturn(0);
 }

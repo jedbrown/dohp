@@ -22,10 +22,6 @@ struct p_dRule {
   struct v_dRuleOps *ops;
   void              *data;
 };
-#define dRuleView(rule,view)                                    (*rule->ops->view)(rule,view)
-#define dRuleGetSize(rule,dim,nnodes)                           (*rule->ops->getSize)(rule,dim,nnodes)
-#define dRuleGetNodeWeight(rule,coord,weight)                   (*rule->ops->getNodeWeight)(rule,coord,weight)
-#define dRuleGetTensorNodeWeight(rule,dim,nnodes,coord,weights) (*rule->ops->getTensorNodeWeight)(rule,dim,nnodes,coord,weights)
 
 /**
 * Operations required for an EFS.  Defined here so that these function calls can be inlined.

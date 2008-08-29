@@ -189,7 +189,7 @@ static dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dVie
   if (!ascii) dFunctionReturn(0);
   for (dInt i=0; i<m; i++) {
     if (name) {
-      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n-1);dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
     }
     err = PetscViewerASCIIUseTabs(viewer,PETSC_NO);dCHK(err);
     for (dInt j=0; j<n; j++) {
@@ -246,7 +246,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
       if (base) {
         rule->ops = this->ruleOpsQuad;
         rule->data = start;
-        quad = (struct s_dRule_Tensor_Quad*)&start;
+        quad = (struct s_dRule_Tensor_Quad*)start;
         err = TensorGetRule(this,rsize[0],(TensorRule*)&quad->rule[0]);dCHK(err);
         err = TensorGetRule(this,rsize[1],(TensorRule*)&quad->rule[1]);dCHK(err);
       }

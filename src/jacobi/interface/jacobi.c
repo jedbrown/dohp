@@ -322,3 +322,44 @@ dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS
   err = jac->ops->getefs(jac,top,bsize,rule,efs,base,index);dCHK(err);
   dFunctionReturn(0);
 }
+
+dErr dRuleView(dRule *rule,PetscViewer viewer)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(rule,1);
+  dValidHeader(viewer,PETSC_VIEWER_COOKIE,2);
+  err = (*rule->ops->view)(rule,viewer);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dRuleGetSize(dRule *rule,dInt *dim,dInt *nnodes)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(rule,1);
+  err = (*rule->ops->getSize)(rule,dim,nnodes);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dRuleGetNodeWeight(dRule *rule,dReal *coord,dReal *weight)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(rule,1);
+  err = (*rule->ops->getNodeWeight)(rule,coord,weight);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(rule,1);
+  err = (*rule->ops->getTensorNodeWeight)(rule,dim,nnodes,coord,weight);dCHK(err);
+  dFunctionReturn(0);
+}

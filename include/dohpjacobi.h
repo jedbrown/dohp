@@ -77,6 +77,11 @@ EXTERN dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
 EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
 EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
 
+EXTERN dErr dRuleView(dRule *rule,PetscViewer);
+EXTERN dErr dRuleGetSize(dRule *rule,dInt *dim,dInt *nnodes);
+EXTERN dErr dRuleGetNodeWeight(dRule *rule,dReal *coord,dReal *weight);
+EXTERN dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight);
+
 PETSC_EXTERN_CXX_END
 
 #endif /* _DOHPJACOBI_H */
