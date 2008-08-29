@@ -292,7 +292,10 @@ dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule *ru
   dErr err;
 
   dFunctionBegin;
-  err = dRuleGetSize(rule,&rdim,rsize);dCHK(err);
+  err = dRuleGetSize(rule,&rdim,NULL);dCHK(err);
+  for (dInt i=0; i<rdim; i++) { /* warning, this might break */
+    rsize[i] = ((TensorRule*)rule->data)[i]->size;
+  }
   switch (top) {
     case iMesh_LINE_SEGMENT:
       if (rdim != 1) dERROR(1,"Incompatible Rule size %d, expected 1",rdim);

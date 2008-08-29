@@ -82,6 +82,10 @@ EXTERN dErr dRuleGetSize(dRule *rule,dInt *dim,dInt *nnodes);
 EXTERN dErr dRuleGetNodeWeight(dRule *rule,dReal *coord,dReal *weight);
 EXTERN dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight);
 
+EXTERN dErr dEFSView(dEFS *efs,PetscViewer viewer);
+EXTERN dErr dEFSGetSizes(dEFS *efs,dInt*,dInt *inodes,dInt *total);
+EXTERN dErr dEFSApply(dEFS *efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode);
+
 PETSC_EXTERN_CXX_END
 
 #endif /* _DOHPJACOBI_H */

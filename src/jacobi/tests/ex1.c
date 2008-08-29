@@ -22,8 +22,7 @@ int main(int argc,char *argv[])
   err = dJacobiSetDegrees(jac,8,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
-  /* err = dJacobiView(jac,viewer);dCHK(err); */
-  err = dJacobiSetUp(jac);dCHK(err);
+  err = dJacobiView(jac,viewer);dCHK(err);
   err = checkRulesAndEFS(jac);dCHK(err);  
   err = dJacobiDestroy(jac);dCHK(err);
   err = PetscFinalize();dCHK(err);
@@ -62,5 +61,29 @@ dErr checkRulesAndEFS(dJacobi jac)
     err = dPrintf(comm,"Rule for element %d\n",i);dCHK(err);
     err = dRuleView(&rule[i],viewer);dCHK(err);
   }
+
+  err = dMalloc(N*sizeof(dEFS),&efs);dCHK(err);
+  dValidHeader(viewer,PETSC_VIEWER_COOKIE,9);
+  index = 0; ebase = NULL;
+  do {
+    if (index) {
+      err = dMalloc(index*sizeof(*ebase),&ebase);dCHK(err);
+      index = 0;
+    }
+    for (dInt i=0; i<N; i++) {
+      dValidHeader(viewer,PETSC_VIEWER_COOKIE,9);
+      err = dJacobiGetEFS(jac,topo,bsize,&rule[i],&efs[i],ebase,&index);dCHK(err);
+      dValidHeader(viewer,PETSC_VIEWER_COOKIE,9);
+    }
+  } while (!ebase);
+
+  dValidHeader(viewer,PETSC_VIEWER_COOKIE,9);
+  for (dInt i=0; i<N; i++) {
+    err = dPrintf(comm,"EFS for element %d\n",i);dCHK(err);
+    err = dEFSView(&efs[i],viewer);dCHK(err);
+  }
+
+  err = dFree(rule);dCHK(err);
+  err = dFree(efs);dCHK(err);
   dFunctionReturn(0);
 }

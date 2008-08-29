@@ -127,7 +127,7 @@ dErr dJacobiSetUp(dJacobi jac)
 
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
-  if (!jac->setupcalled && jac->ops->setup) {
+  if ((!jac->setupcalled) && jac->ops->setup) {
     err = jac->ops->setup(jac);dCHK(err);
   }
   jac->setupcalled = 1;
@@ -361,5 +361,38 @@ dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dReal **c
   dFunctionBegin;
   dValidPointer(rule,1);
   err = (*rule->ops->getTensorNodeWeight)(rule,dim,nnodes,coord,weight);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
+dErr dEFSView(dEFS *efs,PetscViewer viewer)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  dValidHeader(viewer,PETSC_VIEWER_COOKIE,2);
+  err = (*efs->ops->view)(efs,viewer);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dEFSGetSizes(dEFS *efs,dInt *dim,dInt *inodes,dInt *total)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  err = (*efs->ops->getSizes)(efs,dim,inodes,total);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
+dErr dEFSApply(dEFS *efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  err = (*efs->ops->apply)(efs,dofs,wlen,work,in,out,amode,imode);dCHK(err);
   dFunctionReturn(0);
 }

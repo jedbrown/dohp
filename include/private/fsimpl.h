@@ -40,10 +40,6 @@ struct v_dEFSOps {
   dErr (*scatterFacet)(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode);
 };
 
-#define dEFSView(efs,viewer) (*efs->ops->view)(efs,viewer)
-#define dEFSGetSizes(efs,inodes,total) (*efs->ops->getSizes)(efs,inodes,total)
-#define dEFSApply(efs,dofs,wlen,work,in,out,mtype,imode) (*efs->ops->apply)(ofs,dofs,wlen,work,in,out,mtype,imode)
-
 /**
 * This is held once for every function space on every element.  This part of the implementation is not really private.
 * 
