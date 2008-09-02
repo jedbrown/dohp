@@ -84,6 +84,8 @@ EXTERN dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dR
 
 EXTERN dErr dEFSView(dEFS *efs,PetscViewer viewer);
 EXTERN dErr dEFSGetSizes(dEFS *efs,dInt*,dInt *inodes,dInt *total);
+EXTERN dErr dEFSGetTensorNodes(dEFS*,dInt*,dInt*,dReal**);
+EXTERN dErr dEFSGetRule(dEFS *efs,dRule **rule);
 EXTERN dErr dEFSApply(dEFS *efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode);
 
 PETSC_EXTERN_CXX_END

@@ -30,6 +30,7 @@ struct p_dRule {
 struct v_dEFSOps {
   dErr (*view)(dEFS*,PetscViewer);
   dErr (*getSizes)(dEFS*,dInt*,dInt*,dInt*); /**< topological dimension, number of interior nodes, total number of nodes */
+  dErr (*getTensorNodes)(dEFS*,dInt*,dInt*,dReal**);
   dErr (*apply)(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode);
   /**< dofs/node, work length, work, modal values, nodal values */
   dErr (*scatterInt)(dEFS*,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */

@@ -56,6 +56,18 @@ dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac)
   dFunctionReturn(0);
 }
 
+dErr dJacobiRuleOpsDestroy_Tensor(dJacobi jac)
+{
+  Tensor this = (Tensor)jac->impl;
+  dErr err;
+
+  dFunctionBegin;
+  if (this->ruleOpsLine) { err = dFree(this->ruleOpsLine);dCHK(err); }
+  if (this->ruleOpsQuad) { err = dFree(this->ruleOpsQuad);dCHK(err); }
+  if (this->ruleOpsHex)  { err = dFree(this->ruleOpsHex);dCHK(err); }
+  dFunctionReturn(0);
+}
+
 static dErr dRuleView_Tensor_Private(const char *name,dInt n,TensorRule *tr,PetscViewer viewer)
 {
   dBool ascii;
@@ -141,7 +153,10 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Quad(dRule *rule,dInt *dim,dInt nnod
   TensorRule *r = ((struct s_dRule_Tensor_Quad*)rule->data)->rule;
   dFunctionBegin;
   if (dim) *dim = 2;
-  if (nnodes) nnodes[0] = r[0]->size * r[1]->size;
+  if (nnodes) {
+    nnodes[0] = r[0]->size;
+    nnodes[1] = r[1]->size;
+  }
   if (coord) {
     coord[0] = r[0]->coord;
     coord[1] = r[1]->coord;
@@ -157,8 +172,12 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Hex(dRule *rule,dInt *dim,dInt nnode
 {
   TensorRule *r = ((struct s_dRule_Tensor_Hex*)rule->data)->rule;
   dFunctionBegin;
-  if (dim) *dim = 2;
-  if (nnodes) nnodes[0] = r[0]->size * r[1]->size * r[2]->size;
+  if (dim) *dim = 3;
+  if (nnodes) {
+    nnodes[0] = r[0]->size;
+    nnodes[1] = r[1]->size;
+    nnodes[2] = r[2]->size;
+  }
   if (coord) {
     coord[0] = r[0]->coord;
     coord[1] = r[1]->coord;

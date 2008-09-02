@@ -14,6 +14,11 @@ _F(dEFSGetSizes_Tensor_Line);
 _F(dEFSGetSizes_Tensor_Quad);
 _F(dEFSGetSizes_Tensor_Hex);
 #undef _F
+#define _F(f) static dErr f(dEFS*,dInt*,dInt*,dReal**restrict) /* dEFSGetTensorNodes */
+_F(dEFSGetTensorNodes_Tensor_Line);
+_F(dEFSGetTensorNodes_Tensor_Quad);
+_F(dEFSGetTensorNodes_Tensor_Hex);
+#undef _F
 #define _F(f) static dErr f(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode) /* dEFSApply */
 //_F(dEFSApply_Tensor_Line);
 //_F(dEFSApply_Tensor_Quad);
@@ -49,16 +54,19 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
 {
   static const struct v_dEFSOps efsOpsLine = { .view = dEFSView_Tensor_Line,
                                                .getSizes = dEFSGetSizes_Tensor_Line,
+                                               .getTensorNodes = dEFSGetTensorNodes_Tensor_Line,
                                                .apply = 0, /* dEFSApply_Tensor_Line, */
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
                                                .getSizes = dEFSGetSizes_Tensor_Quad,
+                                               .getTensorNodes = dEFSGetTensorNodes_Tensor_Quad,
                                                .apply = 0, /* dEFSApply_Tensor_Quad, */
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
                                                .getSizes = dEFSGetSizes_Tensor_Hex,
+                                               .getTensorNodes = dEFSGetTensorNodes_Tensor_Hex,
                                                .apply = dEFSApply_Tensor_Hex,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
@@ -80,6 +88,19 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
   }
   dFunctionReturn(0);
 }
+
+dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac)
+{
+  Tensor this = (Tensor)jac->impl;
+  dErr err;
+
+  dFunctionBegin;
+  if (this->efsOpsLine) { err = dFree(this->efsOpsLine);dCHK(err); }
+  if (this->efsOpsQuad) { err = dFree(this->efsOpsQuad);dCHK(err); }
+  if (this->efsOpsHex)  { err = dFree(this->efsOpsHex);dCHK(err); }
+  dFunctionReturn(0);
+}
+
 
 static dErr dEFSView_Tensor_Private(const char *name,dRule *rule,dInt n,TensorBasis *b,PetscViewer viewer)
 {
@@ -155,6 +176,43 @@ static dErr dEFSGetSizes_Tensor_Hex(dEFS *efs,dInt *dim,dInt *inodes,dInt *total
   if (dim) *dim = 3;
   if (inodes) *inodes = (b[0]->P - 2) * (b[1]->P - 2) * (b[2]->P - 2);
   if (total) *total = b[0]->P * b[1]->P * b[2]->P;
+  dFunctionReturn(0);
+}
+
+static dErr dEFSGetTensorNodes_Tensor_Line(dEFS *efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+{
+  TensorBasis *b = ((struct s_dEFS_Tensor_Line*)efs->data)->basis;
+
+  dFunctionBegin;
+  if (dim) *dim = 1;
+  if (tsize) tsize[0] = b[0]->P;
+  x[0] = b[0]->node;
+  dFunctionReturn(0);
+}
+
+static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS *efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+{
+  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs->data)->basis;
+
+  dFunctionBegin;
+  if (dim) *dim = 2;
+  for (dInt i=0; i<2; i++) {
+    if (tsize) tsize[i] = b[i]->P;
+    if (x) x[i] = b[i]->node;
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS *efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+{
+  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs->data)->basis;
+
+  dFunctionBegin;
+  if (dim) *dim = 3;
+  for (dInt i=0; i<3; i++) {
+    if (tsize) tsize[i] = b[i]->P;
+    if (x) x[i] = b[i]->node;
+  }
   dFunctionReturn(0);
 }
 
@@ -274,7 +332,7 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dInt *wlen,dSc
 
   for (l=0; l<Q[0]; l++) {
     for (i=0; i<P[0]; i++) {
-      for (j=0; j<P[1]; i++) {
+      for (j=0; j<P[1]; j++) {
         for (k=0; k<P[2]; k++) {
           for (d=0; d<D; d++) {
             a[((l*P[1]+j)*P[2]+k)*D+d] += B[0][l*P[0]+i] * f[((i*P[1]+j)*P[2]+k)*D+d];

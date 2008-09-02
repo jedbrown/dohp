@@ -386,6 +386,25 @@ dErr dEFSGetSizes(dEFS *efs,dInt *dim,dInt *inodes,dInt *total)
   dFunctionReturn(0);
 }
 
+dErr dEFSGetTensorNodes(dEFS *efs,dInt *dim,dInt *tsize,dReal *nodes[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  err = (*efs->ops->getTensorNodes)(efs,dim,tsize,nodes);
+  dFunctionReturn(0);
+}
+
+dErr dEFSGetRule(dEFS *efs,dRule **rule)
+{
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  dValidPointer(rule,2);
+  *rule = efs->rule;
+  dFunctionReturn(0);
+}
 
 dErr dEFSApply(dEFS *efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode)
 {

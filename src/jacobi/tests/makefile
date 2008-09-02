@@ -1,4 +1,5 @@
-ALL :
+ALL : ex1
+
 DIRS = 
 LOCDIR = src/jacobi/tests/
 EXAMPLES_C = ex1.c

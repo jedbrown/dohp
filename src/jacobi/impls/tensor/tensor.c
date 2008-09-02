@@ -143,6 +143,10 @@ static dErr dJacobiDestroy_Tensor(dJacobi jac)
   }
   if (this->ruleBuilder) { err = TensorBuilderDestroy(this->ruleBuilder);dCHK(err); }
   if (this->basisBuilder) { err = TensorBuilderDestroy(this->basisBuilder);dCHK(err); }
+  if (this->ruleOpts) { err = dFree(this->ruleOpts);dCHK(err); }
+  if (this->basisOpts) { err = dFree(this->basisOpts);dCHK(err); }
+  err = dJacobiRuleOpsDestroy_Tensor(jac);dCHK(err);
+  err = dJacobiEFSOpsDestroy_Tensor(jac);dCHK(err);
   err = dFree(this);dCHK(err);
   dFunctionReturn(0);
 }
@@ -259,6 +263,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
         hex = (struct s_dRule_Tensor_Hex*)start;
         err = TensorGetRule(this,rsize[0],(TensorRule*)&hex->rule[0]);dCHK(err);
         err = TensorGetRule(this,rsize[1],(TensorRule*)&hex->rule[1]);dCHK(err);
+        err = TensorGetRule(this,rsize[2],(TensorRule*)&hex->rule[2]);dCHK(err);
       }
       *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
       break;
@@ -541,7 +546,7 @@ static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
   dFunctionBegin;
   if (!this->setupcalled) dERROR(1,"Attempt to get basis before Tensor setup.");
   if (!(0 < m && m < this->M)) dERROR(1,"Rule size %d not less than limit %d",m,this->M);
-  if (!(0 < n && n < this->N)) dERROR(1,"Basis size 5d not less than limit %d",n,this->N);
+  if (!(0 < n && n < this->N)) dERROR(1,"Basis size %d not less than limit %d",n,this->N);
   *out = this->basis[m*this->N+n];
   dFunctionReturn(0);
 }
