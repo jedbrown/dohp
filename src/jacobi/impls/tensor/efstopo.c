@@ -20,8 +20,8 @@ _F(dEFSGetTensorNodes_Tensor_Quad);
 _F(dEFSGetTensorNodes_Tensor_Hex);
 #undef _F
 #define _F(f) static dErr f(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode) /* dEFSApply */
-//_F(dEFSApply_Tensor_Line);
-//_F(dEFSApply_Tensor_Quad);
+_F(dEFSApply_Tensor_Line);
+_F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);
 #undef _F
 #if 0
@@ -37,8 +37,8 @@ _F(dEFSScatterFacet_Tensor_Hex);
 # undef _F
 #endif
 #define _F(f) static dErr f(dInt D,const dInt P[],const dInt Q[],dInt *wlen,dScalar **restrict work,dReal *A[],dTransposeMode tpose[],const dScalar f[],dScalar g[restrict],InsertMode imode)
-//_F(TensorMult_Line);
-//_F(TensorMult_Quad);
+_F(TensorMult_Line);
+_F(TensorMult_Quad);
 _F(TensorMult_Hex);
 #undef _F
 
@@ -55,13 +55,13 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
   static const struct v_dEFSOps efsOpsLine = { .view = dEFSView_Tensor_Line,
                                                .getSizes = dEFSGetSizes_Tensor_Line,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Line,
-                                               .apply = 0, /* dEFSApply_Tensor_Line, */
+                                               .apply = dEFSApply_Tensor_Line,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
                                                .getSizes = dEFSGetSizes_Tensor_Quad,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Quad,
-                                               .apply = 0, /* dEFSApply_Tensor_Quad, */
+                                               .apply = dEFSApply_Tensor_Quad,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
@@ -216,6 +216,100 @@ static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS *efs,dInt *dim,dInt tsize[restric
   dFunctionReturn(0);
 }
 
+static dErr dEFSApply_Tensor_Line(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
+{
+  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs->data)->basis;
+  /* const dInt *P=&b->P,*Q=&b->Q; */
+  dScalar *A[1];
+  dInt P[1],Q[1],chunk;
+  dTransposeMode tpose[1];
+  dErr err;
+
+  dFunctionBegin;
+  for (dInt i=0; i<1; i++) {
+    P[i] = b[i]->P;
+    Q[i] = b[i]->Q;
+  }
+  switch (amode) {
+    case dAPPLY_INTERP:
+      for (dInt i=0; i<1; i++) {
+        A[i] = b[i]->interp;
+        tpose[i] = dTRANSPOSE_NO;
+      }
+      err = TensorMult_Line(D,P,Q,wlen,work,A,tpose,in,out,imode);dCHK(err);
+      break;
+    case dAPPLY_INTERP_TRANSPOSE:
+      for (dInt i=0; i<1; i++) {
+        A[i] = b[i]->interp;
+        tpose[i] = dTRANSPOSE_YES;
+      }
+      err = TensorMult_Line(D,Q,P,wlen,work,A,tpose,in,out,imode);dCHK(err);
+      break;
+    case dAPPLY_GRAD:
+      chunk = D*Q[0]; /* number of dofs for each component of the gradient */
+      for (dInt i=0; i<1; i++) {
+        for (dInt j=0; j<1; j++) {
+          if (i == j) A[j] = b[j]->deriv;
+          else A[j] = b[j]->interp;
+          tpose[j] = dTRANSPOSE_NO;
+        }
+        err = TensorMult_Line(D,P,Q,wlen,work,A,tpose,in,&out[i*chunk],imode);dCHK(err);
+      }
+      break;
+    case dAPPLY_GRAD_TRANSPOSE:
+    default:
+      dERROR(1,"invalid dApplyMode %d specified",amode);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dEFSApply_Tensor_Quad(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
+{
+  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs->data)->basis;
+  /* const dInt *P=&b->P,*Q=&b->Q; */
+  dScalar *A[2];
+  dInt P[2],Q[2],chunk;
+  dTransposeMode tpose[2];
+  dErr err;
+
+  dFunctionBegin;
+  for (dInt i=0; i<2; i++) {
+    P[i] = b[i]->P;
+    Q[i] = b[i]->Q;
+  }
+  switch (amode) {
+    case dAPPLY_INTERP:
+      for (dInt i=0; i<2; i++) {
+        A[i] = b[i]->interp;
+        tpose[i] = dTRANSPOSE_NO;
+      }
+      err = TensorMult_Quad(D,P,Q,wlen,work,A,tpose,in,out,imode);dCHK(err);
+      break;
+    case dAPPLY_INTERP_TRANSPOSE:
+      for (dInt i=0; i<2; i++) {
+        A[i] = b[i]->interp;
+        tpose[i] = dTRANSPOSE_YES;
+      }
+      err = TensorMult_Quad(D,Q,P,wlen,work,A,tpose,in,out,imode);dCHK(err);
+      break;
+    case dAPPLY_GRAD:
+      chunk = D*Q[0]*Q[1]; /* number of dofs for each component of the gradient */
+      for (dInt i=0; i<2; i++) {
+        for (dInt j=0; j<2; j++) {
+          if (i == j) A[j] = b[j]->deriv;
+          else A[j] = b[j]->interp;
+          tpose[j] = dTRANSPOSE_NO;
+        }
+        err = TensorMult_Quad(D,P,Q,wlen,work,A,tpose,in,&out[i*chunk],imode);dCHK(err);
+      }
+      break;
+    case dAPPLY_GRAD_TRANSPOSE:
+    default:
+      dERROR(1,"invalid dApplyMode %d specified",amode);
+  }
+  dFunctionReturn(0);
+}
+
 static dErr dEFSApply_Tensor_Hex(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs->data)->basis;
@@ -259,6 +353,133 @@ static dErr dEFSApply_Tensor_Hex(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict w
     case dAPPLY_GRAD_TRANSPOSE:
     default:
       dERROR(1,"invalid dApplyMode %d specified",amode);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],dInt *wlen,dScalar **restrict work,
+                           dReal *A[1],dTransposeMode tpose[1],const dScalar f[],dScalar g[restrict],InsertMode imode)
+{
+  dInt i,j,l,d,idx;
+  dReal *B[1];
+  dErr err;
+
+  dFunctionBegin;
+  idx = 0;
+  do {                          /* This loop will execute once if there is enough work space, otherwise it will execute
+                                * a second time, allocating enough memory at the beginning. */
+    if (idx > *wlen) {
+      err = dFree(*work);dCHK(err);
+      *wlen = idx*3/2;
+      err = dMalloc((*wlen)*sizeof(dScalar),work);dCHK(err);
+      idx = 0;
+    }
+    for (i=0; i<2; i++) {
+      switch (tpose[i]) {
+        case dTRANSPOSE_NO:
+          B[i] = A[i];
+          break;
+        case dTRANSPOSE_YES:
+          B[i] = &(*work)[idx]; idx += Q[i]*P[i];
+          if (idx < *wlen) {    /* If we ran out of work space, the 'do {} while' loop will repeat. */
+            for (l=0; l<Q[i]; l++) {
+              for (j=0; j<P[i]; j++) {
+                B[i][l*P[i]+j] = A[i][j*Q[i]+l];
+              }
+            }
+          }
+          break;
+      }
+    };
+  } while (idx > *wlen);
+
+  switch (imode) {
+    case INSERT_VALUES:
+      err = dMemzero(g,Q[0]*D);dCHK(err);
+      break;
+    case ADD_VALUES:
+      break;
+    default:
+      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+  }
+
+  for (l=0; l<Q[0]; l++) {
+    for (i=0; i<P[0]; i++) {
+      for (d=0; d<D; d++) {
+        g[l*D+d] += B[0][l*P[0]+i] * f[i*D+d];
+      }
+    }
+  }
+  dFunctionReturn(0);
+}
+
+
+static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dInt *wlen,dScalar **restrict work,
+                           dReal *A[2],dTransposeMode tpose[2],const dScalar f[],dScalar g[restrict],InsertMode imode)
+{
+  dInt i,j,l,d,idx;
+  dReal *B[2];
+  dScalar *restrict a;
+  dErr err;
+
+  dFunctionBegin;
+  idx = 0;
+  do {                          /* This loop will execute once if there is enough work space, otherwise it will execute
+                                * a second time, allocating enough memory at the beginning. */
+    if (idx > *wlen) {
+      err = dFree(*work);dCHK(err);
+      *wlen = idx*3/2;
+      err = dMalloc((*wlen)*sizeof(dScalar),work);dCHK(err);
+      idx = 0;
+    }
+    for (i=0; i<2; i++) {
+      switch (tpose[i]) {
+        case dTRANSPOSE_NO:
+          B[i] = A[i];
+          break;
+        case dTRANSPOSE_YES:
+          B[i] = &(*work)[idx]; idx += Q[i]*P[i];
+          if (idx < *wlen) {    /* If we ran out of work space, the 'do {} while' loop will repeat. */
+            for (l=0; l<Q[i]; l++) {
+              for (j=0; j<P[i]; j++) {
+                B[i][l*P[i]+j] = A[i][j*Q[i]+l];
+              }
+            }
+          }
+          break;
+      }
+    };
+    a = &(*work)[idx]; idx += Q[0]*P[1]*D;
+  } while (idx > *wlen);
+
+  err = dMemzero(*work,idx*sizeof(a[0]));dCHK(err);
+  switch (imode) {
+    case INSERT_VALUES:
+      err = dMemzero(g,Q[0]*Q[1]*D);dCHK(err);
+      break;
+    case ADD_VALUES:
+      break;
+    default:
+      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+  }
+
+  for (l=0; l<Q[0]; l++) {
+    for (i=0; i<P[0]; i++) {
+      for (j=0; j<P[1]; j++) {
+        for (d=0; d<D; d++) {
+          a[(l*P[1]+j)*D+d] += B[0][l*P[0]+i] * f[(i*P[1]+j)*D+d];
+        }
+      }
+    }
+  }
+  for (i=0; i<Q[0]; i++) {
+    for (l=0; l<Q[1]; l++) {
+      for (j=0; j<P[1]; j++) {
+        for (d=0; d<D; d++) {
+          g[(i*Q[1]+l)*D+d] += B[1][l*P[1]+j] * a[(i*P[1]+j)*D+d];
+        }
+      }
+    }
   }
   dFunctionReturn(0);
 }

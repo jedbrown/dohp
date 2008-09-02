@@ -44,7 +44,7 @@ dErr checkRulesAndEFS(dJacobi jac)
 {
   const dInt N = 10;
   const dInt rsize[3] = {12,12,12};
-  const dInt bsize[3] = {12,12,12};
+  const dInt bsize[3] = {6,6,6};
   const dInt dim = 3;
   const dTopology topo = iMesh_HEXAHEDRON;
   PetscViewer viewer = PETSC_VIEWER_STDOUT_WORLD;

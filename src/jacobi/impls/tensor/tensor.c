@@ -241,8 +241,8 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
       if (base) {
         rule->ops = this->ruleOpsLine;
         rule->data = start;
-        line = (struct s_dRule_Tensor_Line*)&start;
-        err = TensorGetRule(this,rsize[0],(TensorRule*)&line->rule[0]);dCHK(err);
+        line = (struct s_dRule_Tensor_Line*)start;
+        err = TensorGetRule(this,rsize[0],&line->rule[0]);dCHK(err);
       }
       *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
       break;
@@ -251,8 +251,8 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
         rule->ops = this->ruleOpsQuad;
         rule->data = start;
         quad = (struct s_dRule_Tensor_Quad*)start;
-        err = TensorGetRule(this,rsize[0],(TensorRule*)&quad->rule[0]);dCHK(err);
-        err = TensorGetRule(this,rsize[1],(TensorRule*)&quad->rule[1]);dCHK(err);
+        err = TensorGetRule(this,rsize[0],&quad->rule[0]);dCHK(err);
+        err = TensorGetRule(this,rsize[1],&quad->rule[1]);dCHK(err);
       }
       *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
       break;
@@ -261,9 +261,9 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
         rule->ops = this->ruleOpsHex;
         rule->data = start;
         hex = (struct s_dRule_Tensor_Hex*)start;
-        err = TensorGetRule(this,rsize[0],(TensorRule*)&hex->rule[0]);dCHK(err);
-        err = TensorGetRule(this,rsize[1],(TensorRule*)&hex->rule[1]);dCHK(err);
-        err = TensorGetRule(this,rsize[2],(TensorRule*)&hex->rule[2]);dCHK(err);
+        err = TensorGetRule(this,rsize[0],&hex->rule[0]);dCHK(err);
+        err = TensorGetRule(this,rsize[1],&hex->rule[1]);dCHK(err);
+        err = TensorGetRule(this,rsize[2],&hex->rule[2]);dCHK(err);
       }
       *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
       break;

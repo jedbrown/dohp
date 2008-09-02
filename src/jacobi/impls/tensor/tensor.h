@@ -133,7 +133,7 @@ struct s_Tensor {
 };
 
 struct s_dRule_Tensor_Line {
-  TensorRule rule[1];
+  TensorRule rule[2];
 };
 struct s_dRule_Tensor_Quad {
   TensorRule rule[2];
