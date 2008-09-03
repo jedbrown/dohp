@@ -74,7 +74,7 @@ dErr checkRulesAndEFS(dJacobi jac)
 #if RULE_VIEW
   for (dInt i=0; i<N; i++) {
     err = dPrintf(comm,"Rule for element %d\n",i);dCHK(err);
-    err = dRuleView(&rule[i],viewer);dCHK(err);
+    err = dRuleView(rule[i],viewer);dCHK(err);
   }
 #endif
 
@@ -88,14 +88,14 @@ dErr checkRulesAndEFS(dJacobi jac)
       index = 0;
     }
     for (dInt i=0; i<N; i++) {
-      err = dJacobiGetEFS(jac,topo,bsize,&rule[i],&efs[i],ebase,&index);dCHK(err);
+      err = dJacobiGetEFS(jac,topo,bsize,rule[i],&efs[i],ebase,&index);dCHK(err);
     }
   } while (!ebase);
 
 #if EFS_VIEW
   for (dInt i=0; i<N; i++) {
     err = dPrintf(comm,"EFS for element %d\n",i);dCHK(err);
-    err = dEFSView(&efs[i],viewer);dCHK(err);
+    err = dEFSView(efs[i],viewer);dCHK(err);
   }
 #endif
 
@@ -122,7 +122,7 @@ dErr createFS(MPI_Comm comm,dInt dim,dInt N,dEFS *efs,Vec *U)
   *U = 0;
   n = 0;
   for (dInt i=0; i<N; i++) {
-    err = dEFSGetSizes(&efs[i],NULL,NULL,&m);dCHK(err);
+    err = dEFSGetSizes(efs[i],NULL,NULL,&m);dCHK(err);
     n += m;
   }
   err = VecCreate(comm,&u);dCHK(err);
@@ -132,9 +132,9 @@ dErr createFS(MPI_Comm comm,dInt dim,dInt N,dEFS *efs,Vec *U)
   dFunctionReturn(0);
 }
 
-dErr checkInterp(dInt N,dEFS *efs,Vec u)
+dErr checkInterp(dInt N,dEFS efs[],Vec u)
 {
-  dRule *rule;
+  dRule rule;
   dReal *x[3],y[3],w,z;
   const dReal *qx[3],*qw[3];
   dScalar *f,*g=NULL,*work=NULL,h[3];
@@ -151,7 +151,7 @@ dErr checkInterp(dInt N,dEFS *efs,Vec u)
   err = VecGetArray(u,&f);dCHK(err);
   ind = 0;
   for (dInt i=0; i<N; i++) {
-    err = dEFSGetTensorNodes(&efs[i],&dim,P,x);dCHK(err);
+    err = dEFSGetTensorNodes(efs[i],&dim,P,x);dCHK(err);
     switch (dim) {
       case 1: P[1] = 1; P[2] = 1; break;
       case 2: P[2] = 1; break;
@@ -175,8 +175,8 @@ dErr checkInterp(dInt N,dEFS *efs,Vec u)
   ind = 0;
   err = VecGetArray(u,&f);dCHK(err);
   for (dInt i=0; i<N; i++) {
-    err = dEFSGetSizes(&efs[i],&dim,NULL,&size);dCHK(err);
-    err = dEFSGetRule(&efs[i],&rule);dCHK(err);
+    err = dEFSGetSizes(efs[i],&dim,NULL,&size);dCHK(err);
+    err = dEFSGetRule(efs[i],&rule);dCHK(err);
     err = dRuleGetTensorNodeWeight(rule,&dim,Q,qx,qw);dCHK(err);
     needed = dim * productInt(dim,Q);
     if (needed > gsize) {
@@ -186,7 +186,7 @@ dErr checkInterp(dInt N,dEFS *efs,Vec u)
     }
 
     err = dMemzero(g,gsize*sizeof g[0]);dCHK(err);
-    err = dEFSApply(&efs[i],dim,&wsize,&work,&f[ind],g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(efs[i],dim,&wsize,&work,&f[ind],g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
 
     /* compare to exact solution */
     switch (dim) {
