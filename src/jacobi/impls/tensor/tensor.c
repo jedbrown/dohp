@@ -25,7 +25,7 @@ static dErr dJacobiSetUp_Tensor(dJacobi);
 static dErr dJacobiDestroy_Tensor(dJacobi);
 static dErr dJacobiView_Tensor(dJacobi,PetscViewer);
 static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
-static dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
+static dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 
 static dErr TensorGetRule(Tensor this,dInt n,TensorRule *out);
 static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out);
@@ -226,7 +226,7 @@ static dErr TensorJacobiHasBasis(dJacobi jac,dInt rule,dInt basis,dBool *has)
 * 
 * @return 
 */
-static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index)
+static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dRule *ruleout,void **base,dInt *index)
 {
   Tensor this = (Tensor)jac->impl;
   void **start = &base[*index];
@@ -239,31 +239,31 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
   switch (top) {
     case iMesh_LINE_SEGMENT:
       if (base) {
-        rule->ops = this->ruleOpsLine;
-        rule->data = start;
         line = (struct s_dRule_Tensor_Line*)start;
-        err = TensorGetRule(this,rsize[0],&line->rule[0]);dCHK(err);
+        line->ops = this->ruleOpsLine;
+        err = TensorGetRule(this,rsize[0],&line->trule[0]);dCHK(err);
+        *ruleout = (dRule)line;
       }
       *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
       break;
     case iMesh_QUADRILATERAL:
       if (base) {
-        rule->ops = this->ruleOpsQuad;
-        rule->data = start;
         quad = (struct s_dRule_Tensor_Quad*)start;
-        err = TensorGetRule(this,rsize[0],&quad->rule[0]);dCHK(err);
-        err = TensorGetRule(this,rsize[1],&quad->rule[1]);dCHK(err);
+        quad->ops = this->ruleOpsQuad;
+        err = TensorGetRule(this,rsize[0],&quad->trule[0]);dCHK(err);
+        err = TensorGetRule(this,rsize[1],&quad->trule[1]);dCHK(err);
+        *ruleout = (dRule)quad;
       }
       *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
       break;
     case iMesh_HEXAHEDRON:
       if (base) {
-        rule->ops = this->ruleOpsHex;
-        rule->data = start;
         hex = (struct s_dRule_Tensor_Hex*)start;
-        err = TensorGetRule(this,rsize[0],&hex->rule[0]);dCHK(err);
-        err = TensorGetRule(this,rsize[1],&hex->rule[1]);dCHK(err);
-        err = TensorGetRule(this,rsize[2],&hex->rule[2]);dCHK(err);
+        hex->ops = this->ruleOpsHex;
+        err = TensorGetRule(this,rsize[0],&hex->trule[0]);dCHK(err);
+        err = TensorGetRule(this,rsize[1],&hex->trule[1]);dCHK(err);
+        err = TensorGetRule(this,rsize[2],&hex->trule[2]);dCHK(err);
+        *ruleout = (dRule)hex;
       }
       *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
       break;
@@ -286,7 +286,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
 * 
 * @return 
 */
-dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index)
+dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efsout,void **base,dInt *index)
 {
   Tensor this = (Tensor)jac->impl;
   void **start = &base[*index];
@@ -297,45 +297,42 @@ dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule *ru
   dErr err;
 
   dFunctionBegin;
-  err = dRuleGetSize(rule,&rdim,NULL);dCHK(err);
-  for (dInt i=0; i<rdim; i++) { /* warning, this might break */
-    rsize[i] = ((TensorRule*)rule->data)[i]->size;
-  }
+  err = dRuleGetTensorNodeWeight(rule,&rdim,rsize,NULL,NULL);dCHK(err);
   switch (top) {
     case iMesh_LINE_SEGMENT:
       if (rdim != 1) dERROR(1,"Incompatible Rule size %d, expected 1",rdim);
       if (base) {
-        efs->ops = this->efsOpsLine;
-        efs->rule = rule;
-        efs->data = start;
         line = (struct s_dEFS_Tensor_Line*)start;
+        line->ops = this->efsOpsLine;
+        line->rule = rule;
         err = TensorGetBasis(this,rsize[0],bsize[0],&line->basis[0]);dCHK(err);
+        *efsout = (dEFS)line;
       }
       *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
       break;
     case iMesh_QUADRILATERAL:
       if (rdim != 2) dERROR(1,"Incompatible Rule size %d, expected 2",rdim);
       if (base) {
-        efs->ops = this->efsOpsQuad;
-        efs->rule = rule;
-        efs->data = start;
         quad = (struct s_dEFS_Tensor_Quad*)start;
+        quad->ops = this->efsOpsQuad;
+        quad->rule = rule;
         for (dInt i=0; i<2; i++) {
           err = TensorGetBasis(this,rsize[i],bsize[i],&quad->basis[i]);dCHK(err);
         }
+        *efsout = (dEFS)quad;
       }
       *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
       break;
     case iMesh_HEXAHEDRON:
       if (rdim != 3) dERROR(1,"Incompatible Rule size %d, expected 3",rdim);
       if (base) {
-        efs->ops = this->efsOpsHex;
-        efs->rule = rule;
-        efs->data = start;
         hex = (struct s_dEFS_Tensor_Hex*)start;
+        hex->ops = this->efsOpsHex;
+        hex->rule = rule;
         for (dInt i=0; i<3; i++) {
           err = TensorGetBasis(this,rsize[i],bsize[i],&hex->basis[i]);dCHK(err);
         }
+        *efsout = (dEFS)hex;
       }
       *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
       break;

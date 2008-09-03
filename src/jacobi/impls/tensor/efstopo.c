@@ -1,31 +1,31 @@
 #include "tensor.h"
 
-static dErr dEFSView_Tensor_Private(const char *,dRule*,dInt,TensorBasis*,PetscViewer);
+static dErr dEFSView_Tensor_Private(const char *,dRule,dInt,TensorBasis*,PetscViewer);
 #ifdef _F
 # undef _F
 #endif
-#define _F(f) static dErr f(dEFS*,PetscViewer) /* dEFSView */
+#define _F(f) static dErr f(dEFS,PetscViewer) /* dEFSView */
 _F(dEFSView_Tensor_Line);
 _F(dEFSView_Tensor_Quad);
 _F(dEFSView_Tensor_Hex);
 #undef _F
-#define _F(f) static dErr f(dEFS*,dInt*,dInt*,dInt*) /* dEFSGetSizes */
+#define _F(f) static dErr f(dEFS,dInt*,dInt*,dInt*) /* dEFSGetSizes */
 _F(dEFSGetSizes_Tensor_Line);
 _F(dEFSGetSizes_Tensor_Quad);
 _F(dEFSGetSizes_Tensor_Hex);
 #undef _F
-#define _F(f) static dErr f(dEFS*,dInt*,dInt*,dReal**restrict) /* dEFSGetTensorNodes */
+#define _F(f) static dErr f(dEFS,dInt*,dInt*,dReal**restrict) /* dEFSGetTensorNodes */
 _F(dEFSGetTensorNodes_Tensor_Line);
 _F(dEFSGetTensorNodes_Tensor_Quad);
 _F(dEFSGetTensorNodes_Tensor_Hex);
 #undef _F
-#define _F(f) static dErr f(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode) /* dEFSApply */
+#define _F(f) static dErr f(dEFS,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode) /* dEFSApply */
 _F(dEFSApply_Tensor_Line);
 _F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);
 #undef _F
 #if 0
-# define _F(f) static dErr f(dEFS*,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
+# define _F(f) static dErr f(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
 _F(dEFSScatterInt_Tensor_Line);
 _F(dEFSScatterInt_Tensor_Quad);
 _F(dEFSScatterInt_Tensor_Hex);
@@ -102,7 +102,7 @@ dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac)
 }
 
 
-static dErr dEFSView_Tensor_Private(const char *name,dRule *rule,dInt n,TensorBasis *b,PetscViewer viewer)
+static dErr dEFSView_Tensor_Private(const char *name,dRule rule,dInt n,TensorBasis *b,PetscViewer viewer)
 {
   dBool ascii;
   dErr err;
@@ -123,34 +123,34 @@ static dErr dEFSView_Tensor_Private(const char *name,dRule *rule,dInt n,TensorBa
 }
 
 
-static dErr dEFSView_Tensor_Line(dEFS *efs,PetscViewer viewer)
+static dErr dEFSView_Tensor_Line(dEFS efs,PetscViewer viewer)
 {
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Tensor_Private("Tensor_Line",efs->rule,1,((struct s_dEFS_Tensor_Line*)efs->data)->basis,viewer);dCHK(err);
+  err = dEFSView_Tensor_Private("Tensor_Line",efs->rule,1,((struct s_dEFS_Tensor_Line*)efs)->basis,viewer);dCHK(err);
   dFunctionReturn(0);
 }
-static dErr dEFSView_Tensor_Quad(dEFS *efs,PetscViewer viewer)
+static dErr dEFSView_Tensor_Quad(dEFS efs,PetscViewer viewer)
 {
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Tensor_Private("Tensor_Quad",efs->rule,2,((struct s_dEFS_Tensor_Quad*)efs->data)->basis,viewer);dCHK(err);
+  err = dEFSView_Tensor_Private("Tensor_Quad",efs->rule,2,((struct s_dEFS_Tensor_Quad*)efs)->basis,viewer);dCHK(err);
   dFunctionReturn(0);
 }
-static dErr dEFSView_Tensor_Hex(dEFS *efs,PetscViewer viewer)
+static dErr dEFSView_Tensor_Hex(dEFS efs,PetscViewer viewer)
 {
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Tensor_Private("Tensor_Hex",efs->rule,3,((struct s_dEFS_Tensor_Hex*)efs->data)->basis,viewer);dCHK(err);
+  err = dEFSView_Tensor_Private("Tensor_Hex",efs->rule,3,((struct s_dEFS_Tensor_Hex*)efs)->basis,viewer);dCHK(err);
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetSizes_Tensor_Line(dEFS *efs,dInt *dim,dInt *inodes,dInt *total)
+static dErr dEFSGetSizes_Tensor_Line(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Line*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Line*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 1;
@@ -158,9 +158,9 @@ static dErr dEFSGetSizes_Tensor_Line(dEFS *efs,dInt *dim,dInt *inodes,dInt *tota
   if (total) *total = b[0]->P;
   dFunctionReturn(0);
 }
-static dErr dEFSGetSizes_Tensor_Quad(dEFS *efs,dInt *dim,dInt *inodes,dInt *total)
+static dErr dEFSGetSizes_Tensor_Quad(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 2;
@@ -168,9 +168,9 @@ static dErr dEFSGetSizes_Tensor_Quad(dEFS *efs,dInt *dim,dInt *inodes,dInt *tota
   if (total) *total = b[0]->P * b[1]->P;
   dFunctionReturn(0);
 }
-static dErr dEFSGetSizes_Tensor_Hex(dEFS *efs,dInt *dim,dInt *inodes,dInt *total)
+static dErr dEFSGetSizes_Tensor_Hex(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 3;
@@ -179,9 +179,9 @@ static dErr dEFSGetSizes_Tensor_Hex(dEFS *efs,dInt *dim,dInt *inodes,dInt *total
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetTensorNodes_Tensor_Line(dEFS *efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+static dErr dEFSGetTensorNodes_Tensor_Line(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Line*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Line*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 1;
@@ -190,9 +190,9 @@ static dErr dEFSGetTensorNodes_Tensor_Line(dEFS *efs,dInt *dim,dInt tsize[restri
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS *efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 2;
@@ -203,9 +203,9 @@ static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS *efs,dInt *dim,dInt tsize[restri
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS *efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 3;
@@ -216,9 +216,9 @@ static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS *efs,dInt *dim,dInt tsize[restric
   dFunctionReturn(0);
 }
 
-static dErr dEFSApply_Tensor_Line(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
+static dErr dEFSApply_Tensor_Line(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
   /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[1];
   dInt P[1],Q[1],chunk;
@@ -263,9 +263,9 @@ static dErr dEFSApply_Tensor_Line(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict 
   dFunctionReturn(0);
 }
 
-static dErr dEFSApply_Tensor_Quad(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
+static dErr dEFSApply_Tensor_Quad(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
   /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[2];
   dInt P[2],Q[2],chunk;
@@ -310,9 +310,9 @@ static dErr dEFSApply_Tensor_Quad(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict 
   dFunctionReturn(0);
 }
 
-static dErr dEFSApply_Tensor_Hex(dEFS *efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
+static dErr dEFSApply_Tensor_Hex(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs->data)->basis;
+  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs)->basis;
   /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[3];
   dInt P[3],Q[3],chunk;

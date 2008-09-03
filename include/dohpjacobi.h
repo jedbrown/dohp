@@ -32,13 +32,13 @@ PETSC_EXTERN_CXX_BEGIN
 * (everything is implementation-dependent, the details of which are still hidden).
 * 
 */
-typedef struct p_dEFS dEFS;
+typedef struct p_dEFS *dEFS;
 
 /**
 * As above, the handle is the actual object.
 * 
 */
-typedef struct p_dRule dRule;
+typedef struct p_dRule *dRule;
 
 /**
 * Indicates whether or not to apply the transpose of a interpolation/derivative matrix.
@@ -75,18 +75,18 @@ EXTERN dErr dJacobiInitializePackage(const char[]);
 
 EXTERN dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
 EXTERN dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
-EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
+EXTERN dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 
-EXTERN dErr dRuleView(dRule *rule,PetscViewer);
-EXTERN dErr dRuleGetSize(dRule *rule,dInt *dim,dInt *nnodes);
-EXTERN dErr dRuleGetNodeWeight(dRule *rule,dReal *coord,dReal *weight);
-EXTERN dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight);
+EXTERN dErr dRuleView(dRule rule,PetscViewer);
+EXTERN dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
+EXTERN dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
+EXTERN dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight);
 
-EXTERN dErr dEFSView(dEFS *efs,PetscViewer viewer);
-EXTERN dErr dEFSGetSizes(dEFS *efs,dInt*,dInt *inodes,dInt *total);
-EXTERN dErr dEFSGetTensorNodes(dEFS*,dInt*,dInt*,dReal**);
-EXTERN dErr dEFSGetRule(dEFS *efs,dRule **rule);
-EXTERN dErr dEFSApply(dEFS *efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode);
+EXTERN dErr dEFSView(dEFS efs,PetscViewer viewer);
+EXTERN dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
+EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**);
+EXTERN dErr dEFSGetRule(dEFS efs,dRule *rule);
+EXTERN dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode);
 
 PETSC_EXTERN_CXX_END
 

@@ -133,22 +133,28 @@ struct s_Tensor {
 };
 
 struct s_dRule_Tensor_Line {
-  TensorRule rule[1];
+  dRuleHEADER;
+  TensorRule trule[1];
 };
 struct s_dRule_Tensor_Quad {
-  TensorRule rule[2];
+  dRuleHEADER;
+  TensorRule trule[2];
 };
 struct s_dRule_Tensor_Hex {
-  TensorRule rule[3];
+  dRuleHEADER;
+  TensorRule trule[3];
 };
 
 struct s_dEFS_Tensor_Line {
+  dEFSHEADER;
   TensorBasis basis[1];
 };
 struct s_dEFS_Tensor_Quad {
+  dEFSHEADER;
   TensorBasis basis[2];
 };
 struct s_dEFS_Tensor_Hex {
+  dEFSHEADER;
   TensorBasis basis[3];
 };
 

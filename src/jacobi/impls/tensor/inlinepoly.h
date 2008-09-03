@@ -13,6 +13,8 @@
 #define sign(a,b) ((b)<0 ? -fabs(a) : fabs(a))
 #define M_PI PETSC_PI
 
+#define USE_JACOBZ 0
+
 /*
 LIBRARY ROUTINES FOR ORTHOGONAL POLYNOMIAL CALCULUS AND INTERPOLATION
 
@@ -167,7 +169,9 @@ LIBRARY ROUTINES FOR ORTHOGONAL POLYNOMIAL CALCULUS AND INTERPOLATION
 
 
 /* local functions */
+#if USE_JACOBZ
 static void   Jacobz   (int n, double *z, double alpha, double beta);
+#endif
 static void   JacZeros (int n, double *a, double alpha, double beta);
 static void   TriQL    (int n, double *d, double *e);
 
@@ -980,7 +984,7 @@ static double gammaF(double x){
     This routine is only value for \f$( \alpha > -1, \beta > -1)\f$
     and uses polynomial deflation in a Newton iteration 
 */
-
+#if USE_JACOBZ
 static void Jacobz(int n, double *z, double alpha, double beta){
   register int i,j,k;
   double   dth = M_PI/(2.0*(double)n);
@@ -1009,7 +1013,7 @@ static void Jacobz(int n, double *z, double alpha, double beta){
   }
   return;
 }
-
+#endif
 
 /**
    \brief Zero determination through the eigenvalues of a tridiagonal

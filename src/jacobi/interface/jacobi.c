@@ -309,7 +309,7 @@ dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,voi
 * 
 * @return 
 */
-dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index)
+dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index)
 {
   dErr err;
 
@@ -323,7 +323,7 @@ dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS
   dFunctionReturn(0);
 }
 
-dErr dRuleView(dRule *rule,PetscViewer viewer)
+dErr dRuleView(dRule rule,PetscViewer viewer)
 {
   dErr err;
 
@@ -334,7 +334,7 @@ dErr dRuleView(dRule *rule,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-dErr dRuleGetSize(dRule *rule,dInt *dim,dInt *nnodes)
+dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes)
 {
   dErr err;
 
@@ -344,7 +344,7 @@ dErr dRuleGetSize(dRule *rule,dInt *dim,dInt *nnodes)
   dFunctionReturn(0);
 }
 
-dErr dRuleGetNodeWeight(dRule *rule,dReal *coord,dReal *weight)
+dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight)
 {
   dErr err;
 
@@ -354,7 +354,7 @@ dErr dRuleGetNodeWeight(dRule *rule,dReal *coord,dReal *weight)
   dFunctionReturn(0);
 }
 
-dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight)
+dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight)
 {
   dErr err;
 
@@ -365,7 +365,7 @@ dErr dRuleGetTensorNodeWeight(dRule *rule,dInt *dim,dInt *nnodes,const dReal **c
 }
 
 
-dErr dEFSView(dEFS *efs,PetscViewer viewer)
+dErr dEFSView(dEFS efs,PetscViewer viewer)
 {
   dErr err;
 
@@ -376,7 +376,7 @@ dErr dEFSView(dEFS *efs,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-dErr dEFSGetSizes(dEFS *efs,dInt *dim,dInt *inodes,dInt *total)
+dErr dEFSGetSizes(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
   dErr err;
 
@@ -386,7 +386,7 @@ dErr dEFSGetSizes(dEFS *efs,dInt *dim,dInt *inodes,dInt *total)
   dFunctionReturn(0);
 }
 
-dErr dEFSGetTensorNodes(dEFS *efs,dInt *dim,dInt *tsize,dReal *nodes[])
+dErr dEFSGetTensorNodes(dEFS efs,dInt *dim,dInt *tsize,dReal *nodes[])
 {
   dErr err;
 
@@ -396,7 +396,7 @@ dErr dEFSGetTensorNodes(dEFS *efs,dInt *dim,dInt *tsize,dReal *nodes[])
   dFunctionReturn(0);
 }
 
-dErr dEFSGetRule(dEFS *efs,dRule **rule)
+dErr dEFSGetRule(dEFS efs,dRule *rule)
 {
 
   dFunctionBegin;
@@ -406,7 +406,7 @@ dErr dEFSGetRule(dEFS *efs,dRule **rule)
   dFunctionReturn(0);
 }
 
-dErr dEFSApply(dEFS *efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode)
+dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode)
 {
   dErr err;
 

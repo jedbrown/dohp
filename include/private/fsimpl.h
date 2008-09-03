@@ -10,17 +10,20 @@ PETSC_EXTERN_CXX_BEGIN
 * 
 */
 struct v_dRuleOps {
-  dErr (*view)(dRule*,PetscViewer);
-  dErr (*getSize)(dRule*,dInt*,dInt*); /**< topological dimension of the space, total number of nodes */
-  dErr (*getNodeWeight)(dRule*,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
-  dErr (*getTensorNodeWeight)(dRule*,dInt*,dInt[],const dReal**,const dReal**); /**< topological dimension, number of
+  dErr (*view)(dRule,PetscViewer);
+  dErr (*getSize)(dRule,dInt*,dInt*); /**< topological dimension of the space, total number of nodes */
+  dErr (*getNodeWeight)(dRule,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
+  dErr (*getTensorNodeWeight)(dRule,dInt*,dInt[],const dReal**,const dReal**); /**< topological dimension, number of
                                                                                * nodes in each direction, weights in
                                                                                * each direction.  Does not copy, may not
                                                                                * be implemented.  */
 };
+
+#define dRuleHEADER                             \
+  struct v_dRuleOps *ops
+
 struct p_dRule {
-  struct v_dRuleOps *ops;
-  void              *data;
+  dRuleHEADER;
 };
 
 /**
@@ -28,12 +31,12 @@ struct p_dRule {
 * 
 */
 struct v_dEFSOps {
-  dErr (*view)(dEFS*,PetscViewer);
-  dErr (*getSizes)(dEFS*,dInt*,dInt*,dInt*); /**< topological dimension, number of interior nodes, total number of nodes */
-  dErr (*getTensorNodes)(dEFS*,dInt*,dInt*,dReal**);
-  dErr (*apply)(dEFS*,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode);
+  dErr (*view)(dEFS,PetscViewer);
+  dErr (*getSizes)(dEFS,dInt*,dInt*,dInt*); /**< topological dimension, number of interior nodes, total number of nodes */
+  dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**);
+  dErr (*apply)(dEFS,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode);
   /**< dofs/node, work length, work, modal values, nodal values */
-  dErr (*scatterInt)(dEFS*,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
+  dErr (*scatterInt)(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
   /**
   * @bug It's not yet clear to me how to implement this.
   * 
@@ -45,10 +48,12 @@ struct v_dEFSOps {
 * This is held once for every function space on every element.  This part of the implementation is not really private.
 * 
 */
+#define dEFSHEADER                              \
+  struct v_dEFSOps *ops;                        \
+  dRule             rule
+
 struct p_dEFS {
-  struct v_dEFSOps *ops;        /**< The element operations, normally constructed by #dJacobi */
-  dRule            *rule;       /**< The rule this EFS was built on, probably redundant */
-  void             *data;       /**< Private storage to define the basis operations */
+  dEFSHEADER;
 };
 
 /**
@@ -64,7 +69,7 @@ struct _dJacobiOps {
   //dErr (*getefs)(dJacobi,dInt,const dInt[],const dInt[],dEFS*,dInt*); /**< put a dEFS into the output buffer */
   dErr (*getrulesize)(dJacobi,dTopology,dInt*);
   dErr (*getrule)(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
-  dErr (*getefs)(dJacobi jac,dTopology top,const dInt bsize[],dRule *rule,dEFS *efs,void **base,dInt *index);
+  dErr (*getefs)(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 };
 
 /**
