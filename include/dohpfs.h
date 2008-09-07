@@ -1,0 +1,45 @@
+#ifndef _DOHPFS_H
+#define _DOHPFS_H
+/**
+* @file   dohpfs.h
+* @author Jed Brown <jed@59A2.org>
+* @date   Sun Sep  7 17:46:54 2008
+* 
+* @brief  The function space object
+* 
+* 
+*/
+
+#include "dohpmesh.h"
+#include "dohpjacobi.h"
+#include "dohpquotient.h"
+#include "petscpf.h"
+
+PETSC_EXTERN_CXX_BEGIN
+
+typedef struct _p_dFS *dFS;
+
+#define dFSType char *
+
+#define dFSCONT "cont"
+
+extern PetscCookie dFS_COOKIE; 
+
+EXTERN dErr dFSCreate(MPI_Comm,dFS*);
+EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH,dMeshTag); /* mesh, active set, partition tag */
+EXTERN dErr dFSSetQuotient(dFS,dQuotient);           /* must be defined at least on the active set and boundary facets */
+EXTERN dErr dFSSetDegree(dFS,dMeshTag,dJacobi);
+EXTERN dErr dFSAddBdy(dFS,const char*,dMeshESH,dMeshTag,dBool,PF); /* name, facets, orientation tag, flip orientation?, normal -> constraints */
+EXTERN dErr dFSSetUp(dFS);
+EXTERN dErr dFSSetType(dFS,const dFSType);
+EXTERN dErr dFSSetFromOptions(dFS);
+
+EXTERN dErr dFSDestroy(dFS);
+EXTERN dErr dFSView(dFS,PetscViewer);
+#define dFSRegisterDynamic(a,b,c,d) dFSRegister(a,b,c,d)
+EXTERN dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
+EXTERN dErr dFSRegisterAll(const char[]);
+EXTERN dErr dFSInitializePackage(const char[]);
+
+PETSC_EXTERN_CXX_END
+#endif  /* _DOHPFS_H */

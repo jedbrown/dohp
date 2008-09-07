@@ -4,7 +4,7 @@
 #include "petscsys.h"
 #include "dohpjacobi.h"
 // #include "private/dohpimpl.h"
-#include "private/fsimpl.h"
+#include "private/jacimpl.h"
 
 PETSC_EXTERN_CXX_BEGIN
 

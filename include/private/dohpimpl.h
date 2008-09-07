@@ -3,7 +3,7 @@
 
 #include "dohp.h"
 #include "src/dm/dmimpl.h"
-// #include "private/fsimpl.h"
+// #include "private/jacimpl.h"
 
 PetscCookie dDM_COOKIE;
 PetscLogEvent dLOG_MatMult, dLOG_FunctionEval, dLOG_JacobianEval;
@@ -168,8 +168,8 @@ struct _dQuotientOps {
 struct p_dQuotient {
   PETSCHEADER(struct _dQuotientOps);
   dMesh                    mesh;
-  DohpTag                     qsizetag;
-  DohpESH                     loc;
+  dMeshTag                     qsizetag;
+  dMeshESH                     loc;
   dInt                    nelems;
   dInt                   *degree;
   void                      **quad; // element quadrature context for locally owned elements

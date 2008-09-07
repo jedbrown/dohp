@@ -52,7 +52,7 @@ dErr dQuotientUpdate(dQuotient q)
    Output Parameters:
 .  q - the new Quotient
 @*/
-dErr dQuotientCreate(dMesh m,DohpESH loc,DohpTag qsizetag,dQuotient *inq)
+dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
 {
   dQuotient   q;
   MPI_Comm       comm;
@@ -373,5 +373,15 @@ dErr dQuotientSetDegreeConst(dQuotient q __attribute__((unused)),void *vval,dInt
   for (i=0; i<n; i++) {
     degree[3*i] = degree[3*i+1] = degree[3*i+2] = val[0];
   }
+  dFunctionReturn(0);
+}
+
+dErr dQuotientGetMesh(dQuotient quot,dMesh *mesh)
+{
+
+  dFunctionBegin;
+  dValidHeader(quot,dQUOTIENT_COOKIE,1);
+  dValidPointer(mesh,2);
+  *mesh = quot->mesh;
   dFunctionReturn(0);
 }

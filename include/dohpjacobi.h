@@ -25,6 +25,8 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
+extern PetscCookie dJACOBI_COOKIE;
+
 /**
 * Handle for manipulating EFS objects.  Since these are actually stored in arrays, the handle is the actual object
 * rather than just a pointer.  This means that a certain amount of library code (dFS) will have to be able to see the
@@ -65,7 +67,6 @@ EXTERN dErr dJacobiCreate(MPI_Comm,dJacobi*);
 EXTERN dErr dJacobiSetType(dJacobi,dJacobiType);
 EXTERN dErr dJacobiSetFromOptions(dJacobi);
 EXTERN dErr dJacobiSetUp(dJacobi);
-EXTERN dErr dJacobiSetFromOptions(dJacobi);
 EXTERN dErr dJacobiDestroy(dJacobi);
 EXTERN dErr dJacobiView(dJacobi,PetscViewer);
 #define dJacobiRegisterDynamic(a,b,c,d) dJacobiRegister(a,b,c,d)

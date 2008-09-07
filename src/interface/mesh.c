@@ -1,7 +1,7 @@
 #include "private/dohpimpl.h"
 #include <ctype.h>              /* needed for isprint() */
 
-static dErr dMeshView_EntSet(dMesh m,DohpESH root,PetscViewer viewer);
+static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer);
 
 const char *const iBase_ErrorString[] = {
   "iBase_SUCCESS",
@@ -52,13 +52,40 @@ const char *const iBase_TagValueTypeName[] = {
   "iBase_BYTES"
 };
 
-#undef __FUNCT__
-#define __FUNCT__ "MeshListIntView"
-dErr MeshListIntView(MeshListInt *m, const char *name) {
-  CHKERRQ(dPrintf(PETSC_COMM_SELF,"# %s [%d]\n", name, m->s));
-  CHKERRQ(PetscIntView(m->s,m->v,PETSC_VIEWER_STDOUT_SELF));
+dErr MeshListIntView(MeshListInt *ml,const char *name)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dPrintf(PETSC_COMM_SELF,"# %s [%d]\n", name, ml->s);dCHK(err);
+  err = PetscIntView(ml->s,ml->v,PETSC_VIEWER_STDOUT_SELF);dCHK(err);
   dFunctionReturn(0);
 }
+
+dErr MeshListEHView(MeshListEH *ml,const char *name)
+{
+  dInt n=ml->s/20,p=ml->s%20;
+  dErr err;
+
+  dFunctionBegin;
+  err = dPrintf(PETSC_COMM_SELF,"# %s [%d]\n",name,ml->s);dCHK(err);
+  for (dInt i=0; i<n; i++) {
+    err = dPrintf(PETSC_COMM_SELF,"%D:",i*20);dCHK(err);
+    for (dInt j=0; j<20; j++) {
+      err = dPrintf(PETSC_COMM_SELF," %#4x",0xffffffff & (long)ml->v[i*20+j]);dCHK(err);
+    }
+    err = dPrintf(PETSC_COMM_SELF,"\n");dCHK(err);
+  }
+  if (p) {
+    err = dPrintf(PETSC_COMM_SELF,"%D:",n*20);dCHK(err);
+    for (dInt i=0; i<p; i++) {
+      err = dPrintf(PETSC_COMM_SELF," %#4x",0xffffffff & (long)ml->v[n*20+i]);dCHK(err);
+    }
+    err = dPrintf(PETSC_COMM_SELF,"\n");dCHK(err);
+  }
+  dFunctionReturn(0);
+}     
+
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpOrientFindPerm_HexQuad"
@@ -305,7 +332,7 @@ dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt e
    This function allocates memory for the tag.  It should be freed with PetscFree()
 
 @*/
-dErr dMeshGetTagName(dMesh m,DohpTag tag,char **name)
+dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name)
 {
   dErr err;
 
@@ -444,7 +471,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
    dMeshView_EntSet - 
 
 @*/
-dErr dMeshView_EntSet(dMesh m,DohpESH root,PetscViewer viewer)
+dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
 {
   size_t valuesLen = 256;
   char values[256];
@@ -452,7 +479,7 @@ dErr dMeshView_EntSet(dMesh m,DohpESH root,PetscViewer viewer)
   char *tagname,*name,*z;
   int tagtype,tagsize,intdata;
   double dbldata;
-  DohpEH ehdata;
+  dMeshEH ehdata;
   MeshListTag tag=MLZ;
   MeshListData data=MLZ;
   MeshListESH esh=MLZ;
@@ -563,10 +590,10 @@ dErr dMeshView_EntSet(dMesh m,DohpESH root,PetscViewer viewer)
    dMeshGetEntSetName - 
 
 @*/
-dErr dMeshGetEntSetName(dMesh m,DohpESH set,char **str)
+dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str)
 {
   MeshListData buf=MLZ;
-  DohpTag tag;
+  dMeshTag tag;
   dErr err;
 
   dFunctionBegin;

@@ -1,7 +1,7 @@
 static const char help[] = "Tests the dJacobi object.";
 
 #include "dohpjacobi.h"
-#include "private/fsimpl.h"
+#include "private/jacimpl.h"
 #include "petscvec.h"
 #include <stdlib.h>
 

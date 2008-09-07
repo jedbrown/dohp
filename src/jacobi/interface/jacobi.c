@@ -10,7 +10,7 @@
 
 #include "petsc.h"
 #include "dohpjacobi.h"
-#include "private/fsimpl.h"
+#include "private/jacimpl.h"
 
 PetscCookie dJACOBI_COOKIE;
 static PetscFList dJacobiList = 0;

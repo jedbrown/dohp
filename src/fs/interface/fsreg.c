@@ -1,0 +1,106 @@
+#include "private/fsimpl.h"
+
+PetscCookie dFS_COOKIE;
+static PetscFList dFSList = 0;
+
+static const struct _dFSOps defaultFSOps = { .view = dFSView };
+
+dErr dFSCreate(MPI_Comm comm,dFS *infs)
+{
+  dFS fs;
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(infs,2);
+  *infs = 0;
+#if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
+  err = dFSInitializePackage(PETSC_NULL);dCHK(err);
+#endif
+  err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,dFS_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
+  
+  err = dMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
+  *infs = fs;
+  dFunctionReturn(0);
+}
+
+dErr dFSSetType(dFS fs,const dFSType type)
+{
+  dErr err,(*r)(dFS);
+  dBool     match;
+
+  dFunctionBegin;
+  PetscValidHeaderSpecific(fs,dFS_COOKIE,1);
+  PetscValidCharPointer(type,2);
+  err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
+  if (match) dFunctionReturn(0);
+  err = PetscFListFind(dFSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
+  if (!r) dERROR(1,"Unable to find requested dFS type %s",type);
+  if (fs->ops->destroy) { err = (*fs->ops->destroy)(fs);dCHK(err); }
+  err = PetscMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
+  fs->setupcalled = 0;
+  err = (*r)(fs);dCHK(err);
+  err = PetscObjectChangeTypeName((PetscObject)fs,type);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSSetFromOptions(dFS fs)
+{
+  static const char deft[] = dFSCONT;
+  char type[256];
+  dBool flg;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space options","FS");dCHK(err);
+  err = PetscOptionsList("-fs_type","Function Space type","dFSSetType",dFSList,deft,type,256,&flg);dCHK(err);
+  if (flg) {
+    err = dFSSetType(fs,type);dCHK(err);
+  } else if (!((dObject)fs)->type_name) {
+    err = dFSSetType(fs,deft);dCHK(err);
+  }
+  if (fs->ops->setfromoptions) {
+    err = (*fs->ops->setfromoptions)(fs);dCHK(err);
+  }
+  err = PetscOptionsEnd();dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSRegister(const char name[],const char path[],const char cname[],dErr(*create)(dFS))
+{
+  char fullname[dMAX_PATH_LEN];
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscFListConcat(path,cname,fullname);dCHK(err);
+  err = PetscFListAdd(&dFSList,name,fullname,(void (*)(void))create);dCHK(err); 
+  dFunctionReturn(0);
+}
+
+dErr dFSInitializePackage(const char path[])
+{
+  static dBool initialized = PETSC_FALSE;
+  dErr err;
+
+  dFunctionBegin;
+  if (initialized) dFunctionReturn(0);
+  err = PetscCookieRegister("Function Space",&dFS_COOKIE);dCHK(err);
+  err = dFSRegisterAll(path);dCHK(err);
+  initialized = PETSC_TRUE;
+  dFunctionReturn(0);
+}
+
+PETSC_EXTERN_CXX_BEGIN
+EXTERN dErr dFSCreate_Cont(dFS);
+PETSC_EXTERN_CXX_END
+
+dErr dFSRegisterAll(const char path[])
+{
+  static dBool called = PETSC_FALSE;
+  dErr err;
+
+  dFunctionBegin;
+  err = dFSRegisterDynamic(dFSCONT,path,"dFSCreate_Cont",dFSCreate_Cont);dCHK(err);
+  called = PETSC_TRUE;
+  dFunctionReturn(0);
+}

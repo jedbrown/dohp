@@ -10,11 +10,13 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
-typedef int MeshInt;
-typedef double MeshReal;
-typedef iBase_EntityHandle DohpEH;
-typedef iBase_TagHandle DohpTag;
-typedef iBase_EntitySetHandle DohpESH;
+typedef int dMeshInt;
+typedef double dMeshReal;
+typedef iBase_EntityHandle dMeshEH;
+typedef iBase_TagHandle dMeshTag;
+typedef iBase_EntitySetHandle dMeshESH;
+
+extern PetscCookie dMESH_COOKIE;
 
 EXTERN const char *const iBase_ErrorString[];
 EXTERN const char *const iMesh_TopologyName[];
@@ -23,6 +25,7 @@ EXTERN const char *const iBase_TagValueTypeName[];
 // #define ICHKERRQ(n) if (n) { dERROR(1,"ITAPS error: %s", iBase_ErrorString[n]); }
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
+#define dICHK(m,e) ICHKERRQ((m),(e))
 #define ICHKERRQ(mesh,err)                                     \
   if (err) {                                                   \
     dErr _l_ret = err;                               \
@@ -49,31 +52,31 @@ typedef unsigned short DohpOrient;
 
 typedef struct {
   char *v;
-  MeshInt a,s;
+  dMeshInt a,s;
 } MeshListData;
 
 typedef struct {
-  MeshReal *v;
-  MeshInt a, s;
+  dMeshReal *v;
+  dMeshInt a, s;
 } MeshListReal;
 
 typedef struct {
-  MeshInt *v, a, s;
+  dMeshInt *v, a, s;
 } MeshListInt;
 
 typedef struct {
-  DohpEH *v;
-  MeshInt a, s;
+  dMeshEH *v;
+  dMeshInt a, s;
 } MeshListEH;
 
 typedef struct {
-  DohpESH *v;
-  MeshInt a,s;
+  dMeshESH *v;
+  dMeshInt a,s;
 } MeshListESH;
 
 typedef struct {
-  DohpTag *v;
-  MeshInt a,s;
+  dMeshTag *v;
+  dMeshInt a,s;
 } MeshListTag;
 
 /* Use this macro to zero a MeshListXXX, i.e. MeshListInt a=MLZ; */
@@ -113,21 +116,22 @@ static const int DohpHexQuad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}
 * */
 static const int DohpQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,4}};
 
-EXTERN dErr MeshListIntView(MeshListInt *,const char *);
+EXTERN dErr MeshListIntView(MeshListInt*,const char*);
+EXTERN dErr MeshListEHView(MeshListEH*,const char*);
 EXTERN dErr DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *,const iBase_EntityHandle *,dInt,DohpOrient*);
 EXTERN dErr DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *,const iBase_EntityHandle *,dInt,DohpOrient*);
 
 typedef struct p_dMesh *dMesh;
 
 EXTERN dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
-EXTERN dErr dMeshGetTagName(dMesh m,DohpTag tag,char **name);
+EXTERN dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name);
 EXTERN dErr dMeshLoad(dMesh m,const char fname[],const char opt[]);
 EXTERN dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 EXTERN dErr dMeshOrientFacets(dMesh m);
 EXTERN dErr dMeshDestroy(dMesh);
 EXTERN dErr dMeshView(dMesh,PetscViewer);
 EXTERN dErr dMeshRegisterAll(const char path[]);
-EXTERN dErr dMeshGetEntSetName(dMesh m,DohpESH set,char **str);
+EXTERN dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str);
 
 PETSC_EXTERN_CXX_END
 #endif
