@@ -20,17 +20,22 @@ struct dFSBoundary {
 struct _dFSOps {
   DMOPS(dFS)
   dErr (*setfromoptions)(dFS);
+  dErr (*impldestroy)(dFS);
+  dErr (*buildspace)(dFS);
 };
 
 struct _p_dFS {
   PETSCHEADER(struct _dFSOps);
   dMesh               mesh;
-  dMeshTag            partition,degree;
+  dMeshTag            partition,degree,ruletag;
   dMeshESH            active;
-  struct dFSBoundary *bdy_start;
+  struct dFSBoundary *bdylist;
   dQuotient           quotient;
   dJacobi             jacobi;
-  dBool               setupcalled;
+  dBool               spacebuilt;
+  Sliced              sliced;
+  MeshListEH          r,f,e,v;  /**< region, face, edge, vertex */
+  PetscInt            n,N;      /**< length of the local and global vectors */
   void               *data;
 };
 

@@ -46,7 +46,7 @@ dErr checkRulesAndEFS(dJacobi jac)
   const dInt rsize[3] = {12,12,12};
   const dInt bsize[3] = {6,6,6};
   const dInt dim = 3;
-  const dTopology topo = iMesh_HEXAHEDRON;
+  const dEntTopology topo = iMesh_HEXAHEDRON;
   PetscViewer viewer = PETSC_VIEWER_STDOUT_WORLD;
   MPI_Comm comm = ((PetscObject)jac)->comm;
   Vec u;

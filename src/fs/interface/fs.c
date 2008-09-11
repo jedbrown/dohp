@@ -18,34 +18,26 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active,dMeshTag partition)
   dFunctionReturn(0);
 }
 
-dErr dFSSetQuotient(dFS fs,dQuotient quot)
+dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
 {
-  dMesh qmesh;
-  dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  dValidHeader(quot,dQUOTIENT_COOKIE,2);
-  if (fs->mesh) {
-    err = dQuotientGetMesh(quot,&qmesh);dCHK(err);
-    if (fs->mesh != qmesh) {
-      fs->mesh = 0;
-      fs->active = 0;
-      fs->partition = 0;
-    }
-  }
-  fs->quotient = 0;
+  fs->ruletag = rtag;
+  if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");  
+  if (jac) fs->jacobi = jac;
   dFunctionReturn(0);
 }
 
-dErr dFSSetDegree(dFS fs,dMeshTag deg,dJacobi jac)
+dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
 {
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  dValidHeader(jac,dJACOBI_COOKIE,3);
+  dValidHeader(jac,dJACOBI_COOKIE,2);
   fs->degree = deg;
-  fs->jacobi = jac;
+  if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
+  if (jac) fs->jacobi = jac;
   dFunctionReturn(0);
 }
 
@@ -62,12 +54,10 @@ dErr dFSAddBdy(dFS fs,const char *name,dMeshESH facets,dMeshTag orient,dBool fli
   bdy->orient = orient;
   bdy->fliporient = flip;
   bdy->constrain = constrain;
-  bdy->next = fs->bdy_start;    /* prepend to the list */
-  fs->bdy_start = bdy;
+  bdy->next = fs->bdylist;      /* Cons with list */
+  fs->bdylist = bdy;
   dFunctionReturn(0);
 }
-
-dErr dFSSetUp(dFS);
 
 dErr dFSView(dFS fs,dViewer viewer)
 {
@@ -89,8 +79,12 @@ dErr dFSView(dFS fs,dViewer viewer)
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"type: %s\n",
                                   ((dObject)fs)->type_name ? ((dObject)fs)->type_name : "type not set");dCHK(err);
-    if (!fs->setupcalled) {
-      err = PetscViewerASCIIPrintf(viewer,"Object has not been set up.\n");dCHK(err);
+    if (!fs->spacebuilt) {
+      err = PetscViewerASCIIPrintf(viewer,"Function Space has not been built.\n");dCHK(err);
+    }
+    {
+      err = PetscViewerASCIIPrintf(viewer,"General information about the mesh topology.\n");dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer,"number of vertices=%d edges=%d faces=%d regions=%d\n",fs->v.s,fs->e.s,fs->f.s,fs->r.s);dCHK(err);
     }
     if (fs->ops->view) {
       err = (*fs->ops->view)(fs,viewer);dCHK(err);
@@ -100,6 +94,62 @@ dErr dFSView(dFS fs,dViewer viewer)
     err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   } else if (fs->ops->view) {
     err = (*fs->ops->view)(fs,viewer);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+dErr dFSDestroy(dFS fs)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  if (fs->ops->impldestroy) {
+    err = (*fs->ops->impldestroy)(fs);dCHK(err);
+  }
+  err = PetscHeaderDestroy(fs);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSBuildSpace(dFS fs)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  if (fs->ops->buildspace) {
+    err = (*fs->ops->buildspace)(fs);dCHK(err);
+  }
+  fs->spacebuilt = true;
+  dFunctionReturn(0);
+}
+
+dErr dFSCreateLocalVector(dFS fs,Vec *U)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(U,VEC_COOKIE,2);
+  if (fs->sliced) {
+    err = SlicedCreateLocalVector(fs->sliced,U);dCHK(err);
+  } else {
+    dERROR(1,"no sliced");
+  }
+  dFunctionReturn(0);
+}
+
+dErr dFSCreateGlobalVector(dFS fs,Vec *U)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(U,VEC_COOKIE,2);
+  if (fs->sliced) {
+    err = SlicedCreateGlobalVector(fs->sliced,U);dCHK(err);
+  } else {
+    dERROR(1,"no sliced");
   }
   dFunctionReturn(0);
 }

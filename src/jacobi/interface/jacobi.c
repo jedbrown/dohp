@@ -123,7 +123,8 @@ dErr dJacobiSetFromOptions(dJacobi jac)
 */
 dErr dJacobiSetUp(dJacobi jac)
 {
-  dErr err;
+  dBool flg;
+  dErr  err;
 
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
@@ -131,6 +132,14 @@ dErr dJacobiSetUp(dJacobi jac)
     err = jac->ops->setup(jac);dCHK(err);
   }
   jac->setupcalled = 1;
+
+  /* View if requested */
+  err = PetscOptionsHasName(((dObject)jac)->prefix,"-djac_view",&flg);dCHK(err);
+  if (flg) {
+    dViewer viewer;
+    err = PetscViewerASCIIGetStdout(((dObject)jac)->comm,&viewer);dCHK(err);
+    err = dJacobiView(jac,viewer);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
@@ -282,7 +291,7 @@ dErr dJacobiSetDegrees(dJacobi jac,dInt basisdegree,dInt ruleexcess)
 * 
 * @return err
 */
-dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index)
+dErr dJacobiGetRule(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index)
 {
   dErr err;
 
@@ -309,7 +318,7 @@ dErr dJacobiGetRule(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,voi
 * 
 * @return 
 */
-dErr dJacobiGetEFS(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index)
+dErr dJacobiGetEFS(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index)
 {
   dErr err;
 

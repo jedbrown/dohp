@@ -19,8 +19,9 @@ typedef PetscErrorCode dErr;
 typedef PetscObject    dObject;
 typedef PetscViewer    dViewer;
 
-#define dTopology      enum iMesh_EntityTopology
-
+/* #define dEntTopology      enum iMesh_EntityTopology */
+typedef enum iMesh_EntityTopology dEntTopology;
+typedef enum iBase_EntityType dEntType;
 
 #define dCHK(err) CHKERRQ(err);
 #define dERROR(n,...) {return PetscError(__LINE__,__FUNCT__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
@@ -32,6 +33,7 @@ typedef PetscViewer    dViewer;
 #define dValidPointer(a,b) PetscValidPointer(a,b)
 #define dMalloc(a,b) PetscMalloc(a,b)
 #define dNew(a,b) PetscNew(a,b)
+#define dNewLog(a,b,c) PetscNewLog(a,b,c)
 #define dFree(a) PetscFree(a)
 #define dNewM(n,t,p) (dMalloc((n)*sizeof(t),(p)) || dMemzero(*(p),(n)*sizeof(t)))
 #define dMallocM(n,t,p) (dMalloc((n)*sizeof(t),(p)))

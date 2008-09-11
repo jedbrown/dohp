@@ -98,7 +98,7 @@ dErr dMeshSetQuotient(dMesh m,dQuotient q)
 #define __FUNCT__ "main"
 int main(int argc, char *argv[])
 {
-  const char *dflt_outfile="dblock.h5m", *outopts="", *pTagName="MATERIAL_SET";
+  const char *dflt_outfile="dblock.h5m", *outopts="", *pTagName="dohp_partition";
   dInt verbosity = 1;
   iMesh_Instance mesh;
   iBase_EntitySetHandle root;
@@ -331,8 +331,8 @@ int main(int argc, char *argv[])
 
   /* Create the boundary parent set. */
   {
-    int on_wall(double x[]) {return (x[0] == x0 || x[0] == x1 || x[1] == y0 || x[1] == y1 || x[2] == z0);}
-    int on_lid(double x[])  {return (x[2] == z1); }
+    int on_wall(double xx[]) {return (xx[0] == x0 || xx[0] == x1 || xx[1] == y0 || xx[1] == y1 || xx[2] == z0);}
+    int on_lid(double xx[])  {return (xx[2] == z1); }
     typedef int OnBdyFunc(double[]);
     const int nbdy = 3;
     const char bdyName[3][dNAME_LEN] = {dBDY_ROOT,"WALL","LID"};
@@ -441,7 +441,7 @@ int main(int argc, char *argv[])
       iMesh_getEntities(mesh,bdy.v[i],iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&e.v,&e.a,&e.s,&err);ICHKERRQ(mesh,err);
       iMesh_getEntArrTopo(mesh,e.v,e.s,&type.v,&type.a,&type.s,&err);ICHKERRQ(mesh,err);
       for (j=0; j<e.s; j++) {
-        if (type.v[j] > iBase_VERTEX || 1) {
+        if (type.v[j] > iBase_EDGE || 1) { /* should we set the boundary on all entities or just faces? */
           iMesh_setIntData(mesh,e.v[j],bdyNum,i,&err);ICHKERRQ(mesh,err);
         }
       }

@@ -7,11 +7,13 @@
 #include <string.h>
 #include "dohpbase.h"
 #include "dohptype.h"
+#include "dohpjacobi.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
 typedef int dMeshInt;
 typedef double dMeshReal;
+typedef enum iMesh_EntityTopology dMeshEntTopology;
 typedef iBase_EntityHandle dMeshEH;
 typedef iBase_TagHandle dMeshTag;
 typedef iBase_EntitySetHandle dMeshESH;
@@ -132,6 +134,9 @@ EXTERN dErr dMeshDestroy(dMesh);
 EXTERN dErr dMeshView(dMesh,PetscViewer);
 EXTERN dErr dMeshRegisterAll(const char path[]);
 EXTERN dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str);
+EXTERN dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
+EXTERN dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
+EXTERN dErr dMeshGetInstance(dMesh,iMesh_Instance*);
 
 PETSC_EXTERN_CXX_END
 #endif

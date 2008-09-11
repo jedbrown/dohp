@@ -610,6 +610,16 @@ dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str)
   dFunctionReturn(0);
 }
 
+dErr dMeshGetInstance(dMesh m,iMesh_Instance *mi)
+{
+
+  dFunctionBegin;
+  dValidHeader(m,dMESH_COOKIE,1);
+  dValidPointer(mi,2);
+  *mi = m->mi;
+  dFunctionReturn(0);
+}
+
 #undef __FUNCT__
 #define __FUNCT__ "dMeshDestroy"
 /*@
@@ -649,5 +659,93 @@ dErr dMeshRegisterAll(const char path[])
   if (registered) dFunctionReturn(0);
   err = dPrintf(PETSC_COMM_WORLD,"dMeshRegisterAll: %s (nothing to do)\n",path);dCHK(err);
   registered = PETSC_TRUE;
+  dFunctionReturn(0);
+}
+
+/** 
+* Creates a \p dRule tag over all non-vertex topological entities in the mesh.  Also tags the root entity set with the
+* given tag name and value equal to the base pointer for the rule storage.  This tag should be removed using
+* dMeshDestroyRuleTag().
+* 
+* @param mesh mesh
+* @param esh entity set handle on which to add the tag, tags all non-vertex entities in \a esh
+* @param jac dJacobi to use when generating the tags
+* @param name unique identifier for the tag (mostly for debugging)
+* @param degree polynomial degree which should be integrated exactly when the element has an affine map
+* @param[out] inrtag tag
+* 
+* @return err
+*/
+dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char *name,dInt degree,dMeshTag *inrtag)
+{
+  static const int topologies[] = {0,iMesh_LINE_SEGMENT,iMesh_QUADRILATERAL,iMesh_HEXAHEDRON};
+  static const int ntopologies[] = {0,1,1,1};
+  const dInt rdeg[3] = {degree,degree,degree};
+  iMesh_Instance mi = mesh->mi;
+  dMeshTag rtag;
+  dMeshESH root;
+  MeshListEH ent=MLZ;
+  void **base;
+  dInt rulesize,needed,nents,maxnents,index;
+  dRule *rules;
+  size_t namelen;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(inrtag,2);
+  *inrtag = 0;
+  err = PetscStrlen(name,&namelen);dCHK(err);
+  iMesh_createTag(mi,name,sizeof(dRule),iBase_BYTES,&rtag,&err,(int)namelen);dICHK(mi,err);
+
+  base = NULL; needed = 0; maxnents = 0;
+  for (dInt pass=1; pass<=2; pass++) { /* determine preallocation, then allocate and fill */
+    if (pass == 2) {
+      err = dMalloc(needed*sizeof(*base),&base);dCHK(err);
+      err = dMalloc(maxnents*sizeof(dMeshEH),&ent.v);dCHK(err);
+      ent.a = maxnents; ent.s = 0;
+      err = dMalloc(maxnents*sizeof(dRule),&rules);dCHK(err);
+      index = 0;
+    }
+    for (int type=iBase_EDGE; type<iBase_ALL_TYPES; type++) {
+      for (int topo=topologies[type]; topo<topologies[type]+ntopologies[type]; topo++) {
+        if (pass == 1) {
+          rulesize = 0;
+          err = dJacobiGetRule(jac,topo,rdeg,NULL,NULL,&rulesize);dCHK(err); /* determine the amount of space needed for this topology */
+          iMesh_getNumOfTopo(mi,esh,topo,&nents,&err);dICHK(mi,err);
+          needed += nents*rulesize;
+          maxnents = dMax(maxnents,nents);
+        } else {
+          iMesh_getEntities(mi,esh,type,topo,&ent.v,&ent.a,&ent.s,&err);dICHK(mi,err);
+          for (dInt i=0; i<ent.s; i++) {
+            err = dJacobiGetRule(jac,topo,rdeg,rules,&base[index],&index);dCHK(err);
+          }
+          iMesh_setArrData(mi,ent.v,ent.s,rtag,(char*)rules,ent.s*(int)sizeof(dRule),&err);dICHK(mi,err);
+        }
+      }
+    }
+  }
+  err = dFree(ent.v);dCHK(err);
+  err = dFree(rules);dCHK(err);
+  iMesh_getRootSet(mi,&root,&err);dICHK(mi,err);
+  if (sizeof(base) != sizeof(dRule)) dERROR(1,"Very strange, pointer sizes don't agree");
+  iMesh_setEntSetData(mi,root,rtag,(char*)&base,sizeof(base),&err);dICHK(mi,err);
+  *inrtag = rtag;
+  dFunctionReturn(0);
+}
+
+dErr dMeshDestroyRuleTag(dMesh mesh,dMeshTag rtag)
+{
+  iMesh_Instance mi = mesh->mi;
+  void *base[1];
+  int bsize,balloc=sizeof(base[0]);
+  dMeshESH root;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  iMesh_getRootSet(mi,&root,&err);dICHK(mi,err);
+  iMesh_getEntSetData(mi,root,rtag,(char**)&base,&balloc,&bsize,&err);dICHK(mi,err);
+  err = dFree(base[0]);dCHK(err);
   dFunctionReturn(0);
 }

@@ -3,7 +3,16 @@
 PetscCookie dFS_COOKIE;
 static PetscFList dFSList = 0;
 
-static const struct _dFSOps defaultFSOps = { .view = dFSView };
+/**
+* These default operations are shared with the DM.  We are making a two-level inheritance since there may be different
+* dFS implementations.  Certainly both continuous and discontinuous Galerkin are desirable.
+* 
+*/
+static const struct _dFSOps defaultFSOps = { .view = dFSView,
+                                             .createglobalvector = dFSCreateGlobalVector,
+                                             .createlocalvector = dFSCreateLocalVector,
+                                             .destroy = dFSDestroy,
+                                             .impldestroy = 0};
 
 dErr dFSCreate(MPI_Comm comm,dFS *infs)
 {
@@ -35,9 +44,9 @@ dErr dFSSetType(dFS fs,const dFSType type)
   if (match) dFunctionReturn(0);
   err = PetscFListFind(dFSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(1,"Unable to find requested dFS type %s",type);
-  if (fs->ops->destroy) { err = (*fs->ops->destroy)(fs);dCHK(err); }
+  if (fs->ops->impldestroy) { err = (*fs->ops->impldestroy)(fs);dCHK(err); }
   err = PetscMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
-  fs->setupcalled = 0;
+  fs->spacebuilt = 0;
   err = (*r)(fs);dCHK(err);
   err = PetscObjectChangeTypeName((PetscObject)fs,type);dCHK(err);
   dFunctionReturn(0);
@@ -52,8 +61,8 @@ dErr dFSSetFromOptions(dFS fs)
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space options","FS");dCHK(err);
-  err = PetscOptionsList("-fs_type","Function Space type","dFSSetType",dFSList,deft,type,256,&flg);dCHK(err);
+  err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space (dFS) options","dFS");dCHK(err);
+  err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",dFSList,deft,type,256,&flg);dCHK(err);
   if (flg) {
     err = dFSSetType(fs,type);dCHK(err);
   } else if (!((dObject)fs)->type_name) {
@@ -63,6 +72,15 @@ dErr dFSSetFromOptions(dFS fs)
     err = (*fs->ops->setfromoptions)(fs);dCHK(err);
   }
   err = PetscOptionsEnd();dCHK(err);
+  err = dFSBuildSpace(fs);dCHK(err);
+
+  /* View if requested */
+  err = PetscOptionsHasName(((dObject)fs)->prefix,"-dfs_view",&flg);dCHK(err);
+  if (flg) {
+    dViewer viewer;
+    err = PetscViewerASCIIGetStdout(((dObject)fs)->comm,&viewer);dCHK(err);
+    err = dFSView(fs,viewer);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
@@ -90,8 +108,12 @@ dErr dFSInitializePackage(const char path[])
   dFunctionReturn(0);
 }
 
+
+
 PETSC_EXTERN_CXX_BEGIN
+
 EXTERN dErr dFSCreate_Cont(dFS);
+
 PETSC_EXTERN_CXX_END
 
 dErr dFSRegisterAll(const char path[])

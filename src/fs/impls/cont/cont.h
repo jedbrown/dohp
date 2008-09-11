@@ -5,11 +5,15 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
-dErr dFSCreate_Cont(dFS);
+extern dErr dFSCreate_Cont(dFS);
 
-typedef struct {
-  MeshListEH r,f,e,v;
-} dFS_Cont;
+struct dFS_Cont {
+  dBool usecmatrix;
+  dInt m;
+  Mat F;                        /**< facet constraint matrix */
+  Mat Cprimal;                  /**< primal constraint matrix (element dofs to local numbering, full order) */
+  Mat Cdual;                    /**< dual constraint matrix (element dofs to local numbering, as sparse as possible) */
+};
 
 PETSC_EXTERN_CXX_END
 

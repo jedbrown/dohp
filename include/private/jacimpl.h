@@ -67,9 +67,9 @@ struct _dJacobiOps {
   dErr (*view)(dJacobi,PetscViewer);
   //dErr (*getrule)(dJacobi,dInt,const dInt[],dRule*,dInt*);            /**< put a dRule into the output buffer */
   //dErr (*getefs)(dJacobi,dInt,const dInt[],const dInt[],dEFS*,dInt*); /**< put a dEFS into the output buffer */
-  dErr (*getrulesize)(dJacobi,dTopology,dInt*);
-  dErr (*getrule)(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
-  dErr (*getefs)(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
+  dErr (*getrulesize)(dJacobi,dEntTopology,dInt*);
+  dErr (*getrule)(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
+  dErr (*getefs)(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 };
 
 /**

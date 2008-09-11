@@ -24,8 +24,8 @@ static dErr TensorBasisDestroy(TensorBasis);
 static dErr dJacobiSetUp_Tensor(dJacobi);
 static dErr dJacobiDestroy_Tensor(dJacobi);
 static dErr dJacobiView_Tensor(dJacobi,PetscViewer);
-static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
-static dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
+static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
+static dErr dJacobiGetEFS_Tensor(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 
 static dErr TensorGetRule(Tensor this,dInt n,TensorRule *out);
 static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out);
@@ -219,14 +219,14 @@ static dErr TensorJacobiHasBasis(dJacobi jac,dInt rule,dInt basis,dBool *has)
 * 
 * @param jac Jacobi context
 * @param top topology
-* @param rsize rule size in each dimension, normally
+* @param rsize rule size in each dimension (should become polynomial degree to integrate exactly)
 * @param rule space to write the rule
 * @param base base of array to write the private data, if NULL, write nothing
 * @param[in,out] index into \a data to write the private data, incremented to point to the next free space
 * 
 * @return 
 */
-static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],dRule *ruleout,void **base,dInt *index)
+static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *ruleout,void **base,dInt *index)
 {
   Tensor this = (Tensor)jac->impl;
   void **start = &base[*index];
@@ -244,7 +244,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
         err = TensorGetRule(this,rsize[0],&line->trule[0]);dCHK(err);
         *ruleout = (dRule)line;
       }
-      *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
+      if (index) *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
       break;
     case iMesh_QUADRILATERAL:
       if (base) {
@@ -254,7 +254,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
         err = TensorGetRule(this,rsize[1],&quad->trule[1]);dCHK(err);
         *ruleout = (dRule)quad;
       }
-      *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
+      if (index) *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
       break;
     case iMesh_HEXAHEDRON:
       if (base) {
@@ -265,7 +265,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
         err = TensorGetRule(this,rsize[2],&hex->trule[2]);dCHK(err);
         *ruleout = (dRule)hex;
       }
-      *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
+      if (index) *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
       break;
     default:
       dERROR(1,"no rule available for given topology");
@@ -286,7 +286,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dTopology top,const dInt rsize[],d
 * 
 * @return 
 */
-dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule rule,dEFS *efsout,void **base,dInt *index)
+dErr dJacobiGetEFS_Tensor(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efsout,void **base,dInt *index)
 {
   Tensor this = (Tensor)jac->impl;
   void **start = &base[*index];
@@ -308,7 +308,7 @@ dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule rul
         err = TensorGetBasis(this,rsize[0],bsize[0],&line->basis[0]);dCHK(err);
         *efsout = (dEFS)line;
       }
-      *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
+      if (index) *index += (dInt)sizeof(*line)/(dInt)sizeof(base[0]);
       break;
     case iMesh_QUADRILATERAL:
       if (rdim != 2) dERROR(1,"Incompatible Rule size %d, expected 2",rdim);
@@ -321,7 +321,7 @@ dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule rul
         }
         *efsout = (dEFS)quad;
       }
-      *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
+      if (index) *index += (dInt)sizeof(*quad)/(dInt)sizeof(base[0]);
       break;
     case iMesh_HEXAHEDRON:
       if (rdim != 3) dERROR(1,"Incompatible Rule size %d, expected 3",rdim);
@@ -334,7 +334,7 @@ dErr dJacobiGetEFS_Tensor(dJacobi jac,dTopology top,const dInt bsize[],dRule rul
         }
         *efsout = (dEFS)hex;
       }
-      *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
+      if (index) *index += (dInt)sizeof(*hex)/(dInt)sizeof(base[0]);
       break;
     default:
       dERROR(1,"no basis available for given topology");

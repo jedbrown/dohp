@@ -27,12 +27,15 @@ extern PetscCookie dFS_COOKIE;
 
 EXTERN dErr dFSCreate(MPI_Comm,dFS*);
 EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH,dMeshTag); /* mesh, active set, partition tag */
-EXTERN dErr dFSSetQuotient(dFS,dQuotient);           /* must be defined at least on the active set and boundary facets */
-EXTERN dErr dFSSetDegree(dFS,dMeshTag,dJacobi);
+EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
+EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSAddBdy(dFS,const char*,dMeshESH,dMeshTag,dBool,PF); /* name, facets, orientation tag, flip orientation?, normal -> constraints */
-EXTERN dErr dFSSetUp(dFS);
+EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);
 EXTERN dErr dFSSetFromOptions(dFS);
+EXTERN dErr dFSCreateLocalVector(dFS,Vec*);
+EXTERN dErr dFSCreateGlobalVector(dFS,Vec*);
+EXTERN dErr dFSBuildSpace(dFS);
 
 EXTERN dErr dFSDestroy(dFS);
 EXTERN dErr dFSView(dFS,PetscViewer);
