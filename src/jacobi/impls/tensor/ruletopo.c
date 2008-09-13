@@ -16,12 +16,12 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Line(dRule,dInt*,dInt[],const dReal*
 static dErr dRuleGetTensorNodeWeight_Tensor_Quad(dRule,dInt*,dInt[],const dReal**,const dReal**);
 static dErr dRuleGetTensorNodeWeight_Tensor_Hex(dRule,dInt*,dInt[],const dReal**,const dReal**);
 
-/** 
+/**
 * Set up the rule ops table for each topology.
-* 
-* @param jac 
-* 
-* @return 
+*
+* @param jac
+*
+* @return
 */
 dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac)
 {

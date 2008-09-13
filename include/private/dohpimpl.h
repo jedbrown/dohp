@@ -5,7 +5,7 @@
 #include "src/dm/dmimpl.h"
 // #include "private/jacimpl.h"
 
-PetscCookie dDM_COOKIE;
+PetscCookie dDM_COOKIE,dMFS_COOKIE;
 PetscLogEvent dLOG_MatMult, dLOG_FunctionEval, dLOG_JacobianEval;
 
 struct _dMeshOps {

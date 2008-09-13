@@ -15,7 +15,7 @@ dErr dQuotientComputeElemJac_Hex(const DohpEMap *e,const dRule *rule,dReal detJ[
   dErr err;
 
   dFunctionBegin;
-  
+
   for (i=0; i<r[0].size; i++) {
     for (j=0; j<r[1].size; j++) {
       for (k=0; k<r[2].size; k++) {
@@ -45,6 +45,7 @@ dErr dQuotientComputeElemJac_Hex(const DohpEMap *e,const dRule *rule,dReal detJ[
 }
 #endif
 
+#if 0                           /* **************************** Turn this stuff off for now */
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSSetUp"
 dErr DohpMFSSetUp(DohpMFS mfs)
@@ -78,9 +79,8 @@ dErr DohpMFSSetUp(DohpMFS mfs)
 dErr DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
 {
   dMesh m=mfs->mesh;
-  iMesh_Instance mi=m->mi;
-  dInt i,j;
-  dErr err;
+  /* iMesh_Instance mi=m->mi; */
+  /* dErr err; */
 #define SIZE(f,m,n)             /* Decrease the order of face number f to (m,n) */
   /* Element order is 3 int values starting at s->v[i*3] */
 
@@ -92,7 +92,7 @@ dErr DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
   * always a node. */
 
   dFunctionBegin;
-  for (i=0; i<m->r.s; i++) {      /* Each element */
+  for (dInt i=0; i<m->r.s; i++) {      /* Each element */
     SIZE(0,0,2);
     SIZE(1,1,2);
     SIZE(2,0,2);
@@ -102,6 +102,8 @@ dErr DohpMFSApplyMinimumRule(DohpMFS mfs,const MeshListInt *s)
   }
   dFunctionReturn(0);
 }
+#endif  /* *************************** inactive functions */
+
 
 #undef __FUNCT__
 #define __FUNCT__ "DohpMFSSetUpElementBases"
@@ -110,6 +112,8 @@ dErr DohpMFSSetUpElementBases(DohpMFS mfs,const MeshListInt *s)
 
   dFunctionBegin;
   dERROR(1,"not implemented");
+  dValidHeader(mfs,dMFS_COOKIE,1);
+  dValidIntPointer(s,2);
   dFunctionReturn(0);
 }
 
@@ -120,6 +124,7 @@ dErr DohpMFSSetUpElemFacetProjections(DohpMFS mfs)
 
   dFunctionBegin;
   dERROR(1,"not implemented");
+  dValidHeader(mfs,dMFS_COOKIE,1);
   dFunctionReturn(0);
 }
 

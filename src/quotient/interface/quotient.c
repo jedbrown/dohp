@@ -82,7 +82,7 @@ dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientSetType"
 /*@
-   dQuotientSetType - 
+   dQuotientSetType -
 
 @*/
 dErr dQuotientSetType(dQuotient q,const dQuotientType type)
@@ -108,11 +108,11 @@ dErr dQuotientSetType(dQuotient q,const dQuotientType type)
 
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientSetFromOptions"
-/** 
+/**
 * Use the options database to determine type and other settings for the quotient
-* 
+*
 * @param q the Quotient
-* 
+*
 * @return err
 */
 dErr dQuotientSetFromOptions(dQuotient q)
@@ -151,7 +151,7 @@ dErr dQuotientSetFromOptions(dQuotient q)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientSetUp"
 /*@
-   dQuotientSetUp - 
+   dQuotientSetUp -
 
 @*/
 dErr dQuotientSetUp(dQuotient q)
@@ -173,12 +173,12 @@ dErr dQuotientSetUp(dQuotient q)
 
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientSetUp_Private"
-/** 
+/**
 * This function should determine which subdomain of the mesh is in use.  For now, we assume that it is always the whole
 * mesh.
-* 
+*
 * @param q The quotient
-* 
+*
 * @return err
 */dErr dQuotientSetUp_Private(dQuotient q)
 {
@@ -194,15 +194,15 @@ dErr dQuotientSetUp(dQuotient q)
 
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientRegister"
-/** 
+/**
 * Register a new Quotient type in the quotient list.  It can then be selected with \fn dQuotientSetType or on the
 * command line.
-* 
+*
 * @param name type name
 * @param path source file containing implementation (\p cname)
 * @param cname name of function to create an object of this type
 * @param function pointer to function \p cname
-* 
+*
 * @return err
 */dErr dQuotientRegister(const char name[],const char path[],const char cname[],dErr (*function)(dQuotient))
 {
@@ -218,7 +218,7 @@ dErr dQuotientSetUp(dQuotient q)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientRegisterAll"
 /*@
-   dQuotientRegisterAll - 
+   dQuotientRegisterAll -
 
 @*/
 dErr dQuotientRegisterAll(const char path[])
@@ -236,7 +236,7 @@ dErr dQuotientRegisterAll(const char path[])
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientDestroy"
 /*@
-   dQuotientDestroy - 
+   dQuotientDestroy -
 
 @*/
 dErr dQuotientDestroy(dQuotient q)
@@ -257,7 +257,7 @@ dErr dQuotientDestroy(dQuotient q)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientGetType"
 /*@
-   dQuotientGetType - 
+   dQuotientGetType -
 
 @*/
 dErr dQuotientGetType(dQuotient q,const dQuotientType *type)
@@ -274,7 +274,7 @@ dErr dQuotientGetType(dQuotient q,const dQuotientType *type)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientView"
 /*@
-   dQuotientView - 
+   dQuotientView -
 
 @*/
 dErr dQuotientView(dQuotient q,PetscViewer viewer)
@@ -322,7 +322,7 @@ dErr dQuotientView(dQuotient q,PetscViewer viewer)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientInitializePackage"
 /*@
-   dQuotientInitializePackage - 
+   dQuotientInitializePackage -
 
 @*/
 dErr dQuotientInitializePackage(const char path[])
@@ -343,7 +343,7 @@ dErr dQuotientInitializePackage(const char path[])
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientSetSetDegree"
 /*@
-   dQuotientSetSetDegree - 
+   dQuotientSetSetDegree -
 
 @*/
 dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx)
@@ -362,7 +362,7 @@ dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientSetDegreeConst"
 /*@
-   dQuotientSetDegreeConst - 
+   dQuotientSetDegreeConst -
 
 @*/
 dErr dQuotientSetDegreeConst(dQuotient q __attribute__((unused)),void *vval,dInt n,dInt *degree)

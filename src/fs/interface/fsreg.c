@@ -6,7 +6,7 @@ static PetscFList dFSList = 0;
 /**
 * These default operations are shared with the DM.  We are making a two-level inheritance since there may be different
 * dFS implementations.  Certainly both continuous and discontinuous Galerkin are desirable.
-* 
+*
 */
 static const struct _dFSOps defaultFSOps = { .view = dFSView,
                                              .createglobalvector = dFSCreateGlobalVector,
@@ -26,7 +26,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
   err = dFSInitializePackage(PETSC_NULL);dCHK(err);
 #endif
   err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,dFS_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
-  
+
   err = dMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
   *infs = fs;
   dFunctionReturn(0);
@@ -91,7 +91,7 @@ dErr dFSRegister(const char name[],const char path[],const char cname[],dErr(*cr
 
   dFunctionBegin;
   err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&dFSList,name,fullname,(void (*)(void))create);dCHK(err); 
+  err = PetscFListAdd(&dFSList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 

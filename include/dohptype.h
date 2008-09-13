@@ -8,7 +8,7 @@
 /**
 * These types all have to be exactly the Petsc versions.  These typedefs are here just to shorten the names, not to
 * become autonomous.
-* 
+*
 */
 
 typedef PetscInt       dInt;
@@ -22,6 +22,13 @@ typedef PetscViewer    dViewer;
 /* #define dEntTopology      enum iMesh_EntityTopology */
 typedef enum iMesh_EntityTopology dEntTopology;
 typedef enum iBase_EntityType dEntType;
+
+typedef int dMeshInt;
+typedef double dMeshReal;
+typedef iBase_EntityHandle dMeshEH;
+typedef iBase_TagHandle dMeshTag;
+typedef iBase_EntitySetHandle dMeshESH;
+
 
 #define dCHK(err) CHKERRQ(err);
 #define dERROR(n,...) {return PetscError(__LINE__,__FUNCT__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
@@ -37,6 +44,33 @@ typedef enum iBase_EntityType dEntType;
 #define dFree(a) PetscFree(a)
 #define dNewM(n,t,p) (dMalloc((n)*sizeof(t),(p)) || dMemzero(*(p),(n)*sizeof(t)))
 #define dMallocM(n,t,p) (dMalloc((n)*sizeof(t),(p)))
+
+#define dValidPointer2(a,b,c,d) (dValidPointer((a),(b)) || dValidPointer((c),(d)))
+#define dValidPointer3(a,b,c,d,e,f) (dValidPointer2((a),(b),(c),(d)) || dValidPointer((e),(f)))
+#define dValidPointer4(a,b,c,d,e,f,g,h) (dValidPointer3((a),(b),(c),(d),(e),(f)) || dValidPointer((g),(h)))
+#define dValidPointer5(a,b,c,d,e,f,g,h,i,j) (dValidPointer4((a),(b),(c),(d),(e),(f),(g),(h)) || dValidPointer((i),(j)))
+#define dValidPointer6(a,b,c,d,e,f,g,h,i,j,k,l) (dValidPointer5((a),(b),(c),(d),(e),(f),(g),(h),(i),(j)) || dValidPointer((k),(l)))
+#define dValidPointer7(a,b,c,d,e,f,g,h,i,j,k,l,m,n) (dValidPointer6((a),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),(l)) || dValidPointer((m),(n)))
+
+#define dValidPointerSpecific(p,t,a)                              \
+  {if (!p) dERROR(PETSC_ERR_ARG_BADPTR,"Null Pointer: Parameter # %d",(a)); \
+    if ((size_t)(p) % sizeof(*(p))) dERROR(PETSC_ERR_ARG_BADPTR,"Insufficient alignment for pointer to %s: Parameter # %d should have %ld alignment",(t),(a),sizeof(*(p)));}
+#define dValidPointerSpecific2(p0,t0,a0,p1,t1,a1) {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific(p1,t1,a1);}
+#define dValidPointerSpecific3(p0,t0,a0,p1,t1,a1,p2,t2,a2) \
+  {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific2(p1,t1,a1,p2,t2,a2);}
+#define dValidPointerSpecific4(p0,t0,a0,p1,t1,a1,p2,t2,a2,p3,t3,a3) \
+  {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific3(p1,t1,a1,p2,t2,a2,p3,t3,a3);}
+#define dValidPointerSpecific5(p0,t0,a0,p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4) \
+  {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific4(p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4);}
+#define dValidPointerSpecific6(p0,t0,a0,p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4,p5,t5,a5) \
+  {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific5(p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4,p5,t5,a5);}
+#define dValidPointerSpecific7(p0,t0,a0,p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4,p5,t5,a5,p6,t6,a6) \
+  {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific6(p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4,p5,t5,a5,p6,t6,a6);}
+
+#define dValidIntPointer(p,a) PetscValidIntPointer(p,a)
+#define dValidHandlePointer(p,a) dValidPointerNamedSpecific(p,void*,"void*",a)
+#define dValidScalarPointer(p,a) dValidPointerNamedSpecific(p,dScalar,"dScalar",a)
+#define dValidRealPointer(p,a) dValidPointerNamedSpecific(p,dReal,"dReal",a)
 
 #define dMax(a,b) PetscMax(a,b)
 #define dMin(a,b) PetscMin(a,b)
@@ -74,4 +108,4 @@ typedef enum iBase_EntityType dEntType;
   PetscStackPop; \
   return;}
 
-#endif
+#endif  /* _DOHPTYPE_H */

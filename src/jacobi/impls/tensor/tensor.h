@@ -14,14 +14,14 @@ PETSC_EXTERN_CXX_BEGIN
 #define dNextCacheAligned(p) dNextAlignedAddr(CACHE_LINE,p)
 #define dNextAligned(p)      dNextAlignedAddr(DEFAULT_ALIGN,p)
 
-/** 
+/**
 * Returns the next address which satisfies the given alignment.
 *
 * This function cannot fail.
-* 
+*
 * @param alignment must be a power of 2
 * @param ptr The pointer
-* 
+*
 * @return aligned address
 */
 static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
@@ -38,7 +38,7 @@ typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
 * Describes a traversal of a 3D array of values.
 *
 * @example block {1000,{5,8,9},
-* 
+*
 */
 struct TensorBlock {
   dInt start;                   /**< array index for [0][0][0] */
@@ -49,7 +49,7 @@ struct TensorBlock {
 /**
 * The Rule and Basis building functions need work space that is freeable later (mostly just so that valgrind won't
 * complain, it's not a serious memory leak, but this design is more flexible than internal static memory management).
-* 
+*
 */
 typedef struct s_TensorBuilder *TensorBuilder;
 struct s_TensorBuilder {
@@ -69,7 +69,7 @@ typedef struct s_TensorRule *TensorRule;
 * We make no particular attempt to align the beginning of the structure, however we would like to align the arrays,
 * especially the large derivative arrays, at least to 16-byte boundaries (to enable SSE) and preferably to cache line
 * boundaries.
-* 
+*
 */
 struct s_TensorRule {
   dInt  size;                      /**< number of quadrature points */
@@ -81,7 +81,7 @@ typedef dErr (*TensorMultFunction)(dInt,const dInt*,const dInt*,dInt*,dScalar**r
 typedef struct s_TensorBasis *TensorBasis;
 /**
 * Stores a one-dimensional part of a Tensor product basis.  Includes optimized functions for 3D tensor multiplication.
-* 
+*
 */
 struct s_TensorBasis {
   TensorMultFunction mult;
@@ -109,7 +109,7 @@ typedef struct s_Tensor *Tensor;
 * To achieve this, we will use raw buffers to store the TensorRule and TensorBasis.  The dBufferList is a simple way to
 * manage these buffers since it is difficult to determine in advance how much room is needed.  When filling in a new
 * TensorRule or TensorBasis fails, we just get a new base pointer from dBufferList and retry.
-* 
+*
 */
 struct s_Tensor {
   TensorBuilder ruleBuilder,basisBuilder;
@@ -122,7 +122,7 @@ struct s_Tensor {
                                   * If the quadrature points are \f$ q_i, i = 0,1,\dotsc,m-1 \f$
                                   *
                                   * and the nodes are \f$ x_j, j=0,1,\dotsc,n-1 \f$
-                                  * 
+                                  *
                                   * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
   dInt M;                       /**< number of rules */
   dInt N;                       /**< basis size limit */

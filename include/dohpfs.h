@@ -4,10 +4,10 @@
 * @file   dohpfs.h
 * @author Jed Brown <jed@59A2.org>
 * @date   Sun Sep  7 17:46:54 2008
-* 
+*
 * @brief  The function space object
-* 
-* 
+*
+*
 */
 
 #include "dohpmesh.h"
@@ -23,7 +23,7 @@ typedef struct _p_dFS *dFS;
 
 #define dFSCONT "cont"
 
-extern PetscCookie dFS_COOKIE; 
+extern PetscCookie dFS_COOKIE;
 
 EXTERN dErr dFSCreate(MPI_Comm,dFS*);
 EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH,dMeshTag); /* mesh, active set, partition tag */

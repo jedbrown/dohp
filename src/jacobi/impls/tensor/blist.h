@@ -2,12 +2,12 @@
 * @file   blist.h
 * @author Jed Brown <jed@59A2.org>
 * @date   Sun Aug 24 20:36:47 2008
-* 
+*
 * @brief A simple way of managing memory in chunks.
 *
 * It is just a simple linked list of memory chunks.  Ask for more memory when you need it.  Free the whole thing at
 * once.  It's better to use a few big chunks than lots of small ones.
-* 
+*
 */
 #ifndef _BLIST_H
 #define _BLIST_H

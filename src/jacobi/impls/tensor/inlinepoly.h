@@ -8,7 +8,7 @@
 #include <math.h>
 #include "polylib.h"
 #include <float.h>
-#define STOP  30 
+#define STOP  30
 #define EPS   100*DBL_EPSILON
 #define sign(a,b) ((b)<0 ? -fabs(a) : fabs(a))
 #define M_PI PETSC_PI
@@ -20,7 +20,7 @@ LIBRARY ROUTINES FOR ORTHOGONAL POLYNOMIAL CALCULUS AND INTERPOLATION
 
   Spencer Sherwin
   Aeronautics, Imperial College London
-  
+
   Based on codes by Einar Ronquist and Ron Henderson
 
   Abbreviations
@@ -85,7 +85,7 @@ LIBRARY ROUTINES FOR ORTHOGONAL POLYNOMIAL CALCULUS AND INTERPOLATION
   -----------------------------------------------------------------------
                          M A C R O S
   -----------------------------------------------------------------------
-  
+
   Legendre  polynomial alpha = beta = 0
   Chebychev polynomial alpha = beta = -0.5
 
@@ -153,16 +153,16 @@ LIBRARY ROUTINES FOR ORTHOGONAL POLYNOMIAL CALCULUS AND INTERPOLATION
 
   NOTES
   -----
-  (1) All routines are double precision.  
-  (2) All array subscripts start from zero, i.e. vector[0..N-1] 
+  (1) All routines are double precision.
+  (2) All array subscripts start from zero, i.e. vector[0..N-1]
 */
 
 
-#if 0 
+#if 0
   /// zero determination using Newton iteration with polynomial deflation
 #define jacobz(n,z,alpha,beta) Jacobz(n,z,alpha,beta)
 #else
-  /// zero determination using eigenvalues of tridiagaonl matrix 
+  /// zero determination using eigenvalues of tridiagaonl matrix
 #define jacobz(n,z,alpha,beta) JacZeros(n,z,alpha,beta)
 #endif
 
@@ -184,7 +184,7 @@ static double gammaF (double);
    associated with the Jacobi polynomial \f$ P^{\alpha,\beta}_{np}(z)
    \f$,
 
-   \li Exact for polynomials of order \a 2np-1 or less  
+   \li Exact for polynomials of order \a 2np-1 or less
 */
 
 void zwgj (double *z, double *w, int np, double alpha, double beta){
@@ -196,21 +196,21 @@ void zwgj (double *z, double *w, int np, double alpha, double beta){
 
   fac  = pow(two,apb + one)*gammaF(alpha + np + one)*gammaF(beta + np + one);
   fac /= gammaF(np + one)*gammaF(apb + np + one);
-  
+
   for(i = 0; i < np; ++i) w[i] = fac/(w[i]*w[i]*(one-z[i]*z[i]));
-  
+
   return;
 }
 
 
-/** 
+/**
   \brief  Gauss-Radau-Jacobi zeros and weights with end point at \a z=-1.
 
   \li Generate \a np Gauss-Radau-Jacobi zeros, \a z, and weights,\a w,
   associated with the  polynomial \f$(1+z) P^{\alpha,\beta+1}_{np-1}(z)
   \f$.
 
-  \li  Exact for polynomials of order \a 2np-2 or less    
+  \li  Exact for polynomials of order \a 2np-2 or less
 */
 
 void zwgrjm(double *z, double *w, int np, double alpha, double beta){
@@ -222,11 +222,11 @@ void zwgrjm(double *z, double *w, int np, double alpha, double beta){
   else{
     register int i;
     double fac, one = 1.0, two = 2.0, apb = alpha + beta;
-    
+
     z[0] = -one;
     jacobz  (np-1,z+1,alpha,beta+1);
     jacobfd (np,z,w,NULL,np-1,alpha,beta);
-    
+
     fac  = pow(two,apb)*gammaF(alpha + np)*gammaF(beta + np);
     fac /= gammaF(np)*(beta + np)*gammaF(apb + np + 1);
 
@@ -238,15 +238,15 @@ void zwgrjm(double *z, double *w, int np, double alpha, double beta){
 }
 
 
-/** 
+/**
   \brief  Gauss-Radau-Jacobi zeros and weights with end point at \a z=1
- 
+
 
   \li Generate \a np Gauss-Radau-Jacobi zeros, \a z, and weights,\a w,
   associated with the  polynomial \f$(1-z) P^{\alpha+1,\beta}_{np-1}(z)
   \f$.
 
-  \li Exact for polynomials of order \a 2np-2 or less    
+  \li Exact for polynomials of order \a 2np-2 or less
 */
 
 void zwgrjp(double *z, double *w, int np, double alpha, double beta){
@@ -258,11 +258,11 @@ void zwgrjp(double *z, double *w, int np, double alpha, double beta){
   else{
     register int i;
     double fac, one = 1.0, two = 2.0, apb = alpha + beta;
-    
+
     jacobz  (np-1,z,alpha+1,beta);
     z[np-1] = one;
     jacobfd (np,z,w,NULL,np-1,alpha,beta);
-    
+
     fac  = pow(two,apb)*gammaF(alpha + np)*gammaF(beta + np);
     fac /= gammaF(np)*(alpha + np)*gammaF(apb + np + 1);
 
@@ -274,7 +274,7 @@ void zwgrjp(double *z, double *w, int np, double alpha, double beta){
 }
 
 
-/** 
+/**
   \brief  Gauss-Lobatto-Jacobi zeros and weights with end point at \a z=-1,\a 1
 
 
@@ -292,28 +292,28 @@ void zwglj(double *z, double *w, int np, double alpha, double beta){
   else{
     register int i;
     double   fac, one = 1.0, apb = alpha + beta, two = 2.0;
-  
+
     z[0]    = -one;
     z[np-1] =  one;
-    jacobz  (np-2,z + 1,alpha + one,beta + one); 
+    jacobz  (np-2,z + 1,alpha + one,beta + one);
     jacobfd (np,z,w,NULL,np-1,alpha,beta);
 
     fac  = pow(two,apb + 1)*gammaF(alpha + np)*gammaF(beta + np);
     fac /= (np-1)*gammaF(np)*gammaF(alpha + beta + np + one);
-    
+
     for(i = 0; i < np; ++i) w[i] = fac/(w[i]*w[i]);
     w[0]    *= (beta  + one);
     w[np-1] *= (alpha + one);
   }
-      
+
   return;
 }
 
 
-/** 
+/**
     \brief Compute the Derivative Matrix and its transpose associated
     with the Gauss-Jacobi zeros.
-             
+
     \li Compute the derivative matrix, \a d, and its transpose, \a dt,
     associated with the n_th order Lagrangian interpolants through the
     \a np Gauss-Jacobi points \a z such that \n
@@ -330,18 +330,18 @@ void Dgj(double *D, double *Dt, double *z, int np,double alpha, double beta){
     D[0] = Dt[0] = 0.0;
   }
   else{
-    register int i,j; 
+    register int i,j;
     double *pd;
-    
+
     pd = (double *)malloc(np*sizeof(double));
     jacobd(np,z,pd,np,alpha,beta);
-    
+
     for (i = 0; i < np; i++){
       for (j = 0; j < np; j++){
 
-	if (i != j) 
+	if (i != j)
 	  D[i*np+j] = pd[i]/(pd[j]*(z[i]-z[j]));
-	else    
+	else
 	  D[i*np+j] = (alpha - beta + (alpha + beta + two)*z[i])/
 		     (two*(one - z[i]*z[i]));
 
@@ -354,10 +354,10 @@ void Dgj(double *D, double *Dt, double *z, int np,double alpha, double beta){
 }
 
 
-/** 
+/**
     \brief Compute the Derivative Matrix and its transpose associated
     with the Gauss-Radau-Jacobi zeros with a zero at \a z=-1.
-             
+
     \li Compute the derivative matrix, \a d, and its transpose, \a dt,
     associated with the n_th order Lagrangian interpolants through the
     \a np Gauss-Radau-Jacobi points \a z such that \n
@@ -373,7 +373,7 @@ void Dgrjm(double *D, double *Dt, double *z, int np,
     D[0] = Dt[0] = 0.0;
   }
   else{
-    register int i, j; 
+    register int i, j;
     double   one = 1.0, two = 2.0;
     double   *pd;
 
@@ -386,9 +386,9 @@ void Dgrjm(double *D, double *Dt, double *z, int np,
 
     for (i = 0; i < np; i++)
       for (j = 0; j < np; j++){
-	if (i != j) 
+	if (i != j)
 	  D[i*np+j] = pd[i]/(pd[j]*(z[i]-z[j]));
-	else { 
+	else {
 	  if(i == 0)
 	    D[i*np+j] = -(np + alpha + beta + one)*(np - one)/
 	      (two*(beta + two));
@@ -406,10 +406,10 @@ void Dgrjm(double *D, double *Dt, double *z, int np,
 }
 
 
-/** 
+/**
     \brief Compute the Derivative Matrix and its transpose associated
     with the Gauss-Radau-Jacobi zeros with a zero at \a z=1.
-             
+
     \li Compute the derivative matrix, \a d, and its transpose, \a dt,
     associated with the n_th order Lagrangian interpolants through the
     \a np Gauss-Radau-Jacobi points \a z such that \n
@@ -425,7 +425,7 @@ void Dgrjp(double *D, double *Dt, double *z, int np,
     D[0] = Dt[0] = 0.0;
   }
   else{
-    register int i, j; 
+    register int i, j;
     double   one = 1.0, two = 2.0;
     double   *pd;
 
@@ -439,9 +439,9 @@ void Dgrjp(double *D, double *Dt, double *z, int np,
 
     for (i = 0; i < np; i++)
       for (j = 0; j < np; j++){
-	if (i != j) 
+	if (i != j)
 	  D[i*np+j] = pd[i]/(pd[j]*(z[i]-z[j]));
-	else { 
+	else {
 	  if(i == np-1)
 	    D[i*np+j] = (np + alpha + beta + one)*(np - one)/
 	      (two*(alpha + two));
@@ -458,10 +458,10 @@ void Dgrjp(double *D, double *Dt, double *z, int np,
   return;
 }
 
-/** 
+/**
     \brief Compute the Derivative Matrix and its transpose associated
     with the Gauss-Lobatto-Jacobi zeros.
-             
+
     \li Compute the derivative matrix, \a d, and its transpose, \a dt,
     associated with the n_th order Lagrangian interpolants through the
     \a np Gauss-Lobatto-Jacobi points \a z such that \n
@@ -472,12 +472,12 @@ void Dgrjp(double *D, double *Dt, double *z, int np,
 
 void Dglj(double *D, double *Dt, double *z, int np,
 	  double alpha, double beta){
-     
+
   if (np <= 0){
     D[0] = Dt[0] = 0.0;
   }
   else{
-    register int i, j; 
+    register int i, j;
     double   one = 1.0, two = 2.0;
     double   *pd;
 
@@ -492,9 +492,9 @@ void Dglj(double *D, double *Dt, double *z, int np,
 
     for (i = 0; i < np; i++)
       for (j = 0; j < np; j++){
-	if (i != j) 
+	if (i != j)
 	  D[i*np+j] = pd[i]/(pd[j]*(z[i]-z[j]));
-	else { 
+	else {
 	  if      (i == 0)
 	    D[i*np+j] = (alpha - (np-1)*(np + alpha + beta))/(two*(beta+ two));
 	  else if (i == np-1)
@@ -513,9 +513,9 @@ void Dglj(double *D, double *Dt, double *z, int np,
 }
 
 
-/** 
-    \brief Compute the value of the \a i th Lagrangian interpolant through  
-    the \a np Gauss-Jacobi points \a zgj at the arbitrary location \a z.     
+/**
+    \brief Compute the value of the \a i th Lagrangian interpolant through
+    the \a np Gauss-Jacobi points \a zgj at the arbitrary location \a z.
 
     \li \f$ -1 \leq z \leq 1 \f$
 
@@ -525,12 +525,12 @@ void Dglj(double *D, double *Dt, double *z, int np,
     h_j(z) =  \left\{ \begin{array}{ll}
     \displaystyle \frac{P_{np}^{\alpha,\beta}(z)}
     {[P_{np}^{\alpha,\beta}(z_j)]^\prime
-    (z-z_j)} & \mbox{if $z \ne z_j$}\\ 
+    (z-z_j)} & \mbox{if $z \ne z_j$}\\
     & \\
     1 & \mbox{if $z=z_j$}
     \end{array}
     \right.
-    \end{array}   \f$ 
+    \end{array}   \f$
 */
 
 double hgj (int i, double z, double *zgj, int np, double alpha, double beta)
@@ -549,7 +549,7 @@ double hgj (int i, double z, double *zgj, int np, double alpha, double beta)
   return h;
 }
 
-/** 
+/**
     \brief Compute the value of the \a i th Lagrangian interpolant through the
     \a np Gauss-Radau-Jacobi points \a zgrj at the arbitrary location
     \a z. This routine assumes \a zgrj includes the point \a -1.
@@ -562,12 +562,12 @@ double hgj (int i, double z, double *zgj, int np, double alpha, double beta)
     h_j(z) = \left\{ \begin{array}{ll}
     \displaystyle \frac{(1+z) P_{np-1}^{\alpha,\beta+1}(z)}
     {((1+z_j) [P_{np-1}^{\alpha,\beta+1}(z_j)]^\prime +
-    P_{np-1}^{\alpha,\beta+1}(z_j) ) (z-z_j)} & \mbox{if $z \ne z_j$}\\ 
+    P_{np-1}^{\alpha,\beta+1}(z_j) ) (z-z_j)} & \mbox{if $z \ne z_j$}\\
     & \\
     1 & \mbox{if $z=z_j$}
     \end{array}
     \right.
-    \end{array}   \f$ 
+    \end{array}   \f$
 */
 
 double hgrjm (int i, double z, double *zgrj, int np, double alpha, double beta)
@@ -590,7 +590,7 @@ double hgrjm (int i, double z, double *zgrj, int np, double alpha, double beta)
 }
 
 
-/** 
+/**
     \brief Compute the value of the \a i th Lagrangian interpolant through the
     \a np Gauss-Radau-Jacobi points \a zgrj at the arbitrary location
     \a z. This routine assumes \a zgrj includes the point \a +1.
@@ -603,12 +603,12 @@ double hgrjm (int i, double z, double *zgrj, int np, double alpha, double beta)
     h_j(z) = \left\{ \begin{array}{ll}
     \displaystyle \frac{(1-z) P_{np-1}^{\alpha+1,\beta}(z)}
     {((1-z_j) [P_{np-1}^{\alpha+1,\beta}(z_j)]^\prime -
-    P_{np-1}^{\alpha+1,\beta}(z_j) ) (z-z_j)} & \mbox{if $z \ne z_j$}\\ 
+    P_{np-1}^{\alpha+1,\beta}(z_j) ) (z-z_j)} & \mbox{if $z \ne z_j$}\\
     & \\
     1 & \mbox{if $z=z_j$}
     \end{array}
     \right.
-    \end{array}   \f$ 
+    \end{array}   \f$
 */
 
 double hgrjp (int i, double z, double *zgrj, int np, double alpha, double beta)
@@ -631,10 +631,10 @@ double hgrjp (int i, double z, double *zgrj, int np, double alpha, double beta)
 }
 
 
-/** 
+/**
     \brief Compute the value of the \a i th Lagrangian interpolant through the
     \a np Gauss-Lobatto-Jacobi points \a zgrj at the arbitrary location
-    \a z. 
+    \a z.
 
     \li \f$ -1 \leq z \leq 1 \f$
 
@@ -644,12 +644,12 @@ double hgrjp (int i, double z, double *zgrj, int np, double alpha, double beta)
     h_j(z) = \left\{ \begin{array}{ll}
     \displaystyle \frac{(1-z^2) P_{np-2}^{\alpha+1,\beta+1}(z)}
     {((1-z^2_j) [P_{np-2}^{\alpha+1,\beta+1}(z_j)]^\prime -
-    2 z_j P_{np-2}^{\alpha+1,\beta+1}(z_j) ) (z-z_j)}&\mbox{if $z \ne z_j$}\\ 
+    2 z_j P_{np-2}^{\alpha+1,\beta+1}(z_j) ) (z-z_j)}&\mbox{if $z \ne z_j$}\\
     & \\
     1 & \mbox{if $z=z_j$}
     \end{array}
     \right.
-    \end{array}   \f$ 
+    \end{array}   \f$
 */
 
 double hglj (int i, double z, double *zglj, int np, double alpha, double beta)
@@ -672,15 +672,15 @@ double hglj (int i, double z, double *zglj, int np, double alpha, double beta)
 }
 
 
-/** 
+/**
     \brief Interpolation Operator from Gauss-Jacobi points to an
     arbitrary distrubtion at points \a zm
-                                                                        
+
     \li Computes the one-dimensional interpolation matrix, \a im, to
     interpolate a function from at Gauss-Jacobi distribution of \a nz
     zeros \a zgrj to an arbitrary distribution of \a mz points \a zm, i.e.\n
-    \f$ 
-    u(zm[i]) = \sum_{j=0}^{nz-1} im[i*nz+j] \ u(zgj[j]) 
+    \f$
+    u(zm[i]) = \sum_{j=0}^{nz-1} im[i*nz+j] \ u(zgj[j])
     \f$
 
 */
@@ -695,19 +695,19 @@ void Imgj(double *im,double *zgj, double *zm, int nz, int mz,
     for (j = 0; j < nz; ++j)
       im [i*nz+j] = hgj(j, zp, zgj, nz, alpha, beta);
   }
-  
+
   return;
 }
 
-/** 
+/**
     \brief Interpolation Operator from Gauss-Radau-Jacobi points
     (including \a z=-1) to an arbitrary distrubtion at points \a zm
-                                                                        
+
     \li Computes the one-dimensional interpolation matrix, \a im, to
     interpolate a function from at Gauss-Radau-Jacobi distribution of
     \a nz zeros \a zgrj (where \a zgrj[0]=-1) to an arbitrary
     distribution of \a mz points \a zm, i.e.
-    \n 
+    \n
     \f$ u(zm[i]) =    \sum_{j=0}^{nz-1} im[i*nz+j] \ u(zgj[j]) \f$
 
 */
@@ -722,19 +722,19 @@ void Imgrjm(double *im,double *zgrj, double *zm, int nz, int mz,
     for (j = 0; j < nz; j++)
       im [i*nz+j] = hgrjm(j, zp, zgrj, nz, alpha, beta);
   }
-  
+
   return;
 }
 
-/** 
+/**
     \brief Interpolation Operator from Gauss-Radau-Jacobi points
     (including \a z=1) to an arbitrary distrubtion at points \a zm
-                                                                        
+
     \li Computes the one-dimensional interpolation matrix, \a im, to
     interpolate a function from at Gauss-Radau-Jacobi distribution of
     \a nz zeros \a zgrj (where \a zgrj[nz-1]=1) to an arbitrary
     distribution of \a mz points \a zm, i.e.
-    \n 
+    \n
     \f$ u(zm[i]) =    \sum_{j=0}^{nz-1} im[i*nz+j] \ u(zgj[j]) \f$
 
 */
@@ -749,20 +749,20 @@ void Imgrjp(double *im,double *zgrj, double *zm, int nz, int mz,
     for (j = 0; j < nz; j++)
       im [i*nz+j] = hgrjp(j, zp, zgrj, nz, alpha, beta);
   }
-  
+
   return;
 }
 
 
-/** 
+/**
     \brief Interpolation Operator from Gauss-Lobatto-Jacobi points
     to an arbitrary distrubtion at points \a zm
-                                                                        
+
     \li Computes the one-dimensional interpolation matrix, \a im, to
     interpolate a function from at Gauss-Lobatto-Jacobi distribution of
     \a nz zeros \a zgrj (where \a zgrj[0]=-1) to an arbitrary
     distribution of \a mz points \a zm, i.e.
-    \n 
+    \n
     \f$ u(zm[i]) =    \sum_{j=0}^{nz-1} im[i*nz+j] \ u(zgj[j]) \f$
 
 */
@@ -772,26 +772,26 @@ void Imglj(double *im, double *zglj, const double *zm, int nz, int mz,
 {
   double zp;
   register int i, j;
-  
+
   for (i = 0; i < mz; i++) {
     zp = zm[i];
     for (j = 0; j < nz; j++)
       im[i*nz+j] = hglj(j, zp, zglj, nz, alpha, beta);
   }
-  
+
   return;
 }
 
-/** 
+/**
     \brief Routine to calculate Jacobi polynomials, \f$
     P^{\alpha,\beta}_n(z) \f$, and their first derivative, \f$
     \frac{d}{dz} P^{\alpha,\beta}_n(z) \f$.
-   
+
     \li This function returns the vectors \a poly_in and \a poly_d
     containing the value of the \f$ n^th \f$ order Jacobi polynomial
     \f$ P^{\alpha,\beta}_n(z) \alpha > -1, \beta > -1 \f$ and its
     derivative at the \a np points in \a z[i]
-    
+
     - If \a poly_in = NULL then only calculate derivatice
 
     - If \a polyd   = NULL then only calculate polynomial
@@ -801,7 +801,7 @@ void Imglj(double *im, double *zglj, const double *zm, int nz, int mz,
     \f$ \begin{array}{rcl}
     P^{\alpha,\beta}_0(z) &=& 1 \\
     P^{\alpha,\beta}_1(z) &=& \frac{1}{2} [ \alpha-\beta+(\alpha+\beta+2)z] \\
-    a^1_n P^{\alpha,\beta}_{n+1}(z) &=& (a^2_n + a^3_n z) 
+    a^1_n P^{\alpha,\beta}_{n+1}(z) &=& (a^2_n + a^3_n z)
     P^{\alpha,\beta}_n(z) - a^4_n P^{\alpha,\beta}_{n-1}(z) \\
     a^1_n &=& 2(n+1)(n+\alpha + \beta + 1)(2n + \alpha + \beta) \\
     a^2_n &=& (2n + \alpha + \beta + 1)(\alpha^2 - \beta^2)  \\
@@ -809,7 +809,7 @@ void Imglj(double *im, double *zglj, const double *zm, int nz, int mz,
     (2n + \alpha + \beta + 2)  \\
     a^4_n &=& 2(n+\alpha)(n+\beta)(2n + \alpha + \beta + 2)
     \end{array} \f$
-    
+
     - To calculate the derivative of the polynomial this routine uses
     the relationship (see appendix A ref [4]) :
     \f$ \begin{array}{rcl}
@@ -817,12 +817,12 @@ void Imglj(double *im, double *zglj, const double *zm, int nz, int mz,
     + b^3_n(z) P^{\alpha,\beta}_{n-1}(z) \hspace{2.2cm} \\
     b^1_n(z) &=& (2n+\alpha + \beta)(1-z^2) \\
     b^2_n(z) &=& n[\alpha - \beta - (2n+\alpha + \beta)z]\\
-    b^3_n(z) &=& 2(n+\alpha)(n+\beta) 
+    b^3_n(z) &=& 2(n+\alpha)(n+\beta)
     \end{array} \f$
 
     - Note the derivative from this routine is only valid for -1 < \a z < 1.
 */
-void jacobfd(int np, double *z, double *poly_in, double *polyd, int n, 
+void jacobfd(int np, double *z, double *poly_in, double *polyd, int n,
 	     double alpha, double beta){
   register int i;
   double  zero = 0.0, one = 1.0, two = 2.0;
@@ -832,18 +832,18 @@ void jacobfd(int np, double *z, double *poly_in, double *polyd, int n,
 
   if(n == 0){
     if(poly_in)
-      for(i = 0; i < np; ++i) 
+      for(i = 0; i < np; ++i)
 	poly_in[i] = one;
     if(polyd)
-      for(i = 0; i < np; ++i) 
-	polyd[i] = zero; 
+      for(i = 0; i < np; ++i)
+	polyd[i] = zero;
   }
   else if (n == 1){
     if(poly_in)
-      for(i = 0; i < np; ++i) 
+      for(i = 0; i < np; ++i)
 	poly_in[i] = 0.5*(alpha - beta + (alpha + beta + two)*z[i]);
     if(polyd)
-      for(i = 0; i < np; ++i) 
+      for(i = 0; i < np; ++i)
 	polyd[i] = 0.5*(alpha + beta + two);
   }
   else{
@@ -851,29 +851,29 @@ void jacobfd(int np, double *z, double *poly_in, double *polyd, int n,
     double   a1,a2,a3,a4;
     double   apb = alpha + beta;
     double   *poly, *polyn1,*polyn2;
-    
+
     if(poly_in){ // switch for case of no poynomial function return
       polyn1 = (double *)malloc(2*np*sizeof(double));
-      polyn2 = polyn1+np; 
+      polyn2 = polyn1+np;
       poly   = poly_in;
     }
     else{
       polyn1 = (double *)malloc(3*np*sizeof(double));
-      polyn2 = polyn1+np; 
-      poly   = polyn2+np;      
+      polyn2 = polyn1+np;
+      poly   = polyn2+np;
     }
 
     for(i = 0; i < np; ++i){
       polyn2[i] = one;
       polyn1[i] = 0.5*(alpha - beta + (alpha + beta + two)*z[i]);
     }
-    
+
     for(k = 2; k <= n; ++k){
       a1 =  two*k*(k + apb)*(two*k + apb - two);
       a2 = (two*k + apb - one)*(alpha*alpha - beta*beta);
       a3 = (two*k + apb - two)*(two*k + apb - one)*(two*k + apb);
       a4 =  two*(k + alpha - one)*(k + beta - one)*(two*k + apb);
-      
+
       a2 /= a1;
       a3 /= a1;
       a4 /= a1;
@@ -884,7 +884,7 @@ void jacobfd(int np, double *z, double *poly_in, double *polyd, int n,
 	polyn1[i] = poly  [i];
       }
     }
-    
+
     if(polyd){
       a1 = n*(alpha - beta);
       a2 = n*(two*n + alpha + beta);
@@ -898,27 +898,27 @@ void jacobfd(int np, double *z, double *poly_in, double *polyd, int n,
 	polyd[i] /= (one - z[i]*z[i]);
       }
     }
-    
+
     free(polyn1);
   }
-  
+
   return;
 }
 
 
 /**
-   \brief Calculate the  derivative of Jacobi polynomials 
-  
+   \brief Calculate the  derivative of Jacobi polynomials
+
    \li Generates a vector \a poly of values of the derivative of the
   \a n th order Jacobi polynomial \f$ P^(\alpha,\beta)_n(z)\f$ at the
   \a np points \a z.
 
-  \li To do this we have used the relation 
+  \li To do this we have used the relation
   \n
-  \f$ \frac{d}{dz} P^{\alpha,\beta}_n(z) 
+  \f$ \frac{d}{dz} P^{\alpha,\beta}_n(z)
   = \frac{1}{2} (\alpha + \beta + n + 1)  P^{\alpha,\beta}_n(z) \f$
 
-  \li This formulation is valid for \f$ -1 \leq z \leq 1 \f$ 
+  \li This formulation is valid for \f$ -1 \leq z \leq 1 \f$
 
 */
 
@@ -937,7 +937,7 @@ void jacobd(int np, double *z, double *polyd, int n, double alpha, double beta)
 }
 
 
-/** 
+/**
  \brief Calculate the Gamma function , \f$ \Gamma(n)\f$, for integer
  values and halves.
 
@@ -950,10 +950,10 @@ void jacobd(int np, double *z, double *polyd, int n, double alpha, double beta)
 
 static double gammaF(double x){
   double gamma = 1.0;
-  
+
   if     (x == -0.5) gamma = -2.0*sqrt(M_PI);
   else if (!x) return gamma;
-  else if ((x-(int)x) == 0.5){ 
+  else if ((x-(int)x) == 0.5){
     int n = (int) x;
     double tmp = x;
 
@@ -971,18 +971,18 @@ static double gammaF(double x){
       tmp   -= 1.0;
       gamma *= tmp;
     }
-  }  
+  }
   else
     fprintf(stderr,"%lf is not of integer or half order\n",x);
   return gamma;
 }
-    
-/** 
+
+/**
     \brief  Calculate the \a n zeros, \a z, of the Jacobi polynomial, i.e.
     \f$ P_n^{\alpha,\beta}(z) = 0 \f$
-                                                             
+
     This routine is only value for \f$( \alpha > -1, \beta > -1)\f$
-    and uses polynomial deflation in a Newton iteration 
+    and uses polynomial deflation in a Newton iteration
 */
 #if USE_JACOBZ
 static void Jacobz(int n, double *z, double alpha, double beta){
@@ -991,19 +991,19 @@ static void Jacobz(int n, double *z, double alpha, double beta){
   double   poly,pder,rlast=0.0;
   double   sum,delr,r;
   double one = 1.0, two = 2.0;
-  
+
   if(!n)
     return;
-  
+
   for(k = 0; k < n; ++k){
     r = -cos((two*(double)k + one) * dth);
     if(k) r = 0.5*(r + rlast);
-    
+
     for(j = 1; j < STOP; ++j){
       jacobfd(1,&r,&poly, &pder, n, alpha, beta);
-      
+
       for(i = 0, sum = 0.0; i < k; ++i) sum += one/(r - z[i]);
-      
+
       delr = -poly / (pder - sum * poly);
       r   += delr;
       if( fabs(delr) < EPS ) break;
@@ -1018,7 +1018,7 @@ static void Jacobz(int n, double *z, double alpha, double beta){
 /**
    \brief Zero determination through the eigenvalues of a tridiagonal
    matrix from teh three term recursion relationship.
-   
+
    Set up a symmetric tridiagonal matrix
 
    \f$ \left [  \begin{array}{ccccc}
@@ -1029,9 +1029,9 @@ static void Jacobz(int n, double *z, double alpha, double beta){
         &        &        & b[n-2] & a[n-1] \end{array} \right ] \f$
 
    Where the coefficients a[n], b[n] come from the  recurrence relation
-   
+
    \f$  b_j p_j(z) = (z - a_j ) p_{j-1}(z) - b_{j-1}   p_{j-2}(z) \f$
-   
+
    where \f$ j=n+1\f$ and \f$p_j(z)\f$ are the Jacobi (normalized)
    orthogonal polynomials \f$ \alpha,\beta > -1\f$( integer values and
    halves). Since the polynomials are orthonormalized, the tridiagonal
@@ -1043,13 +1043,13 @@ static void JacZeros(int n, double *a, double alpha, double beta){
   int i;
   double apb, apbi,a2b2;
   double *b;
-  
+
   if(!n)
     return;
 
   b = (double *) malloc(n*sizeof(double));
-  
-  // generate normalised terms 
+
+  // generate normalised terms
   apb  = alpha + beta;
   apbi = 2.0 + apb;
 
@@ -1067,8 +1067,8 @@ static void JacZeros(int n, double *a, double alpha, double beta){
 
   apbi   = 2.0*n + apb;
   a[n-1] = a2b2/((apbi-2.0)*apbi);
-  
-  // find eigenvalues 
+
+  // find eigenvalues
   TriQL(n, a, b);
 
   free(b);
@@ -1076,7 +1076,7 @@ static void JacZeros(int n, double *a, double alpha, double beta){
 }
 
 
-/** \brief QL algorithm for symmetric tridiagonal matrix 
+/** \brief QL algorithm for symmetric tridiagonal matrix
 
     This subroutine is a translation of an algol procedure,
     num. math. \b 12, 377-383(1968) by martin and wilkinson, as modified
@@ -1096,14 +1096,14 @@ static void JacZeros(int n, double *a, double alpha, double beta){
 
     on output:
 
-    - d contains the eigenvalues in ascending order.  
+    - d contains the eigenvalues in ascending order.
     - e has been destroyed;
 */
 
 static void TriQL(int n, double *d,double *e){
   int m,l,iter,i,k;
   double s,r,p,g,f,dd,c,b;
-  
+
   for (l=0;l<n;l++) {
     iter=0;
     do {
@@ -1149,7 +1149,7 @@ static void TriQL(int n, double *d,double *e){
   }
 
   // order eigenvalues
-  for(i = 0; i < n-1; ++i){ 
+  for(i = 0; i < n-1; ++i){
     k = i;
     p = d[i];
     for(l = i+1; l < n; ++l)
@@ -1157,7 +1157,7 @@ static void TriQL(int n, double *d,double *e){
 	k = l;
 	p = d[l];
       }
-    d[k] = d[i]; 
+    d[k] = d[i];
     d[i] = p;
   }
 }

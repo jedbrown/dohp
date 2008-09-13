@@ -1,4 +1,5 @@
 #include "tensor.h"
+#include "dohpmesh.h"
 
 static dErr dEFSView_Tensor_Private(const char *,dRule,dInt,TensorBasis*,PetscViewer);
 #ifdef _F
@@ -24,6 +25,13 @@ _F(dEFSApply_Tensor_Line);
 _F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);
 #undef _F
+
+#define _F(f) static dErr f(dEFS,const dInt[],const dMeshEH[],const dInt[],const dEntTopology[],const dMeshEH[],dInt[]) /* dEFSPropogateDown */
+_F(dEFSPropogateDown_Tensor_Line);
+_F(dEFSPropogateDown_Tensor_Quad);
+_F(dEFSPropogateDown_Tensor_Hex);
+#undef _F
+
 #if 0
 # define _F(f) static dErr f(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
 _F(dEFSScatterInt_Tensor_Line);
@@ -36,6 +44,7 @@ _F(dEFSScatterFacet_Tensor_Quad);
 _F(dEFSScatterFacet_Tensor_Hex);
 # undef _F
 #endif
+
 #define _F(f) static dErr f(dInt D,const dInt P[],const dInt Q[],dInt *wlen,dScalar **restrict work,dReal *A[],dTransposeMode tpose[],const dScalar f[],dScalar g[restrict],InsertMode imode)
 _F(TensorMult_Line);
 _F(TensorMult_Quad);
@@ -43,12 +52,12 @@ _F(TensorMult_Hex);
 #undef _F
 
 
-/** 
+/**
 * Set up the EFS ops table for each topology.  This is the only exported function in this file.
-* 
-* @param jac 
-* 
-* @return 
+*
+* @param jac
+*
+* @return
 */
 dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
 {
@@ -56,18 +65,21 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
                                                .getSizes = dEFSGetSizes_Tensor_Line,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Line,
                                                .apply = dEFSApply_Tensor_Line,
+                                               .propogatedown = dEFSPropogateDown_Tensor_Line,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
                                                .getSizes = dEFSGetSizes_Tensor_Quad,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Quad,
                                                .apply = dEFSApply_Tensor_Quad,
+                                               .propogatedown = dEFSPropogateDown_Tensor_Quad,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
                                                .getSizes = dEFSGetSizes_Tensor_Hex,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Hex,
                                                .apply = dEFSApply_Tensor_Hex,
+                                               .propogatedown = dEFSPropogateDown_Tensor_Hex,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   Tensor this = (Tensor)jac->impl;
@@ -357,6 +369,48 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,dInt D,dInt *wlen,dScalar**restrict wo
   dFunctionReturn(0);
 }
 
+static dErr dEFSPropogateDown_Tensor_Line(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
+{
+
+  dFunctionBegin;
+  dValidPointer(efs,1);         /* we don't actually use this */
+  for (dInt i=0; i<2; i++) {
+    if (ftopo[f[i]] != iMesh_POINT) dERROR(1,"Invalid adjacent topology %s",iMesh_TopologyName[ftopo[f[i]]]);
+    if (a[i] < 2) dERROR(1,"Line has order %d < 2 so it is not a valid continuous basis function.");
+    if (fv[f[i]] == ev[0] || fv[f[i]] == ev[1]) {
+        af[i] = 1;              /* vertices are always order "1" regardless of orientation */
+    } else {
+        dERROR(1,"vertex does not coincide with either endpoint of this line");
+    }
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dEFSPropogateDown_Tensor_Quad(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
+{
+  static const dInt permute[4] = {0,1,0,1};
+  dErr err;
+
+  dFunctionBegin;
+  for (dInt i=0; i<4; i++) {
+    const int topo = ftopo[f[i]],type=iMesh_TypeFromTopology[topo];
+    if (type != iBase_EDGE) dERROR(1,"Entity adjacent to this Quad has incorrect type %s",iBase_TypeName[type]);
+    if (topo != iMesh_LINE_SEGMENT) dERROR(1,"Entity adjacent to this quad has unsupported topology %s",iMesh_TopologyName[topo]);
+    //err = dMeshOrientFindPerm_QuadLine();
+    af[i] = dMin(af[i],a[permute[i]]);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dEFSPropogateDown_Tensor_Hex(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dERROR(1,"not implemented");
+  dFunctionReturn(0);
+}
+
 static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],dInt *wlen,dScalar **restrict work,
                            dReal *A[1],dTransposeMode tpose[1],const dScalar f[],dScalar g[restrict],InsertMode imode)
 {
@@ -485,9 +539,9 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dInt *wlen,dS
 }
 
 
-/** 
+/**
 * The core computational kernel.  Performs a tensor product operation with the matrices A,B,C.
-* 
+*
 * @param[in] D number of degrees of freedom
 * @param[in] P array of length 3, dimensions of input block
 * @param[in] Q array of length 3, dimensions of output block
@@ -498,7 +552,7 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dInt *wlen,dS
 * @param[in] f input vector with size corresponding to \in
 * @param[in,out] g output vector with size corresponding to \out
 * @param[in] imode ADD_VALUES or INSERT_VALUES
-* 
+*
 * @return err
 */
 static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dInt *wlen,dScalar **restrict work,

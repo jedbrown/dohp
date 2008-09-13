@@ -24,7 +24,7 @@ dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
   fs->ruletag = rtag;
-  if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");  
+  if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
   if (jac) fs->jacobi = jac;
   dFunctionReturn(0);
 }

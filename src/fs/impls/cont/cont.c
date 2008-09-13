@@ -21,13 +21,13 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
   dFunctionReturn(0);
 }
 
-/** 
+/**
 * Calculate the sizes of the global and local vectors, create scatter contexts.  Assemble the constraint matrix for
 * element->global maps.
-* 
-* @param fs 
-* 
-* @return 
+*
+* @param fs
+*
+* @return
 */
 static dErr dFSSetFromOptions_Cont(dFS fs)
 {
@@ -80,13 +80,13 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dFunctionReturn(0);
 }
 
-/** 
+/**
 * Create the private structure used by a continuous galerkin function space.
 *
 * This function does not allocate the constraint matrices.
-* 
+*
 * @param fs the function space
-* 
+*
 * @return err
 */
 dErr dFSCreate_Cont(dFS fs)

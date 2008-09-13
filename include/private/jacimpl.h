@@ -7,7 +7,7 @@ PETSC_EXTERN_CXX_BEGIN
 
 /**
 * There is exactly one #dRule on each element.  The ops table is normally shared across the domain.
-* 
+*
 */
 struct v_dRuleOps {
   dErr (*view)(dRule,PetscViewer);
@@ -28,7 +28,7 @@ struct p_dRule {
 
 /**
 * Operations required for an EFS.  Defined here so that these function calls can be inlined.
-* 
+*
 */
 struct v_dEFSOps {
   dErr (*view)(dEFS,PetscViewer);
@@ -36,17 +36,18 @@ struct v_dEFSOps {
   dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**);
   dErr (*apply)(dEFS,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode);
   /**< dofs/node, work length, work, modal values, nodal values */
+  dErr (*propogatedown)(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[]);
   dErr (*scatterInt)(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
   /**
   * @bug It's not yet clear to me how to implement this.
-  * 
+  *
   */
   dErr (*scatterFacet)(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode);
 };
 
 /**
 * This is held once for every function space on every element.  This part of the implementation is not really private.
-* 
+*
 */
 #define dEFSHEADER                              \
   struct v_dEFSOps *ops;                        \
@@ -58,7 +59,7 @@ struct p_dEFS {
 
 /**
 * Generic operations provided by a #dJacobi implementation.
-* 
+*
 */
 struct _dJacobiOps {
   dErr (*setup)(dJacobi);
@@ -74,7 +75,7 @@ struct _dJacobiOps {
 
 /**
 * Private Jacobi table context.
-* 
+*
 */
 struct p_dJacobi {
   PETSCHEADER(struct _dJacobiOps);

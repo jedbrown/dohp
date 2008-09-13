@@ -33,7 +33,7 @@ typedef struct {
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientCreate_Gauss"
 /*@
-   dQuotientCreate_Gauss - 
+   dQuotientCreate_Gauss -
 
 @*/
 dErr dQuotientCreate_Gauss(dQuotient quot)
@@ -49,7 +49,7 @@ dErr dQuotientCreate_Gauss(dQuotient quot)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientSetUp_Gauss"
 /*@
-   dQuotientSetUp_Gauss - 
+   dQuotientSetUp_Gauss -
 
 @*/
 dErr dQuotientSetUp_Gauss(dQuotient quot)
@@ -67,7 +67,7 @@ dErr dQuotientSetUp_Gauss(dQuotient quot)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientUpdate_Gauss"
 /*@
-   dQuotientUpdate_Gauss - 
+   dQuotientUpdate_Gauss -
 
 @*/
 static dErr dQuotientUpdate_Gauss(dQuotient q)
@@ -92,7 +92,7 @@ static dErr dQuotientUpdate_Gauss(dQuotient q)
 #undef __FUNCT__
 #define __FUNCT__ "dQuotientDestroy_Gauss"
 /*@
-   dQuotientDestroy_Gauss - 
+   dQuotientDestroy_Gauss -
 
 @*/
 dErr dQuotientDestroy_Gauss(dQuotient q)

@@ -14,7 +14,7 @@ dErr checkRulesAndEFS(dJacobi);
 dErr createFS(MPI_Comm comm,dInt dim,dInt N,dEFS *efs,Vec *U);
 dErr checkInterp(dInt N,dEFS *efs,Vec u);
 dErr exact_0(dInt dim,dReal x[],dScalar val[]);
-  
+
 int main(int argc,char *argv[])
 {
   dJacobi jac;
@@ -31,10 +31,10 @@ int main(int argc,char *argv[])
   err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
-#if JACOBI_VIEW 
+#if JACOBI_VIEW
   err = dJacobiView(jac,viewer);dCHK(err);
 #endif
-  err = checkRulesAndEFS(jac);dCHK(err);  
+  err = checkRulesAndEFS(jac);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);
   err = PetscFinalize();dCHK(err);
   dFunctionReturn(0);
@@ -212,7 +212,7 @@ dErr checkInterp(dInt N,dEFS efs[],Vec u)
       }
     }
     printf("element %d\n",i);
-    printf("L2 error for element %3d = %g\n",i,z); 
+    printf("L2 error for element %3d = %g\n",i,z);
     ind += dim*size;
   }
   err = dFree(g);dCHK(err);

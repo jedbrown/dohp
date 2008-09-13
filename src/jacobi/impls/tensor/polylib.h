@@ -2,7 +2,7 @@
  *  LIBRARY ROUTINES FOR POLYNOMIAL CALCULUS AND INTERPOLATION
  */
 
-#ifndef PLYLIB_H  
+#ifndef PLYLIB_H
 #define PLYLIB_H
 
 #ifdef __cplusplus
@@ -100,7 +100,7 @@ void jacobd  (int, double *, double *,  int , double, double);
 /* Macro for previous compatibility with Nektar */
 #define zwgrj(z,w,np,alpha,beta)      zwgrjm (z,w,np,alpha,beta)
 #define zwgrl(z,w,np)                 zwgrjm (z,w,np,0.0,0.0);
-#define hgrj(i,z,zgrj,np,alpha,beta)  hgrjm  (i,z,zgrj,np,alpha,beta) 
+#define hgrj(i,z,zgrj,np,alpha,beta)  hgrjm  (i,z,zgrj,np,alpha,beta)
 #define hgrl(i,z,zgrj,np)             hgrjm(i,z,zgrj,np,0.0,0.0);
 
 #define jacobf(np,z,p ,n,alpha,beta) jacobfd(np,z,p,NULL ,n,alpha,beta)
@@ -113,9 +113,9 @@ void jacobd  (int, double *, double *,  int , double, double);
 #define igrlm(im,zgrl,zm,nz,mz)     Imgrjm(*im,zgrl,zm,nz,mz,0.0,0.0)
 #define igllm(im,zgll,zm,nz,mz)     Imglj (*im,zgll,zm,nz,mz,0.0,0.0)
 
-#define dgj( d,dt,z,np,alpha,beta) Dgj  (*d,*dt,z,np,alpha,beta)    
-#define dgrj(d,dt,z,np,alpha,beta) Dgrjm(*d,*dt,z,np,alpha,beta)    
-#define dglj(d,dt,z,np,alpha,beta) Dglj (*d,*dt,z,np,alpha,beta)    
+#define dgj( d,dt,z,np,alpha,beta) Dgj  (*d,*dt,z,np,alpha,beta)
+#define dgrj(d,dt,z,np,alpha,beta) Dgrjm(*d,*dt,z,np,alpha,beta)
+#define dglj(d,dt,z,np,alpha,beta) Dglj (*d,*dt,z,np,alpha,beta)
 
 #define dgll(d,dt,z,np)            Dglj (*d,*dt,z,np,0.0,0.0);
 #define dgrl(d,dt,z,np)            Dgrjm(*d,*dt,z,np,0.0,0.0);

@@ -2,27 +2,20 @@
 #define __DOHPMESH_H
 
 #include "petsc.h"
-#include "iMesh.h"
 #include <stdlib.h>
 #include <string.h>
-#include "dohpbase.h"
 #include "dohptype.h"
 #include "dohpjacobi.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
-typedef int dMeshInt;
-typedef double dMeshReal;
-typedef enum iMesh_EntityTopology dMeshEntTopology;
-typedef iBase_EntityHandle dMeshEH;
-typedef iBase_TagHandle dMeshTag;
-typedef iBase_EntitySetHandle dMeshESH;
-
 extern PetscCookie dMESH_COOKIE;
 
 EXTERN const char *const iBase_ErrorString[];
 EXTERN const char *const iMesh_TopologyName[];
+EXTERN const char *const iBase_TypeName[];
 EXTERN const char *const iBase_TagValueTypeName[];
+EXTERN const int iMesh_TypeFromTopology[];
 
 // #define ICHKERRQ(n) if (n) { dERROR(1,"ITAPS error: %s", iBase_ErrorString[n]); }
 
@@ -47,9 +40,9 @@ typedef enum {
   ORIENT_X_HIGH = 0x10,
   ORIENT_Y_LOW = 0x40,
   ORIENT_Y_HIGH = 0x80
-} DohpOrient;
+} dMeshOrient;
 #else
-typedef unsigned short DohpOrient;
+typedef unsigned char dMeshOrient;
 #endif
 
 typedef struct {
@@ -101,27 +94,32 @@ typedef struct {
 #define dTAG_BDY_NUM            "dohp_bdy_num"
 #define dTAG_BDY_NORMAL         "dohp_bdy_normal"
 
-/* Assign a canonical orientation of the faces on a hex.  The ordering of faces
+/**
+* Assign a canonical orientation of the faces on a hex.  The ordering of faces
 * and vertices of the hex is defined by iMesh.  The ordering of edges and
 * vertices of the faces are also defined.  We need to find out which rotation of
 * the face (in 3D) is required so that the face is in standard orientation.
 * Equivalently, we need to know how to compute loop bounds on the face dofs so
 * that they are traversed in the forward order when the hex face dofs are
 * traversed in forward order.  We will need the permutation P such that for face 'i'
-*   region_vertex[DohpHexQuad[i][j]] = face_vertex[P[j]]
+*   region_vertex[dMeshConnectHexQuad[i][j]] = face_vertex[P[j]]
 * */
-static const int DohpHexQuad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}, {0,3,2,1}, {4,5,6,7}};
+static const int dMeshConnectHexQuad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}, {0,3,2,1}, {4,5,6,7}};
 
-/* Assign a canonical orientation of the edges of a quad.  This is a much simpler analogue of DohpHexQuad.
-* We will need the permutation P such that for edge 'i'
-*   face_vertex[DohpQuadLine[i][j]] = edge_vertex[P[j]]
+/**
+* Assign a canonical orientation of the edges of a quad.  This is a much simpler analogue of DohpHexQuad.
+* We will need the permutation P such that for edge \a i
+*   face_vertex[dMeshConnectQuadLine[i][j]] = edge_vertex[P[j]]
 * */
-static const int DohpQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,4}};
+static const int dMeshConnectQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,0}};
 
-EXTERN dErr MeshListIntView(MeshListInt*,const char*);
-EXTERN dErr MeshListEHView(MeshListEH*,const char*);
-EXTERN dErr DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *,const iBase_EntityHandle *,dInt,DohpOrient*);
-EXTERN dErr DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *,const iBase_EntityHandle *,dInt,DohpOrient*);
+extern dErr dMeshListIntView(MeshListInt*,const char*);
+extern dErr dMeshListEHView(MeshListEH*,const char*);
+extern dErr dMeshOrientFindPerm_HexQuad(const iBase_EntityHandle[],const iBase_EntityHandle[],dInt,dMeshOrient*);
+extern dErr dMeshOrientFindPerm_QuadLine(const iBase_EntityHandle[],const iBase_EntityHandle[],dInt,dMeshOrient*);
+
+extern dErr dMeshOrientLoopBounds_Quad(dMeshOrient orient, const dInt *size, DohpLoopBounds *l);
+extern dErr dMeshOrientLoopBounds_Line(dMeshOrient orient, const dInt *size, DohpLoopBounds *l);
 
 typedef struct p_dMesh *dMesh;
 

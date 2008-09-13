@@ -30,7 +30,7 @@ const char *const iBase_ErrorString[] = {
   "iBase_FAILURE"
 };
 
-const char *const iMesh_TopologyName[] = {
+const char *const iMesh_TopologyName[12] = {
   "iMesh_POINT",
   "iMesh_LINE_SEGMENT",
   "iMesh_POLYGON",
@@ -45,6 +45,29 @@ const char *const iMesh_TopologyName[] = {
   "iMesh_ALL_TOPOLOGIES"
 };
 
+const int iMesh_TypeFromTopology[12] = {
+  iBase_VERTEX,                 /* POINT */
+  iBase_EDGE,                   /* LINE_SEGMENT */
+  iBase_FACE,                   /* POLYGON */
+  iBase_FACE,                   /* TRIANGLE */
+  iBase_FACE,                   /* QUADRILATERAL */
+  iBase_REGION,                 /* POLYHEDRON */
+  iBase_REGION,                 /* TETRAHEDRON */
+  iBase_REGION,                 /* HEXAHEDRON */
+  iBase_REGION,                 /* PRISM */
+  iBase_REGION,                 /* PYRAMID */
+  iBase_REGION,                 /* SEPTAHEDRON */
+  iBase_ALL_TYPES,              /* ALL_TOPOLOGIES */
+};
+
+const char *const iBase_TypeName[] = {
+  "iBase_VERTEX",
+  "iBase_EDGE",
+  "iBase_FACE",
+  "iBase_REGION",
+  "iBase_ALL_TYPES"
+};
+
 const char *const iBase_TagValueTypeName[] = {
   "iBase_INTEGER",
   "iBase_DOUBLE",
@@ -52,7 +75,7 @@ const char *const iBase_TagValueTypeName[] = {
   "iBase_BYTES"
 };
 
-dErr MeshListIntView(MeshListInt *ml,const char *name)
+dErr dMeshListIntView(MeshListInt *ml,const char *name)
 {
   dErr err;
 
@@ -62,7 +85,7 @@ dErr MeshListIntView(MeshListInt *ml,const char *name)
   dFunctionReturn(0);
 }
 
-dErr MeshListEHView(MeshListEH *ml,const char *name)
+dErr dMeshListEHView(MeshListEH *ml,const char *name)
 {
   dInt n=ml->s/20,p=ml->s%20;
   dErr err;
@@ -84,23 +107,21 @@ dErr MeshListEHView(MeshListEH *ml,const char *name)
     err = dPrintf(PETSC_COMM_SELF,"\n");dCHK(err);
   }
   dFunctionReturn(0);
-}     
+}
 
 
-#undef __FUNCT__
-#define __FUNCT__ "DohpOrientFindPerm_HexQuad"
-dErr DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *rv, const iBase_EntityHandle *fv,
-                                          int fnum, DohpOrient *orient)
+dErr dMeshOrientFindPerm_HexQuad(const iBase_EntityHandle rv[], const iBase_EntityHandle fv[],
+                                          int fnum, dMeshOrient *orient)
 {
   dInt i;
   static const dInt perm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},
                                   {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
-  static const DohpOrient permorient[8] = {0,1,2,3,4,5,6,7};
+  static const dMeshOrient permorient[8] = {0,1,2,3,4,5,6,7};
 
   dFunctionBegin;
 #if 0
   printf("# rv:");              /* The vertices of face fnum on this region in canonical order. */
-  for (i=0; i<4; i++) { printf(" %ld",(long)rv[DohpHexQuad[fnum][i]]); }
+  for (i=0; i<4; i++) { printf(" %ld",(long)rv[dMeshConnectHexQuad[fnum][i]]); }
   printf("\n# fv:");
   /* The order of vertices on the face.  We want to find a permutation of these
   vertices to matches the canonical order. */
@@ -108,32 +129,32 @@ dErr DohpOrientFindPerm_HexQuad(const iBase_EntityHandle *rv, const iBase_Entity
   printf("\n");
 #endif
   for (i=0; i<8; i++) { /* loop over permutations */
-    if (fv[perm[i][0]] == rv[DohpHexQuad[fnum][0]] && fv[perm[i][1]] == rv[DohpHexQuad[fnum][1]]) {
+    if (fv[perm[i][0]] == rv[dMeshConnectHexQuad[fnum][0]] && fv[perm[i][1]] == rv[dMeshConnectHexQuad[fnum][1]]) {
       /* we have found a match, as an extra check we can check that the other vertices match */
-      if (fv[perm[i][2]] != rv[DohpHexQuad[fnum][2]] || fv[perm[i][3]] != rv[DohpHexQuad[fnum][3]]) {
-        dERROR(1,"Faces cannot be matched.");
+      if (fv[perm[i][2]] != rv[dMeshConnectHexQuad[fnum][2]] || fv[perm[i][3]] != rv[dMeshConnectHexQuad[fnum][3]]) {
+        dERROR(1,"Faces cannot be matched, but part matches, perhaps adjacencies are corrupt");
       }
       *orient = permorient[i];
-      break;
+      dFunctionReturn(0);
     }
   }
-  if (i==8) dERROR(1,"Faces cannot be matched.");
+  dERROR(1,"Faces cannot be matched");
   dFunctionReturn(0);
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpOrientFindPerm_QuadLine"
-dErr DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *fv, const iBase_EntityHandle *ev,
-                                          int en, DohpOrient *orient)
+#define __FUNCT__ "dMeshOrientFindPerm_QuadLine"
+dErr dMeshOrientFindPerm_QuadLine(const iBase_EntityHandle fv[], const iBase_EntityHandle ev[],
+                                          int en, dMeshOrient *orient)
 {
   static const dInt perm[2][2] = {{0,1},{1,0}};
-  static const DohpOrient permorient[4] = {0,1,2,3};
+  static const dMeshOrient permorient[4] = {0,1,2,3};
   dInt i;
 
   dFunctionBegin;
 #if 0
   printf("# fv:");              /* The vertices of edge en on this face in canonical order. */
-  for (i=0; i<2; i++) { printf(" %ld",(long)fv[DohpQuadLine[en][i]]); }
+  for (i=0; i<2; i++) { printf(" %ld",(long)fv[dMeshConnectQuadLine[en][i]]); }
   printf("\n# ev:");
   /* The order of vertices on the edge.  We want to find a permutation of these
   vertices to matches the canonical order. */
@@ -141,18 +162,18 @@ dErr DohpOrientFindPerm_QuadLine(const iBase_EntityHandle *fv, const iBase_Entit
   printf("\n");
 #endif
   for (i=0; i<2; i++) { /* loop over permutations */
-    if (ev[perm[i][0]] == fv[DohpQuadLine[en][0]] && ev[perm[i][1]] == fv[DohpQuadLine[en][1]]) {
+    if (ev[perm[i][0]] == fv[dMeshConnectQuadLine[en][0]] && ev[perm[i][1]] == fv[dMeshConnectQuadLine[en][1]]) {
       *orient = permorient[i];
-      break;
+      dFunctionReturn(0);
     }
   }
-  if (i==4) dERROR(1,"Edges cannot be matched.");
+  dERROR(1,"Edges cannot be matched.");
   dFunctionReturn(0);
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpOrientLoopBounds_Quad"
-dErr DohpOrientLoopBounds_Quad(DohpOrient orient, const dInt *size, DohpLoopBounds *l)
+#define __FUNCT__ "dMeshOrientLoopBounds_Quad"
+dErr dMeshOrientLoopBounds_Quad(dMeshOrient orient, const dInt *size, DohpLoopBounds *l)
 {
   const dInt ox=size[0], oy=size[1];
 
@@ -197,8 +218,8 @@ dErr DohpOrientLoopBounds_Quad(DohpOrient orient, const dInt *size, DohpLoopBoun
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "DohpOrientLoopBounds_Line"
-dErr DohpOrientLoopBounds_Line(DohpOrient orient, const dInt *size, DohpLoopBounds *l)
+#define __FUNCT__ "dMeshOrientLoopBounds_Line"
+dErr dMeshOrientLoopBounds_Line(dMeshOrient orient, const dInt *size, DohpLoopBounds *l)
 {
 
   dFunctionBegin;
@@ -277,7 +298,7 @@ dErr DohpLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
 /* Maps facet degrees of freedom to element degrees of freedom, adding
 * contributions.  This function is actually an optimization for conforming
 * elements since it does not need to do interpolation. */
-dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,DohpOrient forient,const dScalar fvals[],dScalar rvals[])
+dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dMeshOrient forient,const dScalar fvals[],dScalar rvals[])
 {
   dInt ri,rj,fi,fj,k;
   DohpLoopBounds rl[2],fl[2];
@@ -285,7 +306,7 @@ dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fs
 
   dFunctionBegin;
   err = DohpLoopBounds_Hex(rsize,fnum,rl);dCHK(err);
-  err = DohpOrientLoopBounds_Quad(forient,fsize,fl);dCHK(err);
+  err = dMeshOrientLoopBounds_Quad(forient,fsize,fl);dCHK(err);
   for (ri=rl[0].start,fi=fl[0].start; ri!=rl[0].end && fi!=fl[0].end; ri+=rl[0].stride,fi+=fl[0].stride) {
     for (rj=rl[1].start,fj=fl[1].start; rj!=rl[1].end && fj!=fl[1].end; rj+=rl[1].stride,fj+=fl[1].stride) {
       for (k=0; k<dof; k++) {
@@ -304,7 +325,7 @@ dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fs
 
 #undef __FUNCT__
 #define __FUNCT__ "EFSFacetToElem_QuadLine_Conforming"
-dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,DohpOrient eorient,const dScalar evals[],dScalar fvals[])
+dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dMeshOrient eorient,const dScalar evals[],dScalar fvals[])
 {
   dInt fi,ei,j;
   DohpLoopBounds fl,el;
@@ -312,7 +333,7 @@ dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt e
 
   dFunctionBegin;
   err = DohpLoopBounds_Quad(fsize,en,&fl);dCHK(err);
-  err = DohpOrientLoopBounds_Line(eorient,esize,&el);dCHK(err);
+  err = dMeshOrientLoopBounds_Line(eorient,esize,&el);dCHK(err);
   for (fi=fl.start,ei=el.start; fi!=fl.end && ei!=el.end; fi+=fl.stride,ei+=el.stride) {
     for (j=0; j<dof; j++) {
       fvals[fi*dof+j] += evals[ei*dof+j];
@@ -407,7 +428,7 @@ dErr dMeshLoad(dMesh m,const char fname[],const char opt[])
 #undef __FUNCT__
 #define __FUNCT__ "dMeshOrientFacets"
 /*@
-   dMeshOrientFacets - 
+   dMeshOrientFacets -
 
 @*/
 dErr dMeshOrientFacets(dMesh m)
@@ -422,7 +443,7 @@ dErr dMeshOrientFacets(dMesh m)
 #undef __FUNCT__
 #define __FUNCT__ "dMeshView"
 /*@
-   dMeshView - 
+   dMeshView -
 
 @*/
 dErr dMeshView(dMesh m,PetscViewer viewer)
@@ -468,7 +489,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
 #undef __FUNCT__
 #define __FUNCT__ "dMeshView_EntSet"
 /*@
-   dMeshView_EntSet - 
+   dMeshView_EntSet -
 
 @*/
 dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
@@ -587,7 +608,7 @@ dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
 #undef __FUNCT__
 #define __FUNCT__ "dMeshGetEntSetName"
 /*@
-   dMeshGetEntSetName - 
+   dMeshGetEntSetName -
 
 @*/
 dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str)
@@ -623,7 +644,7 @@ dErr dMeshGetInstance(dMesh m,iMesh_Instance *mi)
 #undef __FUNCT__
 #define __FUNCT__ "dMeshDestroy"
 /*@
-   dMeshDestroy - 
+   dMeshDestroy -
 
 @*/
 dErr dMeshDestroy(dMesh m)
@@ -647,7 +668,7 @@ dErr dMeshDestroy(dMesh m)
 #undef __FUNCT__
 #define __FUNCT__ "dMeshRegisterAll"
 /*@
-   dMeshRegisterAll - 
+   dMeshRegisterAll -
 
 @*/
 dErr dMeshRegisterAll(const char path[])
@@ -662,18 +683,18 @@ dErr dMeshRegisterAll(const char path[])
   dFunctionReturn(0);
 }
 
-/** 
+/**
 * Creates a \p dRule tag over all non-vertex topological entities in the mesh.  Also tags the root entity set with the
 * given tag name and value equal to the base pointer for the rule storage.  This tag should be removed using
 * dMeshDestroyRuleTag().
-* 
+*
 * @param mesh mesh
 * @param esh entity set handle on which to add the tag, tags all non-vertex entities in \a esh
 * @param jac dJacobi to use when generating the tags
 * @param name unique identifier for the tag (mostly for debugging)
 * @param degree polynomial degree which should be integrated exactly when the element has an affine map
 * @param[out] inrtag tag
-* 
+*
 * @return err
 */
 dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char *name,dInt degree,dMeshTag *inrtag)

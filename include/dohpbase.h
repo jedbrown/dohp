@@ -1,5 +1,5 @@
-#ifndef __DOHPBASE_H
-#define __DOHPBASE_H
+#ifndef _DOHPBASE_H
+#define _DOHPBASE_H
 
 #include "dohptype.h"
 
@@ -37,4 +37,4 @@ INLINE void dGeomConvexComb_2_4(dReal x,dReal y,const dReal v[],const dInt p[],d
 
 
 PETSC_EXTERN_CXX_END
-#endif  /* __DOHPBASE_H */
+#endif  /* _DOHPBASE_H */

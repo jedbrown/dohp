@@ -2,11 +2,11 @@
 * @file   tensor.c
 * @author Jed Brown <jed@59A2.org>
 * @date   Fri Aug 22 20:39:12 2008
-* 
+*
 * @brief  A nodal Tensor product basis.
 *
 * See the Tensor section for details on the storage method used.
-* 
+*
 */
 
 #include "tensor.h"
@@ -35,12 +35,12 @@ static dErr TensorJacobiHasBasis(dJacobi,dInt,dInt,dBool*);
 static dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char name[],dViewer viewer);
 
 
-/** 
+/**
 * Initializes the ops table.
-* 
-* @param jac 
-* 
-* @return 
+*
+* @param jac
+*
+* @return
 */
 dErr dJacobiCreate_Tensor(dJacobi jac)
 {
@@ -75,11 +75,11 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
   dFunctionReturn(0);
 }
 
-/** 
+/**
 * Prepare the dJacobi context to return dRule and dEFS objects (with dJacobiGetRule and dJacobiGetEFS).
-* 
+*
 * @param jac the context
-* 
+*
 * @return err
 */
 static dErr dJacobiSetUp_Tensor(dJacobi jac)
@@ -214,17 +214,17 @@ static dErr TensorJacobiHasBasis(dJacobi jac,dInt rule,dInt basis,dBool *has)
   dFunctionReturn(0);
 }
 
-/** 
+/**
 * Get the dRule corresponding to the given sizes.
-* 
+*
 * @param jac Jacobi context
 * @param top topology
 * @param rsize rule size in each dimension (should become polynomial degree to integrate exactly)
 * @param rule space to write the rule
 * @param base base of array to write the private data, if NULL, write nothing
 * @param[in,out] index into \a data to write the private data, incremented to point to the next free space
-* 
-* @return 
+*
+* @return
 */
 static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *ruleout,void **base,dInt *index)
 {
@@ -273,9 +273,9 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[
   dFunctionReturn(0);
 }
 
-/** 
+/**
 * Fill in an EFS of the specified order.
-* 
+*
 * @param jac context
 * @param top topology (from the iMesh_Topology enum)
 * @param bsize vector of basis sizes in each direction
@@ -283,8 +283,8 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[
 * @param efs dEFS context, must be allocated
 * @param base start of array in which to put private data, or NULL to only calculate private space requirement
 * @param index index into base to start putting private data, updated on exit
-* 
-* @return 
+*
+* @return
 */
 dErr dJacobiGetEFS_Tensor(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efsout,void **base,dInt *index)
 {
@@ -341,7 +341,7 @@ dErr dJacobiGetEFS_Tensor(dJacobi jac,dEntTopology top,const dInt bsize[],dRule 
   }
   dFunctionReturn(0);
 }
-  
+
 
 static dErr TensorBuilderCreate(void *opts,TensorBuilder *out)
 {
@@ -374,7 +374,7 @@ static dErr TensorBuilderGetArray(TensorBuilder build,dInt size,dReal **a)
 static dErr TensorBuilderDestroy(TensorBuilder build)
 {
   dErr err;
-  
+
   dFunctionBegin;
   err = dFree(build->work);dCHK(err);
   err = dFree(build);dCHK(err);
@@ -398,7 +398,7 @@ static dErr TensorRuleCreate(TensorBuilder build,dInt size,TensorRule *rule)
   r = *rule;
   err = PetscMalloc2(size,dReal,&r->weight,size,dReal,&r->coord);dCHK(err);
   err = TensorBuilderGetArray(build,size,&work);dCHK(err); /* We're not using this now */
- 
+
   r->size = size;
   if (size == 1) {              /* Polylib function fails for this size. */
     r->weight[0] = 2.0;
@@ -508,14 +508,14 @@ dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so 
 }
 
 
-/** 
+/**
 * Just an error checking indexing function.
-* 
-* @param this 
-* @param m 
-* @param out 
-* 
-* @return 
+*
+* @param this
+* @param m
+* @param out
+*
+* @return
 */
 static dErr TensorGetRule(Tensor this,dInt m,TensorRule *out)
 {
@@ -527,15 +527,15 @@ static dErr TensorGetRule(Tensor this,dInt m,TensorRule *out)
   dFunctionReturn(0);
 }
 
-/** 
+/**
 * An error checking lookup function.
-* 
-* @param this 
-* @param m 
-* @param n 
-* @param out 
-* 
-* @return 
+*
+* @param this
+* @param m
+* @param n
+* @param out
+*
+* @return
 */
 static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
 {
