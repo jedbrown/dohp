@@ -430,6 +430,9 @@ dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dS
 *
 * This assumes a minimum rule, should that be optional?
 *
+* @note This function is unusual in that the implementation does not use the dEFS object, it is only used to determine
+* the correct type.
+*
 * @param efs element function space
 * @param a anisotropic values, length = EntityType of \a efs
 * @param ev vertex indices of current element, used to orient the facets
@@ -447,6 +450,6 @@ dErr dEFSPropogateDown(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[]
 
   dFunctionBegin;
   dValidPointerSpecific7(efs,"dEFS",1,a,"dInt",2,ev,"dMeshEH",3,f,"dInt",4,ftopo,"dEntTopology",5,fv,"dMeshEH",6,af,"dInt",7);
-  err = (*efs->ops->propogatedown)(efs,a,ev,f,ftopo,fv,af);dCHK(err);
+  err = (*efs->ops->propogatedown)(a,ev,f,ftopo,fv,af);dCHK(err);
   dFunctionReturn(0);
 }

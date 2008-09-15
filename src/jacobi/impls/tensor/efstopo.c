@@ -1,5 +1,6 @@
 #include "tensor.h"
 #include "dohpmesh.h"
+#include "dohpgeom.h"
 
 static dErr dEFSView_Tensor_Private(const char *,dRule,dInt,TensorBasis*,PetscViewer);
 #ifdef _F
@@ -26,7 +27,7 @@ _F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);
 #undef _F
 
-#define _F(f) static dErr f(dEFS,const dInt[],const dMeshEH[],const dInt[],const dEntTopology[],const dMeshEH[],dInt[]) /* dEFSPropogateDown */
+#define _F(f) static dErr f(const dInt[],const dMeshEH[],const dInt[],const dEntTopology[],const dMeshEH[],dInt[]) /* dEFSPropogateDown */
 _F(dEFSPropogateDown_Tensor_Line);
 _F(dEFSPropogateDown_Tensor_Quad);
 _F(dEFSPropogateDown_Tensor_Hex);
@@ -369,11 +370,10 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,dInt D,dInt *wlen,dScalar**restrict wo
   dFunctionReturn(0);
 }
 
-static dErr dEFSPropogateDown_Tensor_Line(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
+static dErr dEFSPropogateDown_Tensor_Line(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
 {
 
   dFunctionBegin;
-  dValidPointer(efs,1);         /* we don't actually use this */
   for (dInt i=0; i<2; i++) {
     if (ftopo[f[i]] != iMesh_POINT) dERROR(1,"Invalid adjacent topology %s",iMesh_TopologyName[ftopo[f[i]]]);
     if (a[i] < 2) dERROR(1,"Line has order %d < 2 so it is not a valid continuous basis function.");
@@ -386,28 +386,44 @@ static dErr dEFSPropogateDown_Tensor_Line(dEFS efs,const dInt a[],const dMeshEH 
   dFunctionReturn(0);
 }
 
-static dErr dEFSPropogateDown_Tensor_Quad(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
+static dErr dEFSPropogateDown_Tensor_Quad(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
 {
-  static const dInt permute[4] = {0,1,0,1};
-  dErr err;
+  static const dInt perm[4] = {0,1,0,1};
 
   dFunctionBegin;
   for (dInt i=0; i<4; i++) {
     const int topo = ftopo[f[i]],type=iMesh_TypeFromTopology[topo];
+    int match;
     if (type != iBase_EDGE) dERROR(1,"Entity adjacent to this Quad has incorrect type %s",iBase_TypeName[type]);
-    if (topo != iMesh_LINE_SEGMENT) dERROR(1,"Entity adjacent to this quad has unsupported topology %s",iMesh_TopologyName[topo]);
-    //err = dMeshOrientFindPerm_QuadLine();
-    af[i] = dMin(af[i],a[permute[i]]);
+    if (topo != iMesh_LINE_SEGMENT) dERROR(1,"Entity adjacent to this Quad has unsupported topology %s",iMesh_TopologyName[topo]);
+    match =  dGeomMatchQuadLine(ev,fv);
+    printf("edge %d matched %d\n",i,match); /* are these always the same if they match, if so it would make checking easier */
+    if (match < 0) dERROR(1,"Line could not be matched to this Quad, adjacencies must be incorrect");
+    af[i] = dMin(af[i],a[perm[match]]);
   }
   dFunctionReturn(0);
 }
 
-static dErr dEFSPropogateDown_Tensor_Hex(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
+static dErr dEFSPropogateDown_Tensor_Hex(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
 {
+  static const dInt perm[6][2] = {{0,2},{1,2},{0,2},{1,2},{1,0},{0,1}}; /* map natural axis of Quad to natural axis of Hex */
+  static const dInt orient[8][2] = {{0,1},{1,0},{0,1},{1,0},            /* map actual Quad orientation to proper orientation */
+                                    {1,0},{0,1},{1,0},{0,1}};
   dErr err;
 
   dFunctionBegin;
-  dERROR(1,"not implemented");
+  for (dInt i=0; i<6; i++) {
+    dGeomOrient operm;
+    {
+      const int topo = ftopo[f[i]],type=iMesh_TypeFromTopology[topo];
+      if (type != iBase_FACE) dERROR(1,"Entity adjacent to this Hex has incorrect type %s",iBase_TypeName[type]);
+      if (topo != iMesh_QUADRILATERAL) dERROR(1,"Entity adjacent to this Hex has unsupported topology %s",iMesh_TopologyName[topo]);
+    }
+    /* Find the permutation (rotation & flip) of the Quad so that it matches the canonical basis of the Hex. */
+    err = dGeomOrientFindPerm_HexQuad(ev,fv,i,&operm);dCHK(err);
+    af[i*2+0] = dMin(af[i*2+0],a[perm[i][orient[operm][0]]]);
+    af[i*2+1] = dMin(af[i*2+1],a[perm[i][orient[operm][1]]]);
+  }
   dFunctionReturn(0);
 }
 

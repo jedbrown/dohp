@@ -21,29 +21,13 @@ EXTERN const int iMesh_TypeFromTopology[];
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
 #define dICHK(m,e) ICHKERRQ((m),(e))
-#define ICHKERRQ(mesh,err)                                     \
-  if (err) {                                                   \
-    dErr _l_ret = err;                               \
-    char           _l_desc[512];                                \
-    iMesh_getDescription(mesh,_l_desc,&err,512);dCHK(err); \
-    dERROR(1,"%s: %s",iBase_ErrorString[_l_ret],_l_desc);     \
+#define ICHKERRQ(mesh,err)                                      \
+  if (err) {                                                    \
+    dErr _l_ret = err;                                          \
+    char _l_desc[512];                                          \
+    iMesh_getDescription(mesh,_l_desc,&err,512);dCHK(err);      \
+    dERROR(1,"%s: %s",iBase_ErrorString[_l_ret],_l_desc);       \
   }
-
-#define USE_ORIENT_ENUM 0
-#if USE_ORIENT_ENUM
-typedef enum {
-  ORIENT_ID = 0x0,              /* Identity */
-  ORIENT_X_REV = 0x1,           /* Reverse the X axis */
-  ORIENT_Y_REV = 0x2,
-  ORIENT_XY_SWAP = 0x4,
-  ORIENT_X_LOW = 0x8,
-  ORIENT_X_HIGH = 0x10,
-  ORIENT_Y_LOW = 0x40,
-  ORIENT_Y_HIGH = 0x80
-} dMeshOrient;
-#else
-typedef unsigned char dMeshOrient;
-#endif
 
 typedef struct {
   char *v;
@@ -78,6 +62,7 @@ typedef struct {
 #define MLZ {0,0,0}
 #define MeshListFree(m) ((m).a ? (free((m).v),(m).v=0,(m).a=0,(m).s=0,0) : 0)
 #define MeshListMalloc(m,n) ( m ? ((n).s=0,(n).a=m,(n).v=malloc((n).a*sizeof(n.v[0])),!(n.v)) : MeshListFree(n))
+#define MLREF(m) &(m).v,&(m).a,&(m).s
 
 typedef struct {
   dInt start, stride, end;
@@ -94,32 +79,11 @@ typedef struct {
 #define dTAG_BDY_NUM            "dohp_bdy_num"
 #define dTAG_BDY_NORMAL         "dohp_bdy_normal"
 
-/**
-* Assign a canonical orientation of the faces on a hex.  The ordering of faces
-* and vertices of the hex is defined by iMesh.  The ordering of edges and
-* vertices of the faces are also defined.  We need to find out which rotation of
-* the face (in 3D) is required so that the face is in standard orientation.
-* Equivalently, we need to know how to compute loop bounds on the face dofs so
-* that they are traversed in the forward order when the hex face dofs are
-* traversed in forward order.  We will need the permutation P such that for face 'i'
-*   region_vertex[dMeshConnectHexQuad[i][j]] = face_vertex[P[j]]
-* */
-static const int dMeshConnectHexQuad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}, {0,3,2,1}, {4,5,6,7}};
-
-/**
-* Assign a canonical orientation of the edges of a quad.  This is a much simpler analogue of DohpHexQuad.
-* We will need the permutation P such that for edge \a i
-*   face_vertex[dMeshConnectQuadLine[i][j]] = edge_vertex[P[j]]
-* */
-static const int dMeshConnectQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,0}};
-
 extern dErr dMeshListIntView(MeshListInt*,const char*);
 extern dErr dMeshListEHView(MeshListEH*,const char*);
-extern dErr dMeshOrientFindPerm_HexQuad(const iBase_EntityHandle[],const iBase_EntityHandle[],dInt,dMeshOrient*);
-extern dErr dMeshOrientFindPerm_QuadLine(const iBase_EntityHandle[],const iBase_EntityHandle[],dInt,dMeshOrient*);
 
-extern dErr dMeshOrientLoopBounds_Quad(dMeshOrient orient, const dInt *size, DohpLoopBounds *l);
-extern dErr dMeshOrientLoopBounds_Line(dMeshOrient orient, const dInt *size, DohpLoopBounds *l);
+extern dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
+extern dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
 
 typedef struct p_dMesh *dMesh;
 

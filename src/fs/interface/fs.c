@@ -111,12 +111,26 @@ dErr dFSDestroy(dFS fs)
   dFunctionReturn(0);
 }
 
+/** 
+* Builds a function space.  Enforcement of constraints is implementation dependent.
+* 
+* @param fs the function space
+* 
+* @return err
+*/
 dErr dFSBuildSpace(dFS fs)
 {
+  dMesh mesh = fs->mesh;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
+  /**
+  * FIXME: 
+  * 
+  */
+  err = dMeshGetInstance(mesh,&mi);dCHK(err);
+  err = dMeshGetInterface(mesh,fs->active,&fs->iface);dCHK(err);
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
   }

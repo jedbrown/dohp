@@ -22,6 +22,7 @@ typedef PetscViewer    dViewer;
 /* #define dEntTopology      enum iMesh_EntityTopology */
 typedef enum iMesh_EntityTopology dEntTopology;
 typedef enum iBase_EntityType dEntType;
+typedef unsigned char dGeomOrient;
 
 typedef int dMeshInt;
 typedef double dMeshReal;

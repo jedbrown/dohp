@@ -17,6 +17,12 @@ struct dFSBoundary {
   struct dFSBoundary *next;
 };
 
+struct dMeshInterface {
+  int rank;
+  dMeshESH owned,remote;
+  UT_hash_handle hh;
+};
+
 struct _dFSOps {
   DMOPS(dFS)
   dErr (*setfromoptions)(dFS);
@@ -27,8 +33,9 @@ struct _dFSOps {
 struct _p_dFS {
   PETSCHEADER(struct _dFSOps);
   dMesh               mesh;
-  dMeshTag            partition,degree,ruletag;
-  dMeshESH            active;
+  dMeshTag            degree,ruletag; /* tags on regions */
+  dMeshESH            active;         /* regions that will be part of this space */
+  struct dMeshInterface  *iface;      /* for each process sharing an interface, sets of owned and remote interface entities */
   struct dFSBoundary *bdylist;
   dQuotient           quotient;
   dJacobi             jacobi;

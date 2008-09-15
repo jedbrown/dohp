@@ -31,7 +31,6 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
 */
 static dErr dFSSetFromOptions_Cont(dFS fs)
 {
-  dMesh mesh = fs->mesh;
   struct dFS_Cont *fsc = fs->data;
   dBool flg;
   dErr err;
@@ -64,6 +63,7 @@ static dErr dFSContPropogateDegree(dFS fs)
 
   dFunctionBegin;
   err = dMeshGetInstance(fs->mesh,&mi);dCHK(err);
+  iMesh_get
   iMesh_getEntArrAdj(mi,fs->r.v,fs->r.s,iBase_FACE,&rf.v,&rf.a,&rf.s,&rfo.v,&rfo.a,&rfo.s,&err);dICHK(mi,err);
   /* orient faces with respect to regions, propogate anisotropic degree */
 #warning much to do here

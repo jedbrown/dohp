@@ -36,7 +36,7 @@ struct v_dEFSOps {
   dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**);
   dErr (*apply)(dEFS,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode);
   /**< dofs/node, work length, work, modal values, nodal values */
-  dErr (*propogatedown)(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[]);
+  dErr (*propogatedown)(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[]);
   dErr (*scatterInt)(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
   /**
   * @bug It's not yet clear to me how to implement this.

@@ -109,71 +109,9 @@ dErr dMeshListEHView(MeshListEH *ml,const char *name)
   dFunctionReturn(0);
 }
 
-
-dErr dMeshOrientFindPerm_HexQuad(const iBase_EntityHandle rv[], const iBase_EntityHandle fv[],
-                                          int fnum, dMeshOrient *orient)
-{
-  dInt i;
-  static const dInt perm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},
-                                  {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
-  static const dMeshOrient permorient[8] = {0,1,2,3,4,5,6,7};
-
-  dFunctionBegin;
-#if 0
-  printf("# rv:");              /* The vertices of face fnum on this region in canonical order. */
-  for (i=0; i<4; i++) { printf(" %ld",(long)rv[dMeshConnectHexQuad[fnum][i]]); }
-  printf("\n# fv:");
-  /* The order of vertices on the face.  We want to find a permutation of these
-  vertices to matches the canonical order. */
-  for (i=0; i<4; i++) { printf(" %ld",(long)fv[i]); }
-  printf("\n");
-#endif
-  for (i=0; i<8; i++) { /* loop over permutations */
-    if (fv[perm[i][0]] == rv[dMeshConnectHexQuad[fnum][0]] && fv[perm[i][1]] == rv[dMeshConnectHexQuad[fnum][1]]) {
-      /* we have found a match, as an extra check we can check that the other vertices match */
-      if (fv[perm[i][2]] != rv[dMeshConnectHexQuad[fnum][2]] || fv[perm[i][3]] != rv[dMeshConnectHexQuad[fnum][3]]) {
-        dERROR(1,"Faces cannot be matched, but part matches, perhaps adjacencies are corrupt");
-      }
-      *orient = permorient[i];
-      dFunctionReturn(0);
-    }
-  }
-  dERROR(1,"Faces cannot be matched");
-  dFunctionReturn(0);
-}
-
-#undef __FUNCT__
-#define __FUNCT__ "dMeshOrientFindPerm_QuadLine"
-dErr dMeshOrientFindPerm_QuadLine(const iBase_EntityHandle fv[], const iBase_EntityHandle ev[],
-                                          int en, dMeshOrient *orient)
-{
-  static const dInt perm[2][2] = {{0,1},{1,0}};
-  static const dMeshOrient permorient[4] = {0,1,2,3};
-  dInt i;
-
-  dFunctionBegin;
-#if 0
-  printf("# fv:");              /* The vertices of edge en on this face in canonical order. */
-  for (i=0; i<2; i++) { printf(" %ld",(long)fv[dMeshConnectQuadLine[en][i]]); }
-  printf("\n# ev:");
-  /* The order of vertices on the edge.  We want to find a permutation of these
-  vertices to matches the canonical order. */
-  for (i=0; i<2; i++) { printf(" %ld",(long)ev[i]); }
-  printf("\n");
-#endif
-  for (i=0; i<2; i++) { /* loop over permutations */
-    if (ev[perm[i][0]] == fv[dMeshConnectQuadLine[en][0]] && ev[perm[i][1]] == fv[dMeshConnectQuadLine[en][1]]) {
-      *orient = permorient[i];
-      dFunctionReturn(0);
-    }
-  }
-  dERROR(1,"Edges cannot be matched.");
-  dFunctionReturn(0);
-}
-
 #undef __FUNCT__
 #define __FUNCT__ "dMeshOrientLoopBounds_Quad"
-dErr dMeshOrientLoopBounds_Quad(dMeshOrient orient, const dInt *size, DohpLoopBounds *l)
+dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBounds *l)
 {
   const dInt ox=size[0], oy=size[1];
 
@@ -219,7 +157,7 @@ dErr dMeshOrientLoopBounds_Quad(dMeshOrient orient, const dInt *size, DohpLoopBo
 
 #undef __FUNCT__
 #define __FUNCT__ "dMeshOrientLoopBounds_Line"
-dErr dMeshOrientLoopBounds_Line(dMeshOrient orient, const dInt *size, DohpLoopBounds *l)
+dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBounds *l)
 {
 
   dFunctionBegin;
@@ -298,7 +236,7 @@ dErr DohpLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
 /* Maps facet degrees of freedom to element degrees of freedom, adding
 * contributions.  This function is actually an optimization for conforming
 * elements since it does not need to do interpolation. */
-dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dMeshOrient forient,const dScalar fvals[],dScalar rvals[])
+dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dGeomOrient forient,const dScalar fvals[],dScalar rvals[])
 {
   dInt ri,rj,fi,fj,k;
   DohpLoopBounds rl[2],fl[2];
@@ -325,7 +263,7 @@ dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fs
 
 #undef __FUNCT__
 #define __FUNCT__ "EFSFacetToElem_QuadLine_Conforming"
-dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dMeshOrient eorient,const dScalar evals[],dScalar fvals[])
+dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dGeomOrient eorient,const dScalar evals[],dScalar fvals[])
 {
   dInt fi,ei,j;
   DohpLoopBounds fl,el;
