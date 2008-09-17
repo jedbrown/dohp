@@ -1,6 +1,6 @@
 #include "private/fsimpl.h"
 
-dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active,dMeshTag partition)
+dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 {
   dMesh qmesh;
   dErr  err;
@@ -14,7 +14,6 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active,dMeshTag partition)
   }
   fs->mesh = mesh;
   fs->active = active;
-  fs->partition = partition;
   dFunctionReturn(0);
 }
 
@@ -121,6 +120,7 @@ dErr dFSDestroy(dFS fs)
 dErr dFSBuildSpace(dFS fs)
 {
   dMesh mesh = fs->mesh;
+  iMesh_Instance mi;
   dErr err;
 
   dFunctionBegin;
@@ -130,7 +130,6 @@ dErr dFSBuildSpace(dFS fs)
   * 
   */
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
-  err = dMeshGetInterface(mesh,fs->active,&fs->iface);dCHK(err);
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
   }

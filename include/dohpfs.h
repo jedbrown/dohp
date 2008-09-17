@@ -26,7 +26,7 @@ typedef struct _p_dFS *dFS;
 extern PetscCookie dFS_COOKIE;
 
 EXTERN dErr dFSCreate(MPI_Comm,dFS*);
-EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH,dMeshTag); /* mesh, active set, partition tag */
+EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSAddBdy(dFS,const char*,dMeshESH,dMeshTag,dBool,PF); /* name, facets, orientation tag, flip orientation?, normal -> constraints */

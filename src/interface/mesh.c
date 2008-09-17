@@ -322,6 +322,7 @@ dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
   err = PetscObjectChangeTypeName((PetscObject)m,"iMesh");dCHK(err);
   iMesh_newMesh("",&m->mi,&err,0);ICHKERRQ(m->mi,err);
   err = PetscMemcpy(m->ops,&dfltOps,sizeof(dfltOps));dCHK(err);
+  err = dMeshPackerCreate(m,&m->pack);dCHK(err);
   *inm = m;
   dFunctionReturn(0);
 }

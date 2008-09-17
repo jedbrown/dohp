@@ -17,12 +17,6 @@ struct dFSBoundary {
   struct dFSBoundary *next;
 };
 
-struct dMeshInterface {
-  int rank;
-  dMeshESH owned,remote;
-  UT_hash_handle hh;
-};
-
 struct _dFSOps {
   DMOPS(dFS)
   dErr (*setfromoptions)(dFS);

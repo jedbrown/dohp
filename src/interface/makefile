@@ -2,7 +2,7 @@ ALL: lib
 
 CFLAGS   =
 FFLAGS   =
-SOURCEC  = dohp.c mesh.c
+SOURCEC  = dohp.c mesh.c reduce.c
 SOURCEF  =
 SOURCEH  =
 OBJSC    = $(SOURCEC:.c=.o)

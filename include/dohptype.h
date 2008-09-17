@@ -30,6 +30,10 @@ typedef iBase_EntityHandle dMeshEH;
 typedef iBase_TagHandle dMeshTag;
 typedef iBase_EntitySetHandle dMeshESH;
 
+/* ITAPS data types */
+typedef int dIInt;
+typedef double dIReal;
+typedef char dIByte;
 
 #define dCHK(err) CHKERRQ(err);
 #define dERROR(n,...) {return PetscError(__LINE__,__FUNCT__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
@@ -45,6 +49,7 @@ typedef iBase_EntitySetHandle dMeshESH;
 #define dFree(a) PetscFree(a)
 #define dNewM(n,t,p) (dMalloc((n)*sizeof(t),(p)) || dMemzero(*(p),(n)*sizeof(t)))
 #define dMallocM(n,t,p) (dMalloc((n)*sizeof(t),(p)))
+#define dCalloc(n,p) (dMalloc((n),(p)) || dMemzero(*(p),(n)))
 
 #define dValidPointer2(a,b,c,d) (dValidPointer((a),(b)) || dValidPointer((c),(d)))
 #define dValidPointer3(a,b,c,d,e,f) (dValidPointer2((a),(b),(c),(d)) || dValidPointer((e),(f)))

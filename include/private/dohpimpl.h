@@ -16,6 +16,7 @@ struct _dMeshOps {
 
 struct p_dMesh {
   PETSCHEADER(struct _dMeshOps);
+  dMeshPacker pack;
   iMesh_Instance mi;
   iBase_EntitySetHandle root;
   MeshListEH v,e,f,r;           /* vertices, edges, faces, vertices */

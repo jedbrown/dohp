@@ -85,6 +85,7 @@ extern dErr dMeshListEHView(MeshListEH*,const char*);
 extern dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
 extern dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
 
+typedef struct _p_dMeshPacker *dMeshPacker;
 typedef struct p_dMesh *dMesh;
 
 EXTERN dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
@@ -99,6 +100,11 @@ EXTERN dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str);
 EXTERN dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
 EXTERN dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 EXTERN dErr dMeshGetInstance(dMesh,iMesh_Instance*);
+
+
+EXTERN dErr dMeshCreateMPITypes(void);
+EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
+EXTERN dErr dMeshPackerCreate(dMesh mesh,dMeshPacker *inpack);
 
 PETSC_EXTERN_CXX_END
 #endif
