@@ -29,7 +29,6 @@ struct _p_dFS {
   dMesh               mesh;
   dMeshTag            degree,ruletag; /* tags on regions */
   dMeshESH            active;         /* regions that will be part of this space */
-  struct dMeshInterface  *iface;      /* for each process sharing an interface, sets of owned and remote interface entities */
   struct dFSBoundary *bdylist;
   dQuotient           quotient;
   dJacobi             jacobi;
