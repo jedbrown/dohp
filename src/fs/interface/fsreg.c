@@ -1,7 +1,7 @@
 #include "private/fsimpl.h"
 
 PetscCookie dFS_COOKIE;
-static PetscFList dFSList = 0;
+static PetscFList FSList = 0;
 
 /**
 * These default operations are shared with the DM.  We are making a two-level inheritance since there may be different
@@ -42,7 +42,7 @@ dErr dFSSetType(dFS fs,const dFSType type)
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
-  err = PetscFListFind(dFSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
+  err = PetscFListFind(FSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(1,"Unable to find requested dFS type %s",type);
   if (fs->ops->impldestroy) { err = (*fs->ops->impldestroy)(fs);dCHK(err); }
   err = PetscMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
@@ -62,7 +62,7 @@ dErr dFSSetFromOptions(dFS fs)
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
   err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space (dFS) options","dFS");dCHK(err);
-  err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",dFSList,deft,type,256,&flg);dCHK(err);
+  err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",FSList,deft,type,256,&flg);dCHK(err);
   if (flg) {
     err = dFSSetType(fs,type);dCHK(err);
   } else if (!((dObject)fs)->type_name) {
@@ -91,7 +91,7 @@ dErr dFSRegister(const char name[],const char path[],const char cname[],dErr(*cr
 
   dFunctionBegin;
   err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&dFSList,name,fullname,(void (*)(void))create);dCHK(err);
+  err = PetscFListAdd(&FSList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -102,19 +102,19 @@ dErr dFSInitializePackage(const char path[])
 
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
+  initialized = PETSC_TRUE;
   err = PetscCookieRegister("Function Space",&dFS_COOKIE);dCHK(err);
   err = dFSRegisterAll(path);dCHK(err);
-  initialized = PETSC_TRUE;
   dFunctionReturn(0);
 }
 
 
 
-PETSC_EXTERN_CXX_BEGIN
+EXTERN_C_BEGIN
 
 EXTERN dErr dFSCreate_Cont(dFS);
 
-PETSC_EXTERN_CXX_END
+EXTERN_C_END
 
 dErr dFSRegisterAll(const char path[])
 {

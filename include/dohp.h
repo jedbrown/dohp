@@ -101,6 +101,7 @@ EXTERN dErr DohpMFSSetUp(DohpMFS);
 EXTERN dErr DohpMFSApplyMinimumRule(DohpMFS,const MeshListInt*);
 EXTERN dErr DohpMFSSetUpElementBases(DohpMFS,const MeshListInt*);
 EXTERN dErr DohpMFSSetUpElemFacetProjections(DohpMFS);
+EXTERN dErr DohpMFSSetUpBoundaryTypes(DohpMFS mfs);
 
 PETSC_EXTERN_CXX_END
 #endif /* _DOHP_H */

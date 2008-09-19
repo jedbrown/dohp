@@ -1,4 +1,4 @@
-#include "private/dohpimpl.h"
+#include "private/dmeshimpl.h"
 #include <ctype.h>              /* needed for isprint() */
 
 static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer);
@@ -109,8 +109,6 @@ dErr dMeshListEHView(MeshListEH *ml,const char *name)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshOrientLoopBounds_Quad"
 dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBounds *l)
 {
   const dInt ox=size[0], oy=size[1];
@@ -155,8 +153,6 @@ dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBo
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshOrientLoopBounds_Line"
 dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBounds *l)
 {
 
@@ -169,12 +165,10 @@ dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBo
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DohpLoopBounds_Hex"
 /* On each face, we need a loop which traverses the face (indicated by
 * DohpHexQuad[][]) in the positive order.  The ordering of degrees of freedom on the
 * Hex is [i][j][k] (C-style ordering). */
-dErr DohpLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l)
+dErr dMeshLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l)
 {
   const dInt ox=size[0], oy=size[1], oz=size[2];
   dFunctionBegin;
@@ -209,9 +203,7 @@ dErr DohpLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DohpLoopBounds_Quad"
-dErr DohpLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
+dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
 {
   const dInt ox=size[0], oy=size[1];
 
@@ -231,19 +223,18 @@ dErr DohpLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "EFSFacetToElem_HexQuad_Conforming"
+#if 0
 /* Maps facet degrees of freedom to element degrees of freedom, adding
 * contributions.  This function is actually an optimization for conforming
 * elements since it does not need to do interpolation. */
-dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dGeomOrient forient,const dScalar fvals[],dScalar rvals[])
+static dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dGeomOrient forient,const dScalar fvals[],dScalar rvals[])
 {
   dInt ri,rj,fi,fj,k;
   DohpLoopBounds rl[2],fl[2];
   dErr err;
 
   dFunctionBegin;
-  err = DohpLoopBounds_Hex(rsize,fnum,rl);dCHK(err);
+  err = dMeshLoopBounds_Hex(rsize,fnum,rl);dCHK(err);
   err = dMeshOrientLoopBounds_Quad(forient,fsize,fl);dCHK(err);
   for (ri=rl[0].start,fi=fl[0].start; ri!=rl[0].end && fi!=fl[0].end; ri+=rl[0].stride,fi+=fl[0].stride) {
     for (rj=rl[1].start,fj=fl[1].start; rj!=rl[1].end && fj!=fl[1].end; rj+=rl[1].stride,fj+=fl[1].stride) {
@@ -261,16 +252,14 @@ dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fs
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "EFSFacetToElem_QuadLine_Conforming"
-dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dGeomOrient eorient,const dScalar evals[],dScalar fvals[])
+static dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dGeomOrient eorient,const dScalar evals[],dScalar fvals[])
 {
   dInt fi,ei,j;
   DohpLoopBounds fl,el;
   dErr err;
 
   dFunctionBegin;
-  err = DohpLoopBounds_Quad(fsize,en,&fl);dCHK(err);
+  err = dMeshLoopBounds_Quad(fsize,en,&fl);dCHK(err);
   err = dMeshOrientLoopBounds_Line(eorient,esize,&el);dCHK(err);
   for (fi=fl.start,ei=el.start; fi!=fl.end && ei!=el.end; fi+=fl.stride,ei+=el.stride) {
     for (j=0; j<dof; j++) {
@@ -283,84 +272,101 @@ dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt e
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshGetTagName"
-/*@
-   dMeshGetTagName -
+#endif
 
-   This function allocates memory for the tag.  It should be freed with PetscFree()
-
-@*/
-dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name)
+dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
 {
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  if (fname) {
+    err = PetscStrfree(mesh->infile);dCHK(err);
+    err = PetscStrallocpy(fname,&mesh->infile);dCHK(err);
+  }
+  if (options) {
+    err = PetscStrfree(mesh->inoptions);dCHK(err);
+    err = PetscStrallocpy(options,&mesh->inoptions);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+
+/**
+* This function allocates memory for the tag.  It should be freed with PetscFree()
+* 
+*/
+dErr dMeshGetTagName(dMesh mesh,dMeshTag tag,char **name)
+{
+  iMesh_Instance mi = mesh->mi;
+  dErr err;
+
+  dFunctionBegin;
+  PetscValidHeaderSpecific(mesh,dMESH_COOKIE,1);
   dValidPointer(name,2);
   err = PetscMalloc(dNAME_LEN,name);dCHK(err);
-  iMesh_getTagName(m->mi,tag,*name,&err,dNAME_LEN);ICHKERRQ(m->mi,err);
+  iMesh_getTagName(mi,tag,*name,&err,dNAME_LEN);dICHK(mi,err);
   dFunctionReturn(0);
 }
 
-
-#undef __FUNCT__
-#define __FUNCT__ "dMeshCreate"
-dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
+dErr dMeshTagBcast(dMesh m,dMeshTag tag)
 {
-  static const struct _dMeshOps dfltOps = { .orientfacets = dMeshOrientFacets, .view = 0, .destroy = 0 };
-  dMesh m;
   dErr err;
 
   dFunctionBegin;
-  dValidPointer(inm,2);
-#if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
-  err = dQuotientInitializePackage(PETSC_NULL);dCHK(err);
-#endif
-  *inm = 0;
-  err = PetscHeaderCreate(m,p_dMesh,struct _dMeshOps,dMESH_COOKIE,0,"dMesh",comm,dMeshDestroy,dMeshView);dCHK(err);
-  err = PetscObjectChangeTypeName((PetscObject)m,"iMesh");dCHK(err);
-  iMesh_newMesh("",&m->mi,&err,0);ICHKERRQ(m->mi,err);
-  err = PetscMemcpy(m->ops,&dfltOps,sizeof(dfltOps));dCHK(err);
-  err = dMeshPackerCreate(m,&m->pack);dCHK(err);
-  *inm = m;
+  dValidHeader(m,dMESH_COOKIE,1);
+  if (m->ops->tagbcast) {
+    err = (*m->ops->tagbcast)(m,tag);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshLoad"
-dErr dMeshLoad(dMesh m,const char fname[],const char opt[])
+dErr dMeshLoad(dMesh mesh)
 {
-  iBase_TagHandle arf,afe,orf,ofe;
+  iMesh_Instance mi = mesh->mi;
+  dMeshTag arf,afe,orf,ofe;
+  dMeshESH root;
   MeshListInt off=MLZ;
-  iMesh_Instance mi;
-  size_t fnamelen,optlen;
+  dBool flg;
   dErr err;
 
   dFunctionBegin;
-  err = PetscStrlen(fname,&fnamelen);dCHK(err);
-  err = PetscStrlen(opt,&optlen);dCHK(err);
-  mi = m->mi;
-  iMesh_load(mi,0,fname,opt,&err,(int)fnamelen,(int)optlen);ICHKERRQ(mi,err);
-  iMesh_getRootSet(mi,&m->root,&err);ICHKERRQ(mi,err);
+  if (mesh->ops->load) {
+    err = (*mesh->ops->load)(mesh);dCHK(err);
+  } else {
+    dERROR(1,"No load function set");
+  }
+  iMesh_getRootSet(mi,&root,&err);ICHKERRQ(mi,err);
+  mesh->root = root;
+
   /* Get all entities of each type. */
-  iMesh_getEntities(mi,m->root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&m->r.v,&m->r.a,&m->r.s,&err);ICHKERRQ(mi,err);
-  iMesh_getEntities(mi,m->root,iBase_FACE,iMesh_ALL_TOPOLOGIES,&m->f.v,&m->f.a,&m->f.s,&err);ICHKERRQ(mi,err);
-  iMesh_getEntities(mi,m->root,iBase_EDGE,iMesh_ALL_TOPOLOGIES,&m->e.v,&m->e.a,&m->e.s,&err);ICHKERRQ(mi,err);
-  iMesh_getEntities(mi,m->root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&m->v.v,&m->v.a,&m->v.s,&err);ICHKERRQ(mi,err);
+  iMesh_getEntities(mi,root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&mesh->r.v,&mesh->r.a,&mesh->r.s,&err);ICHKERRQ(mi,err);
+  iMesh_getEntities(mi,root,iBase_FACE,iMesh_ALL_TOPOLOGIES,&mesh->f.v,&mesh->f.a,&mesh->f.s,&err);ICHKERRQ(mi,err);
+  iMesh_getEntities(mi,root,iBase_EDGE,iMesh_ALL_TOPOLOGIES,&mesh->e.v,&mesh->e.a,&mesh->e.s,&err);ICHKERRQ(mi,err);
+  iMesh_getEntities(mi,root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&mesh->v.v,&mesh->v.a,&mesh->v.s,&err);ICHKERRQ(mi,err);
+#if 0
   /* Get tags for custom adjacencies, needed since our meshes are nonconforming with respect to the adjacent lower dim entity */
   iMesh_getTagHandle(mi,dTAG_ADJ_REGION_FACE,&arf,&err,strlen(dTAG_ADJ_REGION_FACE));ICHKERRQ(mi,err);
   iMesh_getTagHandle(mi,dTAG_ADJ_FACE_EDGE,&afe,&err,strlen(dTAG_ADJ_FACE_EDGE));ICHKERRQ(mi,err);
   iMesh_getTagHandle(mi,dTAG_ORIENT_REGION_FACE,&orf,&err,strlen(dTAG_ORIENT_REGION_FACE));ICHKERRQ(mi,err);
   iMesh_getTagHandle(mi,dTAG_ORIENT_FACE_EDGE,&ofe,&err,strlen(dTAG_ORIENT_FACE_EDGE));ICHKERRQ(mi,err);
   /* Get full adjacencies */
-  iMesh_getEHArrData(mi,m->r.v,m->r.s,arf,&m->arf.v,&m->arf.a,&m->arf.s,&err);ICHKERRQ(mi,err); /* region -> face */
-  iMesh_getEHArrData(mi,m->f.v,m->f.s,afe,&m->afe.v,&m->afe.a,&m->afe.s,&err);ICHKERRQ(mi,err); /* face -> edge */
-  iMesh_getEntArrAdj(mi,m->e.v,m->e.s,iBase_VERTEX,&m->aev.v,&m->aev.a,&m->aev.s,&off.v,&off.a,&off.s,&err);ICHKERRQ(mi,err); /* edge -> vertex */
+  iMesh_getEHArrData(mi,mesh->r.v,mesh->r.s,arf,&mesh->arf.v,&mesh->arf.a,&mesh->arf.s,&err);ICHKERRQ(mi,err); /* region -> face */
+  iMesh_getEHArrData(mi,mesh->f.v,mesh->f.s,afe,&mesh->afe.v,&mesh->afe.a,&mesh->afe.s,&err);ICHKERRQ(mi,err); /* face -> edge */
+  iMesh_getEntArrAdj(mi,mesh->e.v,mesh->e.s,iBase_VERTEX,&mesh->aev.v,&mesh->aev.a,&mesh->aev.s,&off.v,&off.a,&off.s,&err);ICHKERRQ(mi,err); /* edge -> vertex */
   MeshListFree(off);      /* We don't use the offsets because we know there are always exactly two vertices per edge. */
   /* Get orientation of lower dimensional entities, we don't need vertex orientation */
-  iMesh_getArrData(mi,m->r.v,m->r.s,orf,&m->orf.v,&m->orf.a,&m->orf.s,&err);ICHKERRQ(mi,err); /* region[face] */
-  iMesh_getArrData(mi,m->f.v,m->f.s,ofe,&m->ofe.v,&m->ofe.a,&m->ofe.s,&err);ICHKERRQ(mi,err); /* face[edge] */
+  iMesh_getArrData(mi,mesh->r.v,mesh->r.s,orf,&mesh->orf.v,&mesh->orf.a,&mesh->orf.s,&err);ICHKERRQ(mi,err); /* region[face] */
+  iMesh_getArrData(mi,mesh->f.v,mesh->f.s,ofe,&mesh->ofe.v,&mesh->ofe.a,&mesh->ofe.s,&err);ICHKERRQ(mi,err); /* face[edge] */
+#endif
+
+  /* View if requested */
+  err = PetscOptionsHasName(((dObject)mesh)->prefix,"-dmesh_view",&flg);dCHK(err);
+  if (flg) {
+    dViewer viewer;
+    err = PetscViewerASCIIGetStdout(((dObject)mesh)->comm,&viewer);dCHK(err);
+    err = dMeshView(mesh,viewer);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
@@ -431,7 +437,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
    dMeshView_EntSet -
 
 @*/
-dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
+static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
 {
   size_t valuesLen = 256;
   char values[256];
@@ -450,9 +456,7 @@ dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   dFunctionBegin;
   err = dMeshGetEntSetName(m,root,&name);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Entity Set %10p : %s\n",root,name);dCHK(err);
-  if (name) {
-    err = PetscFree(name);dCHK(err);
-  }
+  err = PetscStrfree(name);dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   {
     for (i=iMesh_POINT; i<iMesh_ALL_TOPOLOGIES; i++) {
@@ -559,8 +563,10 @@ dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str)
   dFunctionBegin;
   PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
   dValidPointer(str,2);
-  iMesh_getTagHandle(m->mi,dENT_SET_NAME,&tag,&err,strlen(dENT_SET_NAME));ICHKERRQ(m->mi,err);
-  iMesh_getEntSetData(m->mi,set,tag,&buf.v,&buf.a,&buf.s,&err);
+  iMesh_getTagHandle(m->mi,dENT_SET_NAME,&tag,&err,strlen(dENT_SET_NAME));
+  if (!err) {
+    iMesh_getEntSetData(m->mi,set,tag,&buf.v,&buf.a,&buf.s,&err);
+  }
   if (!err) {
     err = PetscStrallocpy(buf.v,str);dCHK(err);
     err = MeshListFree(buf);dCHK(err);
@@ -600,27 +606,12 @@ dErr dMeshDestroy(dMesh m)
   MeshListFree(m->orf); MeshListFree(m->ofe);
   MeshListFree(m->x);
   iMesh_dtor(m->mi,&err);ICHKERRQ(m->mi,err);
+  err = PetscStrfree(m->infile);dCHK(err);
+  err = PetscStrfree(m->inoptions);dCHK(err);
   err = PetscHeaderDestroy(m);dCHK(err);
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshRegisterAll"
-/*@
-   dMeshRegisterAll -
-
-@*/
-dErr dMeshRegisterAll(const char path[])
-{
-  static dBool registered = PETSC_FALSE;
-  dErr err;
-
-  dFunctionBegin;
-  if (registered) dFunctionReturn(0);
-  err = dPrintf(PETSC_COMM_WORLD,"dMeshRegisterAll: %s (nothing to do)\n",path);dCHK(err);
-  registered = PETSC_TRUE;
-  dFunctionReturn(0);
-}
 
 /**
 * Creates a \p dRule tag over all non-vertex topological entities in the mesh.  Also tags the root entity set with the
@@ -697,8 +688,8 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char 
 dErr dMeshDestroyRuleTag(dMesh mesh,dMeshTag rtag)
 {
   iMesh_Instance mi = mesh->mi;
-  void *base[1];
-  int bsize,balloc=sizeof(base[0]);
+  void *base;
+  int bsize,balloc=sizeof(void*);
   dMeshESH root;
   dErr err;
 
@@ -706,6 +697,6 @@ dErr dMeshDestroyRuleTag(dMesh mesh,dMeshTag rtag)
   dValidHeader(mesh,dMESH_COOKIE,1);
   iMesh_getRootSet(mi,&root,&err);dICHK(mi,err);
   iMesh_getEntSetData(mi,root,rtag,(char**)&base,&balloc,&bsize,&err);dICHK(mi,err);
-  err = dFree(base[0]);dCHK(err);
+  err = dFree(base);dCHK(err);
   dFunctionReturn(0);
 }

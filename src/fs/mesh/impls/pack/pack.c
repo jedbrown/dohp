@@ -1,6 +1,8 @@
-#include "private/dohpimpl.h"
+#include "private/dmeshimpl.h"
 #include "uthash.h"
 #include <MBParallelConventions.h>
+
+dErr dMeshCreate_Pack(dMesh mesh); /* The only exported function in this file */
 
 /* This macro is in MBParallelComm.hpp and these should be the same */
 #define MAX_SHARING_PROCS 64
@@ -20,7 +22,7 @@ struct SharedSet {
 * inverse.
 *
 * */
-struct PackData {
+typedef struct {
   dInt nr,ns,ne,nsr,nsre;       /* r=rank,s=set,e=entity, nsr=sum(snr)=sum(rns), nsre=sum(zipWith (*) snr sne) */
   dInt *snr,*rns,*sr,*rs;       /* snr[0..ns], rns[0..nr], sr[0..nsr],sr[is[s]+rr], rs[0..nsr],rs[ir[r]+ss] */
   dInt *ir,*is,*jd;             /* ir[0..nr], is[0..ns], ib[0..nr],ib[r], jd[0..nsr],jd[is[s]+rr] */
@@ -44,19 +46,20 @@ struct PackData {
   void *buffer;                 /* &buffer[ib[r]] 0<=r<nr */
   void *data;                   /*   &data[jd[is[s]+r]*e*tsize] 0<=s<ns, 0<=r<snr[s], 0<=e<sne[s],  */
   void *mine;                   /*   &mine[e*tsize]             0<=e<ne */
-};
+} PackData;
 
 /**
 * \e Setup is required when the number or size of tags changes.
 * 
 */
-struct _p_dMeshPacker {
-  PETSCHEADER(int);
+typedef struct {
   dInt nr,ns;
-  struct PackData owned,unowned;
-};
+  char *partition;
+  PackData *owned;
+  PackData *unowned;
+} Mesh_Pack;
 
-static dErr dMeshPackDataSetUp(dMesh mesh,struct PackData *pd);
+static dErr MeshPackDataSetUp(dMesh mesh,PackData *pd);
 
 /**
 * There are two orderings, by rank (used for send/recieve) and by set (used during reduction operations).  We do not
@@ -65,103 +68,34 @@ static dErr dMeshPackDataSetUp(dMesh mesh,struct PackData *pd);
 * 
 */
 
-struct SharedHeader {
+typedef struct {
   PetscMPIInt numsets;
   char tagname[MAX_NAME_LEN];
-};
+} SharedHeader;
 
-struct SharedSetHeader {
+typedef struct {
   PetscMPIInt numranks;
   PetscMPIInt ranks[MAX_SHARING_PROCS];
-};
+} SharedSetHeader;
 
 static const dInt iBase_SizeFromType[4] = {sizeof(int),sizeof(double),sizeof(void*),sizeof(char)};
 static dBool CreatedMPITypes = false;
 static MPI_Datatype MPITypeFromITAPS[4];
 static MPI_Datatype dMPI_SHARED_HEADER,dMPI_SHARED_SET_HEADER,dMPI_ENT_HANDLE;
 
-dErr dMeshCreateMPITypes(void)
+static dErr dFindInt(dInt n,dInt a[],dInt v,dInt *i)
 {
-  MPI_Datatype typeSH[] = {MPI_INT,MPI_CHAR};
-  MPI_Aint dispSH[] = {offsetof(struct SharedHeader,numsets),offsetof(struct SharedHeader,tagname)};
-  int sizeSH[] = {1,MAX_NAME_LEN};
-  MPI_Datatype typeSSH[] = {MPI_INT,MPI_INT};
-  MPI_Aint dispSSH[] = {offsetof(struct SharedSetHeader,numranks),offsetof(struct SharedSetHeader,ranks)};
-  int sizeSSH[] = {1,MAX_SHARING_PROCS};
-  dErr err;
+  dInt low,high;
 
   dFunctionBegin;
-  if (CreatedMPITypes) dFunctionReturn(0);
-  err = MPI_Type_create_struct(2,sizeSH,dispSH,typeSH,&dMPI_SHARED_HEADER);dCHK(err);
-  err = MPI_Type_commit(&dMPI_SHARED_HEADER);dCHK(err);
-  err = MPI_Type_create_struct(2,sizeSSH,dispSSH,typeSSH,&dMPI_SHARED_SET_HEADER);dCHK(err);
-  err = MPI_Type_commit(&dMPI_SHARED_SET_HEADER);dCHK(err);
-  err = MPI_Type_dup(MPI_UNSIGNED_LONG,&dMPI_ENT_HANDLE);dCHK(err);
-  MPITypeFromITAPS[0] = MPI_INT;
-  MPITypeFromITAPS[1] = MPI_DOUBLE;
-  MPITypeFromITAPS[2] = dMPI_ENT_HANDLE;
-  MPITypeFromITAPS[3] = MPI_BYTE;
-  CreatedMPITypes = true;
-  dFunctionReturn(0);
-}
-
-dErr dMeshPackerCreate(dMesh mesh,dMeshPacker *inpack)
-{
-  iMesh_Instance mi = mesh->mi;
-  struct _p_dMeshPacker pack;
-  dMeshESH *allset;
-  dMeshTag pstatusTag;
-  dIInt nallset;
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
-  dValidPointer(inpack,4);
-  *inpack = 0;
-
-  err = dMemzero(&pack,sizeof(pack));dCHK(err);
-
-  /* Get the interface sets */
-  iMesh_getTagHandle(mi,PARALLEL_STATUS_TAG_NAME,&pstatusTag,&err,strlen(PARALLEL_STATUS_TAG_NAME));dICHK(mi,err);
-  iMesh_getNumEntSets(mi,mesh->root,1,&nallset,&err);dICHK(mi,err);
-  {
-    dInt alloc = nallset;
-    err = dMalloc(nallset*sizeof(dMeshESH),&allset);dCHK(err);
-    iMesh_getEntSets(mi,mesh->root,1,&allset,&alloc,&nallset,&err);dICHK(mi,err);
+  low = 0; high = n;
+  while (high-low > 1) {
+    const dInt t = (low+high)/2;
+    if (a[t] > v) high = t;
+    else          low = t;
   }
-
-  {                             /* Partition based on ownership */
-    dMeshESH *oset,*uset;
-    dInt osi=0,usi=0;
-    err = PetscMalloc2(nallset,dMeshESH,&oset,nallset,dMeshESH,&uset);
-
-    for (dInt i=0; i<nallset; i++) {
-      char pstatus,*stupid = &pstatus;
-      int one_a=1,one_s;
-
-      iMesh_getEntSetData(mi,allset[i],pstatusTag,&stupid,&one_a,&one_s,&err);dICHK(mi,err);
-      if (!(pstatus & PSTATUS_SHARED)) continue;
-      if (pstatus & PSTATUS_NOT_OWNED) {
-        uset[usi++] = allset[i];
-      } else {
-        oset[osi++] = allset[i];
-      }
-    }
-
-    pack.owned.ns = osi;
-    pack.unowned.ns = usi;
-    err = dMalloc(osi*sizeof(dMeshESH),&pack.owned.sh);dCHK(err);
-    err = dMalloc(usi*sizeof(dMeshESH),&pack.unowned.sh);dCHK(err);
-    err = dMemcpy(pack.owned.sh,oset,osi*sizeof(oset[0]));dCHK(err);
-    err = dMemcpy(pack.unowned.sh,uset,usi*sizeof(uset[0]));dCHK(err);
-    err = PetscFree2(oset,uset);dCHK(err);
-  }
-  
-  err = dMeshPackDataSetUp(mesh,&pack.owned);dCHK(err);
-  err = dMeshPackDataSetUp(mesh,&pack.unowned);dCHK(err);
-
-  err = dMemcpy(inpack,&pack,sizeof(pack));dCHK(err);
-
+  if (a[low] == v) *i = low;
+  else dERROR(1,"Not found.");
   dFunctionReturn(0);
 }
 
@@ -176,7 +110,7 @@ dErr dMeshPackerCreate(dMesh mesh,dMeshPacker *inpack)
 * 
 * @return 
 */
-static dErr dMeshPackDataSetUp(dMesh mesh,struct PackData *pd)
+static dErr MeshPackDataSetUp(dMesh mesh,PackData *pd)
 {
   MPI_Comm comm = ((dObject)mesh)->comm;
   iMesh_Instance mi = mesh->mi;
@@ -187,7 +121,7 @@ static dErr dMeshPackDataSetUp(dMesh mesh,struct PackData *pd)
 
   dFunctionBegin;
   err = MPI_Comm_rank(comm,&rank);dCHK(err);
-  err = MPI_Comm_size(comm,&rank);dCHK(err);
+  err = MPI_Comm_size(comm,&size);dCHK(err);
   iMesh_getTagHandle(mi,PARALLEL_STATUS_TAG_NAME,&pstatusTag,&err,strlen(PARALLEL_STATUS_TAG_NAME));dICHK(mi,err);
   iMesh_getTagHandle(mi,PARALLEL_SHARED_PROC_TAG_NAME,&sprocTag,&err,strlen(PARALLEL_SHARED_PROC_TAG_NAME));dICHK(mi,err);
   iMesh_getTagHandle(mi,PARALLEL_SHARED_PROCS_TAG_NAME,&sprocsTag,&err,strlen(PARALLEL_SHARED_PROCS_TAG_NAME));dICHK(mi,err);
@@ -310,7 +244,7 @@ static dErr dMeshPackDataSetUp(dMesh mesh,struct PackData *pd)
   dFunctionReturn(0);
 }
 
-static dErr dMeshPackDataPrepare(dMesh mesh,struct PackData *pd,const dMeshTag tag)
+static dErr MeshPackDataPrepare(dMesh mesh,PackData *pd,const dMeshTag tag)
 {
   MPI_Comm comm = ((dObject)mesh)->comm;
   iMesh_Instance mi = mesh->mi;
@@ -329,7 +263,7 @@ static dErr dMeshPackDataPrepare(dMesh mesh,struct PackData *pd,const dMeshTag t
     err = PetscFree2(pd->buffer,pd->data);dCHK(err);
     /* Arbitrary packing estimate */
     pd->maxtsize   = tsize;
-    pd->buffersize = pd->nr*(dInt)sizeof(struct SharedHeader) + pd->nsr*(dInt)sizeof(struct SharedSetHeader) + pd->nsre*tsize + pd->nsr*64;
+    pd->buffersize = pd->nr*(dInt)sizeof(SharedHeader) + pd->nsr*(dInt)sizeof(SharedSetHeader) + pd->nsre*tsize + pd->nsr*64;
     pd->datasize   = pd->nsre * tsize;
     pd->minesize   = pd->ne * tsize;
     err = PetscMalloc3(pd->buffersize,char,&pd->buffer,pd->datasize,char,&pd->data,pd->minesize,char,&pd->mine);dCHK(err);
@@ -376,7 +310,7 @@ static dErr dMeshPackDataPrepare(dMesh mesh,struct PackData *pd,const dMeshTag t
 * 
 * @return 
 */
-static dErr dMeshPackDataLoad(dMesh mesh,struct PackData *pd)
+static dErr MeshPackDataLoad(dMesh mesh,PackData *pd)
 {
   iMesh_Instance mi = mesh->mi;
   dErr err;
@@ -397,27 +331,11 @@ static dErr dMeshPackDataLoad(dMesh mesh,struct PackData *pd)
   dFunctionReturn(0);
 }
 
-static inline dErr dFindInt(dInt n,dInt a[],dInt v,dInt *i)
-{
-  dInt low,high;
-
-  dFunctionBegin;
-  low = 0; high = n;
-  while (high-low > 1) {
-    const dInt t = (low+high)/2;
-    if (a[t] > v) high = t;
-    else          low = t;
-  }
-  if (a[low] == v) *i = low;
-  else dERROR(1,"Not found.");
-  dFunctionReturn(0);
-}
-
-static dErr dMeshPackDataPack(dMesh mesh,struct PackData *pd)
+static dErr MeshPackDataPack(dMesh mesh,PackData *pd)
 {
   MPI_Comm comm = ((dObject)mesh)->comm;
-  struct SharedHeader head;
-  struct SharedSetHeader shead;
+  SharedHeader head;
+  SharedSetHeader shead;
   void *outbuf;
   PetscMPIInt position,outsize;
   dErr err;
@@ -446,11 +364,11 @@ static dErr dMeshPackDataPack(dMesh mesh,struct PackData *pd)
   dFunctionReturn(0);
 }
 
-static dErr dMeshPackDataUnpack(dMesh mesh,struct PackData *pd)
+static dErr MeshPackDataUnpack(dMesh mesh,PackData *pd)
 {
   MPI_Comm comm = ((dObject)mesh)->comm;
-  struct SharedHeader head;
-  struct SharedSetHeader shead;
+  SharedHeader head;
+  SharedSetHeader shead;
   char tagname[MAX_NAME_LEN];
   void *inbuf;
   PetscMPIInt position,insize;
@@ -484,7 +402,7 @@ static dErr dMeshPackDataUnpack(dMesh mesh,struct PackData *pd)
   dFunctionReturn(0);
 }
   
-static dErr dMeshPackDataUnload(dMesh mesh,struct PackData *pd)
+static dErr MeshPackDataUnload(dMesh mesh,PackData *pd)
 {
   iMesh_Instance mi = mesh->mi;
   dErr err;
@@ -500,27 +418,67 @@ static dErr dMeshPackDataUnload(dMesh mesh,struct PackData *pd)
   dFunctionReturn(0);
 }
 
-static dErr dMeshPackDataPostSends(dMesh mesh,struct PackData *pd)
+static dErr MeshPackDataPostSends(dMesh mesh,PackData *pd)
 {
   MPI_Comm comm = ((dObject)mesh)->comm;
+  PetscMPIInt mpitag = ((dObject)mesh)->tag;
   dErr err;
 
   dFunctionBegin;
   for (dInt r=0; r<pd->nr; r++) {
-    err = MPI_Isend((char*)pd->buffer+pd->ib[r],pd->ibused[r],MPI_PACKED,pd->rank[r],pd->mpitag,comm,pd->mpireq+r);dCHK(err);
+    err = MPI_Isend((char*)pd->buffer+pd->ib[r],pd->ibused[r],MPI_PACKED,pd->rank[r],mpitag,comm,pd->mpireq+r);dCHK(err);
   }
   dFunctionReturn(0);
 }
 
-static dErr dMeshPackDataPostRecvs(dMesh mesh,struct PackData *pd)
+static dErr MeshPackDataPostRecvs(dMesh mesh,PackData *pd)
 {
   MPI_Comm comm = ((dObject)mesh)->comm;
+  PetscMPIInt mpitag = ((dObject)mesh)->tag;
   dErr err;
 
   dFunctionBegin;
   for (dInt r=0; r<pd->nr; r++) {
-    err = MPI_Irecv((char*)pd->buffer+pd->ib[r],pd->ibsize[r],MPI_PACKED,pd->rank[r],pd->mpitag,comm,pd->mpireq+r);dCHK(err);
+    err = MPI_Irecv((char*)pd->buffer+pd->ib[r],pd->ibsize[r],MPI_PACKED,pd->rank[r],mpitag,comm,pd->mpireq+r);dCHK(err);
   }
+  dFunctionReturn(0);
+}
+
+static dErr PackDataDestroy(PackData *pd)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscFree6(pd->set,pd->is,pd->estart,pd->sne,pd->snr,pd->spacksize);dCHK(err);
+  err = PetscFree4(pd->ir,pd->rns,pd->rank,pd->irank);dCHK(err);
+  err = PetscFree3(pd->sr,pd->rs,pd->jd);dCHK(err);
+  err = PetscFree5(pd->ib,pd->ibsize,pd->ibused,pd->mpireq,pd->ents);dCHK(err);
+  err = PetscFree3(pd->buffer,pd->data,pd->mine);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr CreateMPITypes(void)
+{
+  MPI_Datatype typeSH[] = {MPI_INT,MPI_CHAR};
+  MPI_Aint dispSH[] = {offsetof(SharedHeader,numsets),offsetof(SharedHeader,tagname)};
+  int sizeSH[] = {1,MAX_NAME_LEN};
+  MPI_Datatype typeSSH[] = {MPI_INT,MPI_INT};
+  MPI_Aint dispSSH[] = {offsetof(SharedSetHeader,numranks),offsetof(SharedSetHeader,ranks)};
+  int sizeSSH[] = {1,MAX_SHARING_PROCS};
+  dErr err;
+
+  dFunctionBegin;
+  if (CreatedMPITypes) dFunctionReturn(0);
+  err = MPI_Type_create_struct(2,sizeSH,dispSH,typeSH,&dMPI_SHARED_HEADER);dCHK(err);
+  err = MPI_Type_commit(&dMPI_SHARED_HEADER);dCHK(err);
+  err = MPI_Type_create_struct(2,sizeSSH,dispSSH,typeSSH,&dMPI_SHARED_SET_HEADER);dCHK(err);
+  err = MPI_Type_commit(&dMPI_SHARED_SET_HEADER);dCHK(err);
+  err = MPI_Type_dup(MPI_UNSIGNED_LONG,&dMPI_ENT_HANDLE);dCHK(err);
+  MPITypeFromITAPS[0] = MPI_INT;
+  MPITypeFromITAPS[1] = MPI_DOUBLE;
+  MPITypeFromITAPS[2] = dMPI_ENT_HANDLE;
+  MPITypeFromITAPS[3] = MPI_BYTE;
+  CreatedMPITypes = true;
   dFunctionReturn(0);
 }
 
@@ -534,21 +492,136 @@ static dErr dMeshPackDataPostRecvs(dMesh mesh,struct PackData *pd)
 *
 * @return
 */
-dErr dMeshTagBcast(dMesh mesh,dMeshTag tag)
+static dErr dMeshTagBcast_Pack(dMesh mesh,dMeshTag tag)
 {
-  dMeshPacker pack = mesh->pack;
+  Mesh_Pack *pack = mesh->data;
   dErr err;
 
   dFunctionBegin;
-  err = dMeshPackDataPrepare(mesh,&pack->owned,tag);dCHK(err);
-  err = dMeshPackDataPrepare(mesh,&pack->unowned,tag);dCHK(err);
-  err = dMeshPackDataLoad(mesh,&pack->owned);dCHK(err);
-  err = dMeshPackDataPack(mesh,&pack->owned);dCHK(err);
-  err = dMeshPackDataPostSends(mesh,&pack->owned);dCHK(err);
-  err = dMeshPackDataPostRecvs(mesh,&pack->unowned);dCHK(err);
-  err = MPI_Waitall(pack->unowned.nr,pack->unowned.mpireq,MPI_STATUSES_IGNORE);dCHK(err); /* Wait on the receives */
-  err = dMeshPackDataUnpack(mesh,&pack->unowned);dCHK(err);
-  err = dMeshPackDataUnload(mesh,&pack->unowned);dCHK(err);
-  err = MPI_Waitall(pack->owned.nr,pack->owned.mpireq,MPI_STATUSES_IGNORE);dCHK(err); /* Make sure the sends all completed */
+  err = MeshPackDataPrepare(mesh,pack->owned,tag);dCHK(err);
+  err = MeshPackDataPrepare(mesh,pack->unowned,tag);dCHK(err);
+  err = MeshPackDataLoad(mesh,pack->owned);dCHK(err);
+  err = MeshPackDataPack(mesh,pack->owned);dCHK(err);
+  err = MeshPackDataPostSends(mesh,pack->owned);dCHK(err);
+  err = MeshPackDataPostRecvs(mesh,pack->unowned);dCHK(err);
+  err = MPI_Waitall(pack->unowned->nr,pack->unowned->mpireq,MPI_STATUSES_IGNORE);dCHK(err); /* Wait on the receives */
+  err = MeshPackDataUnpack(mesh,pack->unowned);dCHK(err);
+  err = MeshPackDataUnload(mesh,pack->unowned);dCHK(err);
+  err = MPI_Waitall(pack->owned->nr,pack->owned->mpireq,MPI_STATUSES_IGNORE);dCHK(err); /* Make sure the sends all completed */
+  dFunctionReturn(0);
+}
+
+static dErr dMeshLoad_Pack(dMesh mesh)
+{
+  iMesh_Instance mi = mesh->mi;
+  Mesh_Pack *pack = mesh->data;
+  char options[dSTR_LEN];
+  dMeshTag pstatusTag;
+  dIInt nallset;
+  dMeshESH *allset;
+  size_t fnamelen;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscStrlen(mesh->infile,&fnamelen);dCHK(err);
+  err = PetscSNPrintf(options,sizeof(options),"PARALLEL=BCAST_DELETE;PARTITION=%s;PARTITION_DISTRIBUTE;PARALLEL_RESOLVE_SHARED_ENTS;CPUTIME;%s",pack->partition,mesh->inoptions);dCHK(err);
+  iMesh_load(mi,0,mesh->infile,options,&err,(int)fnamelen,(int)sizeof(options));dICHK(mi,err);
+
+  /* Get the interface sets */
+  iMesh_getTagHandle(mi,PARALLEL_STATUS_TAG_NAME,&pstatusTag,&err,strlen(PARALLEL_STATUS_TAG_NAME));dICHK(mi,err);
+  iMesh_getNumEntSets(mi,mesh->root,1,&nallset,&err);dICHK(mi,err);
+  {
+    dInt alloc = nallset;
+    err = dMalloc(nallset*sizeof(dMeshESH),&allset);dCHK(err);
+    iMesh_getEntSets(mi,mesh->root,1,&allset,&alloc,&nallset,&err);dICHK(mi,err);
+  }
+
+  /* Partition based on ownership */
+  {
+    dMeshESH *oset,*uset;       /* sets in each partition */
+    dInt osi=0,usi=0;           /* number of sets */
+    err = PetscMalloc2(nallset,dMeshESH,&oset,nallset,dMeshESH,&uset);
+
+    for (dInt i=0; i<nallset; i++) {
+      char pstatus,*stupid = &pstatus;
+      int one_a=1,one_s;
+
+      iMesh_getEntSetData(mi,allset[i],pstatusTag,&stupid,&one_a,&one_s,&err);dICHK(mi,err);
+      if (!(pstatus & PSTATUS_SHARED)) continue;
+      if (pstatus & PSTATUS_NOT_OWNED) {
+        uset[usi++] = allset[i];
+      } else {
+        oset[osi++] = allset[i];
+      }
+    }
+
+    {
+      PetscSynchronizedPrintf(MPI_COMM_WORLD,"owned sets = %d   unowned sets = %d\n",osi,usi);
+      PetscSynchronizedFlush(MPI_COMM_WORLD);
+    }
+
+    pack->owned->ns = osi;
+    pack->unowned->ns = usi;
+    err = dMalloc(osi*sizeof(dMeshESH),&pack->owned->sh);dCHK(err);
+    err = dMalloc(usi*sizeof(dMeshESH),&pack->unowned->sh);dCHK(err);
+    err = dMemcpy(pack->owned->sh,oset,osi*sizeof(oset[0]));dCHK(err);
+    err = dMemcpy(pack->unowned->sh,uset,usi*sizeof(uset[0]));dCHK(err);
+    err = PetscFree2(oset,uset);dCHK(err);
+  }
+  err = dFree(allset);dCHK(err);
+
+  err = MeshPackDataSetUp(mesh,pack->owned);dCHK(err);
+  err = MeshPackDataSetUp(mesh,pack->unowned);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr dMeshDestroy_Pack(dMesh mesh)
+{
+  Mesh_Pack *pack = mesh->data;
+  dErr err;
+
+  dFunctionBegin;
+  err = PackDataDestroy(pack->owned);dCHK(err);
+  err = PackDataDestroy(pack->unowned);dCHK(err);
+  err = PetscFree2(pack->owned,pack->unowned);dCHK(err);
+  err = dFree(mesh->data);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr dMeshSetFromOptions_Pack(dMesh mesh)
+{
+  Mesh_Pack *pack = mesh->data;
+  char str[dSTR_LEN];
+  dBool flg;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscOptionsString("-dmesh_partition","Name of partition tag","dMeshSetInFile",pack->partition,str,sizeof(str),&flg);dCHK(err);
+  if (flg) {
+    err = PetscStrfree(pack->partition);dCHK(err);
+    err = PetscStrallocpy(str,&pack->partition);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+dErr dMeshCreate_Pack(dMesh mesh)
+{
+  Mesh_Pack *pack;
+  dErr err;
+
+  dFunctionBegin;
+  err = CreateMPITypes();dCHK(err);
+  err = dNewLog(mesh,Mesh_Pack,&pack);dCHK(err);
+  mesh->data = (void*)pack;
+  err = PetscMalloc2(1,PackData,&pack->owned,1,PackData,&pack->unowned);dCHK(err);
+  err = PetscStrallocpy("PARALLEL_PARTITION",&pack->partition);dCHK(err);
+
+  iMesh_newMesh("PARALLEL",&mesh->mi,&err,(int)strlen("PARALLEL"));dICHK(mesh->mi,err);
+
+  mesh->ops->view           = 0;
+  mesh->ops->destroy        = dMeshDestroy_Pack;
+  mesh->ops->tagbcast       = dMeshTagBcast_Pack;
+  mesh->ops->setfromoptions = dMeshSetFromOptions_Pack;
+  mesh->ops->load           = dMeshLoad_Pack;
   dFunctionReturn(0);
 }

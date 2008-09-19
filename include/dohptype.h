@@ -93,6 +93,7 @@ typedef char dIByte;
 
 #define dMAX_PATH_LEN PETSC_MAX_PATH_LEN
 #define dNAME_LEN     256
+#define dSTR_LEN      256
 
 #define dFunctionBegin \
   {\

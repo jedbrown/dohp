@@ -27,30 +27,39 @@ static dErr createIsotropicIntTag(iMesh_Instance mi,dMeshESH set,dEntType type,d
 
 int main(int argc,char *argv[])
 {
-  const char pTagName[] = "dohp_partition";
   const dInt rsize[] = {5,5,5},dsize[] = {4,4,4};
   iMesh_Instance mi;
   dJacobi jac;
   dFS fs;
   dMesh mesh;
   dMeshESH domain;
-  dMeshTag partition,rtag,dtag;
+  dMeshTag rtag,dtag,ownertag;
   MPI_Comm comm;
   PetscViewer viewer;
+  PetscMPIInt rank;
   dErr err;
 
   dFunctionBegin;
   err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
+  err = MPI_Comm_rank(comm,&rank);dCHK(err);
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = dMeshCreate(comm,&mesh);dCHK(err);
-  err = dMeshLoad(mesh,"dblock.h5m","");dCHK(err);
-  err = dMeshView(mesh,viewer);dCHK(err);
+  err = dMeshSetInFile(mesh,"zdblock.h5m",NULL);dCHK(err);
+  err = dMeshSetType(mesh,dMESHSERIAL);dCHK(err);
+  err = dMeshSetFromOptions(mesh);dCHK(err);
+  err = dMeshLoad(mesh);dCHK(err);
+
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   iMesh_getRootSet(mi,&domain,&err);dICHK(mi,err);
-  iMesh_getTagHandle(mi,pTagName,&partition,&err,strlen(pTagName));dICHK(mi,err);
+
   err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,rsize,"region_rule",&rtag);
   err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,dsize,"region_degree",&dtag);
+
+  err = createIsotropicIntTag(mi,domain,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,1,&rank,"owner",&ownertag);
+
+  err = dMeshTagBcast(mesh,ownertag);dCHK(err);
+  err = dMeshView(mesh,viewer);dCHK(err);
 
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
@@ -61,6 +70,14 @@ int main(int argc,char *argv[])
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
+
+  {
+    char outname[256];
+    int size;
+    MPI_Comm_size(comm,&size);
+    snprintf(outname,sizeof(outname),"foo%d-%d.vtk",size,rank);
+    iMesh_save(mi,0,outname,"",&err,sizeof(outname),0);dCHK(err);
+  }
 
   err = dFSDestroy(fs);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);

@@ -7,7 +7,7 @@ static const struct _dQuotientOps dQuotientDefaultOps = {
   .destroy = 0
 };
 
-PetscCookie dQUOTIENT_COOKIE,dMESH_COOKIE;
+PetscCookie dQUOTIENT_COOKIE;
 static PetscFList dQuotientList = 0;
 
 static dErr dQuotientSetUp_Private(dQuotient q);
@@ -180,12 +180,13 @@ dErr dQuotientSetUp(dQuotient q)
 * @param q The quotient
 *
 * @return err
-*/dErr dQuotientSetUp_Private(dQuotient q)
+*/
+dErr dQuotientSetUp_Private(dQuotient q)
 {
-  //dErr err;
+  dErr err;
 
   dFunctionBegin;
-  q->nelems = q->mesh->r.s;
+  err = PetscPrintf(((dObject)q)->comm,"%s()\n",__func__);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -204,7 +205,8 @@ dErr dQuotientSetUp(dQuotient q)
 * @param function pointer to function \p cname
 *
 * @return err
-*/dErr dQuotientRegister(const char name[],const char path[],const char cname[],dErr (*function)(dQuotient))
+*/
+dErr dQuotientRegister(const char name[],const char path[],const char cname[],dErr (*function)(dQuotient))
 {
   char           fullname[PETSC_MAX_PATH_LEN];
   dErr err;
@@ -333,8 +335,6 @@ dErr dQuotientInitializePackage(const char path[])
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
   err = PetscCookieRegister("Quotient map",&dQUOTIENT_COOKIE);dCHK(err);
-  err = PetscCookieRegister("Mesh",&dMESH_COOKIE);dCHK(err);
-  err = dMeshRegisterAll(path);dCHK(err);
   err = dQuotientRegisterAll(path);dCHK(err);
   initialized = PETSC_TRUE;
   dFunctionReturn(0);

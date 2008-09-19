@@ -1,5 +1,5 @@
-#ifndef __DOHPMESH_H
-#define __DOHPMESH_H
+#ifndef _DOHPMESH_H
+#define _DOHPMESH_H
 
 #include "petsc.h"
 #include <stdlib.h>
@@ -8,6 +8,9 @@
 #include "dohpjacobi.h"
 
 PETSC_EXTERN_CXX_BEGIN
+
+typedef struct _p_dMeshPacker *dMeshPacker;
+typedef struct _p_dMesh *dMesh;
 
 extern PetscCookie dMESH_COOKIE;
 
@@ -79,32 +82,38 @@ typedef struct {
 #define dTAG_BDY_NUM            "dohp_bdy_num"
 #define dTAG_BDY_NORMAL         "dohp_bdy_normal"
 
+#define dMeshType char *
+#define dMESHPACK   "pack"
+#define dMESHSERIAL "serial"
+
 extern dErr dMeshListIntView(MeshListInt*,const char*);
 extern dErr dMeshListEHView(MeshListEH*,const char*);
 
 extern dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
 extern dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
-
-typedef struct _p_dMeshPacker *dMeshPacker;
-typedef struct p_dMesh *dMesh;
+EXTERN dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l);
+EXTERN dErr dMeshLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l);
 
 EXTERN dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
 EXTERN dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name);
-EXTERN dErr dMeshLoad(dMesh m,const char fname[],const char opt[]);
+EXTERN dErr dMeshLoad(dMesh m);
+EXTERN dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
 EXTERN dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 EXTERN dErr dMeshOrientFacets(dMesh m);
 EXTERN dErr dMeshDestroy(dMesh);
 EXTERN dErr dMeshView(dMesh,PetscViewer);
 EXTERN dErr dMeshRegisterAll(const char path[]);
+#define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,d)
+EXTERN dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
+EXTERN dErr dMeshSetType(dMesh,const dMeshType);
+EXTERN dErr dMeshInitializePackage(const char[]);
 EXTERN dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str);
 EXTERN dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
 EXTERN dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 EXTERN dErr dMeshGetInstance(dMesh,iMesh_Instance*);
 
-
-EXTERN dErr dMeshCreateMPITypes(void);
+EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
-EXTERN dErr dMeshPackerCreate(dMesh mesh,dMeshPacker *inpack);
 
 PETSC_EXTERN_CXX_END
 #endif

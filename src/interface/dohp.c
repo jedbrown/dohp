@@ -141,5 +141,6 @@ dErr DohpMFSSetUpBoundaryTypes(DohpMFS mfs)
 
   dFunctionBegin;
   dERROR(1,"not implemented");
+  dValidHeader(mfs,dMFS_COOKIE,1);
   dFunctionReturn(0);
 }

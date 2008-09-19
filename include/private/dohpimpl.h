@@ -8,23 +8,6 @@
 PetscCookie dDM_COOKIE,dMFS_COOKIE;
 PetscLogEvent dLOG_MatMult, dLOG_FunctionEval, dLOG_JacobianEval;
 
-struct _dMeshOps {
-  dErr(*orientfacets)(dMesh);
-  dErr(*view)(dMesh,PetscViewer);
-  dErr(*destroy)(dMesh);
-};
-
-struct p_dMesh {
-  PETSCHEADER(struct _dMeshOps);
-  dMeshPacker pack;
-  iMesh_Instance mi;
-  iBase_EntitySetHandle root;
-  MeshListEH v,e,f,r;           /* vertices, edges, faces, vertices */
-  MeshListEH arf,afe,aev;       /* adjacencies region -> face -> edge -> vertex */
-  MeshListData orf,ofe;
-  MeshListReal x;
-};
-
 typedef struct {
   dErr (*dofspernode)(/* what goes here? */);
   /* number of fields, number of nodes, normal vector, boundary values, element nodal values (in/out), output vector (out) */
