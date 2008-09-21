@@ -324,9 +324,9 @@ dErr dMeshTagBcast(dMesh m,dMeshTag tag)
 dErr dMeshLoad(dMesh mesh)
 {
   iMesh_Instance mi = mesh->mi;
-  dMeshTag arf,afe,orf,ofe;
+  //dMeshTag arf,afe,orf,ofe;
   dMeshESH root;
-  MeshListInt off=MLZ;
+  //MeshListInt off=MLZ;
   dBool flg;
   dErr err;
 
