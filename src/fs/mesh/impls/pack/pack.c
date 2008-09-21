@@ -14,6 +14,14 @@ struct SharedSet {
   UT_hash_handle hh;
 };
 
+static int compareSharedSet(const void *avoid,const void *bvoid)
+{
+  const struct SharedSet *a = *(struct SharedSet *const*)avoid;
+  const struct SharedSet *b = *(struct SharedSet *const*)bvoid;
+
+  return memcmp(a->ranks,b->ranks,MAX_SHARING_PROCS*sizeof(dInt));
+}
+
 /**
 * The \a buffer is sorted \a rank,\a set,\a tag with starts at \c kr[jr[ir[rank]+set]+tag].  The \a data is sorted \a
 * tag,\a set,\a rank with starts at \c kt[jt[it[tag]+set]+rank].  \e Loading the \c Packer means populating \c data from
@@ -23,6 +31,7 @@ struct SharedSet {
 *
 * */
 typedef struct {
+  int myrank;
   dInt nr,ns,ne,nsr,nsre;       /* r=rank,s=set,e=entity, nsr=sum(snr)=sum(rns), nsre=sum(zipWith (*) snr sne) */
   dInt *snr,*rns,*sr,*rs;       /* snr[0..ns], rns[0..nr], sr[0..nsr],sr[is[s]+rr], rs[0..nsr],rs[ir[r]+ss] */
   dInt *ir,*is,*jd;             /* ir[0..nr], is[0..ns], ib[0..nr],ib[r], jd[0..nsr],jd[is[s]+rr] */
@@ -31,7 +40,8 @@ typedef struct {
 
   PetscMPIInt mpitag;
   MPI_Request *mpireq;
-  struct SharedSet *set;        /* Array of sets set[s].xxx must be initialized */
+  struct SharedSet *setarr;
+  struct SharedSet **set;        /* Array of sets set[s].xxx must be initialized */
   struct SharedSet *sethash;    /* Used to lookup the set a message from a proc corresponds to */
   dMeshESH *sh;                 /* Set handles, indexed by set number */
   dInt *estart,*sne;            /* Start and length of entity lists in \a ents */
@@ -95,7 +105,7 @@ static dErr dFindInt(dInt n,dInt a[],dInt v,dInt *i)
     else          low = t;
   }
   if (a[low] == v) *i = low;
-  else dERROR(1,"Not found.");
+  else dERROR(1,"Failed to find value %d in list [(%d,%d)..(%d,%d)].",v,0,a[0],n-1,a[n-1]);
   dFunctionReturn(0);
 }
 
@@ -122,6 +132,7 @@ static dErr MeshPackDataSetUp(dMesh mesh,PackData *pd)
   dFunctionBegin;
   err = MPI_Comm_rank(comm,&rank);dCHK(err);
   err = MPI_Comm_size(comm,&size);dCHK(err);
+  pd->myrank = rank;
   iMesh_getTagHandle(mi,PARALLEL_STATUS_TAG_NAME,&pstatusTag,&err,strlen(PARALLEL_STATUS_TAG_NAME));dICHK(mi,err);
   iMesh_getTagHandle(mi,PARALLEL_SHARED_PROC_TAG_NAME,&sprocTag,&err,strlen(PARALLEL_SHARED_PROC_TAG_NAME));dICHK(mi,err);
   iMesh_getTagHandle(mi,PARALLEL_SHARED_PROCS_TAG_NAME,&sprocsTag,&err,strlen(PARALLEL_SHARED_PROCS_TAG_NAME));dICHK(mi,err);
@@ -129,7 +140,7 @@ static dErr MeshPackDataSetUp(dMesh mesh,PackData *pd)
   err = dCalloc(size*sizeof(rcount[0]),&rcount);dCHK(err); /* number of sets each rank occurs in */
 
   /* Allocate everything that only depends on the number of sets */
-  err = PetscMalloc6(ns,struct SharedSet,&pd->set, ns,dInt,&pd->is, ns,dInt,&pd->estart, ns,dInt,&pd->sne, ns,dInt,&pd->snr, ns,dInt,&pd->spacksize);dCHK(err);
+  err = PetscMalloc7(ns,struct SharedSet,&pd->setarr, ns,struct SharedSet*,&pd->set, ns,dInt,&pd->is, ns,dInt,&pd->estart, ns,dInt,&pd->sne, ns,dInt,&pd->snr, ns,dInt,&pd->spacksize);dCHK(err);
 
   nsr = 0;                      /* number of set-ranks seen */
   ne = 0;                       /* Number of entities seen (including duplicates if present in multiple sets) */
@@ -151,12 +162,12 @@ static dErr MeshPackDataSetUp(dMesh mesh,PackData *pd)
     }
 
     /* Find my position in the list */
-    if (pstatus & PSTATUS_NOT_OWNED) {                        /* Insert my rank in the list */
+    if (pstatus & PSTATUS_NOT_OWNED) {
       for (r=1; sprocs[r] < rank && sprocs[r] >= 0; r++) { /* Scan forward to my position */
         if (r == MAX_SHARING_PROCS-1) dERROR(1,"Too many sharing procs");
       }
     } else {                    /* I am the owner, insert at the beginning of the list */
-      r = 0;
+      r = 0; 
     }
 
     {                           /* Insert my rank and determine the length in 'r' */
@@ -169,28 +180,43 @@ static dErr MeshPackDataSetUp(dMesh mesh,PackData *pd)
         t0 = t1;
         r++;
       }
+      for (int k=r; k<MAX_SHARING_PROCS; k++) sprocs[k] = -1; /* not necessary */
     }
+    pd->setarr[s].setnumber = s;
+    err = dMemcpy(pd->setarr[s].ranks,sprocs,MAX_SHARING_PROCS*sizeof(sprocs[0]));dCHK(err);
+    //HASH_ADD(hh,pd->sethash,ranks,sizeof(pd->set[0].ranks),&pd->set[s]);
+
     iMesh_getNumOfType(mi,pd->sh[s],iBase_ALL_TYPES,&nents,&err);dICHK(mi,err);
 
     pd->sne[s] = nents;
     pd->estart[s] = ne;
     pd->is[s]  = nsr;           /* Offset of the first rank in set 's' */
-    pd->snr[s] = r-1;           /* Number of remote ranks in set */
-    nsr += r-1;                 /* Count all but me */
     ne += nents;
-    nsre += (r-1)*nents;
-
-    pd->set[s].setnumber = s;
-    err = dMemcpy(pd->set[s].ranks,sprocs,MAX_SHARING_PROCS*sizeof(sprocs[0]));dCHK(err);
-    //HASH_ADD(hh,pd->sethash,ranks,sizeof(pd->set[0].ranks),&pd->set[s]);
+    if (pstatus & PSTATUS_NOT_OWNED) {
+      /* If we are not the owner, then we only talk with the owner so we won't put the other sharing ranks into our
+      * communication structure, however they are still part of the set specification */
+      pd->snr[s] = 1;
+      nsr += 1;
+      nsre += nents;
+      sprocs[1] = rank;         /* Don't change the owner, but make the set look like it is me and the owner */
+      r = 2; 
+    } else {
+      pd->snr[s] = r-1;           /* Number of remote ranks in set */
+      nsr += r-1;                 /* Count all but me */
+      nsre += (r-1)*nents;
+    }
 
     for (dInt j=0; j<r; j++) {
       rcount[sprocs[j]]++; /* Update set count for each rank in set */
     }
   }
 
-  /* I should be in every set */
-  if (rcount[rank] != ns) dERROR(1,"rank counts do not match");
+  if (rcount[rank] != ns) dERROR(1,"[%d] I should be in every set rcount=%d, ns=%d",rank,rcount[rank],ns);
+
+  /* Sort the sets */
+  for (dInt i=0; i<ns; i++) pd->set[i] = &pd->setarr[i];
+  qsort(pd->set,ns,sizeof(pd->set[0]),compareSharedSet);
+
 
   /* Count the number of distinct neighbor ranks */
   rcount[rank] = 0;             /* don't count me */
@@ -221,26 +247,34 @@ static dErr MeshPackDataSetUp(dMesh mesh,PackData *pd)
     }
     if (r != pd->nsr) dERROR(1,"counts do not match");
   }
-  err = dFree(rcount);dCHK(err);
 
   /* Set up everything which does not depend on tag size */
   err = PetscMalloc3(nsr,dInt,&pd->sr,nsr,dInt,&pd->rs,nsr,dInt,&pd->jd);dCHK(err);
   err = PetscMalloc5(nr,dInt,&pd->ib,nr,dInt,&pd->ibsize,nr,dInt,&pd->ibused,nr,MPI_Request,&pd->mpireq,ne,dMeshEH,&pd->ents);dCHK(err);
   /* We do not initialize the \e values in \a jb and \a jd since these are dependent on the tag size */
+  err = PetscMemzero(rcount,size*sizeof(rcount[0]));dCHK(err); /* Count the number of times we hit each rank */
   for (dInt s=0; s<ns; s++) {
-    dInt i,r,rr,arrsize,arralloc;
+    dInt i,r,rr,arrsize,arralloc,start,end;
     dMeshEH *arr;
-    for (i=0,r=0; i<pd->snr[s]+1; i++,r++) {
-      rr = pd->set[s].ranks[i];  /* the \e real rank */
-      if (rr == rank) continue; /* skip me */
+    if (pd->set[s]->ranks[0] == rank) { /* I am the owner, we need all the subsets */
+      start = 1; end = 1+pd->snr[s];
+    } else {                    /* Just look at the owner */
+      if (pd->snr[s] != 1) dERROR(1,"We are not the owner, but we still have multiple ranks in this set");
+      start = 0; end = 1;
+    }
+    for (i=start,r=0; i != end; i++,r++) {
+      rr = pd->set[s]->ranks[i];  /* the \e real rank */
       pd->sr[pd->is[s]+r] = pd->irank[rr];
-      pd->rs[pd->irank[rr]] = s;
+      if (!(0 <= pd->irank[rr] && pd->irank[rr] < pd->nr)) dERROR(1,"[%d] invalid real rank %d",rank,rr);
+      if (!(0 <= pd->ir[pd->irank[rr]] && pd->ir[pd->irank[rr]] < pd->nsr)) dERROR(1,"pd->ir invalid");
+      pd->rs[pd->ir[pd->irank[rr]]+(rcount[rr]++)] = s; /* FIXME */
     }
     arr = &pd->ents[pd->estart[s]];
     arralloc = pd->sne[s];
     iMesh_getEntities(mi,pd->sh[s],iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&arr,&arralloc,&arrsize,&err);dICHK(mi,err);
     if (arrsize != pd->sne[s]) dERROR(1,"incorrect sizes");
   } 
+  err = dFree(rcount);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -353,10 +387,10 @@ static dErr MeshPackDataPack(dMesh mesh,PackData *pd)
       dInt ss,rr;
       ss = pd->rs[pd->ir[r]+s]; /* The \e real set index */
       shead.numranks = pd->snr[ss];
-      err = dMemcpy(shead.ranks,pd->set[ss].ranks,MAX_SHARING_PROCS);dCHK(err);
+      err = dMemcpy(shead.ranks,pd->set[ss]->ranks,MAX_SHARING_PROCS);dCHK(err);
       err = MPI_Pack(&shead,1,dMPI_SHARED_SET_HEADER,outbuf,outsize,&position,comm);dCHK(err);
 
-      err = dFindInt(shead.numranks,shead.ranks,r,&rr);dCHK(err); /* Find my set-rank index */
+      err = dFindInt(pd->snr[ss],pd->sr+pd->is[ss],r,&rr);dCHK(err); /* Find the set-rank index of the destination */
       err = MPI_Pack((char*)pd->data+pd->jd[pd->is[ss]+rr],pd->sne[ss]*pd->tsize,MPI_BYTE,outbuf,outsize,&position,comm);dCHK(err);
     }
     pd->ibused[r] = position;
@@ -391,11 +425,12 @@ static dErr MeshPackDataUnpack(dMesh mesh,PackData *pd)
       ss = pd->rs[pd->ir[r]+s]; /* The \e real set index */
 
       err = MPI_Unpack(inbuf,insize,&position,&shead,1,dMPI_SHARED_SET_HEADER,comm);dCHK(err);
-      if (shead.numranks != pd->snr[ss]) dERROR(1,"Number of ranks in set does not agree.");
-      err = PetscMemcmp(shead.ranks,pd->set[ss].ranks,shead.numranks*sizeof(shead.ranks[0]),&match);dCHK(err);
+      //if (shead.numranks != pd->snr[ss]) dERROR(1,"Number of ranks in set does not agree.");
+      err = PetscMemcmp(shead.ranks,pd->set[ss]->ranks,shead.numranks*sizeof(shead.ranks[0]),&match);dCHK(err);
       if (!match) dERROR(1,"Ranks in set do not agree.");
 
-      err = dFindInt(shead.numranks,shead.ranks,r,&rr);dCHK(err); /* Find my set-rank index */
+      err = dFindInt(pd->snr[ss],pd->sr+pd->is[ss],r,&rr);dCHK(err); /* Find the set-rank index of the incoming rank */
+      if (rr != 0) dERROR(1,"unpacking a message that is not from the owner (not an error for reductions)");
       err = MPI_Unpack(inbuf,insize,&position,(char*)pd->data+pd->jd[pd->is[ss]+rr],pd->sne[ss]*pd->tsize,MPI_BYTE,comm);dCHK(err);
     }
   }
@@ -482,6 +517,29 @@ static dErr CreateMPITypes(void)
   dFunctionReturn(0);
 }
 
+
+static dErr PackView(dMesh mesh,Mesh_Pack *pack)
+{
+  iMesh_Instance mi = mesh->mi;
+  int err;
+  int rank,nents;
+  int osi = pack->owned->ns,usi = pack->unowned->ns;
+  dMeshESH *oset = pack->owned->sh,*uset = pack->unowned->sh;
+  
+  MPI_Comm_rank(PETSC_COMM_WORLD,&rank);
+  PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] owned sets = %d   unowned sets = %d\n",rank,osi,usi);
+  for (int i=0; i<osi; i++) {
+    iMesh_getNumOfType(mi,oset[i],iBase_ALL_TYPES,&nents,&err);
+    PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] owned[%d] ents=%d\n",rank,i,nents);
+  }
+  for (int i=0; i<usi; i++) {
+    iMesh_getNumOfType(mi,uset[i],iBase_ALL_TYPES,&nents,&err);
+    PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] unowned[%d] ents=%d owner=%d\n",rank,i,nents,pack->unowned->rank[pack->unowned->sr[i]]);
+  }
+  PetscSynchronizedFlush(MPI_COMM_WORLD);
+  return 0;
+}
+
 /**
 * Sends the requested tag from owner to shared.  It sends one message per neighbor.  The tags are assumed to be on all
 * interface entities, at least on the owner.  The tag (with same name) must exist on the non-owning proc, but it may not
@@ -500,6 +558,9 @@ static dErr dMeshTagBcast_Pack(dMesh mesh,dMeshTag tag)
   dFunctionBegin;
   err = MeshPackDataPrepare(mesh,pack->owned,tag);dCHK(err);
   err = MeshPackDataPrepare(mesh,pack->unowned,tag);dCHK(err);
+  MPI_Barrier(MPI_COMM_WORLD);
+  err = PackView(mesh,pack);dCHK(err);
+
   err = MeshPackDataLoad(mesh,pack->owned);dCHK(err);
   err = MeshPackDataPack(mesh,pack->owned);dCHK(err);
   err = MeshPackDataPostSends(mesh,pack->owned);dCHK(err);
@@ -554,12 +615,6 @@ static dErr dMeshLoad_Pack(dMesh mesh)
         oset[osi++] = allset[i];
       }
     }
-
-    {
-      PetscSynchronizedPrintf(MPI_COMM_WORLD,"owned sets = %d   unowned sets = %d\n",osi,usi);
-      PetscSynchronizedFlush(MPI_COMM_WORLD);
-    }
-
     pack->owned->ns = osi;
     pack->unowned->ns = usi;
     err = dMalloc(osi*sizeof(dMeshESH),&pack->owned->sh);dCHK(err);
@@ -583,7 +638,8 @@ static dErr dMeshDestroy_Pack(dMesh mesh)
   dFunctionBegin;
   err = PackDataDestroy(pack->owned);dCHK(err);
   err = PackDataDestroy(pack->unowned);dCHK(err);
-  err = PetscFree2(pack->owned,pack->unowned);dCHK(err);
+  err = PetscFree(pack->owned);dCHK(err);
+  err = PetscFree(pack->unowned);dCHK(err);
   err = dFree(mesh->data);dCHK(err);
   dFunctionReturn(0);
 }
@@ -613,7 +669,8 @@ dErr dMeshCreate_Pack(dMesh mesh)
   err = CreateMPITypes();dCHK(err);
   err = dNewLog(mesh,Mesh_Pack,&pack);dCHK(err);
   mesh->data = (void*)pack;
-  err = PetscMalloc2(1,PackData,&pack->owned,1,PackData,&pack->unowned);dCHK(err);
+  err = PetscNew(PackData,&pack->owned);dCHK(err);
+  err = PetscNew(PackData,&pack->unowned);dCHK(err);
   err = PetscStrallocpy("PARALLEL_PARTITION",&pack->partition);dCHK(err);
 
   iMesh_newMesh("PARALLEL",&mesh->mi,&err,(int)strlen("PARALLEL"));dICHK(mesh->mi,err);

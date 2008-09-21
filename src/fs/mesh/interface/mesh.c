@@ -495,12 +495,12 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
           for (j=0; j<data.s && data.v[j]; j++) {
             if (!isprint(data.v[i])) canprint = PETSC_FALSE;
           }
-          if (canprint) {
+          if (canprint && false) {
             err = PetscSNPrintf(values,(size_t)data.s,"%s",data.v);dCHK(err); /* Just a copy, but ensures a NULL byte */
           } else {
             z = values;
             for (j=0; j<data.s && data.v[j] && (size_t)(z-values) < valuesLen-5; j++) {
-              err = PetscSNPrintf(z,3,"%02x ",data.v[j]);dCHK(err);
+              err = PetscSNPrintf(z,3,"%02uhhx ",data.v[j]);dCHK(err);
               z += 3;
               if (j%4 == 0) {
                 *(z++) = ' ';
