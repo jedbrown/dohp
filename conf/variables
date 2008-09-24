@@ -2,7 +2,7 @@ include ${PETSC_DIR}/conf/variables
 include ${IMESH_DIR}/lib/iMesh-Defs.inc
 
 DOHP_LIB_DIR = ${DOHP_DIR}/${PETSC_ARCH}/lib
-DOHP_INCLUDE = -I${DOHP_DIR} -I${DOHP_DIR}/include
+DOHP_INCLUDE = -I${DOHP_DIR} -I${DOHP_DIR}/include -I${DOHP_DIR}/${PETSC_ARCH}/include
 CC_INCLUDES = ${PETSC_INCLUDE} ${DOHP_INCLUDE}
 
 INSTALL_LIB_DIR = ${DOHP_LIB_DIR}

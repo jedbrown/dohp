@@ -2,6 +2,7 @@
 #define _DOHPTYPE_H
 
 #include "petsc.h"
+#include "dohpconf.h"
 #include "iMesh.h"
 
 
@@ -36,7 +37,7 @@ typedef double dIReal;
 typedef char dIByte;
 
 #define dCHK(err) CHKERRQ(err);
-#define dERROR(n,...) {return PetscError(__LINE__,__FUNCT__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
+#define dERROR(n,...) {return PetscError(__LINE__,__func__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
 
 #define dPrintf PetscPrintf
 #define dMemcpy(a,b,c) PetscMemcpy(a,b,c)
