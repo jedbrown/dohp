@@ -89,8 +89,8 @@ typedef struct {
 extern dErr dMeshListIntView(MeshListInt*,const char*);
 extern dErr dMeshListEHView(MeshListEH*,const char*);
 
-extern dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
-extern dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBounds *l);
+extern dErr dMeshOrientLoopBounds_Quad(dInt orient, const dInt *size, DohpLoopBounds *l);
+extern dErr dMeshOrientLoopBounds_Line(dInt orient, const dInt *size, DohpLoopBounds *l);
 EXTERN dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l);
 EXTERN dErr dMeshLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l);
 
@@ -111,6 +111,14 @@ EXTERN dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str);
 EXTERN dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
 EXTERN dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 EXTERN dErr dMeshGetInstance(dMesh,iMesh_Instance*);
+EXTERN dErr dMeshGetNumEnts(dMesh,dMeshESH,dEntType,dEntTopology,dInt*);
+EXTERN dErr dMeshGetEnts(dMesh,dMeshESH,dEntType,dEntTopology,dMeshEH[],dInt,dInt*);
+EXTERN dErr dMeshGetAdjIndex(dMesh,const dMeshEH[],dInt,const dMeshEH[],dInt,dInt[],dInt*);
+
+EXTERN dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag);
+EXTERN dErr dMeshTagCreateTemp(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
+EXTERN dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type);
+EXTERN dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type);
 
 EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);

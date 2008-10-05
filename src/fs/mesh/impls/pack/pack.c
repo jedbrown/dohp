@@ -154,7 +154,7 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
     sprocs = pd->setarr[s].ranks;
     iMesh_getEntSetData(mi,sh[s],pstatusTag,&silly_status,&one_a,&one_s,&err);dICHK(mi,err);
     if (!(pstatus & PSTATUS_SHARED)) dERROR(1,"shared packer contains an unshared set");
-      
+
     /* make \c sprocs[] contain the list of copies, terminated by -1 */
     iMesh_getEntSetIntData(mi,sh[s],sprocTag,&sproc,&err);dICHK(mi,err);
     if (sproc == -1) {        /* There are multiple sharing procs */
@@ -392,6 +392,9 @@ static dErr MeshPackDataUnload(dMesh mesh,PackData *pd)
   dErr err;
 
   dFunctionBegin;
+#if defined(DOHP_USE_DEBUG)
+  for (int i=0; i<pd->minesize/(int)sizeof(int); i++) ((int*)pd->mine)[i] = -1; /* should all be overwritten */
+#endif
   /* Put \a data into \a mine, copy over existing data if there are multiple sets */
   for (dInt s=0; s<pd->ns; s++) {
     for (dInt r=0; r<pd->snr[s]; r++) {
@@ -451,13 +454,22 @@ static dErr PackView(dMesh mesh,Mesh_Pack *pack)
   MPI_Comm_rank(PETSC_COMM_WORLD,&rank);
   PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] owned sets = %d   unowned sets = %d\n",rank,osi,usi);
   for (int i=0; i<osi; i++) {
+    int ntype[4];
     iMesh_getNumOfType(mi,pack->owned->set[i]->handle,iBase_ALL_TYPES,&nents,&err);
-    PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] owned[%d] ents=%d\n",rank,i,nents);
+    for (int j=0; j<4; j++) {
+      iMesh_getNumOfType(mi,pack->owned->set[i]->handle,j,&ntype[j],&err);
+    }
+    PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] owned[%d] ents=%d(%d,%d,%d,%d)\n",rank,i,nents,ntype[0],ntype[1],ntype[2],ntype[3]);
   }
   for (int i=0; i<usi; i++) {
+    int ntype[4];
     iMesh_getNumOfType(mi,pack->unowned->set[i]->handle,iBase_ALL_TYPES,&nents,&err);
-    PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] unowned[%d] ents=%d owner=%d members=[%d %d %d %d %d ...]\n",
-                            rank,i,nents,pack->unowned->rank[pack->unowned->sr[i]],
+    for (int j=0; j<4; j++) {
+      iMesh_getNumOfType(mi,pack->unowned->set[i]->handle,j,&ntype[j],&err);
+    }
+    PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d] unowned[%d] ents=%d(%d,%d,%d,%d) owner=%d members=[%d %d %d %d %d ...]\n",
+                            rank,i,nents,ntype[0],ntype[1],ntype[2],ntype[3],
+                            pack->unowned->rank[pack->unowned->sr[i]],
                             pack->unowned->set[i]->ranks[0],
                             pack->unowned->set[i]->ranks[1],
                             pack->unowned->set[i]->ranks[2],

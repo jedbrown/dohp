@@ -27,7 +27,7 @@ struct _dFSOps {
 struct _p_dFS {
   PETSCHEADER(struct _dFSOps);
   dMesh               mesh;
-  dMeshTag            degree,ruletag; /* tags on regions */
+  dMeshTag            degreetag,ruletag; /* tags on regions */
   dMeshESH            active;         /* regions that will be part of this space */
   struct dFSBoundary *bdylist;
   dQuotient           quotient;

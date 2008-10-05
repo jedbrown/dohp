@@ -87,7 +87,7 @@ EXTERN dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
 EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**);
 EXTERN dErr dEFSGetRule(dEFS efs,dRule *rule);
 EXTERN dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode);
-EXTERN dErr dEFSPropogateDown(dEFS,const dInt[],const dMeshEH[],const dInt[],const dEntTopology[],const dMeshEH[],dInt[]);
+EXTERN dErr dJacobiPropogateDown(dJacobi,dEntTopology,const dMeshEH[],const dInt[],const dMeshEH[],const dInt[],dInt[]);
 
 PETSC_EXTERN_CXX_END
 

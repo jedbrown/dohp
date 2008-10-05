@@ -26,13 +26,6 @@ _F(dEFSApply_Tensor_Line);
 _F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);
 #undef _F
-
-#define _F(f) static dErr f(const dInt[],const dMeshEH[],const dInt[],const dEntTopology[],const dMeshEH[],dInt[]) /* dEFSPropogateDown */
-_F(dEFSPropogateDown_Tensor_Line);
-_F(dEFSPropogateDown_Tensor_Quad);
-_F(dEFSPropogateDown_Tensor_Hex);
-#undef _F
-
 #if 0
 # define _F(f) static dErr f(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
 _F(dEFSScatterInt_Tensor_Line);
@@ -66,21 +59,18 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
                                                .getSizes = dEFSGetSizes_Tensor_Line,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Line,
                                                .apply = dEFSApply_Tensor_Line,
-                                               .propogatedown = dEFSPropogateDown_Tensor_Line,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
                                                .getSizes = dEFSGetSizes_Tensor_Quad,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Quad,
                                                .apply = dEFSApply_Tensor_Quad,
-                                               .propogatedown = dEFSPropogateDown_Tensor_Quad,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   static const struct v_dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
                                                .getSizes = dEFSGetSizes_Tensor_Hex,
                                                .getTensorNodes = dEFSGetTensorNodes_Tensor_Hex,
                                                .apply = dEFSApply_Tensor_Hex,
-                                               .propogatedown = dEFSPropogateDown_Tensor_Hex,
                                                .scatterInt = 0,
                                                .scatterFacet = 0 };
   Tensor this = (Tensor)jac->impl;
@@ -366,63 +356,6 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,dInt D,dInt *wlen,dScalar**restrict wo
     case dAPPLY_GRAD_TRANSPOSE:
     default:
       dERROR(1,"invalid dApplyMode %d specified",amode);
-  }
-  dFunctionReturn(0);
-}
-
-static dErr dEFSPropogateDown_Tensor_Line(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
-{
-
-  dFunctionBegin;
-  for (dInt i=0; i<2; i++) {
-    if (ftopo[f[i]] != iMesh_POINT) dERROR(1,"Invalid adjacent topology %s",iMesh_TopologyName[ftopo[f[i]]]);
-    if (a[i] < 2) dERROR(1,"Line has order %d < 2 so it is not a valid continuous basis function.");
-    if (fv[f[i]] == ev[0] || fv[f[i]] == ev[1]) {
-        af[i] = 1;              /* vertices are always order "1" regardless of orientation */
-    } else {
-        dERROR(1,"vertex does not coincide with either endpoint of this line");
-    }
-  }
-  dFunctionReturn(0);
-}
-
-static dErr dEFSPropogateDown_Tensor_Quad(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
-{
-  static const dInt perm[4] = {0,1,0,1};
-
-  dFunctionBegin;
-  for (dInt i=0; i<4; i++) {
-    const int topo = ftopo[f[i]],type=iMesh_TypeFromTopology[topo];
-    int match;
-    if (type != iBase_EDGE) dERROR(1,"Entity adjacent to this Quad has incorrect type %s",iBase_TypeName[type]);
-    if (topo != iMesh_LINE_SEGMENT) dERROR(1,"Entity adjacent to this Quad has unsupported topology %s",iMesh_TopologyName[topo]);
-    match =  dGeomMatchQuadLine(ev,fv);
-    printf("edge %d matched %d\n",i,match); /* are these always the same if they match, if so it would make checking easier */
-    if (match < 0) dERROR(1,"Line could not be matched to this Quad, adjacencies must be incorrect");
-    af[i] = dMin(af[i],a[perm[match]]);
-  }
-  dFunctionReturn(0);
-}
-
-static dErr dEFSPropogateDown_Tensor_Hex(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
-{
-  static const dInt perm[6][2] = {{0,2},{1,2},{0,2},{1,2},{1,0},{0,1}}; /* map natural axis of Quad to natural axis of Hex */
-  static const dInt orient[8][2] = {{0,1},{1,0},{0,1},{1,0},            /* map actual Quad orientation to proper orientation */
-                                    {1,0},{0,1},{1,0},{0,1}};
-  dErr err;
-
-  dFunctionBegin;
-  for (dInt i=0; i<6; i++) {
-    dGeomOrient operm;
-    {
-      const int topo = ftopo[f[i]],type=iMesh_TypeFromTopology[topo];
-      if (type != iBase_FACE) dERROR(1,"Entity adjacent to this Hex has incorrect type %s",iBase_TypeName[type]);
-      if (topo != iMesh_QUADRILATERAL) dERROR(1,"Entity adjacent to this Hex has unsupported topology %s",iMesh_TopologyName[topo]);
-    }
-    /* Find the permutation (rotation & flip) of the Quad so that it matches the canonical basis of the Hex. */
-    err = dGeomOrientFindPerm_HexQuad(ev,fv,i,&operm);dCHK(err);
-    af[i*2+0] = dMin(af[i*2+0],a[perm[i][orient[operm][0]]]);
-    af[i*2+1] = dMin(af[i*2+1],a[perm[i][orient[operm][1]]]);
   }
   dFunctionReturn(0);
 }

@@ -208,6 +208,36 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
+/**
+* Propogate an the anisotropic values \a v from this entity to the facets \a adj which have current values \a av.
+*
+* This assumes a minimum rule, should that be optional?
+*
+* @param jac element function space
+* @param topo topology of source entity
+* @param econn connectivity (vertex handles) of source entity
+* @param edeg values on source entity (array of length 3)
+* @param conn connectivity of adjacent entities (packed, in order)
+* @param ind index of entity in \a deg
+* @param deg flat array of values on adjacent entities, indexed by \a ind
+*
+* @return error (if connectivity or adjacency is wrong)
+*/
+dErr dJacobiPropogateDown(dJacobi jac,dEntTopology topo,const dMeshEH econn[],const dInt edeg[],const dMeshEH conn[],const dInt ind[],dInt deg[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidPointer(econn,3);
+  dValidPointer(edeg,4);
+  dValidPointer(conn,5);
+  dValidPointer(ind,6);
+  dValidPointer(deg,7);
+  err = jac->ops->propogatedown(jac,topo,econn,edeg,conn,ind,deg);dCHK(err);
+  dFunctionReturn(0);
+}
+
 dErr dJacobiRegister(const char name[],const char path[],const char cname[],dErr(*create)(dJacobi))
 {
   char fullname[dMAX_PATH_LEN];
@@ -422,34 +452,5 @@ dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dS
   dFunctionBegin;
   dValidPointer(efs,1);
   err = (*efs->ops->apply)(efs,dofs,wlen,work,in,out,amode,imode);dCHK(err);
-  dFunctionReturn(0);
-}
-
-/**
-* Propogate an the anisotropic values \a v from this entity to the facets \a adj which have current values \a av.
-*
-* This assumes a minimum rule, should that be optional?
-*
-* @note This function is unusual in that the implementation does not use the dEFS object, it is only used to determine
-* the correct type.
-*
-* @param efs element function space
-* @param a anisotropic values, length = EntityType of \a efs
-* @param ev vertex indices of current element, used to orient the facets
-* @param f indices of adjacent (facet) entities, length = number of lower-dimensional facets for EntityTopoloy of \a efs
-* @param ftopo topology of the facet space, \p ftopo[f[i]] is the topology of facet \a i
-* @param fv list of all vertices for facets, \p fv[f[i]] is the start of list of vertices for facet \a i,
-*   the length is determined by \p ftopo[f[i]]
-* @param[out] af anisotropic values for this facet, length is defined by EntityType of \p ftopo[f[i]]
-*
-* @return error (if the topology of a downward-adjacent entity is not supported)
-*/
-dErr dEFSPropogateDown(dEFS efs,const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[])
-{
-  dErr err;
-
-  dFunctionBegin;
-  dValidPointerSpecific7(efs,"dEFS",1,a,"dInt",2,ev,"dMeshEH",3,f,"dInt",4,ftopo,"dEntTopology",5,fv,"dMeshEH",6,af,"dInt",7);
-  err = (*efs->ops->propogatedown)(a,ev,f,ftopo,fv,af);dCHK(err);
   dFunctionReturn(0);
 }

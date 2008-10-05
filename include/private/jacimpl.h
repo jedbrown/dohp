@@ -36,7 +36,6 @@ struct v_dEFSOps {
   dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**);
   dErr (*apply)(dEFS,dInt,dInt*,dScalar**restrict,const dScalar[],dScalar[],dApplyMode,InsertMode);
   /**< dofs/node, work length, work, modal values, nodal values */
-  dErr (*propogatedown)(const dInt a[],const dMeshEH ev[],const dInt f[],const dEntTopology ftopo[],const dMeshEH fv[],dInt af[]);
   dErr (*scatterInt)(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
   /**
   * @bug It's not yet clear to me how to implement this.
@@ -69,6 +68,7 @@ struct _dJacobiOps {
   //dErr (*getrule)(dJacobi,dInt,const dInt[],dRule*,dInt*);            /**< put a dRule into the output buffer */
   //dErr (*getefs)(dJacobi,dInt,const dInt[],const dInt[],dEFS*,dInt*); /**< put a dEFS into the output buffer */
   dErr (*getrulesize)(dJacobi,dEntTopology,dInt*);
+  dErr (*propogatedown)(dJacobi,dEntTopology,const dMeshEH[],const dInt[],const dMeshEH[],const dInt[],dInt[]);
   dErr (*getrule)(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
   dErr (*getefs)(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 };

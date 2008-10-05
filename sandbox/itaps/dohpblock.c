@@ -10,8 +10,8 @@ static const char help[] = "Create a hexahedral mesh of a block domain with full
 #define DO_ORIENT 0
 #define DO_FACES 1
 #define DO_EDGES 1
-#define DO_PRESSURE 1
-#define DO_PARTITION 1
+#define DO_PRESSURE 0
+#define DO_PARTITION 0
 
 #define CHK(err) if (err) { printf("iMesh error at %s:%d\n", __FILE__, __LINE__); exit(1); }
 #define ERR(str) { printf("error at %s:%d ",__FILE__,__LINE__); exit(2); }
@@ -190,7 +190,7 @@ static dErr createUniformTags(iMesh_Instance mesh)
 int main(int argc, char *argv[])
 {
   const char *dflt_outfile="dblock.h5m", *outopts="", *pTagName="dohp_partition", pSetName[]="PARALLEL_PARTITION";
-  const int do_bdy = 0,do_material = 1;
+  const int do_bdy = 0,do_material = 0,do_uniform = 1,do_global_number = 0;
   dInt verbosity = 1;
   iMesh_Instance mesh;
   iBase_EntitySetHandle root;
@@ -254,7 +254,7 @@ int main(int argc, char *argv[])
   if (r.s != (m-1)*(n-1)*(p-1)) dERROR(1,"Wrong number of regions created.");
   printf("region size %d, status size %d\n",r.s,s.s);
 
-  err = doGlobalNumber(mesh);dCHK(err);
+  if (do_global_number) {err = doGlobalNumber(mesh);dCHK(err);}
 
 #if DO_PARTITION
   /* Create partition. */
@@ -559,9 +559,7 @@ int main(int argc, char *argv[])
     MeshListFree(bdy);
   }
 
-  if (do_material) {
-    err = doMaterial(mesh);dCHK(err);
-  }
+  if (do_material) {err = doMaterial(mesh);dCHK(err);}
 
 #if DO_PRESSURE
                                 /* Add a real valued tag over the vertices. */
@@ -580,7 +578,7 @@ int main(int argc, char *argv[])
   }
 #endif
 
-  err = createUniformTags(mesh);dCHK(err);
+  if (do_uniform) {err = createUniformTags(mesh);dCHK(err);}
 
   iMesh_save(mesh,0,outfile,outopts,&err,(int)strlen(outfile),(int)strlen(outopts));dICHK(mesh,err);
   err = PetscFinalize();dCHK(err);

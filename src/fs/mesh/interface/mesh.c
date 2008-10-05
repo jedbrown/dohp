@@ -3,6 +3,8 @@
 
 static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer);
 
+static const dInt iBase_SizeFromType[4] = {sizeof(int),sizeof(double),sizeof(void*),sizeof(char)};
+
 const char *const iBase_ErrorString[] = {
   "iBase_SUCCESS",
   "iBase_MESH_ALREADY_LOADED",
@@ -109,7 +111,7 @@ dErr dMeshListEHView(MeshListEH *ml,const char *name)
   dFunctionReturn(0);
 }
 
-dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBounds *l)
+dErr dMeshOrientLoopBounds_Quad(dInt orient, const dInt *size, DohpLoopBounds *l)
 {
   const dInt ox=size[0], oy=size[1];
 
@@ -153,7 +155,7 @@ dErr dMeshOrientLoopBounds_Quad(dGeomOrient orient, const dInt *size, DohpLoopBo
   dFunctionReturn(0);
 }
 
-dErr dMeshOrientLoopBounds_Line(dGeomOrient orient, const dInt *size, DohpLoopBounds *l)
+dErr dMeshOrientLoopBounds_Line(dInt orient, const dInt *size, DohpLoopBounds *l)
 {
 
   dFunctionBegin;
@@ -227,7 +229,7 @@ dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
 /* Maps facet degrees of freedom to element degrees of freedom, adding
 * contributions.  This function is actually an optimization for conforming
 * elements since it does not need to do interpolation. */
-static dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dGeomOrient forient,const dScalar fvals[],dScalar rvals[])
+static dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dInt forient,const dScalar fvals[],dScalar rvals[])
 {
   dInt ri,rj,fi,fj,k;
   DohpLoopBounds rl[2],fl[2];
@@ -252,7 +254,7 @@ static dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const 
   dFunctionReturn(0);
 }
 
-static dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dGeomOrient eorient,const dScalar evals[],dScalar fvals[])
+static dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dInt eorient,const dScalar evals[],dScalar fvals[])
 {
   dInt fi,ei,j;
   DohpLoopBounds fl,el;
@@ -306,6 +308,102 @@ dErr dMeshGetTagName(dMesh mesh,dMeshTag tag,char **name)
   dValidPointer(name,2);
   err = PetscMalloc(dNAME_LEN,name);dCHK(err);
   iMesh_getTagName(mi,tag,*name,&err,dNAME_LEN);dICHK(mi,err);
+  dFunctionReturn(0);
+}
+
+dErr dMeshTagCreateTemp(dMesh mesh,const char template[],dInt count,dDataType type,dMeshTag *intag)
+{
+  static dInt unique_id = 0;
+  char name[dNAME_LEN];
+  dMeshTag tag;
+  dIInt ierr,itype;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(intag,4);
+  *intag = 0;
+  if (count > 0) {
+    err = PetscSNPrintf(name,sizeof(name),"TEMP_%s_%d",template,unique_id++);dCHK(err);
+    err = dDataTypeToITAPS(type,&itype);dCHK(err);
+    iMesh_createTag(mesh->mi,name,count,itype,&tag,&ierr,sizeof(name));dICHK(mesh->mi,ierr);
+    *intag = tag;
+  }
+  dFunctionReturn(0);
+}
+
+dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag)
+{
+  dIInt ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  iMesh_destroyTag(mesh->mi,tag,1,&ierr);dICHK(mesh->mi,ierr);
+  dFunctionReturn(0);
+}
+
+dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type)
+{
+  iMesh_Instance mi = mesh->mi;
+  dMeshEH *ments;
+  const char *dptr = data;
+  dIInt size,ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(ents,3);
+  dValidPointer(data,5);
+  ments = (dMeshEH*)ents;       /* Cast away const, pretty sure iMesh will never modify the handles */
+  size = count * iBase_SizeFromType[type];
+  iMesh_setArrData(mi,ments,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
+  dFunctionReturn(0);
+}
+
+dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type)
+{
+  iMesh_Instance mi = mesh->mi;
+  char *dptr = data;
+  dIInt size,alloc,ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(ents,3);
+  dValidPointer(data,5);
+  alloc = count * iBase_SizeFromType[type];
+  iMesh_getArrData(mi,ents,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
+  if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type] || size != alloc)
+    dERROR(1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
+  dFunctionReturn(0);
+}  
+
+dErr dMeshGetNumEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dInt *num)
+{
+  dIInt ierr,n;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(num,5);
+  if (topo == iMesh_ALL_TOPOLOGIES) {
+    iMesh_getNumOfType(mesh->mi,set,type,&n,&ierr);dICHK(mesh->mi,ierr);
+  } else {
+    iMesh_getNumOfTopo(mesh->mi,set,topo,&n,&ierr);dICHK(mesh->mi,ierr);
+  }
+  *num = n;
+  dFunctionReturn(0);
+}
+
+dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshEH ents[],dInt esize,dInt *nents)
+{
+  iBase_EntityHandle *e;
+  dIInt ea,es,ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(ents,5);
+  e = ents; ea = esize;
+  iMesh_getEntities(mesh->mi,set,type,topo,&e,&ea,&es,&ierr);dICHK(mesh->mi,ierr);
+  if (e != ents || ea != esize) dERROR(1,"should not happen");
+  if (nents) *nents = es;
   dFunctionReturn(0);
 }
 
@@ -378,10 +476,10 @@ dErr dMeshLoad(dMesh mesh)
 @*/
 dErr dMeshOrientFacets(dMesh m)
 {
-  dErr err;
+  //dErr err;
 
   dFunctionBegin;
-  if (err || m || !m) dERROR(1,"not implemented");
+  if (m || !m) dERROR(1,"not implemented");
   dFunctionReturn(0);
 }
 

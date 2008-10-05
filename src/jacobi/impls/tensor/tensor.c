@@ -11,6 +11,8 @@
 
 #include "tensor.h"
 #include "inlinepoly.h"
+#include "dohpgeom.h"
+#include "dohpmesh.h"           /* for iMesh_TopologyName */
 
 static dErr TensorBuilderCreate(void*,TensorBuilder*);
 static dErr TensorBuilderDestroy(TensorBuilder);
@@ -24,6 +26,7 @@ static dErr TensorBasisDestroy(TensorBasis);
 static dErr dJacobiSetUp_Tensor(dJacobi);
 static dErr dJacobiDestroy_Tensor(dJacobi);
 static dErr dJacobiView_Tensor(dJacobi,PetscViewer);
+static dErr dJacobiPropogateDown_Tensor(dJacobi jac,dEntTopology topo,const dMeshEH econn[],const dInt edeg[],const dMeshEH conn[],const dInt ind[],dInt deg[]);
 static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
 static dErr dJacobiGetEFS_Tensor(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 
@@ -49,6 +52,7 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
     .setfromoptions = 0,
     .destroy = dJacobiDestroy_Tensor,
     .view = dJacobiView_Tensor,
+    .propogatedown = dJacobiPropogateDown_Tensor,
     .getrule = dJacobiGetRule_Tensor,
     .getefs = dJacobiGetEFS_Tensor
   };
@@ -180,6 +184,45 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
     }
   }
   /* view the basis functions next */
+  dFunctionReturn(0);
+}
+
+static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dEntTopology topo,const dMeshEH econn[],const dInt edeg[],const dMeshEH conn[],const dInt ind[],dInt deg[])
+{
+  static const dInt quadperm[4] = {0,1,0,1};
+  static const dInt hexperm[6][2] = {{0,2},{1,2},{0,2},{1,2},{1,0},{0,1}}; /* map natural axis of Quad to natural axis of Hex */
+  static const dInt orient[8][2] = {{0,1},{1,0},{0,1},{1,0},            /* map actual Quad orientation to proper orientation */
+                                    {1,0},{0,1},{1,0},{0,1}};
+  dInt match;
+  dErr err;
+
+  dFunctionBegin;
+  switch (topo) {
+    case iMesh_HEXAHEDRON:
+      for (dInt i=0; i<6; i++) {
+        err = dGeomOrientFindPerm_HexQuad(econn,&conn[i*4],i,&match);dCHK(err);
+        deg[ind[i]*3+0] = dMin(deg[ind[i]*3+0],edeg[hexperm[i][orient[match][0]]]);
+        deg[ind[i]*3+1] = dMin(deg[ind[i]*3+1],edeg[hexperm[i][orient[match][1]]]);
+        deg[ind[i]*3+2] = 1;
+      }
+      break;
+    case iMesh_QUADRILATERAL:
+      for (dInt i=0; i<4; i++) {
+        match = dGeomMatchQuadLine(econn,&conn[i*2]);
+        if (match < 0) dERROR(1,"Connectivity for edge %d does not match this Quad",i);
+        if (match != i) dERROR(1,"Weird, edges aren't in order");
+        deg[ind[i]*3+0] = dMin(deg[ind[i]*3+0],edeg[quadperm[match]]);
+        deg[ind[i]*3+1] = deg[ind[i]*3+2] = 1;
+      }
+      break;
+    case iMesh_LINE_SEGMENT:
+      for (dInt i=0; i<2; i++) { /* Both endpoints are vertices, they always have degree 1 */
+        if (!(conn[i] == econn[0] || conn[i] == econn[1])) dERROR(1,"Looks like incorrect connectivity");
+        deg[ind[i]*3+0] = deg[ind[i]*3+1] = deg[ind[i]*3+2] = 1;
+      }
+      break;
+    default: dERROR(1,"Topology %s not supported",iMesh_TopologyName[topo]);
+  }
   dFunctionReturn(0);
 }
 
@@ -547,4 +590,3 @@ static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
   *out = this->basis[m*this->N+n];
   dFunctionReturn(0);
 }
-

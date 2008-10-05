@@ -34,7 +34,7 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
   dValidHeader(jac,dJACOBI_COOKIE,2);
-  fs->degree = deg;
+  fs->degreetag = deg;
   if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
   if (jac) fs->jacobi = jac;
   dFunctionReturn(0);
@@ -143,7 +143,8 @@ dErr dFSCreateLocalVector(dFS fs,Vec *U)
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  dValidHeader(U,VEC_COOKIE,2);
+  dValidPointer(U,2);
+  *U = 0;
   if (fs->sliced) {
     err = SlicedCreateLocalVector(fs->sliced,U);dCHK(err);
   } else {

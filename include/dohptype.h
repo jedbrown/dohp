@@ -2,9 +2,7 @@
 #define _DOHPTYPE_H
 
 #include "petsc.h"
-#include "dohpconf.h"
 #include "iMesh.h"
-
 
 /**
 * These types all have to be exactly the Petsc versions.  These typedefs are here just to shorten the names, not to
@@ -21,10 +19,6 @@ typedef PetscObject    dObject;
 typedef PetscViewer    dViewer;
 
 /* #define dEntTopology      enum iMesh_EntityTopology */
-typedef enum iMesh_EntityTopology dEntTopology;
-typedef enum iBase_EntityType dEntType;
-typedef unsigned char dGeomOrient;
-
 typedef int dMeshInt;
 typedef double dMeshReal;
 typedef iBase_EntityHandle dMeshEH;
@@ -35,6 +29,14 @@ typedef iBase_EntitySetHandle dMeshESH;
 typedef int dIInt;
 typedef double dIReal;
 typedef char dIByte;
+
+typedef enum { dDATA_INT, dDATA_REAL, dDATA_EH, dDATA_BYTE } dDataType;
+typedef enum { dTOPO_VERTEX, dTOPO_LINE, dTOPO_POLYGON, dTOPO_TRIANGLE,
+               dTOPO_QUAD, dTOPO_POLYHEDRON, dTOPO_TET, dTOPO_HEX, dTOPO_PRISM,
+               dTOPO_PYRAMID, dTOPO_SEPTAHEDRON, dTOPO_ALL } dEntTopology;
+typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } dEntType;
+
+#define dDataTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
 
 #define dCHK(err) CHKERRQ(err);
 #define dERROR(n,...) {return PetscError(__LINE__,__func__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
@@ -95,6 +97,8 @@ typedef char dIByte;
 #define dMAX_PATH_LEN PETSC_MAX_PATH_LEN
 #define dNAME_LEN     256
 #define dSTR_LEN      256
+
+#define dUNUSED __attribute__((unused))
 
 #define dFunctionBegin \
   {\
