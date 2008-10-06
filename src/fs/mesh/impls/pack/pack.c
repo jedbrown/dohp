@@ -1,5 +1,6 @@
 #include "private/dmeshimpl.h"
 #include <MBParallelConventions.h>
+#include <stddef.h>
 
 dErr dMeshCreate_Pack(dMesh mesh); /* The only exported function in this file */
 
