@@ -108,8 +108,6 @@ show_mpiexec :
 
   file (REMOVE ${PETSC_CONFIG_MAKEFILE})
 
-  #set (petsc_LIB_LINE ${PETSC_LIB_LINE} CACHE STRING "foo" FORCE)
-  #set (petsc_CPP_LINE ${PETSC_CPP_LINE} CACHE STRING "foo" FORCE)
   # Extract include paths from compile command line
   string (REGEX MATCHALL "-I([^\" ]+|\"[^\"]+\")" PETSC_ALL_INCLUDE_PATHS "${PETSC_CPP_LINE}")
   set (PETSC_INCLUDE_PATH_WORK)
@@ -120,11 +118,7 @@ show_mpiexec :
   endforeach (IPATH)
   list (REMOVE_DUPLICATES PETSC_INCLUDE_PATH_WORK)
 
-  #set (PETSC_ALL_INC_PATH ${PETSC_ALL_INCLUDE_PATHS} CACHE STRING "petsc include" FORCE)
-
   string (REGEX MATCHALL "(-L|-Wl,|-l)([^\" ]+|\"[^\"]+\")" PETSC_ALL_LINK_TOKENS "${PETSC_LIB_LINE}")
-  #set (petsc_LINK_TOKENS "${PETSC_ALL_LINK_TOKENS}" CACHE STRING "petsc link" FORCE)
-  
   set (PETSC_LINK_PATHS)
   set (PETSC_LINK_FLAGS_WORK)
   set (PETSC_LIBRARIES_FOUND)
@@ -153,6 +147,7 @@ show_mpiexec :
     endif (TOKEN MATCHES "-L([^\" ]+|\"[^\"]+\")")
   endforeach (TOKEN)
   set (PETSC_LIB "PETSC_LIB-NOTFOUND" CACHE INTERNAL "Scratch variable for PETSc detection" FORCE)
+  # This is okay on my system, but I think it would break easily.
   list (REMOVE_DUPLICATES PETSC_LIBRARIES_FOUND)
 
   # We do an out-of-source build so __FILE__ will be an absolute path, hence defining __SDIR__ is superfluous
@@ -160,11 +155,6 @@ show_mpiexec :
 
   # Sometimes this can be used to assist FindMPI.cmake
   set (PETSC_MPIEXEC ${PETSC_MPIEXEC} CACHE FILEPATH "Executable for running PETSc MPI programs")
-
-  #set (petsc_LINK_FLAGS_WORK "${PETSC_LINK_FLAGS_WORK}" CACHE STRING "a" FORCE)
-  #set (petsc_LINK_PATHS "${PETSC_LINK_PATHS}" CACHE STRING "a" FORCE)
-  #set (petsc_LIBRARIES_FOUND "${PETSC_LIBRARIES_FOUND}" CACHE STRING "a" FORCE)
-  #set (petsc_LIBRARIES_MISSING "${PETSC_LIBRARIES_MISSING}" CACHE STRING "a" FORCE)
 
   set (PETSC_INCLUDE_PATH ${PETSC_INCLUDE_PATH_WORK} CACHE STRING "PETSc include path" FORCE)
   set (PETSC_LIBRARIES ${PETSC_LIBRARIES_FOUND} CACHE STRING "PETSc libraries" FORCE)
