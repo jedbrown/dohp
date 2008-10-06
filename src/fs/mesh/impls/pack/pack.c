@@ -1,5 +1,4 @@
 #include "private/dmeshimpl.h"
-#include "uthash.h"
 #include <MBParallelConventions.h>
 
 dErr dMeshCreate_Pack(dMesh mesh); /* The only exported function in this file */
@@ -12,7 +11,6 @@ struct SharedSet {
   dIInt ranks[MAX_SHARING_PROCS]; /* The canonical list of procs defines the set */
   dInt numranks;
   dMeshESH handle;
-  UT_hash_handle hh;
 };
 
 static int compareSharedSet(const void *avoid,const void *bvoid)
