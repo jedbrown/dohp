@@ -22,15 +22,14 @@ mark_as_advanced(MPI_COMPILER MPI_EXEC)
 include_directories (${PETSC_INCLUDE_PATH} ${IMESH_INCLUDE_PATH} ${MPI_INCLUDE_PATH})
 add_definitions (${PETSC_DEFINITIONS} ${MPI_COMPILE_FLAGS})
 
-option (DOHP_USE_DEBUG     "Compile with debugging support" ON)
-option (DOHP_BUILD_TESTS   "Build tests"                    ON)
+option (dohp_USE_DEBUG     "Compile with debugging support" ON)
+option (dohp_BUILD_TESTS   "Build tests"                    ON)
 option (PEDANTIC_WARNINGS  "Compile with pedantic warnings" ON)
 
-if (DOHP_USE_DEBUG)
-  add_definitions (-DDOHP_USE_DEBUG=1)
-endif (DOHP_USE_DEBUG)
-
 add_definitions (-std=c99)
+if (dohp_USE_DEBUG)
+  add_definitions (-DdUSE_DEBUG=1)
+endif (dohp_USE_DEBUG)
 
 if (PEDANTIC_WARNINGS)
   set (DEFAULT_PEDANTIC_FLAGS "-pedantic -Wall -Wextra -Winline -Wshadow -Wconversion -Wlogical-op -Wmissing-prototypes -Wvla")
@@ -40,6 +39,10 @@ if (PEDANTIC_WARNINGS)
   set (PEDANTIC_FLAGS ${DEFAULT_PEDANTIC_FLAGS} CACHE STRING "Compiler flags to enable pedantic warnings")
   add_definitions (${PEDANTIC_FLAGS})
 endif (PEDANTIC_WARNINGS)
+
+add_custom_target (etags
+  etags `find include src sandbox -name *.[ch]`
+  WORKING_DIRECTORY ${dohp_SOURCE_DIR})
 
 include_directories (${dohp_SOURCE_DIR} ${dohp_SOURCE_DIR}/include)
 

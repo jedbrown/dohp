@@ -28,4 +28,6 @@ LIST (APPEND dohp_SRCS
 
 ADD_LIBRARY (dohp ${dohp_SRCS})
 
-add_subdirectory (fs/tests)
+if (dohp_BUILD_TESTS)
+  add_subdirectory (fs/tests)
+endif (dohp_BUILD_TESTS)
