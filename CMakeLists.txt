@@ -1,8 +1,8 @@
-project (dohp)
+project (Dohp)
 
 cmake_minimum_required (VERSION 2.6)
 
-list (APPEND CMAKE_MODULE_PATH "${dohp_SOURCE_DIR}/CMake")
+list (APPEND CMAKE_MODULE_PATH "${Dohp_SOURCE_DIR}/CMake")
 
 find_package (PETSc REQUIRED)
 find_package (iMesh REQUIRED)
@@ -22,14 +22,15 @@ mark_as_advanced(MPI_COMPILER MPI_EXEC)
 include_directories (${PETSC_INCLUDE_PATH} ${IMESH_INCLUDE_PATH} ${MPI_INCLUDE_PATH})
 add_definitions (${PETSC_DEFINITIONS} ${MPI_COMPILE_FLAGS})
 
-option (dohp_USE_DEBUG     "Compile with debugging support" ON)
-option (dohp_BUILD_TESTS   "Build tests"                    ON)
+option (Dohp_USE_DEBUG     "Compile with debugging support" ON)
+option (Dohp_BUILD_TESTS   "Build tests"                    ON)
+option (Dohp_BUILD_SANDBOX "Build programs in sandbox"      ON)
 option (PEDANTIC_WARNINGS  "Compile with pedantic warnings" ON)
 
 add_definitions (-std=c99)
-if (dohp_USE_DEBUG)
+if (Dohp_USE_DEBUG)
   add_definitions (-DdUSE_DEBUG=1)
-endif (dohp_USE_DEBUG)
+endif (Dohp_USE_DEBUG)
 
 if (PEDANTIC_WARNINGS)
   set (DEFAULT_PEDANTIC_FLAGS "-pedantic -Wall -Wextra -Winline -Wshadow -Wconversion -Wlogical-op -Wmissing-prototypes -Wvla")
@@ -42,11 +43,15 @@ endif (PEDANTIC_WARNINGS)
 
 add_custom_target (etags
   etags `find include src sandbox -name *.[ch]`
-  WORKING_DIRECTORY ${dohp_SOURCE_DIR})
+  WORKING_DIRECTORY ${Dohp_SOURCE_DIR})
 
-include_directories (${dohp_SOURCE_DIR} ${dohp_SOURCE_DIR}/include)
+include_directories (${Dohp_SOURCE_DIR} ${Dohp_SOURCE_DIR}/include)
 
-set (dohp_LIBRARIES dohp ${IMESH_LIBRARIES} ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+set (Dohp_LIBRARIES dohp ${IMESH_LIBRARIES} ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 
 add_subdirectory (include)
 add_subdirectory (src)
+
+if (Dohp_BUILD_SANDBOX)
+  add_subdirectory (${Dohp_SOURCE_DIR}/sandbox)
+endif (Dohp_BUILD_SANDBOX)

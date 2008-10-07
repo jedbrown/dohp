@@ -7,12 +7,6 @@ static const char help[] = "Create a hexahedral mesh of a block domain with full
 #include "private/dohpimpl.h"
 #include "dohpgeom.h"
 
-#define DO_ORIENT 0
-#define DO_FACES 1
-#define DO_EDGES 1
-#define DO_PRESSURE 0
-#define DO_PARTITION 0
-
 #define CHK(err) if (err) { printf("iMesh error at %s:%d\n", __FILE__, __LINE__); exit(1); }
 #define ERR(str) { printf("error at %s:%d ",__FILE__,__LINE__); exit(2); }
 #define NAME_LEN 256
@@ -190,7 +184,8 @@ static dErr createUniformTags(iMesh_Instance mesh)
 int main(int argc, char *argv[])
 {
   const char *dflt_outfile="dblock.h5m", *outopts="", *pTagName="dohp_partition", pSetName[]="PARALLEL_PARTITION";
-  const int do_bdy = 0,do_material = 0,do_uniform = 1,do_global_number = 0;
+  PetscTruth do_bdy = 0,do_material = 1,do_uniform = 1,do_global_number = 0;
+  PetscTruth do_partition = 0,do_faces = 1,do_edges = 1,do_orient = 0;
   dInt verbosity = 1;
   iMesh_Instance mesh;
   iBase_EntitySetHandle root;
@@ -198,7 +193,7 @@ int main(int argc, char *argv[])
   MeshListEH v=MLZ,e=MLZ,f=MLZ,r=MLZ,c=MLZ,ev=MLZ,fv=MLZ,rv=MLZ;
   MeshListReal x=MLZ;
   MeshListInt s=MLZ,part=MLZ,feo=MLZ,in=MLZ,fvo=MLZ,evo=MLZ,rfo=MLZ,rvo=MLZ;
-  dGeomOrient *feOrient,*rfOrient;
+  dInt *feOrient,*rfOrient;
   dInt feOrientSize,rfOrientSize;
   const char *outfile;
   int err,i,j,k,m,n,p,M,N,P,I,J,K,order=iBase_INTERLEAVED;
@@ -206,6 +201,22 @@ int main(int argc, char *argv[])
 
   dFunctionBegin;
   err = PetscInitialize(&argc,&argv,(char *)0,help);dCHK(err);
+
+  err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"dohpblock: create cartesian meshes",NULL);dCHK(err);
+  {
+    err = PetscOptionsTruth("-do_bdy","create boundary sets","none",do_bdy,&do_bdy,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_global_number","create global_number sets","none",do_global_number,&do_global_number,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
+    if (do_faces && do_edges) {
+      err = PetscOptionsTruth("-do_orient","create explicit orientation for faces and edges","none",do_orient,&do_orient,NULL);dCHK(err);
+    }
+  }
+  err = PetscOptionsEnd();
+
   iMesh_newMesh("", &mesh, &err, 0);dICHK(mesh,err);
   iMesh_getRootSet(mesh, &root, &err);dICHK(mesh,err);
   if (argc < 4 || argc > 5) { printf("usage: %s x0:x1,y0:y1,z0:z1 m,n,p M,N,P [outfile]\n",argv[0]); exit(1); }
@@ -256,185 +267,188 @@ int main(int argc, char *argv[])
 
   if (do_global_number) {err = doGlobalNumber(mesh);dCHK(err);}
 
-#if DO_PARTITION
-  /* Create partition. */
-  part.a = part.s = r.s; part.v = malloc(part.a*sizeof(int));
-  for (i=0; i<m-1; i++) {
-    for (j=0; j<n-1; j++) {
-      for (k=0; k<p-1; k++) {
-        I = i*M/(m-1); J = j*N/(n-1); K = k*P/(p-1);
-        part.v[(i*(n-1)+j)*(p-1)+k] = (I*N+J)*P+K + 1; /* Add 1 because MATERIAL_SET counts from 1 */
+  if (do_partition) {
+    /* Create partition. */
+    part.a = part.s = r.s; part.v = malloc(part.a*sizeof(int));
+    for (i=0; i<m-1; i++) {
+      for (j=0; j<n-1; j++) {
+        for (k=0; k<p-1; k++) {
+          I = i*M/(m-1); J = j*N/(n-1); K = k*P/(p-1);
+          part.v[(i*(n-1)+j)*(p-1)+k] = (I*N+J)*P+K + 1; /* Add 1 because MATERIAL_SET counts from 1 */
+        }
       }
     }
-  }
-  /* MATERIAL_SET is a special name associated with all iMesh instances
-  * If we are using a different name, we can assume it is not special. */
-  if (strcmp(pTagName,"MATERIAL_SET")) {
-    iMesh_createTag(mesh,pTagName,1,iBase_INTEGER,&pTag,&err,sizeof(pTagName));dICHK(mesh,err);
-  } else {
-    iMesh_getTagHandle(mesh,"MATERIAL_SET",&pTag,&err,strlen("MATERIAL_SET"));dICHK(mesh,err);
-  }
-  iMesh_setIntArrData(mesh,r.v,r.s,pTag,part.v,part.s,&err);dICHK(mesh,err);
-# if 0
-  {
-    /* reuse some stuff, set up the a partition set */
-    iMesh_createTag(mesh,pSetName,1,iBase_INTEGER,&pTag,&err,sizeof(pSetName));dICHK(mesh,err);
-    iMesh_createEntSet(mesh,0,);
-    for (dInt i=0; i<M*N*P; i++) {
-      iMesh_createEntSet(mesh,0,&bdy[i],&err);ICHKERRQ(mesh,err);
-      if (i > 0) {
-        iMesh_addPrntChld(mesh,&bdy[0],&bdy[i],&err);ICHKERRQ(mesh,err);
+    /* MATERIAL_SET is a special name associated with all iMesh instances
+    * If we are using a different name, we can assume it is not special. */
+    if (strcmp(pTagName,"MATERIAL_SET")) {
+      iMesh_createTag(mesh,pTagName,1,iBase_INTEGER,&pTag,&err,sizeof(pTagName));dICHK(mesh,err);
+    } else {
+      iMesh_getTagHandle(mesh,"MATERIAL_SET",&pTag,&err,strlen("MATERIAL_SET"));dICHK(mesh,err);
+    }
+    iMesh_setIntArrData(mesh,r.v,r.s,pTag,part.v,part.s,&err);dICHK(mesh,err);
+
+#if 0
+    if (false)
+    {
+      iMesh_EntitySetHandle partset;
+      /* reuse some stuff, set up the a partition set */
+      iMesh_createTag(mesh,pSetName,1,iBase_INTEGER,&pTag,&err,sizeof(pSetName));dICHK(mesh,err);
+      for (i=0; i<M*N*P; i++) {
+        iMesh_createEntSet(mesh,0,&partset);dICHK(mesh,err);
+        for (j=m
       }
     }
-  }
-# endif
 #endif
+  }
   MeshListFree(r); MeshListFree(s); MeshListFree(c); MeshListFree(part);
 
-#if DO_FACES
-  /* Create faces */
-  c.a = c.s = 4*((m-1)*(n-1)*p + (m-1)*n*(p-1) + m*(n-1)*(p-1)); c.v = malloc(c.a*sizeof(iBase_EntityHandle));
-  I = 0;
-  for (i=0; i<m-1; i++) {
-    for (j=0; j<n-1; j++) {
-      for (k=0; k<p; k++) {
-        c.v[I++] = v.v[((i+0)*n+(j+0))*p+k];
-        c.v[I++] = v.v[((i+1)*n+(j+0))*p+k];
-        c.v[I++] = v.v[((i+1)*n+(j+1))*p+k];
-        c.v[I++] = v.v[((i+0)*n+(j+1))*p+k];
+  if (do_faces)
+  {
+    /* Create faces */
+    c.a = c.s = 4*((m-1)*(n-1)*p + (m-1)*n*(p-1) + m*(n-1)*(p-1)); c.v = malloc(c.a*sizeof(iBase_EntityHandle));
+    I = 0;
+    for (i=0; i<m-1; i++) {
+      for (j=0; j<n-1; j++) {
+        for (k=0; k<p; k++) {
+          c.v[I++] = v.v[((i+0)*n+(j+0))*p+k];
+          c.v[I++] = v.v[((i+1)*n+(j+0))*p+k];
+          c.v[I++] = v.v[((i+1)*n+(j+1))*p+k];
+          c.v[I++] = v.v[((i+0)*n+(j+1))*p+k];
+        }
       }
     }
-  }
-  for (i=0; i<m-1; i++) {
-    for (j=0; j<n; j++) {
-      for (k=0; k<p-1; k++) {
-        c.v[I++] = v.v[((i+0)*n+j)*p+(k+0)];
-        c.v[I++] = v.v[((i+1)*n+j)*p+(k+0)];
-        c.v[I++] = v.v[((i+1)*n+j)*p+(k+1)];
-        c.v[I++] = v.v[((i+0)*n+j)*p+(k+1)];
+    for (i=0; i<m-1; i++) {
+      for (j=0; j<n; j++) {
+        for (k=0; k<p-1; k++) {
+          c.v[I++] = v.v[((i+0)*n+j)*p+(k+0)];
+          c.v[I++] = v.v[((i+1)*n+j)*p+(k+0)];
+          c.v[I++] = v.v[((i+1)*n+j)*p+(k+1)];
+          c.v[I++] = v.v[((i+0)*n+j)*p+(k+1)];
+        }
       }
     }
-  }
-  for (i=0; i<m; i++) {
-    for (j=0; j<n-1; j++) {
-      for (k=0; k<p-1; k++) {
-        c.v[I++] = v.v[(i*n+(j+0))*p+(k+0)];
-        c.v[I++] = v.v[(i*n+(j+1))*p+(k+0)];
-        c.v[I++] = v.v[(i*n+(j+1))*p+(k+1)];
-        c.v[I++] = v.v[(i*n+(j+0))*p+(k+1)];
+    for (i=0; i<m; i++) {
+      for (j=0; j<n-1; j++) {
+        for (k=0; k<p-1; k++) {
+          c.v[I++] = v.v[(i*n+(j+0))*p+(k+0)];
+          c.v[I++] = v.v[(i*n+(j+1))*p+(k+0)];
+          c.v[I++] = v.v[(i*n+(j+1))*p+(k+1)];
+          c.v[I++] = v.v[(i*n+(j+0))*p+(k+1)];
+        }
       }
     }
+    if (I != c.s) dERROR(1, "Wrong number of faces.");
+    iMesh_createEntArr(mesh,iMesh_QUADRILATERAL,c.v,c.s,&f.v,&f.a,&f.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
+    printf("face size %d, status size %d\n",f.s,s.s);
+    MeshListFree(f); MeshListFree(s); MeshListFree(c);
   }
-  if (I != c.s) dERROR(1, "Wrong number of faces.");
-  iMesh_createEntArr(mesh,iMesh_QUADRILATERAL,c.v,c.s,&f.v,&f.a,&f.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
-  printf("face size %d, status size %d\n",f.s,s.s);
-  MeshListFree(f); MeshListFree(s); MeshListFree(c);
-#endif
 
-#if DO_EDGES
-  /* Create edges */
-  c.a = c.s = 2*(m*n*(p-1) + m*(n-1)*p + (m-1)*n*p); c.v = malloc(c.a*sizeof(iBase_EntityHandle));
-  I = 0;
-  for (i=0; i<m; i++) {
-    for (j=0; j<n; j++) {
-      for (k=0; k<p-1; k++) {
-        c.v[I++] = v.v[(i*n+j)*p+(k+0)];
-        c.v[I++] = v.v[(i*n+j)*p+(k+1)];
+  if (do_edges)
+  {
+    /* Create edges */
+    c.a = c.s = 2*(m*n*(p-1) + m*(n-1)*p + (m-1)*n*p); c.v = malloc(c.a*sizeof(iBase_EntityHandle));
+    I = 0;
+    for (i=0; i<m; i++) {
+      for (j=0; j<n; j++) {
+        for (k=0; k<p-1; k++) {
+          c.v[I++] = v.v[(i*n+j)*p+(k+0)];
+          c.v[I++] = v.v[(i*n+j)*p+(k+1)];
+        }
       }
     }
-  }
-  for (i=0; i<m; i++) {
-    for (j=0; j<n-1; j++) {
-      for (k=0; k<p; k++) {
-        c.v[I++] = v.v[(i*n+(j+0))*p+k];
-        c.v[I++] = v.v[(i*n+(j+1))*p+k];
+    for (i=0; i<m; i++) {
+      for (j=0; j<n-1; j++) {
+        for (k=0; k<p; k++) {
+          c.v[I++] = v.v[(i*n+(j+0))*p+k];
+          c.v[I++] = v.v[(i*n+(j+1))*p+k];
+        }
       }
     }
-  }
-  for (i=0; i<m-1; i++) {
-    for (j=0; j<n; j++) {
-      for (k=0; k<p; k++) {
-        c.v[I++] = v.v[((i+0)*n+j)*p+k];
-        c.v[I++] = v.v[((i+1)*n+j)*p+k];
+    for (i=0; i<m-1; i++) {
+      for (j=0; j<n; j++) {
+        for (k=0; k<p; k++) {
+          c.v[I++] = v.v[((i+0)*n+j)*p+k];
+          c.v[I++] = v.v[((i+1)*n+j)*p+k];
+        }
       }
     }
+    if (I != c.s) dERROR(1, "Wrong number of edges.");
+    iMesh_createEntArr(mesh,iMesh_LINE_SEGMENT,c.v,c.s, &e.v,&e.a,&e.s, &s.v,&s.a,&s.s,&err);dICHK(mesh,err);
+    printf("edge size %d, status size %d\n",e.s,s.s);
+    MeshListFree(e); MeshListFree(s); MeshListFree(c);
   }
-  if (I != c.s) dERROR(1, "Wrong number of edges.");
-  iMesh_createEntArr(mesh,iMesh_LINE_SEGMENT,c.v,c.s, &e.v,&e.a,&e.s, &s.v,&s.a,&s.s,&err);dICHK(mesh,err);
-  printf("edge size %d, status size %d\n",e.s,s.s);
-  MeshListFree(e); MeshListFree(s); MeshListFree(c);
-#endif
 
   /* We are done with the master vertex record and ready to set up orientations. */
   MeshListFree(v);
 
-#if DO_ORIENT
-  /* Orient Edges with respect to Faces */
-  iMesh_getEntities(mesh,0,iBase_FACE,iMesh_QUADRILATERAL,&f.v,&f.a,&f.s,&err);dICHK(mesh,err);
-  iMesh_getAdjEntities(mesh,0,iBase_FACE,iMesh_QUADRILATERAL,iBase_EDGE,
-                       &e.v,&e.a,&e.s, &feo.v,&feo.a,&feo.s, &in.v,&in.a,&in.s, &err);dICHK(mesh,err);
-  MeshListFree(in);
-  iMesh_getEntArrAdj(mesh,f.v,f.s,iBase_VERTEX,&fv.v,&fv.a,&fv.s,&fvo.v,&fvo.a,&fvo.s,&err);dICHK(mesh,err);
-  iMesh_getEntArrAdj(mesh,e.v,e.s,iBase_VERTEX,&ev.v,&ev.a,&ev.s,&evo.v,&evo.a,&evo.s,&err);dICHK(mesh,err);
-  printf("f %d, e %d, fv %d, feo %d, fvo %d, ev %d, evo %d\n", f.s,e.s,fv.s,feo.s,fvo.s,ev.s,evo.s);
-  feOrientSize = e.s;
-  err = PetscMalloc(feOrientSize*sizeof(dGeomOrient),&feOrient);dCHK(err);
-  for (i=0; i<f.s; i++) {      /* Loop over faces */
-    if (verbosity > 2) {
-      printf("face[%d] vertex: %ld %ld %ld %ld\n",i,
-             (long)fv.v[fvo.v[i]],  (long)fv.v[fvo.v[i]+1],
-             (long)fv.v[fvo.v[i]+2],(long)fv.v[fvo.v[i]+3]);
-    }
-    for (j=0; j<4; j++) {       /* Loop over edges adjacent to this face */
+  if (do_orient)
+  {
+    /* Orient Edges with respect to Faces */
+    iMesh_getEntities(mesh,0,iBase_FACE,iMesh_QUADRILATERAL,&f.v,&f.a,&f.s,&err);dICHK(mesh,err);
+    iMesh_getAdjEntities(mesh,0,iBase_FACE,iMesh_QUADRILATERAL,iBase_EDGE,
+                         &e.v,&e.a,&e.s, &feo.v,&feo.a,&feo.s, &in.v,&in.a,&in.s, &err);dICHK(mesh,err);
+    MeshListFree(in);
+    iMesh_getEntArrAdj(mesh,f.v,f.s,iBase_VERTEX,&fv.v,&fv.a,&fv.s,&fvo.v,&fvo.a,&fvo.s,&err);dICHK(mesh,err);
+    iMesh_getEntArrAdj(mesh,e.v,e.s,iBase_VERTEX,&ev.v,&ev.a,&ev.s,&evo.v,&evo.a,&evo.s,&err);dICHK(mesh,err);
+    printf("f %d, e %d, fv %d, feo %d, fvo %d, ev %d, evo %d\n", f.s,e.s,fv.s,feo.s,fvo.s,ev.s,evo.s);
+    feOrientSize = e.s;
+    err = PetscMalloc(feOrientSize*sizeof(feOrient[0]),&feOrient);dCHK(err);
+    for (i=0; i<f.s; i++) {      /* Loop over faces */
       if (verbosity > 2) {
-        printf("edge[%d][%d] %ld %ld\n",i,j,(long)ev.v[evo.v[feo.v[i]+j]],(long)ev.v[evo.v[feo.v[i]+j]+1]);
+        printf("face[%d] vertex: %ld %ld %ld %ld\n",i,
+               (long)fv.v[fvo.v[i]],  (long)fv.v[fvo.v[i]+1],
+               (long)fv.v[fvo.v[i]+2],(long)fv.v[fvo.v[i]+3]);
       }
-      err = dGeomOrientFindPerm_QuadLine(&fv.v[fvo.v[i]],&ev.v[evo.v[feo.v[i]+j]],j,&feOrient[feo.v[i]+j]);dCHK(err);
+      for (j=0; j<4; j++) {       /* Loop over edges adjacent to this face */
+        if (verbosity > 2) {
+          printf("edge[%d][%d] %ld %ld\n",i,j,(long)ev.v[evo.v[feo.v[i]+j]],(long)ev.v[evo.v[feo.v[i]+j]+1]);
+        }
+        err = dGeomOrientFindPerm_QuadLine(&fv.v[fvo.v[i]],&ev.v[evo.v[feo.v[i]+j]],j,&feOrient[feo.v[i]+j]);dCHK(err);
+      }
     }
-  }
-  iMesh_createTag(mesh,dTAG_ORIENT_FACE_EDGE,4*sizeof(dGeomOrient),iBase_BYTES,
-                  &feOrientTag,&err,strlen(dTAG_ORIENT_FACE_EDGE));dICHK(mesh,err);
-  iMesh_setArrData(mesh,f.v,f.s,feOrientTag,(const char*)feOrient,feOrientSize*(dInt)sizeof(dGeomOrient),&err);dICHK(mesh,err);
-  iMesh_createTag(mesh,dTAG_ADJ_FACE_EDGE,4,iBase_ENTITY_HANDLE,&feAdjTag,&err,strlen(dTAG_ADJ_FACE_EDGE));dICHK(mesh,err);
-  iMesh_setEHArrData(mesh,f.v,f.s,feAdjTag,e.v,e.s,&err);dICHK(mesh,err);
+    iMesh_createTag(mesh,dTAG_ORIENT_FACE_EDGE,4*sizeof(feOrient[0]),iBase_BYTES,
+                    &feOrientTag,&err,strlen(dTAG_ORIENT_FACE_EDGE));dICHK(mesh,err);
+    iMesh_setArrData(mesh,f.v,f.s,feOrientTag,(const char*)feOrient,feOrientSize*(dInt)sizeof(feOrient[0]),&err);dICHK(mesh,err);
+    iMesh_createTag(mesh,dTAG_ADJ_FACE_EDGE,4,iBase_ENTITY_HANDLE,&feAdjTag,&err,strlen(dTAG_ADJ_FACE_EDGE));dICHK(mesh,err);
+    iMesh_setEHArrData(mesh,f.v,f.s,feAdjTag,e.v,e.s,&err);dICHK(mesh,err);
 
-  MeshListFree(f); MeshListFree(e); MeshListFree(feo); MeshListFree(fv); MeshListFree(fvo);
-  MeshListFree(ev); MeshListFree(evo);
-  err = PetscFree(feOrient);dCHK(err);
+    MeshListFree(f); MeshListFree(e); MeshListFree(feo); MeshListFree(fv); MeshListFree(fvo);
+    MeshListFree(ev); MeshListFree(evo);
+    err = PetscFree(feOrient);dCHK(err);
 
-  /* Orient Faces with respect to Regions. */
-  iMesh_getEntities(mesh,0,iBase_REGION,iMesh_HEXAHEDRON,&r.v,&r.a,&r.s,&err);dICHK(mesh,err);
-  iMesh_getAdjEntities(mesh,0,iBase_REGION,iMesh_HEXAHEDRON,iBase_FACE,
-                       &f.v,&f.a,&f.s, &rfo.v,&rfo.a,&rfo.s, &in.v,&in.a,&in.s, &err);dICHK(mesh,err);
-  MeshListFree(in);
-  iMesh_getEntArrAdj(mesh,r.v,r.s,iBase_VERTEX,&rv.v,&rv.a,&rv.s,&rvo.v,&rvo.a,&rvo.s,&err);dICHK(mesh,err);
-  iMesh_getEntArrAdj(mesh,f.v,f.s,iBase_VERTEX,&fv.v,&fv.a,&fv.s,&fvo.v,&fvo.a,&fvo.s,&err);dICHK(mesh,err);
-  printf("r %d, f %d, rv %d, rfo %d, rvo %d, fv %d, fvo %d\n", r.s,f.s,rv.s,rfo.s,rvo.s,fv.s,fvo.s);
-  rfOrientSize = f.s;
-  err = PetscMalloc(rfOrientSize*sizeof(dGeomOrient),&rfOrient);dCHK(err);
-  for (i=0; i<r.s && i<1e8; i++) {
-    if (verbosity > 2) {
-      printf("region[%d]",i);     /* Vertices of this region */
-      for (j=0; j<8; j++) { if (j%4==0) printf("  "); printf(" %3ld",(long)rv.v[rvo.v[i]+j]); }
-      printf("\n");
-    }
-    for (j=0; j<6; j++) {       /* Faces of this region */
+    /* Orient Faces with respect to Regions. */
+    iMesh_getEntities(mesh,0,iBase_REGION,iMesh_HEXAHEDRON,&r.v,&r.a,&r.s,&err);dICHK(mesh,err);
+    iMesh_getAdjEntities(mesh,0,iBase_REGION,iMesh_HEXAHEDRON,iBase_FACE,
+                         &f.v,&f.a,&f.s, &rfo.v,&rfo.a,&rfo.s, &in.v,&in.a,&in.s, &err);dICHK(mesh,err);
+    MeshListFree(in);
+    iMesh_getEntArrAdj(mesh,r.v,r.s,iBase_VERTEX,&rv.v,&rv.a,&rv.s,&rvo.v,&rvo.a,&rvo.s,&err);dICHK(mesh,err);
+    iMesh_getEntArrAdj(mesh,f.v,f.s,iBase_VERTEX,&fv.v,&fv.a,&fv.s,&fvo.v,&fvo.a,&fvo.s,&err);dICHK(mesh,err);
+    printf("r %d, f %d, rv %d, rfo %d, rvo %d, fv %d, fvo %d\n", r.s,f.s,rv.s,rfo.s,rvo.s,fv.s,fvo.s);
+    rfOrientSize = f.s;
+    err = PetscMalloc(rfOrientSize*sizeof(rfOrient[0]),&rfOrient);dCHK(err);
+    for (i=0; i<r.s && i<1e8; i++) {
       if (verbosity > 2) {
-        printf("face[%d][%d] %3ld %3ld %3ld %3ld\n",i,j,(long)fv.v[fvo.v[rfo.v[i]+j]],
-               (long)fv.v[fvo.v[rfo.v[i]+j]+1],(long)fv.v[fvo.v[rfo.v[i]+j]+2],(long)fv.v[fvo.v[rfo.v[i]+j]+3]);
+        printf("region[%d]",i);     /* Vertices of this region */
+        for (j=0; j<8; j++) { if (j%4==0) printf("  "); printf(" %3ld",(long)rv.v[rvo.v[i]+j]); }
+        printf("\n");
       }
-      err = dGeomOrientFindPerm_HexQuad(&rv.v[rvo.v[i]],&fv.v[fvo.v[rfo.v[i]+j]],j,&rfOrient[rfo.v[i]+j]);dCHK(err);
+      for (j=0; j<6; j++) {       /* Faces of this region */
+        if (verbosity > 2) {
+          printf("face[%d][%d] %3ld %3ld %3ld %3ld\n",i,j,(long)fv.v[fvo.v[rfo.v[i]+j]],
+                 (long)fv.v[fvo.v[rfo.v[i]+j]+1],(long)fv.v[fvo.v[rfo.v[i]+j]+2],(long)fv.v[fvo.v[rfo.v[i]+j]+3]);
+        }
+        err = dGeomOrientFindPerm_HexQuad(&rv.v[rvo.v[i]],&fv.v[fvo.v[rfo.v[i]+j]],j,&rfOrient[rfo.v[i]+j]);dCHK(err);
+      }
     }
+    iMesh_createTag(mesh,dTAG_ORIENT_REGION_FACE,6*sizeof(rfOrient[0]),iBase_BYTES,
+                    &rfOrientTag,&err,strlen(dTAG_ORIENT_REGION_FACE));dICHK(mesh,err);
+    iMesh_setArrData(mesh,r.v,r.s,rfOrientTag,(const char*)rfOrient,rfOrientSize*(dInt)sizeof(rfOrient[0]),&err);dICHK(mesh,err);
+    iMesh_createTag(mesh,dTAG_ADJ_REGION_FACE,6,iBase_ENTITY_HANDLE,&rfAdjTag,&err,strlen(dTAG_ADJ_REGION_FACE));dICHK(mesh,err);
+    iMesh_setEHArrData(mesh,r.v,r.s,rfAdjTag,f.v,f.s,&err);dICHK(mesh,err);
+    MeshListFree(r); MeshListFree(f); MeshListFree(rfo); MeshListFree(rv); MeshListFree(rvo);
+    MeshListFree(fv); MeshListFree(fvo);
+    err = PetscFree(rfOrient);dCHK(err);
   }
-  iMesh_createTag(mesh,dTAG_ORIENT_REGION_FACE,6*sizeof(dGeomOrient),iBase_BYTES,
-                  &rfOrientTag,&err,strlen(dTAG_ORIENT_REGION_FACE));dICHK(mesh,err);
-  iMesh_setArrData(mesh,r.v,r.s,rfOrientTag,(const char*)rfOrient,rfOrientSize*(dInt)sizeof(dGeomOrient),&err);dICHK(mesh,err);
-  iMesh_createTag(mesh,dTAG_ADJ_REGION_FACE,6,iBase_ENTITY_HANDLE,&rfAdjTag,&err,strlen(dTAG_ADJ_REGION_FACE));dICHK(mesh,err);
-  iMesh_setEHArrData(mesh,r.v,r.s,rfAdjTag,f.v,f.s,&err);dICHK(mesh,err);
-  MeshListFree(r); MeshListFree(f); MeshListFree(rfo); MeshListFree(rv); MeshListFree(rvo);
-  MeshListFree(fv); MeshListFree(fvo);
-  err = PetscFree(rfOrient);dCHK(err);
-#endif  /* DO_ORIENT */
 
   /* Create the boundary parent set. */
   if (do_bdy)

@@ -55,11 +55,9 @@ int main(int argc,char *argv[])
 
   err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,rsize,"region_rule",&rtag);
   err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,dsize,"region_degree",&dtag);
-
   err = createIsotropicIntTag(mi,domain,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,1,&rank,"owner",&ownertag);
 
   err = dMeshTagBcast(mesh,ownertag);dCHK(err);
-  //err = dMeshView(mesh,viewer);dCHK(err);
 
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
