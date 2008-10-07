@@ -29,14 +29,17 @@ typedef iBase_EntitySetHandle dMeshESH;
 typedef int dIInt;
 typedef double dIReal;
 typedef char dIByte;
+#define dFree7(a,b,c,d,e,f,g) PetscFree7((a),(b),(c),(d),(e),(f),(g))
 
 typedef enum { dDATA_INT, dDATA_REAL, dDATA_EH, dDATA_BYTE } dDataType;
-typedef enum { dTOPO_VERTEX, dTOPO_LINE, dTOPO_POLYGON, dTOPO_TRIANGLE,
+typedef enum { dTOPO_POINT, dTOPO_LINE, dTOPO_POLYGON, dTOPO_TRIANGLE,
                dTOPO_QUAD, dTOPO_POLYHEDRON, dTOPO_TET, dTOPO_HEX, dTOPO_PRISM,
                dTOPO_PYRAMID, dTOPO_SEPTAHEDRON, dTOPO_ALL } dEntTopology;
 typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } dEntType;
 
 #define dDataTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
+#define dEntTopoToITAPS(dtopo,itopo) (*(itopo) = (dtopo), 0)
+#define dEntTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
 
 #define dCHK(err) CHKERRQ(err);
 #define dERROR(n,...) {return PetscError(__LINE__,__func__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
@@ -52,7 +55,25 @@ typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } d
 #define dFree(a) PetscFree(a)
 #define dNewM(n,t,p) (dMalloc((n)*sizeof(t),(p)) || dMemzero(*(p),(n)*sizeof(t)))
 #define dMallocM(n,t,p) (dMalloc((n)*sizeof(t),(p)))
+#define dMallocA(n,p) (dMalloc((n)*sizeof(**(p)),(p)))
 #define dCalloc(n,p) (dMalloc((n),(p)) || dMemzero(*(p),(n)))
+
+#define dFree2(a,b) PetscFree2((a),(b))
+#define dFree3(a,b,c) PetscFree3((a),(b),(c))
+#define dFree4(a,b,c,d) PetscFree4((a),(b),(c),(d))
+#define dFree5(a,b,c,d,e) PetscFree5((a),(b),(c),(d),(e))
+#define dFree6(a,b,c,d,e,f) PetscFree6((a),(b),(c),(d),(e),(f))
+#define dFree7(a,b,c,d,e,f,g) PetscFree7((a),(b),(c),(d),(e),(f),(g))
+
+#define dMallocA2(n0,p0,n1,p1) PetscMalloc2((n0),**(p0),(p0),(n1),**(p1),p1)
+#define dMallocA3(n0,p0,n1,p1,n2,p2) PetscMalloc3((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2))
+#define dMallocA4(n0,p0,n1,p1,n2,p2,n3,p3) PetscMalloc4((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3))
+#define dMallocA5(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4)                        \
+  PetscMalloc5((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3),(n4),**(p4),(p4))
+#define dMallocA6(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5)                  \
+  PetscMalloc6((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3),(n4),**(p4),(p4),(n5),**(p5),(p5))
+#define dMallocA7(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5,n6,p6)            \
+  PetscMalloc7((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3),(n4),**(p4),(p4),(n5),**(p5),(p5),(n6),**(p6),(p6))
 
 #define dValidPointer2(a,b,c,d) (dValidPointer((a),(b)) || dValidPointer((c),(d)))
 #define dValidPointer3(a,b,c,d,e,f) (dValidPointer2((a),(b),(c),(d)) || dValidPointer((e),(f)))

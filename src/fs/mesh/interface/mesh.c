@@ -407,6 +407,21 @@ dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshE
   dFunctionReturn(0);
 }
 
+dErr dMeshGetTopo(dMesh mesh,const dMeshEH ents[],dInt count,dEntTopology topo[])
+{
+  dIInt ierr,talloc,tsize,*ttopo;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  if (!count) dFunctionReturn(0);
+  dValidPointer(ents,2);
+  dValidPointer(topo,4);
+  ttopo = (int*)topo; talloc = count;
+  iMesh_getEntArrTopo(mesh->mi,ents,count,&ttopo,&talloc,&tsize,&ierr);dICHK(mesh->mi,ierr);
+  if (tsize != count) dERROR(1,"Wrong number of topologies returned");
+  dFunctionReturn(0);
+}
+
 dErr dMeshTagBcast(dMesh m,dMeshTag tag)
 {
   dErr err;

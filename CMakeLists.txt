@@ -26,6 +26,7 @@ option (Dohp_USE_DEBUG     "Compile with debugging support" ON)
 option (Dohp_BUILD_TESTS   "Build tests"                    ON)
 option (Dohp_BUILD_SANDBOX "Build programs in sandbox"      ON)
 option (PEDANTIC_WARNINGS  "Compile with pedantic warnings" ON)
+option (BUILD_SHARED_LIBS  "Build shared Dohp libraries"    ON)
 
 add_definitions (-std=c99)
 if (Dohp_USE_DEBUG)

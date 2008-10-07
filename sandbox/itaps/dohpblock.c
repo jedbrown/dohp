@@ -183,10 +183,11 @@ static dErr createUniformTags(iMesh_Instance mesh)
 #define __FUNCT__ "main"
 int main(int argc, char *argv[])
 {
-  const char *dflt_outfile="dblock.h5m", *outopts="", *pTagName="dohp_partition", pSetName[]="PARALLEL_PARTITION";
+  const char outopts[]="",pTagName[]="dohp_partition", pSetName[]="PARALLEL_PARTITION";
   PetscTruth do_bdy = 0,do_material = 1,do_uniform = 1,do_global_number = 0;
   PetscTruth do_partition = 0,do_faces = 1,do_edges = 1,do_orient = 0;
-  dInt verbosity = 1;
+  char outfile[256] = "dblock.h5m";
+  dInt verbose = 1;
   iMesh_Instance mesh;
   iBase_EntitySetHandle root;
   iBase_TagHandle pTag,feOrientTag,feAdjTag,rfOrientTag,rfAdjTag;
@@ -195,7 +196,6 @@ int main(int argc, char *argv[])
   MeshListInt s=MLZ,part=MLZ,feo=MLZ,in=MLZ,fvo=MLZ,evo=MLZ,rfo=MLZ,rvo=MLZ;
   dInt *feOrient,*rfOrient;
   dInt feOrientSize,rfOrientSize;
-  const char *outfile;
   int err,i,j,k,m,n,p,M,N,P,I,J,K,order=iBase_INTERLEAVED;
   double x0,x1,y0,y1,z0,z1;
 
@@ -204,6 +204,8 @@ int main(int argc, char *argv[])
 
   err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"dohpblock: create cartesian meshes",NULL);dCHK(err);
   {
+    char box[256] = "-1:1,-1:1,-1:1",mnp[256] = "9,9,9",MNP[256] = "2,2,2";
+    err = PetscOptionsInt("-verbose","verbosity of output","none",verbose,&verbose,NULL);
     err = PetscOptionsTruth("-do_bdy","create boundary sets","none",do_bdy,&do_bdy,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
@@ -214,19 +216,21 @@ int main(int argc, char *argv[])
     if (do_faces && do_edges) {
       err = PetscOptionsTruth("-do_orient","create explicit orientation for faces and edges","none",do_orient,&do_orient,NULL);dCHK(err);
     }
+    err = PetscOptionsString("-box","box x0:x1,y0:y1,z0:z1","none",box,box,sizeof(box),NULL);dCHK(err);
+    err = PetscOptionsString("-mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
+    err = PetscOptionsString("-MNP","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
+    err = PetscOptionsString("-o","outfile","none",outfile,outfile,sizeof(outfile),NULL);dCHK(err);
+    i = sscanf(box,"%lf:%lf,%lf:%lf,%lf:%lf",&x0,&x1,&y0,&y1,&z0,&z1);
+    if (i != 6) dERROR(1,"Failed to parse bounding box.");
+    i = sscanf(mnp,"%d,%d,%d",&m,&n,&p);
+    if (i != 3) dERROR(1,"Failed to parse size.");
+    i = sscanf(MNP,"%d,%d,%d",&M,&N,&P);
+    if (i != 3) dERROR(1,"Failed to parse partition size.");
   }
   err = PetscOptionsEnd();
 
   iMesh_newMesh("", &mesh, &err, 0);dICHK(mesh,err);
   iMesh_getRootSet(mesh, &root, &err);dICHK(mesh,err);
-  if (argc < 4 || argc > 5) { printf("usage: %s x0:x1,y0:y1,z0:z1 m,n,p M,N,P [outfile]\n",argv[0]); exit(1); }
-  i = sscanf(argv[1],"%lf:%lf,%lf:%lf,%lf:%lf",&x0,&x1,&y0,&y1,&z0,&z1);
-  if (i != 6) dERROR(1,"Failed to parse bounding box.");
-  i = sscanf(argv[2],"%d,%d,%d",&m,&n,&p);
-  if (i != 3) dERROR(1,"Failed to parse size.");
-  i = sscanf(argv[3],"%d,%d,%d",&M,&N,&P);
-  if (i != 3) dERROR(1,"Failed to parse partition size.");
-  outfile = (argc == 5) ? argv[4] : dflt_outfile;
 
   /* Create vertices */
   x.a = x.s = m*n*p*3; x.v = malloc(x.a*sizeof(double));
@@ -394,13 +398,13 @@ int main(int argc, char *argv[])
     feOrientSize = e.s;
     err = PetscMalloc(feOrientSize*sizeof(feOrient[0]),&feOrient);dCHK(err);
     for (i=0; i<f.s; i++) {      /* Loop over faces */
-      if (verbosity > 2) {
+      if (verbose > 2) {
         printf("face[%d] vertex: %ld %ld %ld %ld\n",i,
                (long)fv.v[fvo.v[i]],  (long)fv.v[fvo.v[i]+1],
                (long)fv.v[fvo.v[i]+2],(long)fv.v[fvo.v[i]+3]);
       }
       for (j=0; j<4; j++) {       /* Loop over edges adjacent to this face */
-        if (verbosity > 2) {
+        if (verbose > 2) {
           printf("edge[%d][%d] %ld %ld\n",i,j,(long)ev.v[evo.v[feo.v[i]+j]],(long)ev.v[evo.v[feo.v[i]+j]+1]);
         }
         err = dGeomOrientFindPerm_QuadLine(&fv.v[fvo.v[i]],&ev.v[evo.v[feo.v[i]+j]],j,&feOrient[feo.v[i]+j]);dCHK(err);
@@ -427,13 +431,13 @@ int main(int argc, char *argv[])
     rfOrientSize = f.s;
     err = PetscMalloc(rfOrientSize*sizeof(rfOrient[0]),&rfOrient);dCHK(err);
     for (i=0; i<r.s && i<1e8; i++) {
-      if (verbosity > 2) {
+      if (verbose > 2) {
         printf("region[%d]",i);     /* Vertices of this region */
         for (j=0; j<8; j++) { if (j%4==0) printf("  "); printf(" %3ld",(long)rv.v[rvo.v[i]+j]); }
         printf("\n");
       }
       for (j=0; j<6; j++) {       /* Faces of this region */
-        if (verbosity > 2) {
+        if (verbose > 2) {
           printf("face[%d][%d] %3ld %3ld %3ld %3ld\n",i,j,(long)fv.v[fvo.v[rfo.v[i]+j]],
                  (long)fv.v[fvo.v[rfo.v[i]+j]+1],(long)fv.v[fvo.v[rfo.v[i]+j]+2],(long)fv.v[fvo.v[rfo.v[i]+j]+3]);
         }
@@ -594,7 +598,7 @@ int main(int argc, char *argv[])
 
   if (do_uniform) {err = createUniformTags(mesh);dCHK(err);}
 
-  iMesh_save(mesh,0,outfile,outopts,&err,(int)strlen(outfile),(int)strlen(outopts));dICHK(mesh,err);
+  iMesh_save(mesh,0,outfile,outopts,&err,(int)sizeof(outfile),(int)strlen(outopts));dICHK(mesh,err);
   err = PetscFinalize();dCHK(err);
   dFunctionReturn(0);
 }

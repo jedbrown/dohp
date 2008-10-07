@@ -27,13 +27,13 @@ static dErr createIsotropicIntTag(iMesh_Instance mi,dMeshESH set,dEntType type,d
 
 int main(int argc,char *argv[])
 {
-  const dInt rsize[] = {5,5,5},dsize[] = {4,4,4};
+  const dInt rsize[] = {5,5,5},dsize[] = {4,4,4},dall[] = {3,3,3};
   iMesh_Instance mi;
   dJacobi jac;
   dFS fs;
   dMesh mesh;
   dMeshESH domain;
-  dMeshTag rtag,dtag,ownertag;
+  dMeshTag rtag,dtag,ownertag,dalltag;
   MPI_Comm comm;
   PetscViewer viewer;
   PetscMPIInt rank;
@@ -53,9 +53,33 @@ int main(int argc,char *argv[])
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   iMesh_getRootSet(mi,&domain,&err);dICHK(mi,err);
 
-  err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,rsize,"region_rule",&rtag);
-  err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,dsize,"region_degree",&dtag);
-  err = createIsotropicIntTag(mi,domain,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,1,&rank,"owner",&ownertag);
+  err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,rsize,"region_rule",&rtag);dCHK(err);
+  err = createIsotropicIntTag(mi,domain,iBase_REGION,iMesh_HEXAHEDRON,3,dsize,"region_degree",&dtag);dCHK(err);
+  err = createIsotropicIntTag(mi,domain,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,3,dall,"all_degree",&dalltag);dCHK(err);
+  err = createIsotropicIntTag(mi,domain,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,1,&rank,"owner",&ownertag);dCHK(err);
+
+  {
+    dInt i,n,*deg;
+    dMeshEH *ents;
+    dEntTopology *topo;
+    CHKMEMQ;
+    err = dMeshGetNumEnts(mesh,domain,dTYPE_ALL,dTOPO_ALL,&n);
+    err = dMallocA3(n,&ents,n,&topo,3*n,&deg);dCHK(err);
+    err = dMeshGetEnts(mesh,domain,dTYPE_ALL,dTOPO_ALL,ents,n,NULL);
+    err = dMeshGetTopo(mesh,ents,n,topo);dCHK(err);
+    for (i=0; i<n; i++) {
+      switch (topo[i]) {
+        case dTOPO_POINT: deg[3*i] = deg[3*i+1] = deg[3*i+2] = 1; break;
+        case dTOPO_LINE:  deg[3*i] = 5; deg[3*i+1] = deg[3*i+2] = 1; break;
+        case dTOPO_QUAD:  deg[3*i] = deg[3*i+1] = 6; deg[3*i+2] = 1; break;
+        case dTOPO_HEX:   deg[3*i] = deg[3*i+1] = deg[3*i+2] = 7; break;
+        default: dERROR(1,"Topology not supported");
+      }
+      CHKMEMQ;
+    }
+    err = dMeshTagSetData(mesh,dalltag,ents,n,deg,3*n,dDATA_INT);dCHK(err);
+    err = dFree3(ents,topo,deg);dCHK(err);
+  }
 
   err = dMeshTagBcast(mesh,ownertag);dCHK(err);
 

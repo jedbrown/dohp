@@ -119,6 +119,7 @@ EXTERN dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag);
 EXTERN dErr dMeshTagCreateTemp(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
 EXTERN dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type);
 EXTERN dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type);
+EXTERN dErr dMeshGetTopo(dMesh,const dMeshEH[],dInt,dEntTopology[]);
 
 EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
