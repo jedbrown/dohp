@@ -41,7 +41,7 @@ typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } d
 #define dEntTopoToITAPS(dtopo,itopo) (*(itopo) = (dtopo), 0)
 #define dEntTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
 
-#define dCHK(err) CHKERRQ(err);
+#define dCHK(err) if (err) {return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(err),0," ");}
 #define dERROR(n,...) {return PetscError(__LINE__,__func__,__FILE__,__SDIR__,n,1,__VA_ARGS__);}
 
 #define dPrintf PetscPrintf
