@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 {
   const char outopts[]="",pTagName[]="dohp_partition", pSetName[]="PARALLEL_PARTITION";
   PetscTruth do_bdy = 0,do_material = 1,do_uniform = 1,do_global_number = 0;
-  PetscTruth do_partition = 0,do_faces = 1,do_edges = 1,do_orient = 0;
+  PetscTruth do_partition = 1,do_faces = 1,do_edges = 1,do_orient = 0;
   char outfile[256] = "dblock.h5m";
   dInt verbose = 1;
   iMesh_Instance mesh;
@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
     }
     err = PetscOptionsString("-box","box x0:x1,y0:y1,z0:z1","none",box,box,sizeof(box),NULL);dCHK(err);
     err = PetscOptionsString("-mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
-    err = PetscOptionsString("-MNP","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
+    err = PetscOptionsString("-procs_mnp","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
     err = PetscOptionsString("-o","outfile","none",outfile,outfile,sizeof(outfile),NULL);dCHK(err);
     i = sscanf(box,"%lf:%lf,%lf:%lf,%lf:%lf",&x0,&x1,&y0,&y1,&z0,&z1);
     if (i != 6) dERROR(1,"Failed to parse bounding box.");
@@ -271,14 +271,15 @@ int main(int argc, char *argv[])
 
   if (do_global_number) {err = doGlobalNumber(mesh);dCHK(err);}
 
-  if (do_partition) {
+  if (do_partition) {           /* Partition tags */
     /* Create partition. */
     part.a = part.s = r.s; part.v = malloc(part.a*sizeof(int));
     for (i=0; i<m-1; i++) {
       for (j=0; j<n-1; j++) {
         for (k=0; k<p-1; k++) {
           I = i*M/(m-1); J = j*N/(n-1); K = k*P/(p-1);
-          part.v[(i*(n-1)+j)*(p-1)+k] = (I*N+J)*P+K + 1; /* Add 1 because MATERIAL_SET counts from 1 */
+          const int pind = (I*N+J)*P+K,eind = (i*(n-1)+j)*(p-1)+k;
+          part.v[eind] = pind + 1; /* Add 1 because MATERIAL_SET counts from 1 */
         }
       }
     }
@@ -290,21 +291,38 @@ int main(int argc, char *argv[])
       iMesh_getTagHandle(mesh,"MATERIAL_SET",&pTag,&err,strlen("MATERIAL_SET"));dICHK(mesh,err);
     }
     iMesh_setIntArrData(mesh,r.v,r.s,pTag,part.v,part.s,&err);dICHK(mesh,err);
+    MeshListFree(part);
+  }
 
-#if 0
-    if (false)
-    {
-      iMesh_EntitySetHandle partset;
-      /* reuse some stuff, set up the a partition set */
-      iMesh_createTag(mesh,pSetName,1,iBase_INTEGER,&pTag,&err,sizeof(pSetName));dICHK(mesh,err);
-      for (i=0; i<M*N*P; i++) {
-        iMesh_createEntSet(mesh,0,&partset);dICHK(mesh,err);
-        for (j=m
+  if (do_partition)             /* Partition sets */
+  {
+    int ii,jj,kk;
+    iBase_EntitySetHandle partset;
+    iBase_EntityHandle *entbuf,*entp;
+    /* reuse some stuff, set up the a partition set */
+    err = dMallocA(r.s,&entbuf);dCHK(err);
+    iMesh_createTag(mesh,pSetName,1,iBase_INTEGER,&pTag,&err,sizeof(pSetName));dICHK(mesh,err);
+    for (i=0; i<M; i++) {
+      for (j=0; j<N; j++) {
+        for (k=0; k<P; k++) {
+          iMesh_createEntSet(mesh,0,&partset,&err);dICHK(mesh,err);
+          entp = entbuf;
+          for (ii=i*(m-1)/M; ii<(i+1)*(m-1)/M; ii++) {
+            for (jj=j*(n-1)/N; jj<(j+1)*(n-1)/N; jj++) {
+              for (kk=k*(p-1)/P; kk<(k+1)*(p-1)/P; kk++) {
+                *entp++ = r.v[(ii*(n-1)+jj)*(p-1)+kk];
+              }
+            }
+          }
+          printf("part[%d (%d,%d,%d)] has %d regions\n",(i*N+j)*P+k,i,j,k,(int)(entp-entbuf));
+          iMesh_addEntArrToSet(mesh,entbuf,(int)(entp-entbuf),&partset,&err);dICHK(mesh,err);
+          iMesh_setEntSetIntData(mesh,partset,pTag,(i*N+j)*P+k+1,&err);dICHK(mesh,err);
+        }
       }
     }
-#endif
+    err = dFree(entbuf);dCHK(err);
   }
-  MeshListFree(r); MeshListFree(s); MeshListFree(c); MeshListFree(part);
+  MeshListFree(r); MeshListFree(s); MeshListFree(c);
 
   if (do_faces)
   {

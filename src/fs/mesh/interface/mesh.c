@@ -449,7 +449,7 @@ dErr dMeshLoad(dMesh mesh)
   } else {
     dERROR(1,"No load function set");
   }
-  iMesh_getRootSet(mi,&root,&err);ICHKERRQ(mi,err);
+  iMesh_getRootSet(mi,&root,&err);dICHK(mi,err);
   mesh->root = root;
 
   /* Get all entities of each type. */
