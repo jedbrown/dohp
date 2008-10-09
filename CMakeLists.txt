@@ -30,7 +30,7 @@ option (BUILD_SHARED_LIBS  "Build shared Dohp libraries"    ON)
 
 add_definitions (-std=c99)
 if (Dohp_USE_DEBUG)
-  add_definitions (-DdUSE_DEBUG=1)
+  add_definitions (-DdUSE_DEBUG=1 -g3)
 endif (Dohp_USE_DEBUG)
 
 if (PEDANTIC_WARNINGS)
