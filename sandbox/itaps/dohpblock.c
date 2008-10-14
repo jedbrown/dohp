@@ -118,12 +118,11 @@ static dErr doMaterial(iMesh_Instance mesh)
     for (dInt j=0; j<r.s; j++) {
       dGeomVecMeanI(8,x.v+3*rvo.v[j],center);
       fx = sqrt(dGeomDotProd(center,center)); /* material 0 if inside the unit ball, else material 1 */
-      if (fx < 1.5) {
-        if (i == 0) ents[nents++] = r.v[j];
-      } else {
-        if (i == 1) ents[nents++] = r.v[j];
+      if (i == (fx < 1.0) ? 0 : 1) {
+        ents[nents] = r.v[j];
+        matnum[nents] = 1.0 * i;
+        nents++;
       }
-      matnum[j] = 1.0 * i;
     }
     iMesh_addEntArrToSet(mesh,ents,nents,&mat[i],&err);dICHK(mesh,err);
     iMesh_setArrData(mesh,ents,nents,matNumTag,(char*)matnum,nents*(int)sizeof(matnum[0]),&err);dICHK(mesh,err);
@@ -154,6 +153,31 @@ static dErr doGlobalNumber(iMesh_Instance mesh)
   dFunctionReturn(0);
 }
 
+static dErr doGlobalID(iMesh_Instance mesh)
+{
+  MeshListEH ents=MLZ;
+  MeshListInt type=MLZ;
+  int count[4] = {0,0,0,0};
+  int owned,offset,*number;
+  dMeshTag idTag;
+  dErr err;
+
+  dFunctionBegin;
+  iMesh_getEntities(mesh,0,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
+  iMesh_getEntArrType(mesh,ents.v,ents.s,MLREF(type),&err);ICHKERRQ(mesh,err);
+  err = dMalloc(ents.s*sizeof(number[0]),&number);dCHK(err);
+  owned = ents.s; offset = 0;
+  for (int i=0; i<owned; i++) {
+    number[i] = count[type.v[i]]++;
+  }
+  iMesh_getTagHandle(mesh,"GLOBAL_ID",&idTag,&err,strlen("GLOBAL_ID"));dICHK(mesh,err);
+  iMesh_setIntArrData(mesh,ents.v,owned,idTag,number,owned,&err);dICHK(mesh,err);
+  err = dFree(number);dCHK(err);
+  MeshListFree(ents); MeshListFree(type);
+  dFunctionReturn(0);
+}
+
+
 static dErr createUniformTags(iMesh_Instance mesh)
 {
   dMeshTag itag,rtag;
@@ -183,8 +207,8 @@ static dErr createUniformTags(iMesh_Instance mesh)
 #define __FUNCT__ "main"
 int main(int argc, char *argv[])
 {
-  const char outopts[]="",pTagName[]="dohp_partition", pSetName[]="PARALLEL_PARTITION";
-  PetscTruth do_bdy = 0,do_material = 1,do_uniform = 1,do_global_number = 0;
+  const char outopts[]="",pTagName[]="OWNING_PART", pSetName[]="PARALLEL_PARTITION";
+  PetscTruth do_bdy = 0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
   PetscTruth do_partition = 1,do_faces = 1,do_edges = 1,do_orient = 0;
   char outfile[256] = "dblock.h5m";
   dInt verbose = 1;
@@ -209,7 +233,8 @@ int main(int argc, char *argv[])
     err = PetscOptionsTruth("-do_bdy","create boundary sets","none",do_bdy,&do_bdy,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_global_number","create global_number sets","none",do_global_number,&do_global_number,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
@@ -270,6 +295,7 @@ int main(int argc, char *argv[])
   printf("region size %d, status size %d\n",r.s,s.s);
 
   if (do_global_number) {err = doGlobalNumber(mesh);dCHK(err);}
+  if (do_global_id) {err = doGlobalID(mesh);dCHK(err);}
 
   if (do_partition) {           /* Partition tags */
     /* Create partition. */
@@ -279,7 +305,7 @@ int main(int argc, char *argv[])
         for (k=0; k<p-1; k++) {
           I = i*M/(m-1); J = j*N/(n-1); K = k*P/(p-1);
           const int pind = (I*N+J)*P+K,eind = (i*(n-1)+j)*(p-1)+k;
-          part.v[eind] = pind + 1; /* Add 1 because MATERIAL_SET counts from 1 */
+          part.v[eind] = pind;
         }
       }
     }
@@ -316,7 +342,7 @@ int main(int argc, char *argv[])
           }
           printf("part[%d (%d,%d,%d)] has %d regions\n",(i*N+j)*P+k,i,j,k,(int)(entp-entbuf));
           iMesh_addEntArrToSet(mesh,entbuf,(int)(entp-entbuf),&partset,&err);dICHK(mesh,err);
-          iMesh_setEntSetIntData(mesh,partset,pTag,(i*N+j)*P+k+1,&err);dICHK(mesh,err);
+          iMesh_setEntSetIntData(mesh,partset,pTag,(i*N+j)*P+k,&err);dICHK(mesh,err);
         }
       }
     }

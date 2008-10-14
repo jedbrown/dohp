@@ -311,12 +311,43 @@ dErr dMeshGetTagName(dMesh mesh,dMeshTag tag,char **name)
   dFunctionReturn(0);
 }
 
+dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag)
+{
+  dIInt ierr;
+  size_t namelen;
+  dMeshTag tag;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidCharPointer(name,2);
+  dValidPointer(intag,3);
+  *intag = 0;
+  err = dStrlen(name,&namelen);dCHK(err);
+  iMesh_getTagHandle(mesh->mi,name,&tag,&ierr,(int)namelen);dICHK(mesh->mi,ierr);
+  *intag = tag;
+  dFunctionReturn(0);
+}
+
 dErr dMeshTagCreateTemp(dMesh mesh,const char template[],dInt count,dDataType type,dMeshTag *intag)
 {
   static dInt unique_id = 0;
   char name[dNAME_LEN];
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(intag,4);
+  err = PetscSNPrintf(name,sizeof(name),"TEMP_%s_%d",template,unique_id++);dCHK(err);
+  err = dMeshTagCreate(mesh,name,count,type,intag);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dMeshTagCreate(dMesh mesh,const char name[],dInt count,dDataType type,dMeshTag *intag)
+{
   dMeshTag tag;
   dIInt ierr,itype;
+  size_t namelen;
   dErr err;
 
   dFunctionBegin;
@@ -324,13 +355,14 @@ dErr dMeshTagCreateTemp(dMesh mesh,const char template[],dInt count,dDataType ty
   dValidPointer(intag,4);
   *intag = 0;
   if (count > 0) {
-    err = PetscSNPrintf(name,sizeof(name),"TEMP_%s_%d",template,unique_id++);dCHK(err);
     err = dDataTypeToITAPS(type,&itype);dCHK(err);
-    iMesh_createTag(mesh->mi,name,count,itype,&tag,&ierr,sizeof(name));dICHK(mesh->mi,ierr);
+    err = dStrlen(name,&namelen);dCHK(err);
+    iMesh_createTag(mesh->mi,name,count,itype,&tag,&ierr,(dIInt)namelen);dICHK(mesh->mi,ierr);
     *intag = tag;
   }
   dFunctionReturn(0);
 }
+
 
 dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag)
 {
@@ -371,10 +403,11 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   dValidPointer(data,5);
   alloc = count * iBase_SizeFromType[type];
   iMesh_getArrData(mi,ents,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
-  if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type] || size != alloc)
+  if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type])
     dERROR(1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
+  if (size > alloc) dERROR(1,"Insufficient allocation, iMesh should have thrown an error already");
   dFunctionReturn(0);
-}  
+}
 
 dErr dMeshGetNumEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dInt *num)
 {
@@ -740,7 +773,7 @@ dErr dMeshDestroy(dMesh m)
 *
 * @return err
 */
-dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char *name,dInt degree,dMeshTag *inrtag)
+dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char name[],dInt degree,dMeshTag *inrtag)
 {
   static const int topologies[] = {0,iMesh_LINE_SEGMENT,iMesh_QUADRILATERAL,iMesh_HEXAHEDRON};
   static const int ntopologies[] = {0,1,1,1};
@@ -752,15 +785,13 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char 
   void **base;
   dInt rulesize,needed,nents,maxnents,index;
   dRule *rules;
-  size_t namelen;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(inrtag,2);
   *inrtag = 0;
-  err = PetscStrlen(name,&namelen);dCHK(err);
-  iMesh_createTag(mi,name,sizeof(dRule),iBase_BYTES,&rtag,&err,(int)namelen);dICHK(mi,err);
+  err = dMeshTagCreate(mesh,name,sizeof(dRule),dDATA_BYTE,&rtag);dCHK(err);
 
   base = NULL; needed = 0; maxnents = 0;
   for (dInt pass=1; pass<=2; pass++) { /* determine preallocation, then allocate and fill */
@@ -782,9 +813,9 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char 
         } else {
           iMesh_getEntities(mi,esh,type,topo,&ent.v,&ent.a,&ent.s,&err);dICHK(mi,err);
           for (dInt i=0; i<ent.s; i++) {
-            err = dJacobiGetRule(jac,topo,rdeg,rules,&base[index],&index);dCHK(err);
+            err = dJacobiGetRule(jac,topo,rdeg,&rules[i],base,&index);dCHK(err);
           }
-          iMesh_setArrData(mi,ent.v,ent.s,rtag,(char*)rules,ent.s*(int)sizeof(dRule),&err);dICHK(mi,err);
+          err = dMeshTagSetData(mesh,rtag,ent.v,ent.s,rules,ent.s*(dInt)sizeof(dRule),dDATA_BYTE);dCHK(err);
         }
       }
     }

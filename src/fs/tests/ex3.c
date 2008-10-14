@@ -46,7 +46,6 @@ int main(int argc,char *argv[])
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetInFile(mesh,"zdblock.h5m",NULL);dCHK(err);
-  err = dMeshSetType(mesh,dMESHSERIAL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);
 

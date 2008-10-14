@@ -62,7 +62,7 @@ typedef struct {
 */
 typedef struct {
   dInt nr,ns;
-  char *partition;
+  char partition[dSTR_LEN];
   PackData *owned;
   PackData *unowned;
 } Mesh_Pack;
@@ -599,23 +599,20 @@ static dErr dMeshDestroy_Pack(dMesh mesh)
   err = PackDataDestroy(pack->unowned);dCHK(err);
   err = PetscFree(pack->owned);dCHK(err);
   err = PetscFree(pack->unowned);dCHK(err);
-  err = dFree(mesh->data);dCHK(err);
+  err = dFree(mesh->data);dCHK(err); /* Like this so the pointer is zeroed */
   dFunctionReturn(0);
 }
 
 static dErr dMeshSetFromOptions_Pack(dMesh mesh)
 {
+  static const char defaultPartition[] = "PARALLEL_PARTITION";
   Mesh_Pack *pack = mesh->data;
-  char str[dSTR_LEN];
   dBool flg;
   dErr err;
 
   dFunctionBegin;
-  err = PetscOptionsString("-dmesh_partition","Name of partition tag","dMeshSetInFile",pack->partition,str,sizeof(str),&flg);dCHK(err);
-  if (flg) {
-    err = PetscStrfree(pack->partition);dCHK(err);
-    err = PetscStrallocpy(str,&pack->partition);dCHK(err);
-  }
+  if (!pack->partition[0]) {err = PetscStrcpy(pack->partition,defaultPartition);dCHK(err);}
+  err = PetscOptionsString("-dmesh_partition","Name of partition tag","dMeshSetInFile",defaultPartition,pack->partition,sizeof(pack->partition),&flg);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -630,7 +627,6 @@ dErr dMeshCreate_Pack(dMesh mesh)
   mesh->data = (void*)pack;
   err = PetscNew(PackData,&pack->owned);dCHK(err);
   err = PetscNew(PackData,&pack->unowned);dCHK(err);
-  err = PetscStrallocpy("PARALLEL_PARTITION",&pack->partition);dCHK(err);
 
   iMesh_newMesh("PARALLEL",&mesh->mi,&err,(int)strlen("PARALLEL"));dICHK(mesh->mi,err);
 

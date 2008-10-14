@@ -316,7 +316,7 @@ dErr dJacobiSetDegrees(dJacobi jac,dInt basisdegree,dInt ruleexcess)
 * @param top topology of the element
 * @param rsize number of points in each Cartesian direction
 * @param rule place to put the newly constructed dRule
-* @param base start of \c void* private data array
+* @param base start of \c void* private data array (if NULL, neither \a rule or \a base will be used)
 * @param index offset of start of private data in \a base.
 *
 * @return err
@@ -328,8 +328,11 @@ dErr dJacobiGetRule(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,
   dFunctionBegin;
   dValidHeader(jac,dJACOBI_COOKIE,1);
   dValidPointer(rsize,3);
-  dValidPointer(rule,4);
   dValidPointer(index,6);
+  if (base) {
+    dValidPointer(rule,4);
+    dValidPointer(base,5);
+  }
   err = jac->ops->getrule(jac,top,rsize,rule,base,index);dCHK(err);
   dFunctionReturn(0);
 }

@@ -64,19 +64,25 @@ static dErr dFSContPropogateDegree(dFS fs)
   dMeshTag indexTag;
   dIInt ierr;
   dEntTopology topo;
-  dInt *eind,*deg,type,cnt,total,*aind,nents[4],estart[4];
+  dInt *eind,*deg,type,cnt,total,nvtx,*aind,nents[4],estart[4];
+  dMPIInt rank;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
   mesh = fs->mesh;
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
+  err = MPI_Comm_rank(((dObject)mesh)->comm,&rank);dCHK(err);
 
   /* Number all entities */
   err = dMeshTagCreateTemp(mesh,"index",1,dDATA_INT,&indexTag);dCHK(err);
-  err = dMeshGetNumEnts(mesh,fs->active,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&total);dCHK(err);
+  err = dMeshGetNumEnts(mesh,fs->active,dTYPE_ALL,dTOPO_ALL,&total);dCHK(err);
+  err = dMeshGetNumEnts(mesh,fs->active,dTYPE_VERTEX,dTOPO_ALL,&nvtx);dCHK(err);
+  total -= nvtx;
   err = PetscMalloc2(total,dMeshEH,&ents,total,dInt,&eind);dCHK(err);
-  for (type=iBase_VERTEX,cnt=0; type<iBase_ALL_TYPES; type++) {
+  /* We don't propogate to vertices so we'll ignore them, but not preserve normal indexing */
+  nents[dTYPE_VERTEX] = 0; estart[dTYPE_VERTEX] = 0;
+  for (type=dTYPE_EDGE,cnt=0; type<dTYPE_ALL; type++) { /* Get out all non-vertex entities */
     err = dMeshGetEnts(mesh,fs->active,type,iMesh_ALL_TOPOLOGIES,ents+cnt,total-cnt,&nents[type]);dCHK(err);
     estart[type] = cnt;
     cnt += nents[type];
@@ -96,25 +102,28 @@ static dErr dFSContPropogateDegree(dFS fs)
   for (dInt i=0; i<total; i++) {
     eind[i] = i;
   }
-  err = PetscSynchronizedPrintf(PETSC_COMM_WORLD,"nents=(%d %d %d %d)(%d) estart=(%d %d %d %d)\n",nents[0],nents[1],nents[2],nents[3],cnt,estart[0],estart[1],estart[2],estart[3]);
+  err = PetscSynchronizedPrintf(PETSC_COMM_WORLD,"[%d] nents=(%d %d %d %d)(%d) estart=(%d %d %d %d)\n",rank,nents[0],nents[1],nents[2],nents[3],cnt,estart[0],estart[1],estart[2],estart[3]);
   err = dMeshTagSetData(mesh,indexTag,ents,total,eind,total,dDATA_INT);dCHK(err);
 
   err = dMalloc(3*total*sizeof(*deg),&deg);dCHK(err);
   err = dMeshTagGetData(mesh,fs->degreetag,ents,total,deg,3*total,dDATA_INT);dCHK(err); /* Get degree everywhere */
-  iMesh_getEntArrAdj(mi,ents,total,iBase_VERTEX,MLREF(conn),MLREF(connoff),&ierr);dICHK(mi,ierr); /* connectivity */
-  for (type=iBase_REGION; type>iBase_VERTEX; type--) { /* Propogate degrees downward to facets (and vertices) */
+  /* connectivity for all but vertices */
+  iMesh_getEntArrAdj(mi,ents+nents[dTYPE_VERTEX],total-nents[dTYPE_VERTEX],iBase_VERTEX,MLREF(conn),MLREF(connoff),&ierr);dICHK(mi,ierr);
+  for (type=iBase_REGION; type>iBase_EDGE; type--) { /* Propogate degrees downward to facets (not vertices) */
     switch (type) {
       case iBase_REGION: topo = iMesh_HEXAHEDRON; break;
       case iBase_FACE: topo = iMesh_QUADRILATERAL; break;
       case iBase_EDGE: topo = iMesh_LINE_SEGMENT; break;
       default: dERROR(1,"should not happen");
     }
+    /* Get adjacent entities */
     iMesh_getEntArrAdj(mi,ents+estart[type],nents[type],type-1,MLREF(adj),MLREF(adjoff),&err);dICHK(mi,err);
-    iMesh_getEntArrAdj(mi,adj.v,adj.s,iBase_VERTEX,MLREF(aconn),MLREF(aconnoff),&ierr);dICHK(mi,ierr); /* adjacent connectivity */
+    /* And adjacent connectivity */
+    iMesh_getEntArrAdj(mi,adj.v,adj.s,iBase_VERTEX,MLREF(aconn),MLREF(aconnoff),&ierr);dICHK(mi,ierr);
     err = dMalloc(adj.s*sizeof(*aind),&aind);dCHK(err);
     err = dMeshTagGetData(mesh,indexTag,adj.v,adj.s,aind,adj.s,dDATA_INT);dCHK(err); /* get indices of adj ents */
     for (dInt i=0; i<nents[type]; i++) {
-      err = dJacobiPropogateDown(fs->jacobi,topo,conn.v+connoff.v[estart[type]+i],deg+estart[type]+3*i,
+      err = dJacobiPropogateDown(fs->jacobi,topo,conn.v+connoff.v[estart[type]+i-nents[dTYPE_VERTEX]],deg+(estart[type]+i)*3,
                                  aconn.v+aconnoff.v[adjoff.v[i]],aind+adjoff.v[i],deg);dCHK(err);
     }
     MeshListFree(adj); MeshListFree(adjoff);

@@ -57,7 +57,7 @@ INLINE void dGeomConvexComb_2_4(dReal x,dReal y,const dReal v[],const dInt p[],d
 * These are macros so we can use them with ints and entity handles.
 * 
 */
-#define dGeomMatch2(a0,a1,b0,b1) (((a0)==(b0) && (a1)==(b1)) || ((a0)==(b1) && (a1)==(b1)))
+#define dGeomMatch2(a0,a1,b0,b1) (((a0)==(b0) && (a1)==(b1)) || ((a0)==(b1) && (a1)==(b0)))
 #define dGeomMatchQuadLine(q,l)                                         \
   (dGeomMatch2((q)[0],(q)[1],(l)[0],(l)[1]) ? 0                         \
    : (dGeomMatch2((q)[1],(q)[2],(l)[0],(l)[1]) ? 1                      \

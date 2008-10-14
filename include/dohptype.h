@@ -14,9 +14,12 @@ typedef PetscInt       dInt;
 typedef PetscReal      dReal;
 typedef PetscScalar    dScalar;
 typedef PetscTruth     dBool;
+typedef PetscTruth     dTruth;
 typedef PetscErrorCode dErr;
 typedef PetscObject    dObject;
 typedef PetscViewer    dViewer;
+
+typedef PetscMPIInt dMPIInt;
 
 /* #define dEntTopology      enum iMesh_EntityTopology */
 typedef int dMeshInt;
@@ -29,7 +32,6 @@ typedef iBase_EntitySetHandle dMeshESH;
 typedef int dIInt;
 typedef double dIReal;
 typedef char dIByte;
-#define dFree7(a,b,c,d,e,f,g) PetscFree7((a),(b),(c),(d),(e),(f),(g))
 
 typedef enum { dDATA_INT, dDATA_REAL, dDATA_EH, dDATA_BYTE } dDataType;
 typedef enum { dTOPO_POINT, dTOPO_LINE, dTOPO_POLYGON, dTOPO_TRIANGLE,
@@ -48,7 +50,11 @@ typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } d
 #define dMemcpy(a,b,c) PetscMemcpy(a,b,c)
 #define dMemzero(a,b)  PetscMemzero(a,b)
 #define dValidHeader(a,b,c) PetscValidHeaderSpecific(a,b,c)
-#define dValidPointer(a,b) PetscValidPointer(a,b)
+
+#define dValidPointer(a,b)                                              \
+  { if (!(a)) dERROR(PETSC_ERR_ARG_NULL,"Null Pointer: Parameter # %d",(b)); \
+    if ((size_t)a & 3) dERROR(PETSC_ERR_ARG_BADPTR,"Invalid Pointer: Parameter # %d",(b));} \
+
 #define dMalloc(a,b) PetscMalloc(a,b)
 #define dNew(a,b) PetscNew(a,b)
 #define dNewLog(a,b,c) PetscNewLog(a,b,c)
@@ -97,10 +103,13 @@ typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } d
 #define dValidPointerSpecific7(p0,t0,a0,p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4,p5,t5,a5,p6,t6,a6) \
   {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific6(p1,t1,a1,p2,t2,a2,p3,t3,a3,p4,t4,a4,p5,t5,a5,p6,t6,a6);}
 
-#define dValidIntPointer(p,a) PetscValidIntPointer(p,a)
-#define dValidHandlePointer(p,a) dValidPointerNamedSpecific(p,void*,"void*",a)
-#define dValidScalarPointer(p,a) dValidPointerNamedSpecific(p,dScalar,"dScalar",a)
-#define dValidRealPointer(p,a) dValidPointerNamedSpecific(p,dReal,"dReal",a)
+#define dValidCharPointer(p,a) PetscValidCharPointer((p),(a))
+#define dValidIntPointer(p,a) PetscValidIntPointer((p),(a))
+#define dValidHandlePointer(p,a) dValidPointerNamedSpecific((p),void*,"void*",(a))
+#define dValidScalarPointer(p,a) dValidPointerNamedSpecific((p),dScalar,"dScalar",(a))
+#define dValidRealPointer(p,a) dValidPointerNamedSpecific((p),dReal,"dReal",(a))
+
+#define dStrlen(s,l) PetscStrlen((s),(l))
 
 #define dMax(a,b) PetscMax(a,b)
 #define dMin(a,b) PetscMin(a,b)
@@ -114,6 +123,10 @@ typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } d
 #ifndef true
 # define true PETSC_TRUE
 #endif
+
+/* stdbool has small (1 byte) bools, but ours are the same size as int to preserve alignment */
+#define dTRUE  PETSC_TRUE
+#define dFALSE PETSC_FALSE
 
 #define dMAX_PATH_LEN PETSC_MAX_PATH_LEN
 #define dNAME_LEN     256

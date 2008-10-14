@@ -15,8 +15,6 @@ dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
 #endif
   *inm = 0;
   err = PetscHeaderCreate(m,_p_dMesh,struct _dMeshOps,dMESH_COOKIE,0,"dMesh",comm,dMeshDestroy,dMeshView);dCHK(err);
-  err = PetscObjectChangeTypeName((PetscObject)m,"dMesh");dCHK(err);
-
   *inm = m;
   dFunctionReturn(0);
 }
