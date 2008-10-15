@@ -1,4 +1,6 @@
 #include "private/dmeshimpl.h"
+#include <iMeshP.h>
+#include <MBParallelConventions.h>
 #include <ctype.h>              /* needed for isprint() */
 
 static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer);
@@ -440,7 +442,38 @@ dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshE
   dFunctionReturn(0);
 }
 
-dErr dMeshGetTopo(dMesh mesh,const dMeshEH ents[],dInt count,dEntTopology topo[])
+/**
+* Get the parallel status for an array of entities.  In serial, returns that all are interior, in parallel, sets bits
+* for dSTATUS_XXX.
+*
+* @param mesh mesh containing entities
+* @param ents entities
+* @param count number of entities
+* @param status status array
+*
+* @return err
+*/
+dErr dMeshGetStatus(dMesh mesh,dInt count,const dMeshEH ents[],dEntStatus status[])
+{
+  dMPIInt size;
+  dMeshTag tag;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(ents,2);
+  dValidPointer(status,4);
+  err = MPI_Comm_size(((dObject)mesh)->comm,&size);dCHK(err);
+  if (size == 1) {
+    for (dInt i=0; i<count; i++) status[i] = 0;
+  } else {
+    err = dMeshGetTag(mesh,PARALLEL_STATUS_TAG_NAME,&tag);dCHK(err);
+    err = dMeshTagGetData(mesh,tag,ents,count,status,count*sizeof(status[0]),dDATA_BYTE);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+dErr dMeshGetTopo(dMesh mesh,dInt count,const dMeshEH ents[],dEntTopology topo[])
 {
   dIInt ierr,talloc,tsize,*ttopo;
 
@@ -477,6 +510,16 @@ dErr dMeshLoad(dMesh mesh)
   dErr err;
 
   dFunctionBegin;
+  {
+    PetscMPIInt rank;
+    FILE *file;
+    err = MPI_Comm_rank(((dObject)mesh)->comm,&rank);dCHK(err);
+    if (!rank) {
+      file = fopen(mesh->infile,"r");
+      if (!file) dERROR(1,"Could not open %s for reading",mesh->infile);
+      if (fclose(file)) dERROR(1,"Error closing %s",mesh->infile);
+    }
+  }
   if (mesh->ops->load) {
     err = (*mesh->ops->load)(mesh);dCHK(err);
   } else {
@@ -486,24 +529,24 @@ dErr dMeshLoad(dMesh mesh)
   mesh->root = root;
 
   /* Get all entities of each type. */
-  iMesh_getEntities(mi,root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&mesh->r.v,&mesh->r.a,&mesh->r.s,&err);ICHKERRQ(mi,err);
-  iMesh_getEntities(mi,root,iBase_FACE,iMesh_ALL_TOPOLOGIES,&mesh->f.v,&mesh->f.a,&mesh->f.s,&err);ICHKERRQ(mi,err);
-  iMesh_getEntities(mi,root,iBase_EDGE,iMesh_ALL_TOPOLOGIES,&mesh->e.v,&mesh->e.a,&mesh->e.s,&err);ICHKERRQ(mi,err);
-  iMesh_getEntities(mi,root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&mesh->v.v,&mesh->v.a,&mesh->v.s,&err);ICHKERRQ(mi,err);
+  iMesh_getEntities(mi,root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&mesh->r.v,&mesh->r.a,&mesh->r.s,&err);dICHK(mi,err);
+  iMesh_getEntities(mi,root,iBase_FACE,iMesh_ALL_TOPOLOGIES,&mesh->f.v,&mesh->f.a,&mesh->f.s,&err);dICHK(mi,err);
+  iMesh_getEntities(mi,root,iBase_EDGE,iMesh_ALL_TOPOLOGIES,&mesh->e.v,&mesh->e.a,&mesh->e.s,&err);dICHK(mi,err);
+  iMesh_getEntities(mi,root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&mesh->v.v,&mesh->v.a,&mesh->v.s,&err);dICHK(mi,err);
 #if 0
   /* Get tags for custom adjacencies, needed since our meshes are nonconforming with respect to the adjacent lower dim entity */
-  iMesh_getTagHandle(mi,dTAG_ADJ_REGION_FACE,&arf,&err,strlen(dTAG_ADJ_REGION_FACE));ICHKERRQ(mi,err);
-  iMesh_getTagHandle(mi,dTAG_ADJ_FACE_EDGE,&afe,&err,strlen(dTAG_ADJ_FACE_EDGE));ICHKERRQ(mi,err);
-  iMesh_getTagHandle(mi,dTAG_ORIENT_REGION_FACE,&orf,&err,strlen(dTAG_ORIENT_REGION_FACE));ICHKERRQ(mi,err);
-  iMesh_getTagHandle(mi,dTAG_ORIENT_FACE_EDGE,&ofe,&err,strlen(dTAG_ORIENT_FACE_EDGE));ICHKERRQ(mi,err);
+  iMesh_getTagHandle(mi,dTAG_ADJ_REGION_FACE,&arf,&err,strlen(dTAG_ADJ_REGION_FACE));dICHK(mi,err);
+  iMesh_getTagHandle(mi,dTAG_ADJ_FACE_EDGE,&afe,&err,strlen(dTAG_ADJ_FACE_EDGE));dICHK(mi,err);
+  iMesh_getTagHandle(mi,dTAG_ORIENT_REGION_FACE,&orf,&err,strlen(dTAG_ORIENT_REGION_FACE));dICHK(mi,err);
+  iMesh_getTagHandle(mi,dTAG_ORIENT_FACE_EDGE,&ofe,&err,strlen(dTAG_ORIENT_FACE_EDGE));dICHK(mi,err);
   /* Get full adjacencies */
-  iMesh_getEHArrData(mi,mesh->r.v,mesh->r.s,arf,&mesh->arf.v,&mesh->arf.a,&mesh->arf.s,&err);ICHKERRQ(mi,err); /* region -> face */
-  iMesh_getEHArrData(mi,mesh->f.v,mesh->f.s,afe,&mesh->afe.v,&mesh->afe.a,&mesh->afe.s,&err);ICHKERRQ(mi,err); /* face -> edge */
-  iMesh_getEntArrAdj(mi,mesh->e.v,mesh->e.s,iBase_VERTEX,&mesh->aev.v,&mesh->aev.a,&mesh->aev.s,&off.v,&off.a,&off.s,&err);ICHKERRQ(mi,err); /* edge -> vertex */
+  iMesh_getEHArrData(mi,mesh->r.v,mesh->r.s,arf,&mesh->arf.v,&mesh->arf.a,&mesh->arf.s,&err);dICHK(mi,err); /* region -> face */
+  iMesh_getEHArrData(mi,mesh->f.v,mesh->f.s,afe,&mesh->afe.v,&mesh->afe.a,&mesh->afe.s,&err);dICHK(mi,err); /* face -> edge */
+  iMesh_getEntArrAdj(mi,mesh->e.v,mesh->e.s,iBase_VERTEX,&mesh->aev.v,&mesh->aev.a,&mesh->aev.s,&off.v,&off.a,&off.s,&err);dICHK(mi,err); /* edge -> vertex */
   MeshListFree(off);      /* We don't use the offsets because we know there are always exactly two vertices per edge. */
   /* Get orientation of lower dimensional entities, we don't need vertex orientation */
-  iMesh_getArrData(mi,mesh->r.v,mesh->r.s,orf,&mesh->orf.v,&mesh->orf.a,&mesh->orf.s,&err);ICHKERRQ(mi,err); /* region[face] */
-  iMesh_getArrData(mi,mesh->f.v,mesh->f.s,ofe,&mesh->ofe.v,&mesh->ofe.a,&mesh->ofe.s,&err);ICHKERRQ(mi,err); /* face[edge] */
+  iMesh_getArrData(mi,mesh->r.v,mesh->r.s,orf,&mesh->orf.v,&mesh->orf.a,&mesh->orf.s,&err);dICHK(mi,err); /* region[face] */
+  iMesh_getArrData(mi,mesh->f.v,mesh->f.s,ofe,&mesh->ofe.v,&mesh->ofe.a,&mesh->ofe.s,&err);dICHK(mi,err); /* face[edge] */
 #endif
 
   /* View if requested */
@@ -606,7 +649,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   {
     for (i=iMesh_POINT; i<iMesh_ALL_TOPOLOGIES; i++) {
-    iMesh_getNumOfTopo(mi,root,i,&ntopo,&err);ICHKERRQ(mi,err);
+    iMesh_getNumOfTopo(mi,root,i,&ntopo,&err);dICHK(mi,err);
       if (ntopo) {
         err = PetscViewerASCIIPrintf(viewer,"%20s : %d\n",iMesh_TopologyName[i],ntopo);dCHK(err);
       }
@@ -614,29 +657,29 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   }
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
 
-  iMesh_getAllEntSetTags(mi,root,&tag.v,&tag.a,&tag.s,&err);ICHKERRQ(mi,err);
+  iMesh_getAllEntSetTags(mi,root,&tag.v,&tag.a,&tag.s,&err);dICHK(mi,err);
   err = PetscViewerASCIIPrintf(viewer,"Number of tags %d\n",tag.s);dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   {
     for (i=0; i<tag.s; i++) {
       err = dMeshGetTagName(m,tag.v[i],&tagname);dCHK(err);
-      iMesh_getTagType(mi,tag.v[i],&tagtype,&err);ICHKERRQ(mi,err);
-      iMesh_getTagSizeValues(mi,tag.v[i],&tagsize,&err);ICHKERRQ(mi,err);
+      iMesh_getTagType(mi,tag.v[i],&tagtype,&err);dICHK(mi,err);
+      iMesh_getTagSizeValues(mi,tag.v[i],&tagsize,&err);dICHK(mi,err);
       switch (tagtype) {        /* this needs a refactor */
         case iBase_INTEGER:
-          iMesh_getEntSetIntData(mi,root,tag.v[i],&intdata,&err);ICHKERRQ(mi,err);
+          iMesh_getEntSetIntData(mi,root,tag.v[i],&intdata,&err);dICHK(mi,err);
           err = PetscSNPrintf(values,valuesLen,"%d",intdata);dCHK(err);
           break;
         case iBase_DOUBLE:
-          iMesh_getEntSetDblData(mi,root,tag.v[i],&dbldata,&err);ICHKERRQ(mi,err);
+          iMesh_getEntSetDblData(mi,root,tag.v[i],&dbldata,&err);dICHK(mi,err);
           err = PetscSNPrintf(values,valuesLen,"%f",dbldata);dCHK(err);
           break;
         case iBase_ENTITY_HANDLE:
-          iMesh_getEntSetEHData(mi,root,tag.v[i],&ehdata,&err);ICHKERRQ(mi,err);
+          iMesh_getEntSetEHData(mi,root,tag.v[i],&ehdata,&err);dICHK(mi,err);
           err = PetscSNPrintf(values,valuesLen,"%p",ehdata);dCHK(err);
           break;
         case iBase_BYTES:
-          iMesh_getEntSetData(mi,root,tag.v[i],&data.v,&data.a,&data.s,&err);ICHKERRQ(mi,err);
+          iMesh_getEntSetData(mi,root,tag.v[i],&data.v,&data.a,&data.s,&err);dICHK(mi,err);
           canprint = PETSC_TRUE;
           for (j=0; j<data.s && data.v[j]; j++) {
             if (!isprint(data.v[i])) canprint = PETSC_FALSE;
@@ -665,7 +708,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   err = MeshListFree(tag);dCHK(err);
 
-  iMesh_getEntSets(mi,root,1,&esh.v,&esh.a,&esh.s,&err);ICHKERRQ(mi,err);
+  iMesh_getEntSets(mi,root,1,&esh.v,&esh.a,&esh.s,&err);dICHK(mi,err);
   err = PetscViewerASCIIPrintf(viewer,"Number of contained Entity Sets: %d\n",esh.s);dCHK(err);
 
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
@@ -678,7 +721,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   err = MeshListFree(esh);dCHK(err);
 
-  iMesh_getChldn(mi,root,1,&esh.v,&esh.a,&esh.s,&err);ICHKERRQ(mi,err);
+  iMesh_getChldn(mi,root,1,&esh.v,&esh.a,&esh.s,&err);dICHK(mi,err);
   err = PetscViewerASCIIPrintf(viewer,"Number of child Entity Sets: %d\n",esh.s);dCHK(err);
 
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
@@ -751,7 +794,7 @@ dErr dMeshDestroy(dMesh m)
   MeshListFree(m->arf); MeshListFree(m->afe); MeshListFree(m->aev);
   MeshListFree(m->orf); MeshListFree(m->ofe);
   MeshListFree(m->x);
-  iMesh_dtor(m->mi,&err);ICHKERRQ(m->mi,err);
+  iMesh_dtor(m->mi,&err);dICHK(m->mi,err);
   err = PetscStrfree(m->infile);dCHK(err);
   err = PetscStrfree(m->inoptions);dCHK(err);
   err = PetscHeaderDestroy(m);dCHK(err);

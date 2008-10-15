@@ -60,8 +60,8 @@ dErr DohpMFSSetUp(DohpMFS mfs)
   dFunctionBegin;
   /* Get the requested order of elements out of the mesh. */
   err = PetscStrlen(mfs->sizetagname,&namelen);dCHK(err);
-  iMesh_getTagHandle(mi,mfs->sizetagname,&sizetag,&err,(int)namelen);ICHKERRQ(mi,err);
-  iMesh_getIntArrData(mi,m->r.v,m->r.s,sizetag,&s.v,&s.a,&s.s,&err);ICHKERRQ(mi,err);
+  iMesh_getTagHandle(mi,mfs->sizetagname,&sizetag,&err,(int)namelen);dICHK(mi,err);
+  iMesh_getIntArrData(mi,m->r.v,m->r.s,sizetag,&s.v,&s.a,&s.s,&err);dICHK(mi,err);
 
   /* Assign orders to the facet space by applying the minimum rule. */
   err = DohpMFSApplyMinimumRule(mfs,&s);dCHK(err);

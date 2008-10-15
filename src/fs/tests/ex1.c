@@ -4,28 +4,6 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 #include "dohp.h"
 #include "dohpmesh.h"
 
-static dErr createIsotropicIntTag(iMesh_Instance mi,dMeshESH set,dEntType type,dEntTopology topo,int n,const int v[],const char name[],dMeshTag *intag)
-{
-  MeshListEH ents=MLZ;
-  dMeshTag tag;
-  dInt *values;
-  dErr err;
-
-  dFunctionBegin;
-  dValidPointer(intag,8);
-  *intag = 0;
-  iMesh_createTag(mi,name,n,iBase_INTEGER,&tag,&err,(int)strlen(name));dCHK(err);
-  iMesh_getEntities(mi,set,type,topo,&ents.v,&ents.a,&ents.s,&err);dICHK(mi,err);
-  err = dMalloc(n*ents.s*sizeof(*values),&values);dCHK(err);
-  for (dInt i=0; i<ents.s; i++) {
-    err = dMemcpy(&values[n*i],v,n*sizeof(v[0]));dCHK(err);
-  }
-  iMesh_setIntArrData(mi,ents.v,ents.s,tag,values,n*ents.s,&err);dICHK(mi,err);
-  err = dFree(values);dCHK(err);
-  *intag = tag;
-  dFunctionReturn(0);
-}
-
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 
 static dErr createHexMesh(iMesh_Instance mi)
@@ -106,7 +84,7 @@ static dErr examine(dMesh mesh,dMeshTag tag)
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   for (dEntType type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
     err = dMeshGetEnts(mesh,0,type,dTOPO_ALL,ents,ALEN(ents),&nents);dCHK(err);
-    err = dMeshGetTopo(mesh,ents,nents,topo);dCHK(err);
+    err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
     iMesh_getEntArrAdj(mi,ents,nents,iBase_VERTEX,MLREF(conn),MLREF(connoff),&ierr);dICHK(mi,ierr);
     err = dMeshTagGetData(mesh,tag,ents,nents,data,ALEN(data),dDATA_INT);dCHK(err);
     for (dInt i=0; i<nents; i++) {

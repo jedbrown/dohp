@@ -365,6 +365,30 @@ dErr dJacobiGetEFS(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dE
   dFunctionReturn(0);
 }
 
+/**
+* Get the number of interior and expanded nodes for an array of entities with given topology and degree
+*
+* @param jac context, defines the function space we are constructing
+* @param count number of entities
+* @param top topology of entities
+* @param deg degree, 3 values each, interlaced
+* @param[out] inode number of interior nodes
+* @param[out] xnode number of expanded nodes
+*
+* @return err
+*/
+dErr dJacobiGetNodeCount(dJacobi jac,dInt count,const dEntTopology top[],const dInt deg[],dInt inode[],dInt xnode[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidPointer(top,3);
+  dValidPointer(deg,4);
+  err = jac->ops->getnodecount(jac,count,top,deg,inode,xnode);dCHK(err);
+  dFunctionReturn(0);
+}
+
 dErr dRuleView(dRule rule,PetscViewer viewer)
 {
   dErr err;

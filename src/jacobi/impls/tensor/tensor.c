@@ -37,48 +37,6 @@ static dErr TensorJacobiHasBasis(dJacobi,dInt,dInt,dBool*);
 
 static dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char name[],dViewer viewer);
 
-
-/**
-* Initializes the ops table.
-*
-* @param jac
-*
-* @return
-*/
-dErr dJacobiCreate_Tensor(dJacobi jac)
-{
-  static const struct _dJacobiOps myops = {
-    .setup = dJacobiSetUp_Tensor,
-    .setfromoptions = 0,
-    .destroy = dJacobiDestroy_Tensor,
-    .view = dJacobiView_Tensor,
-    .propogatedown = dJacobiPropogateDown_Tensor,
-    .getrule = dJacobiGetRule_Tensor,
-    .getefs = dJacobiGetEFS_Tensor
-  };
-  TensorRuleOptions ropt;
-  TensorBasisOptions bopt;
-  dErr err;
-
-  dFunctionBegin;
-  err = dPrintf(((PetscObject)jac)->comm,"dJacobiCreate_Tensor()\n");dCHK(err); /* diagnostic */
-  err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
-  err = dNew(struct s_Tensor,&jac->impl);dCHK(err);
-  err = dNew(struct s_TensorRuleOptions,&ropt);dCHK(err);
-  err = dNew(struct s_TensorBasisOptions,&bopt);dCHK(err);
-
-  ropt->alpha  = 0.0;
-  ropt->beta   = 0.0;
-  ropt->family = GAUSS;
-  ((Tensor)jac->impl)->ruleOpts = ropt;
-
-  bopt->alpha  = 0.0;
-  bopt->beta   = 0.0;
-  bopt->family = GAUSS_LOBATTO;
-  ((Tensor)jac->impl)->basisOpts = bopt;
-  dFunctionReturn(0);
-}
-
 /**
 * Prepare the dJacobi context to return dRule and dEFS objects (with dJacobiGetRule and dJacobiGetEFS).
 *
@@ -222,6 +180,35 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dEntTopology topo,co
       }
       break;
     default: dERROR(1,"Topology %s not supported",iMesh_TopologyName[topo]);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEntTopology top[],const dInt deg[],dInt inode[],dInt xnode[])
+{
+
+  dFunctionBegin;
+  for (dInt i=0; i<count; i++) {
+    switch (top[i]) {
+      case dTOPO_HEX:
+        if (inode) inode[i] = (deg[3*i]-1)*(deg[3*i+1]-1)*(deg[3*i+2]-1);
+        if (xnode) xnode[i] = deg[3*i]*deg[3*i+1]*deg[3*i+2];
+        break;
+      case dTOPO_QUAD:
+        if (inode) inode[i] = (deg[3*i]-1)*(deg[3*i+1]-1);
+        if (xnode) xnode[i] = deg[3*i]*deg[3*i+1];
+        break;
+      case dTOPO_LINE:
+        if (inode) inode[i] = deg[3*i]-1;
+        if (xnode) xnode[i] = deg[3*i];
+        break;
+      case dTOPO_POINT:
+        if (inode) inode[i] = 1;
+        if (xnode) xnode[i] = 1;
+        break;
+      default:
+        dERROR(1,"Topology %d not supported",top[i]);
+    }
   }
   dFunctionReturn(0);
 }
@@ -588,5 +575,49 @@ static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
   if (!(0 < m && m < this->M)) dERROR(1,"Rule size %d not less than limit %d",m,this->M);
   if (!(0 < n && n < this->N)) dERROR(1,"Basis size %d not less than limit %d",n,this->N);
   *out = this->basis[m*this->N+n];
+  dFunctionReturn(0);
+}
+
+
+
+/**
+* Initializes the ops table, this is the only non-static function in this file.
+*
+* @param jac
+*
+* @return
+*/
+dErr dJacobiCreate_Tensor(dJacobi jac)
+{
+  static const struct _dJacobiOps myops = {
+    .setup = dJacobiSetUp_Tensor,
+    .setfromoptions = 0,
+    .destroy = dJacobiDestroy_Tensor,
+    .view = dJacobiView_Tensor,
+    .propogatedown = dJacobiPropogateDown_Tensor,
+    .getrule = dJacobiGetRule_Tensor,
+    .getefs = dJacobiGetEFS_Tensor,
+    .getnodecount = dJacobiGetNodeCount_Tensor
+  };
+  TensorRuleOptions ropt;
+  TensorBasisOptions bopt;
+  dErr err;
+
+  dFunctionBegin;
+  err = dPrintf(((PetscObject)jac)->comm,"dJacobiCreate_Tensor()\n");dCHK(err); /* diagnostic */
+  err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
+  err = dNew(struct s_Tensor,&jac->impl);dCHK(err);
+  err = dNew(struct s_TensorRuleOptions,&ropt);dCHK(err);
+  err = dNew(struct s_TensorBasisOptions,&bopt);dCHK(err);
+
+  ropt->alpha  = 0.0;
+  ropt->beta   = 0.0;
+  ropt->family = GAUSS;
+  ((Tensor)jac->impl)->ruleOpts = ropt;
+
+  bopt->alpha  = 0.0;
+  bopt->beta   = 0.0;
+  bopt->family = GAUSS_LOBATTO;
+  ((Tensor)jac->impl)->basisOpts = bopt;
   dFunctionReturn(0);
 }

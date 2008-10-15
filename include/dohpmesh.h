@@ -20,15 +20,12 @@ EXTERN const char *const iBase_TypeName[];
 EXTERN const char *const iBase_TagValueTypeName[];
 EXTERN const int iMesh_TypeFromTopology[];
 
-// #define ICHKERRQ(n) if (n) { dERROR(1,"ITAPS error: %s", iBase_ErrorString[n]); }
-
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
-#define dICHK(m,e) ICHKERRQ((m),(e))
-#define ICHKERRQ(mesh,err)                                      \
+#define dICHK(mesh,err)                                         \
   if (err) {                                                    \
     dErr _l_ret = err;                                          \
-    char _l_desc[512];                                          \
-    iMesh_getDescription(mesh,_l_desc,&err,512);dCHK(err);      \
+    char _l_desc[512] = "Description not available";            \
+    iMesh_getDescription(mesh,_l_desc,&err,sizeof(_l_desc));    \
     dERROR(1,"%s: %s",iBase_ErrorString[_l_ret],_l_desc);       \
   }
 
@@ -86,6 +83,12 @@ typedef struct {
 #define dMESHPACK   "pack"
 #define dMESHSERIAL "serial"
 
+typedef unsigned char dEntStatus;
+#define dSTATUS_UNOWNED   (dEntStatus)0x1
+#define dSTATUS_SHARED    (dEntStatus)0x2
+#define dSTATUS_INTERFACE (dEntStatus)0x4
+#define dSTATUS_GHOST     (dEntStatus)0x8
+
 extern dErr dMeshListIntView(MeshListInt*,const char*);
 extern dErr dMeshListEHView(MeshListEH*,const char*);
 
@@ -121,9 +124,10 @@ EXTERN dErr dMeshTagCreate(dMesh mesh,const char[],dInt count,dDataType type,dMe
 EXTERN dErr dMeshTagCreateTemp(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
 EXTERN dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type);
 EXTERN dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type);
-EXTERN dErr dMeshGetTopo(dMesh,const dMeshEH[],dInt,dEntTopology[]);
 EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
+EXTERN dErr dMeshGetStatus(dMesh,dInt,const dMeshEH[],dEntStatus[]);
+EXTERN dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
 
 PETSC_EXTERN_CXX_END
 #endif

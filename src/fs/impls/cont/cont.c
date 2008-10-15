@@ -3,7 +3,7 @@
 
 static dErr dFSView_Cont(dFS fs,dViewer viewer)
 {
-  struct dFS_Cont *fsc = fs->data;
+  dFS_Cont *fsc = fs->data;
   dBool ascii;
   dErr err;
 
@@ -31,7 +31,7 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
 */
 static dErr dFSSetFromOptions_Cont(dFS fs)
 {
-  struct dFS_Cont *fsc = fs->data;
+  dFS_Cont *fsc = fs->data;
   dBool flg;
   dErr err;
 
@@ -142,12 +142,17 @@ static dErr dFSContPropogateDegree(dFS fs)
 
 static dErr dFSBuildSpace_Cont(dFS fs)
 {
+  dFS_Cont *cont = fs->data;
   dMesh mesh;
   iMesh_Instance mi;
-  dMeshTag lindexTag;
+  dMeshTag indexTag,specTag;
   /* MeshListEH v=MLZ,e=MLZ,f=MLZ,r=MLZ; */
   /* MeshListInt in=MLZ,rfo=MLZ,feo=MLZ,rdegree=MLZ; */
   /* dIInt nf; */
+  dMeshEH *ents;
+  dInt nents,*ind,*idofs,*xdofs,*deg,cnt,estart[4];
+  dEntTopology *topo;
+  dEntStatus *status;
   dErr err;
 
   dFunctionBegin;
@@ -156,10 +161,35 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   err = dFSContPropogateDegree(fs);dCHK(err);
 
-  /* Number all active entities */
-  err = dMeshTagCreateTemp(mesh,"local_index",1,dDATA_INT,&lindexTag);dCHK(err);
+  err = dMeshGetNumEnts(mesh,fs->active,dTYPE_ALL,dTOPO_ALL,&nents);dCHK(err);
+  err = dMallocA7(nents,&ents,3*nents,&deg,nents,&topo,nents,&ind,nents,&idofs,nents,&xdofs,nents,&status);dCHK(err);
+  cnt = 0;
+  for (dEntType type=dTYPE_VERTEX; type<dTYPE_ALL; type++) {
+    err = dMeshGetEnts(mesh,fs->active,type,dTOPO_ALL,ents+cnt,nents-cnt,&cont->ne[type]);dCHK(err);
+    estart[type] = cnt;
+    cnt += cont->ne[type];
+  }
+  err = dMeshGetStatus(mesh,nents,ents,status);dCHK(err);
+  err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->degreetag,ents,nents,deg,3*nents,dDATA_INT);
+  err = dJacobiGetNodeCount(fs->jacobi,nents,topo,deg,idofs,xdofs);dCHK(err);
 
-  err = dMeshTagDestroy(mesh,lindexTag);dCHK(err);
+  /* Number all active entities with global index, determine how many dofs are local */
+  err = dMeshTagCreateTemp(mesh,"local_index",1,dDATA_INT,&indexTag);dCHK(err);
+
+  for (dInt i=0; i<nents; i++) {
+    ind[i] = i;
+    if (~status[i] & dSTATUS_UNOWNED) {
+    }
+  }
+  err = dMeshTagSetData(mesh,indexTag,ents,nents,ind,nents,dDATA_INT);dCHK(err);
+
+  /* Global index of first dof and number of interior dofs */
+  err = dMeshTagCreateTemp(mesh,"field_spec",2,dDATA_INT,&specTag);dCHK(err);
+  err = 0;
+
+  // err = dFree6(...);dCHK(err);
+  err = dMeshTagDestroy(mesh,indexTag);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -174,7 +204,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 */
 dErr dFSCreate_Cont(dFS fs)
 {
-  struct dFS_Cont *fsc;
+  dFS_Cont *fsc;
   dErr err;
 
   dFunctionBegin;

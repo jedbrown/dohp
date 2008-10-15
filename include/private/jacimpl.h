@@ -71,6 +71,7 @@ struct _dJacobiOps {
   dErr (*propogatedown)(dJacobi,dEntTopology,const dMeshEH[],const dInt[],const dMeshEH[],const dInt[],dInt[]);
   dErr (*getrule)(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
   dErr (*getefs)(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
+  dErr (*getnodecount)(dJacobi jac,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 };
 
 /**

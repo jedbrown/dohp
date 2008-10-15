@@ -7,7 +7,7 @@ PETSC_EXTERN_CXX_BEGIN
 
 extern dErr dFSCreate_Cont(dFS);
 
-struct dFS_Cont {
+typedef struct {
   dBool usecmatrix;
   dInt D;                       /* Number of degrees of freedom per node */
   dMeshTag ruletag,degreetag;
@@ -37,7 +37,7 @@ struct dFS_Cont {
   Mat Fp;             /**< facet preconditioning constraint matrix */
   Mat C;              /**< full-order constraint matrix (element dofs to local numbering) */
   Mat Cp;             /**< preconditioning constraint matrix (element dofs to local numbering, as sparse as possible) */
-};
+} dFS_Cont;
 
 PETSC_EXTERN_CXX_END
 

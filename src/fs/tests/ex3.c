@@ -45,7 +45,7 @@ int main(int argc,char *argv[])
   err = MPI_Comm_rank(comm,&rank);dCHK(err);
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = dMeshCreate(comm,&mesh);dCHK(err);
-  err = dMeshSetInFile(mesh,"zdblock.h5m",NULL);dCHK(err);
+  err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);
 
@@ -64,8 +64,12 @@ int main(int argc,char *argv[])
     CHKMEMQ;
     err = dMeshGetNumEnts(mesh,domain,dTYPE_ALL,dTOPO_ALL,&n);
     err = dMallocA3(n,&ents,n,&topo,3*n,&deg);dCHK(err);
-    err = dMeshGetEnts(mesh,domain,dTYPE_ALL,dTOPO_ALL,ents,n,NULL);
-    err = dMeshGetTopo(mesh,ents,n,topo);dCHK(err);
+    {
+      dInt used;
+      err = dMeshGetEnts(mesh,domain,dTYPE_ALL,dTOPO_ALL,ents,n,&used);dCHK(err);
+      if (used != n) dERROR(1,"wrong number of entities");
+    }
+    err = dMeshGetTopo(mesh,n,ents,topo);dCHK(err);
     for (i=0; i<n; i++) {
       switch (topo[i]) {
         case dTOPO_POINT: deg[3*i] = deg[3*i+1] = deg[3*i+2] = 1; break;
@@ -89,9 +93,8 @@ int main(int argc,char *argv[])
   err = dFSCreate(comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
-  err = dFSSetDegree(fs,jac,dtag);dCHK(err);
+  err = dFSSetDegree(fs,jac,dalltag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
-  err = dFSBuildSpace(fs);dCHK(err);
 
   {
     char outname[256];
