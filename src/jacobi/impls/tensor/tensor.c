@@ -258,7 +258,7 @@ static dErr TensorJacobiHasBasis(dJacobi jac,dInt rule,dInt basis,dBool *has)
 */
 static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *ruleout,void **base,dInt *index)
 {
-  Tensor this = (Tensor)jac->impl;
+  Tensor this = jac->impl;
   void **start = &base[*index];
   struct s_dRule_Tensor_Line *line;
   struct s_dRule_Tensor_Quad *quad;
@@ -318,7 +318,7 @@ static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[
 */
 dErr dJacobiGetEFS_Tensor(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efsout,void **base,dInt *index)
 {
-  Tensor this = (Tensor)jac->impl;
+  Tensor this = jac->impl;
   void **start = &base[*index];
   struct s_dEFS_Tensor_Line *line;
   struct s_dEFS_Tensor_Quad *quad;

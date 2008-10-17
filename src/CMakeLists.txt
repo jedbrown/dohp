@@ -30,4 +30,5 @@ ADD_LIBRARY (dohp ${Dohp_SRCS})
 
 if (Dohp_BUILD_TESTS)
   add_subdirectory (fs/tests)
+  add_subdirectory (jacobi/tests)
 endif (Dohp_BUILD_TESTS)
