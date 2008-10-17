@@ -25,83 +25,6 @@ static int on_lid(Box *b,double xx[])  {
 typedef int OnBdyFunc(Box *box,double[]);
 
 
-#if (USE_ORIENT_ENUM)
-#undef __FUNCT__
-#define __FUNCT__ "DohpLoopBounds_Face"
-/* Get the loop bounds for a face of order 'ford' to traverse the edge number
-* 'eind' of order 'eord' in the canonical direction.
-*
-*   D -- 2 -- C
-*   |         |
-*   3         1
-*   |         |
-*   A -- 0 -- B
-*
-* degrees of freedom are numbered:
-* 0                   1  ... ford[1]-1
-* ford[1] ...
-* (ford[0]-1)*ford[1] .  ... ford[0]*ford[1]-1
-*/
-dErr DohpLoopBounds_Quad(dInt dof, dInt foff, const dInt *ford,
-                                   dInt eind, dGeomOrient eorient, const dInt *eord,
-                                   dInt *start, dInt *stride, dInt *end)
-{
-  const dInt x_rev = eorient & ORIENT_X_REV, x_low = eorient & ORIENT_X_LOW, x_high = eorient & ORIENT_X_HIGH;
-  const dInt a = foff + (ford[0]-1)*ford[1]*dof, b = foff + (ford[0]*ford[1]-1)*dof;
-  const dInt c = foff + (ford[1]-1)*dof, d = 0;
-#define SET_BOUNDS(alt, dof, start0, stride0, end0, start1, stride1, end1) \
-  if (alt) { *start = (start0); *stride = (dof)*(stride0); *end = (end0) + (dof)*(stride0); } \
-  else { *start = (start1); *stride = (dof)*(stride1); *end = (end1) + (dof)*(stride1); }
-
-  dFunctionBegin;
-  if (x_low && x_high) dERROR(1, "Invalid dGeomOrient: ORIENT_X_LOW and ORIENT_X_HIGH are both set.");
-  if (x_low || x_high) dERROR(1, "Loop bounds for nonconforming Quad not implemented.");
-  switch (eind) {
-    case 0: SET_BOUNDS(!x_rev, dof, a,        1, b, b,       -1, a); break;
-    case 1: SET_BOUNDS(!x_rev, dof, b, -ford[1], c, c,  ford[1], b); break;
-    case 2: SET_BOUNDS(!x_rev, dof, c,       -1, d, d,        1, c); break;
-    case 3: SET_BOUNDS(!x_rev, dof, d,  ford[1], a, a, -ford[1], d); break;
-    default: dERROR(1, "Invalid edge index %d", eind);
-  }
-  dFunctionReturn(0);
-}
-#endif
-
-#define dMESH_FUNCTIONS 1
-#if dMESH_FUNCTIONS
-#if 0
-#undef __FUNCT__
-#define __FUNCT__ "dMeshGetLocalNodeNumbering"
-/*@
-   dMeshGetLocalNumbering - creates an index set of offsets
-@*/
-dErr dMeshGetLocalNodeNumbering(dMesh m,dInt base,dInt *n,dInt *is)
-{
-
-}
-
-#undef __FUNCT__
-#define __FUNCT__ "dMeshSetQuotient"
-dErr dMeshSetQuotient(dMesh m,dQuotient q)
-{
-
-  dFunctionBegin;
-
-  dFunctionReturn(0);
-}
-#endif
-
-/* Create a tag over the region, face, edge, vertex sets.  Number the tags in increasing order, then
-* get them (iMesh_getArrData) for the adjacent entity sets. */
-
-#undef __FUNCT__
-#define __FUNCT__ "MFSCreate"
-
-#undef __FUNCT__
-#define __FUNCT__ "MFSSetQuotient"
-
-#endif  /* dMESH_FUNCTIONS */
-
 static dErr doMaterial(iMesh_Instance mesh)
 {
   static const char matSetName[] = "MAT_SET",matNumName[] = "MAT_NUM";
@@ -222,7 +145,7 @@ int main(int argc, char *argv[])
 {
   const char outopts[]="",pTagName[]="OWNING_PART", pSetName[]="PARALLEL_PARTITION";
   PetscTruth do_bdy = 0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
-  PetscTruth do_partition = 1,do_faces = 1,do_edges = 1,do_orient = 0;
+  PetscTruth do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1,do_orient = 0;
   char outfile[256] = "dblock.h5m";
   dInt verbose = 1;
   iMesh_Instance mesh;
@@ -249,6 +172,7 @@ int main(int argc, char *argv[])
     err = PetscOptionsTruth("-do_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
+    err = PetscOptionsTruth("-do_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
     err = PetscOptionsTruth("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
     if (do_faces && do_edges) {
@@ -317,8 +241,7 @@ int main(int argc, char *argv[])
       for (j=0; j<n-1; j++) {
         for (k=0; k<p-1; k++) {
           I = i*M/(m-1); J = j*N/(n-1); K = k*P/(p-1);
-          const int pind = (I*N+J)*P+K,eind = (i*(n-1)+j)*(p-1)+k;
-          part.v[eind] = pind;
+          part.v[(i*(n-1)+j)*(p-1)+k] = (I*N+J)*P+K;
         }
       }
     }
@@ -633,9 +556,8 @@ int main(int argc, char *argv[])
 
   if (do_material) {err = doMaterial(mesh);dCHK(err);}
 
-#if DO_PRESSURE
-                                /* Add a real valued tag over the vertices. */
-  {
+  /* Add a real valued tag over the vertices. */
+  if (do_pressure) {
     static const char *myTagName = "pressure";
     iBase_TagHandle myTag;
     double *myData;
@@ -648,7 +570,6 @@ int main(int argc, char *argv[])
     err = PetscFree(myData);dCHK(err);
     MeshListFree(v);
   }
-#endif
 
   if (do_uniform) {err = createUniformTags(mesh);dCHK(err);}
 
