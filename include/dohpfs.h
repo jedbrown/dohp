@@ -19,6 +19,8 @@ PETSC_EXTERN_CXX_BEGIN
 
 typedef struct _p_dFS *dFS;
 
+typedef struct _p_dFSBoundary *dFSBoundary;
+
 #define dFSType char *
 
 #define dFSCONT "cont"
@@ -32,10 +34,11 @@ EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSAddBdy(dFS,const char*,dMeshESH,dMeshTag,dBool,PF); /* name, facets, orientation tag, flip orientation?, normal -> constraints */
 EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);
-EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSCreateLocalVector(dFS,Vec*);
 EXTERN dErr dFSCreateGlobalVector(dFS,Vec*);
 EXTERN dErr dFSBuildSpace(dFS);
+EXTERN dErr dFSGetBoundaryType(dFS,dInt,const dMeshEH[],dBdyType[]);
+EXTERN dErr dFSCreateSubspace(dFS,dInt,dFSBoundary,dFS*);
 
 EXTERN dErr dFSDestroy(dFS);
 EXTERN dErr dFSView(dFS,PetscViewer);

@@ -16,10 +16,10 @@ PetscCookie dJACOBI_COOKIE;
 static PetscFList dJacobiList = 0;
 
 static const struct _dJacobiOps _defaultOps = {
-  .view = 0,
-  .setup = 0,
-  .setfromoptions = 0,
-  .destroy = 0
+  .View = 0,
+  .SetUp = 0,
+  .SetFromOptions = 0,
+  .Destroy = 0
 };
 
 /**
@@ -73,7 +73,7 @@ dErr dJacobiSetType(dJacobi jac,dJacobiType type)
   if (match) dFunctionReturn(0);
   err = PetscFListFind(dJacobiList,((PetscObject)jac)->comm,type,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(1,"Unable to find requested dJacobi type %s",type);
-  if (jac->ops->destroy) { err = (*jac->ops->destroy)(jac);dCHK(err); }
+  if (jac->ops->Destroy) { err = (*jac->ops->Destroy)(jac);dCHK(err); }
   err = PetscMemcpy(jac->ops,&_defaultOps,sizeof(struct _dJacobiOps));dCHK(err);
   jac->setupcalled = 0;
   err = (*r)(jac);dCHK(err);
@@ -107,8 +107,8 @@ dErr dJacobiSetFromOptions(dJacobi jac)
   }
   err = PetscOptionsInt("-djac_basis_degree","Max basis degree","dJacobiSetDegrees",jac->basisdegree,&jac->basisdegree,PETSC_NULL);dCHK(err);
   err = PetscOptionsInt("-djac_rule_excess","Excess quadrature points","dJacobiSetDegrees",jac->ruleexcess,&jac->ruleexcess,PETSC_NULL);dCHK(err);
-  if (jac->ops->setfromoptions) {
-    err = jac->ops->setfromoptions(jac);dCHK(err);
+  if (jac->ops->SetFromOptions) {
+    err = jac->ops->SetFromOptions(jac);dCHK(err);
   }
   err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -128,8 +128,8 @@ dErr dJacobiSetUp(dJacobi jac)
 
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
-  if ((!jac->setupcalled) && jac->ops->setup) {
-    err = jac->ops->setup(jac);dCHK(err);
+  if ((!jac->setupcalled) && jac->ops->SetUp) {
+    err = jac->ops->SetUp(jac);dCHK(err);
   }
   jac->setupcalled = 1;
 
@@ -156,8 +156,8 @@ dErr dJacobiDestroy(dJacobi jac)
 
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
-  if (jac->ops->destroy) {
-    err = jac->ops->destroy(jac);dCHK(err);
+  if (jac->ops->Destroy) {
+    err = jac->ops->Destroy(jac);dCHK(err);
   }
   err = PetscHeaderDestroy(jac);dCHK(err);
   dFunctionReturn(0);
@@ -196,14 +196,14 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
     if (!jac->setupcalled) {
       err = PetscViewerASCIIPrintf(viewer,"Object has not been set up.\n",jac->basisdegree);dCHK(err);
     }
-    if (jac->ops->view) {
-      err = (*jac->ops->view)(jac,viewer);dCHK(err);
+    if (jac->ops->View) {
+      err = (*jac->ops->View)(jac,viewer);dCHK(err);
     } else {
       err = PetscViewerASCIIPrintf(viewer,"Internal info not available.\n");dCHK(err);
     }
     err = PetscViewerASCIIPopTab(viewer);dCHK(err);
-  } else if (jac->ops->view) {
-    err = (*jac->ops->view)(jac,viewer);dCHK(err);
+  } else if (jac->ops->View) {
+    err = (*jac->ops->View)(jac,viewer);dCHK(err);
   }
   dFunctionReturn(0);
 }
@@ -223,18 +223,15 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
 *
 * @return error (if connectivity or adjacency is wrong)
 */
-dErr dJacobiPropogateDown(dJacobi jac,dEntTopology topo,const dMeshEH econn[],const dInt edeg[],const dMeshEH conn[],const dInt ind[],dInt deg[])
+dErr dJacobiPropogateDown(dJacobi jac,const struct dMeshAdjacency *a,dInt deg[])
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(jac,dJACOBI_COOKIE,1);
-  dValidPointer(econn,3);
-  dValidPointer(edeg,4);
-  dValidPointer(conn,5);
-  dValidPointer(ind,6);
-  dValidPointer(deg,7);
-  err = jac->ops->propogatedown(jac,topo,econn,edeg,conn,ind,deg);dCHK(err);
+  dValidPointer(a,2);
+  dValidPointer(deg,3);
+  err = jac->ops->PropogateDown(jac,a,deg);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -296,7 +293,7 @@ dErr dJacobiSetDegrees(dJacobi jac,dInt basisdegree,dInt ruleexcess)
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
   if (jac->setupcalled) {
-    if (jac->ops->destroy) { err = (*jac->ops->destroy)(jac);dCHK(err); }
+    if (jac->ops->Destroy) { err = (*jac->ops->Destroy)(jac);dCHK(err); }
     err = PetscMemcpy(jac->ops,&_defaultOps,sizeof(struct _dJacobiOps));dCHK(err);
   }
   jac->basisdegree = basisdegree;
@@ -333,7 +330,7 @@ dErr dJacobiGetRule(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,
     dValidPointer(rule,4);
     dValidPointer(base,5);
   }
-  err = jac->ops->getrule(jac,top,rsize,rule,base,index);dCHK(err);
+  err = jac->ops->GetRule(jac,top,rsize,rule,base,index);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -361,7 +358,7 @@ dErr dJacobiGetEFS(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dE
   dValidPointer(rule,4);
   dValidPointer(efs,5);
   dValidPointer(index,7);
-  err = jac->ops->getefs(jac,top,bsize,rule,efs,base,index);dCHK(err);
+  err = jac->ops->GetEFS(jac,top,bsize,rule,efs,base,index);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -385,7 +382,7 @@ dErr dJacobiGetNodeCount(dJacobi jac,dInt count,const dEntTopology top[],const d
   dValidHeader(jac,dJACOBI_COOKIE,1);
   dValidPointer(top,3);
   dValidPointer(deg,4);
-  err = jac->ops->getnodecount(jac,count,top,deg,inode,xnode);dCHK(err);
+  err = jac->ops->GetNodeCount(jac,count,top,deg,inode,xnode);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -479,5 +476,37 @@ dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dS
   dFunctionBegin;
   dValidPointer(efs,1);
   err = (*efs->ops->apply)(efs,dofs,wlen,work,in,out,amode,imode);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidPointer(xi,3);
+  dValidPointer(xs,4);
+  dValidPointer(deg,5);
+  dValidPointer(ma,6);
+  dValidPointer(nnz,7);
+  dValidPointer(pnnz,8);
+  err = (*jac->ops->GetConstraintCount)(jac,nx,xi,xs,deg,ma,nnz,pnnz);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat C,Mat Cp)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidPointer(xi,3);
+  dValidPointer(xs,4);
+  dValidPointer(deg,5);
+  dValidPointer(ma,6);
+  dValidHeader(C,MAT_COOKIE,7);
+  dValidHeader(Cp,MAT_COOKIE,8);
+  err = (*jac->ops->AddConstraints)(jac,nx,xi,xs,is,deg,ma,C,Cp);dCHK(err);
   dFunctionReturn(0);
 }

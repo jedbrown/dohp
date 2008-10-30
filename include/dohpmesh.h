@@ -29,6 +29,7 @@ EXTERN const int iMesh_TypeFromTopology[];
     dERROR(1,"%s: %s",iBase_ErrorString[_l_ret],_l_desc);       \
   }
 
+
 typedef struct {
   char *v;
   dMeshInt a,s;
@@ -83,12 +84,6 @@ typedef struct {
 #define dMESHPACK   "pack"
 #define dMESHSERIAL "serial"
 
-typedef unsigned char dEntStatus;
-#define dSTATUS_UNOWNED   (dEntStatus)0x1
-#define dSTATUS_SHARED    (dEntStatus)0x2
-#define dSTATUS_INTERFACE (dEntStatus)0x4
-#define dSTATUS_GHOST     (dEntStatus)0x8
-
 extern dErr dMeshListIntView(MeshListInt*,const char*);
 extern dErr dMeshListEHView(MeshListEH*,const char*);
 
@@ -128,6 +123,8 @@ EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
 EXTERN dErr dMeshGetStatus(dMesh,dInt,const dMeshEH[],dEntStatus[]);
 EXTERN dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
+EXTERN dErr dMeshGetAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
+EXTERN dErr dMeshRestoreAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
 
 PETSC_EXTERN_CXX_END
 #endif

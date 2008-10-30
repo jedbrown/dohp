@@ -365,7 +365,7 @@ dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx)
    dQuotientSetDegreeConst -
 
 @*/
-dErr dQuotientSetDegreeConst(dQuotient q __attribute__((unused)),void *vval,dInt n,dInt *degree)
+dErr dQuotientSetDegreeConst(dUNUSED dQuotient quot,void *vval,dInt n,dInt *degree)
 {
   dInt i,*val=(dInt *)vval;
 

@@ -155,7 +155,6 @@ show_mpiexec :
 
   # Sometimes this can be used to assist FindMPI.cmake
   set (PETSC_MPIEXEC ${PETSC_MPIEXEC} CACHE FILEPATH "Executable for running PETSc MPI programs")
-
   set (PETSC_INCLUDE_PATH ${PETSC_INCLUDE_PATH_WORK} CACHE STRING "PETSc include path" FORCE)
   set (PETSC_LIBRARIES ${PETSC_LIBRARIES_FOUND} CACHE STRING "PETSc libraries" FORCE)
   set (PETSC_COMPILER ${PETSC_CC} CACHE FILEPATH "PETSc compiler" FORCE)

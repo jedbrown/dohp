@@ -61,17 +61,17 @@ struct p_dEFS {
 *
 */
 struct _dJacobiOps {
-  dErr (*setup)(dJacobi);
-  dErr (*setfromoptions)(dJacobi);
-  dErr (*destroy)(dJacobi);
-  dErr (*view)(dJacobi,PetscViewer);
-  //dErr (*getrule)(dJacobi,dInt,const dInt[],dRule*,dInt*);            /**< put a dRule into the output buffer */
-  //dErr (*getefs)(dJacobi,dInt,const dInt[],const dInt[],dEFS*,dInt*); /**< put a dEFS into the output buffer */
-  dErr (*getrulesize)(dJacobi,dEntTopology,dInt*);
-  dErr (*propogatedown)(dJacobi,dEntTopology,const dMeshEH[],const dInt[],const dMeshEH[],const dInt[],dInt[]);
-  dErr (*getrule)(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
-  dErr (*getefs)(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
-  dErr (*getnodecount)(dJacobi jac,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
+  dErr (*SetUp)(dJacobi);
+  dErr (*SetFromOptions)(dJacobi);
+  dErr (*Destroy)(dJacobi);
+  dErr (*View)(dJacobi,PetscViewer);
+  dErr (*GetRuleSize)(dJacobi,dEntTopology,dInt*);
+  dErr (*PropogateDown)(dJacobi,const struct dMeshAdjacency*,dInt[]);
+  dErr (*GetRule)(dJacobi,dEntTopology,const dInt[],dRule*,void**,dInt*);
+  dErr (*GetEFS)(dJacobi,dEntTopology,const dInt[],dRule,dEFS*,void**,dInt*);
+  dErr (*GetNodeCount)(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
+  dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[]);
+  dErr (*AddConstraints)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat);
 };
 
 /**

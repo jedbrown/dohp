@@ -21,6 +21,7 @@
 
 #include "dohptype.h"
 #include "petscsys.h"
+#include "petscmat.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
@@ -59,6 +60,41 @@ typedef enum { dAPPLY_INTERP=40001,dAPPLY_INTERP_TRANSPOSE=40002,dAPPLY_GRAD=400
 */
 typedef struct p_dJacobi *dJacobi;
 
+/**
+* This struct is public since it is used to exchange mesh data between the dFS and dJacobi packages.
+*
+* @example Boundary specs for some boundary conditions:
+*
+* Dirichlet: dofspernode=0, cperdof does not matter
+* Neumann: dofspernode=D, cperdof=1
+* Slip: dofspernode=2, cperdof=3
+* Normal: dofspernode=1, cperdof=3
+* Interior entities: dofspernode=D, cperdof=1
+*
+*/
+struct MeshRegion {
+  dMeshEH *conn;                /**< conn[connoff[i]+j] = j'th vertex of entity [i] */
+  dInt *connoff;
+  dInt *adj;                    /**< adj[adjoff[i]+j] = index of the j'th entity adjacent to entity i */
+  dInt *adjoff;
+  dEntTopology *topo;
+  dEntStatus *status;           /**< parallel status */
+  dInt *deg;                    /**< deg[3*i..3*i+2] */
+  dInt *dofspernode;            /**< number of dofs per node (0..D), always D for interior nodes */
+  dInt *cperdof;                /**< number of contrstrainst per dof */
+  dInt nents;
+  dInt ntype[4],tstart[4];
+};
+
+struct dMeshAdjacency {
+  dMeshESH set;
+  dInt nents;
+  dInt tnents[4],toff[4];
+  dInt *adjoff,*adjind,*adjperm;
+  dEntTopology *topo;
+  dMeshEH *ents;
+};
+
 #define dJacobiType char *
 #define dJACOBI_TENSOR "tensor"
 
@@ -87,8 +123,11 @@ EXTERN dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
 EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**);
 EXTERN dErr dEFSGetRule(dEFS efs,dRule *rule);
 EXTERN dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode);
-EXTERN dErr dJacobiPropogateDown(dJacobi,dEntTopology,const dMeshEH[],const dInt[],const dMeshEH[],const dInt[],dInt[]);
+EXTERN dErr dJacobiPropogateDown(dJacobi,const struct dMeshAdjacency*,dInt[]);
 EXTERN dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
+
+EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[]);
+EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat);
 
 PETSC_EXTERN_CXX_END
 

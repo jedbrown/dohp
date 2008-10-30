@@ -108,7 +108,7 @@ INLINE dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH fv[],in
 INLINE dErr dGeomOrientFindPerm_QuadLine(const dMeshEH fv[],const dMeshEH ev[],int en,dInt *orient)
 {
   static const dInt perm[2][2] = {{0,1},{1,0}};
-  static const dInt permorient[4] = {0,1,2,3};
+  static const dInt permorient[4] = {0,1};
   dInt i;
 
   dFunctionBegin;

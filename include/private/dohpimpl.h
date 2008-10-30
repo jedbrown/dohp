@@ -9,14 +9,14 @@ PetscCookie dDM_COOKIE,dMFS_COOKIE;
 PetscLogEvent dLOG_MatMult, dLOG_FunctionEval, dLOG_JacobianEval;
 
 typedef struct {
-  dErr (*dofspernode)(/* what goes here? */);
+  dErr (*dofspernode)(void /* what goes here? */);
   /* number of fields, number of nodes, normal vector, boundary values, element nodal values (in/out), output vector (out) */
   dErr (*apply)(dInt,dBool,const dScalar*,const dScalar*,dScalar*,dScalar*);
   dErr (*unapply)(dInt,dInt,const dScalar*,const dScalar*,dScalar*,dScalar*);
 } DohpBCOps;
 
 struct _DohpMFSOps {
-  dErr (*lots)();
+  dErr (*lots)(void /* FIXME: what here? */);
 };
 
 struct _DohpDMOps {
@@ -57,7 +57,7 @@ struct p_dohpDM {
 };
 
 struct _DohpBlockOps {
-  dErr (*stuffhere)();
+  dErr (*stuffhere)(void /* FIXME: what here? */);
 };
 
 struct p_dBlock {

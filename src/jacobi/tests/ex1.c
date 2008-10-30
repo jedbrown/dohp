@@ -180,12 +180,12 @@ static dErr checkRulesAndEFS(dJacobi jac)
     }
   } while (!rbase);
 
-#if RULE_VIEW
-  for (dInt i=0; i<N; i++) {
-    err = dPrintf(comm,"Rule for element %d\n",i);dCHK(err);
-    err = dRuleView(rule[i],viewer);dCHK(err);
+  if (0 /* View Rule */) {
+    for (dInt i=0; i<N; i++) {
+      err = dPrintf(comm,"Rule for element %d\n",i);dCHK(err);
+      err = dRuleView(rule[i],viewer);dCHK(err);
+    }
   }
-#endif
 
   /* Same as above but for dEFS.  Note that these are all the same order, but that could be changed by changing 'bsize'
   * and different topology can be handled by changing 'topo' */

@@ -26,7 +26,6 @@ static dErr TensorBasisDestroy(TensorBasis);
 static dErr dJacobiSetUp_Tensor(dJacobi);
 static dErr dJacobiDestroy_Tensor(dJacobi);
 static dErr dJacobiView_Tensor(dJacobi,PetscViewer);
-static dErr dJacobiPropogateDown_Tensor(dJacobi jac,dEntTopology topo,const dMeshEH econn[],const dInt edeg[],const dMeshEH conn[],const dInt ind[],dInt deg[]);
 static dErr dJacobiGetRule_Tensor(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
 static dErr dJacobiGetEFS_Tensor(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
 
@@ -145,41 +144,49 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
   dFunctionReturn(0);
 }
 
-static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dEntTopology topo,const dMeshEH econn[],const dInt edeg[],const dMeshEH conn[],const dInt ind[],dInt deg[])
+static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,const struct dMeshAdjacency *a,dInt deg[])
 {
   static const dInt quadperm[4] = {0,1,0,1};
   static const dInt hexperm[6][2] = {{0,2},{1,2},{0,2},{1,2},{1,0},{0,1}}; /* map natural axis of Quad to natural axis of Hex */
   static const dInt orient[8][2] = {{0,1},{1,0},{0,1},{1,0},            /* map actual Quad orientation to proper orientation */
                                     {1,0},{0,1},{1,0},{0,1}};
-  dInt match;
+  dInt e,i,ai,aind,match;
   dErr err;
 
   dFunctionBegin;
-  switch (topo) {
-    case iMesh_HEXAHEDRON:
-      for (dInt i=0; i<6; i++) {
-        err = dGeomOrientFindPerm_HexQuad(econn,&conn[i*4],i,&match);dCHK(err);
-        deg[ind[i]*3+0] = dMin(deg[ind[i]*3+0],edeg[hexperm[i][orient[match][0]]]);
-        deg[ind[i]*3+1] = dMin(deg[ind[i]*3+1],edeg[hexperm[i][orient[match][1]]]);
-        deg[ind[i]*3+2] = 1;
-      }
-      break;
-    case iMesh_QUADRILATERAL:
-      for (dInt i=0; i<4; i++) {
-        match = dGeomMatchQuadLine(econn,&conn[i*2]);
-        if (match < 0) dERROR(1,"Connectivity for edge %d does not match this Quad",i);
-        if (match != i) dERROR(1,"Weird, edges aren't in order");
-        deg[ind[i]*3+0] = dMin(deg[ind[i]*3+0],edeg[quadperm[match]]);
-        deg[ind[i]*3+1] = deg[ind[i]*3+2] = 1;
-      }
-      break;
-    case iMesh_LINE_SEGMENT:
-      for (dInt i=0; i<2; i++) { /* Both endpoints are vertices, they always have degree 1 */
-        if (!(conn[i] == econn[0] || conn[i] == econn[1])) dERROR(1,"Looks like incorrect connectivity");
-        deg[ind[i]*3+0] = deg[ind[i]*3+1] = deg[ind[i]*3+2] = 1;
-      }
-      break;
-    default: dERROR(1,"Topology %s not supported",iMesh_TopologyName[topo]);
+  for (e=a->toff[dTYPE_REGION]; e<a->toff[dTYPE_REGION]+a->tnents[dTYPE_REGION]; e++) {
+    switch (a->topo[e]) {
+      case iMesh_HEXAHEDRON:
+        for (i=0; i<6; i++) {
+          ai = a->adjoff[e]+i; aind = a->adjind[ai]; match = a->adjperm[ai];
+          deg[aind*3+0] = dMin(deg[aind*3+0],deg[e*3+hexperm[i][orient[match][0]]]);
+          deg[aind*3+1] = dMin(deg[aind*3+1],deg[e*3+hexperm[i][orient[match][1]]]);
+          deg[aind*3+2] = 1;
+          if (a->topo[aind] != dTOPO_QUAD) dERROR(1,"corrupt adjacency");
+        }
+        break;
+      default: dERROR(1,"Region topology %d not supported",a->topo[e]);dCHK(err);
+    }
+  }
+  for (e=a->toff[dTYPE_FACE]; e<a->toff[dTYPE_FACE]+a->tnents[dTYPE_FACE]; e++) {
+    switch (a->topo[e]) {
+      case iMesh_QUADRILATERAL:
+        for (i=0; i<4; i++) {
+          ai = a->adjoff[e]+i; aind = a->adjind[ai];
+          deg[aind*3+0] = dMin(deg[aind*3+0],deg[e*3+quadperm[i]]);
+          deg[aind*3+1] = deg[aind*3+2] = 1;
+          if (a->topo[aind] != dTOPO_LINE) dERROR(1,"corrupt adjacency");
+        }
+        break;
+      default: dERROR(1,"Face topology %d not supported",a->topo[e]);dCHK(err);
+    }
+  }
+  for (e=a->toff[dTYPE_EDGE]; e<a->toff[dTYPE_EDGE]+a->tnents[dTYPE_EDGE]; e++) {
+    for (i=0; i<2; i++) {
+      ai = a->adjoff[e]+i; aind = a->adjind[ai];
+      deg[aind*3+0] = deg[aind*3+1] = deg[aind*3+2] = 1; /* should always be vertices */
+      if (a->topo[aind] != dTOPO_POINT) dERROR(1,"corrupt adjacency");
+    }
   }
   dFunctionReturn(0);
 }
@@ -208,6 +215,188 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
         break;
       default:
         dERROR(1,"Topology %d not supported",top[i]);
+    }
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],const dInt deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[])
+{
+  dInt i,j;
+
+  dFunctionBegin;
+  for (i=0; i<nx; i++) {
+    j = xi[i];
+    if (0) {
+      switch (ma->topo[i]) {
+        case dTOPO_HEX:
+          for (dInt i0=1; i0<deg[3*j]-1; i0++) {
+          }
+          if (1  ) {          /* Conforming */
+            nnz[i] = pnnz[i] = 1;
+          } else {                /* Nonconforming */
+
+          }
+          break;
+        default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
+      }
+    } else {
+      nnz[i] = pnnz[i] = 1;
+    }
+  }
+  dFunctionReturn(0);
+}
+
+#define ASSERT(cond) if (!(cond)) dERROR(1,"assert " #cond "failed")
+
+static inline dInt same3(dInt a,dInt b,dInt c)
+{
+  dFunctionBegin;
+  ASSERT(a == b);
+  ASSERT(a == c);
+  dFunctionReturn(a);
+}
+
+static inline dInt same2(dInt a,dInt b)
+{
+  dFunctionBegin;
+  ASSERT(a == b);
+  dFunctionReturn(a);
+}
+
+/** Get the index into the interior of a face with orientation \a perm, (full) dimensions \a dim, and index \a ij
+*
+* @param perm Permutation (0,...,7)
+* @param dim  Full dimension of face in canonical orientation, the interior dimensions are two less
+* @param ij   Interior index in canonical orientation
+* @param[out] ind  Index into interior of face
+*/
+static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2],dInt *ind)
+{
+  const dInt M = dim[0]-2,N = dim[1]-2,i = ij[0]-1,j = ij[1]-1;
+
+  dFunctionBegin;
+  switch (perm) {
+    case 0: *ind = i*N + j; break;
+    case 1: *ind = i + (N-1-j)*M; break;
+    case 2: *ind = (M-1-i)*N + (N-1-j); break;
+    case 3: *ind = (M-1-i)*N + j; break;
+    case 4: *ind = i + j*M; break;
+    case 5: *ind = i*N + (N-1-j); break;
+    case 6: *ind = (M-1-i) + (N-1-j)*M; break;
+    case 7: *ind = (M-1-i)*N + j; break;
+    default: dERROR(1,"Invalid permutation");
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat C,Mat Cp)
+{
+  dInt elem,ei,d0,d1,d2,i,j,k,l,e[12],eP[12],v[8];
+  dInt nrow,ncol,irow[10],icol[30];
+  dScalar interp[30]; /* FIXME: check bounds */
+  const dInt *f,*fP;
+  const dInt *aI=ma->adjind,*aO=ma->adjoff,*aP=ma->adjperm,*d;
+  dErr err;
+
+  dFunctionBegin;
+  for (elem=0; elem<nx; elem++) {
+    ei = xi[elem];
+    d = deg+3*ei;
+    d0 = d[0]; d1 = d[1]; d2 = d[2];
+    switch (ma->topo[elem]) {
+      const dInt scan[3] = {d1*d2,d2,1};
+      case dTOPO_HEX:
+        f = aI+aO[ei];         /* Array of indices for adjacent faces */
+        fP = aP+aO[ei];        /* Permutations for faces */
+        for (i=0; i<12; i++) { /* Extract and orient edges */
+          const struct {dInt f,e,o;} fe[12][2] = { /* Each edge is adjacent to two faces, f=face, e=edge_of_face, o=orientation */
+            {{0,0,0},{4,3,1}}, {{1,0,0},{4,2,1}}, {{2,0,0},{4,1,1}}, {{3,0,0},{4,0,1}},  /* bottom */
+            {{0,2,1},{5,0,0}}, {{1,2,1},{5,1,0}}, {{2,2,1},{5,2,0}}, {{3,2,1},{5,3,0}},  /* top */
+            {{0,3,1},{3,1,0}}, {{0,1,0},{1,3,1}}, {{1,1,0},{2,3,1}}, {{2,1,0},{3,3,1}}}; /* vertical */
+          const dInt fperm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},{0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
+          e[i] = aI[aO[f[fe[i][0].f]] + fperm[fe[i][0].f][fe[i][0].e]];
+          if (e[i] != aI[aO[f[fe[i][1].f]] + fperm[fe[i][1].f][fe[i][1].e]])
+            dERROR(1,"faces don't agree about edge");
+          eP[i] = aP[aO[f[fe[i][0].f]] + fperm[fe[i][0].f][fe[i][0].e]] ^ fe[i][0].o;
+          if (eP[i] != (aP[aO[f[fe[i][1].f]] + fperm[fe[i][1].f][fe[i][1].e]] ^ fe[i][1].o))
+            dERROR(1,"orientations do not agree");
+        }
+        for (i=0; i<8; i++) { /* Extract vertices */
+          const dInt edge_flip[2][2] = {{0,1},{1,0}};
+          const struct {dInt e,v;} ev_common[8][3] = {
+            {{0,0},{3,1},{8,0}}, {{0,1},{1,0},{9,0}}, {{1,1},{2,0},{10,0}}, {{2,1},{3,0},{11,0}},
+            {{4,0},{7,1},{8,1}}, {{4,1},{5,0},{9,1}}, {{5,1},{6,0},{10,1}}, {{6,1},{7,0},{11,1}}};
+#define E(j) ev_common[i][j].e
+#define EV(j) aI[aO[e[E(j)]] + edge_flip[eP[E(j)]][ev_common[i][j].v]]
+          v[i] = EV(0);
+          if (v[i] != EV(1)) dERROR(1,"first two edges don't agree about vertex");
+          if (v[i] != EV(2)) dERROR(1,"first and third edges don't agree about vertex");
+#undef E
+#undef EV
+        }
+        for (i=0; i<8; i++) { /* Set vertices, always conforming for now */
+          const dInt T[8][3] = {{0,0,0},{d0-1,0,0},{d0-1,d1-1,0},{0,d1-1,0},
+                                {0,0,d2-1},{d0-1,0,d2-1},{d0-1,d1-1,d2-1},{0,d1-1,d2-1}};
+          err = MatSetValue(C, xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
+          err = MatSetValue(Cp,xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
+        }
+        for (i=0; i<12; i++) { /* Set edges */
+          const struct {dInt start[3],incd,inci,end;} E[12] = { /* How to traverse the edge in forward order */
+            {{1,0,0},0,1,d0-1}, {{d0-1,1,0},1,1,d1-1}, {{d0-1,d1-1,0},0,-1,0}, {{0,d1-1,0},1,-1,0},
+            {{1,0,d2-1},0,1,d0-1}, {{d0-1,1,d2-1},1,1,d1-1}, {{d0-1,d1-1,d2-1},0,-1,0}, {{0,d1-1,d2-1},1,-1,0},
+            {{0,0,1},2,1,d2-1}, {{d0-1,0,1},2,1,d2-1}, {{d0-1,d1-1,1},2,1,d2-1}, {{0,d1-1,1},2,1,d2-1}};
+          const dInt *start = E[i].start,incd = E[i].incd,inci = E[i].inci,end = E[i].end;
+          if (deg[3*e[i]] != deg[3*elem+E[i].incd]) dERROR(1,"degree does not agree, p-nonconforming");
+          for (j=E[i].start[E[i].incd]; j!=E[i].end; j += E[i].inci) {
+            nrow = 0; ncol = 0;
+            irow[nrow++] = xs[elem] + (start[0]*d1+start[1])*d2+start[2] + (j-start[incd])*scan[incd];
+            switch (eP[i]) {
+              case 0: icol[ncol++] = is[e[i]] + (j-start[incd])/inci; break; /* traverse the edge forwards */
+              case 1: icol[ncol++] = is[e[i]] - (j-(end-inci))/inci; break;  /* traverse the edge in reverse */
+            }
+            interp[0] = 1;
+            err = MatSetValues(C,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
+            err = MatSetValues(C,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
+          }
+        }
+        for (i=0; i<6; i++) { /* Faces */
+          const struct {dInt start[3],incd[2],inc[2],end[2];} F[6] = {
+            {{1,0,1},{0,2},{1,1},{d0-1,d2-1}},     {{d0-1,1,1},{1,2},{1,1},{d1-1,d2-1}},
+            {{d0-2,d1-1,1},{0,2},{-1,1},{0,d2-1}}, {{0,d1-2,1},{1,2},{-1,1},{0,d2-1}},
+            {{1,1,0},{1,0},{1,1},{d1-1,d0-1}},     {{1,1,d2-1},{0,1},{1,1},{d0-1,d1-1}}};
+          const dInt *start = F[i].start,*incd = F[i].incd,*inc = F[i].inc,*end = F[i].end;
+          for (j=start[incd[0]]; j!=end[incd[0]]; j+=inc[incd[0]]) {
+            for (k=start[incd[1]]; j!=end[incd[1]]; j+=inc[incd[1]]) {
+              const dInt faceDim[2] = {d[incd[0]],d[incd[1]]};
+              dInt facejk[2],faceIndex;
+              nrow = ncol = 0;
+              irow[nrow++] = (xs[elem] + (start[0]*d1+start[1])*d2+start[2]
+                              + (j-start[incd[0]])*scan[incd[0]] + (k-start[incd[1]])*scan[incd[1]]);
+              facejk[0] = (j-start[incd[0]])/inc[0];
+              facejk[1] = (k-start[incd[1]])/inc[1];
+              err = dGeomPermQuadIndex(fP[i],faceDim,facejk,&faceIndex);dCHK(err);
+              icol[ncol++] = is[e[i]] + faceIndex;
+              interp[0] = 1;
+              err = MatSetValues(C, nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
+              err = MatSetValues(Cp,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
+            }
+          }
+        }
+        /* Set trivial map for region interior dofs */
+        for (j=1; j<d0-1; j++) {
+          for (k=1; k<d1-1; k++) {
+            for (l=1; l<d2-1; l++) {
+              irow[0] = xs[elem] + (j*d1+k)*d2+l;
+              icol[0] = is[elem] + ((j-1)*(d1-1)+(k-1))*(d2-1)+(l-1);
+              interp[0] = 1;
+              err = MatSetValues(C, 1,irow,1,icol,interp,INSERT_VALUES);dCHK(err);
+              err = MatSetValues(Cp,1,irow,1,icol,interp,INSERT_VALUES);dCHK(err);
+            }
+          }
+        }
+        break;
+      default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
     }
   }
   dFunctionReturn(0);
@@ -590,14 +779,16 @@ static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
 dErr dJacobiCreate_Tensor(dJacobi jac)
 {
   static const struct _dJacobiOps myops = {
-    .setup = dJacobiSetUp_Tensor,
-    .setfromoptions = 0,
-    .destroy = dJacobiDestroy_Tensor,
-    .view = dJacobiView_Tensor,
-    .propogatedown = dJacobiPropogateDown_Tensor,
-    .getrule = dJacobiGetRule_Tensor,
-    .getefs = dJacobiGetEFS_Tensor,
-    .getnodecount = dJacobiGetNodeCount_Tensor
+    .SetUp              = dJacobiSetUp_Tensor,
+    .SetFromOptions     = 0,
+    .Destroy            = dJacobiDestroy_Tensor,
+    .View               = dJacobiView_Tensor,
+    .PropogateDown      = dJacobiPropogateDown_Tensor,
+    .GetRule            = dJacobiGetRule_Tensor,
+    .GetEFS             = dJacobiGetEFS_Tensor,
+    .GetNodeCount       = dJacobiGetNodeCount_Tensor,
+    .GetConstraintCount = dJacobiGetConstraintCount_Tensor,
+    .AddConstraints     = dJacobiAddConstraints_Tensor
   };
   TensorRuleOptions ropt;
   TensorBasisOptions bopt;

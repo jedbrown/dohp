@@ -2,7 +2,6 @@
 #define _DOHPQUOTIENT_H
 
 #include "dohpmesh.h"
-#include "dohpjacobi.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
@@ -10,7 +9,7 @@ PETSC_EXTERN_CXX_BEGIN
 #define dQuotientType char*
 typedef struct p_dQuotient *dQuotient;
 
-extern PetscCookie dQUOTIENT_COOKIE,dMESH_COOKIE;
+extern PetscCookie dQUOTIENT_COOKIE;
 typedef dErr (*dQuotientSetDegreeFunc)(dQuotient,void*,dInt,dInt[]);
 
 #define dQuotientGauss "gauss"

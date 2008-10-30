@@ -2,10 +2,6 @@
 
 #include "private/dohpimpl.h"
 
-static dErr dQuotientUpdate_Gauss(dQuotient q);
-static dErr dQuotientSetUp_Gauss(dQuotient q);
-static dErr dQuotientDestroy_Gauss(dQuotient q);
-
 typedef struct {
   dReal *nodes;
   dReal *weights;
@@ -30,29 +26,7 @@ typedef struct {
   dReal jdet;
 } EMap_Affine3;
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientCreate_Gauss"
-/*@
-   dQuotientCreate_Gauss -
-
-@*/
-dErr dQuotientCreate_Gauss(dQuotient quot)
-{
-
-  dFunctionBegin;
-  quot->ops->setup = dQuotientSetUp_Gauss;
-  quot->ops->update = dQuotientUpdate_Gauss;
-  quot->ops->destroy = dQuotientDestroy_Gauss;
-  dFunctionReturn(0);
-}
-
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientSetUp_Gauss"
-/*@
-   dQuotientSetUp_Gauss -
-
-@*/
-dErr dQuotientSetUp_Gauss(dQuotient quot)
+static dErr dQuotientSetUp_Gauss(dQuotient quot)
 {
   dInt nelems;
   dErr err;
@@ -64,12 +38,6 @@ dErr dQuotientSetUp_Gauss(dQuotient quot)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientUpdate_Gauss"
-/*@
-   dQuotientUpdate_Gauss -
-
-@*/
 static dErr dQuotientUpdate_Gauss(dQuotient q)
 {
   dInt *newdegree,i;
@@ -89,13 +57,7 @@ static dErr dQuotientUpdate_Gauss(dQuotient q)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientDestroy_Gauss"
-/*@
-   dQuotientDestroy_Gauss -
-
-@*/
-dErr dQuotientDestroy_Gauss(dQuotient q)
+static dErr dQuotientDestroy_Gauss(dQuotient q)
 {
   dErr err;
 
@@ -164,3 +126,13 @@ dErr EQuadGetSize_Hex(void *q, dInt *size)
 #define __FUNCT__ "MQuotSetSize"
 
 #endif
+
+dErr dQuotientCreate_Gauss(dQuotient quot)
+{
+
+  dFunctionBegin;
+  quot->ops->setup = dQuotientSetUp_Gauss;
+  quot->ops->update = dQuotientUpdate_Gauss;
+  quot->ops->destroy = dQuotientDestroy_Gauss;
+  dFunctionReturn(0);
+}
