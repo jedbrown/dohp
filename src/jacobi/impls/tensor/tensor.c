@@ -154,7 +154,7 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,const struct dMeshAd
   dErr err;
 
   dFunctionBegin;
-  for (e=a->toff[dTYPE_REGION]; e<a->toff[dTYPE_REGION]+a->tnents[dTYPE_REGION]; e++) {
+  for (e=a->toff[dTYPE_REGION]; e<a->toff[dTYPE_REGION+1]; e++) {
     switch (a->topo[e]) {
       case iMesh_HEXAHEDRON:
         for (i=0; i<6; i++) {
@@ -168,7 +168,7 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,const struct dMeshAd
       default: dERROR(1,"Region topology %d not supported",a->topo[e]);dCHK(err);
     }
   }
-  for (e=a->toff[dTYPE_FACE]; e<a->toff[dTYPE_FACE]+a->tnents[dTYPE_FACE]; e++) {
+  for (e=a->toff[dTYPE_FACE]; e<a->toff[dTYPE_FACE+1]; e++) {
     switch (a->topo[e]) {
       case iMesh_QUADRILATERAL:
         for (i=0; i<4; i++) {
@@ -181,7 +181,7 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,const struct dMeshAd
       default: dERROR(1,"Face topology %d not supported",a->topo[e]);dCHK(err);
     }
   }
-  for (e=a->toff[dTYPE_EDGE]; e<a->toff[dTYPE_EDGE]+a->tnents[dTYPE_EDGE]; e++) {
+  for (e=a->toff[dTYPE_EDGE]; e<a->toff[dTYPE_EDGE+1]; e++) {
     for (i=0; i<2; i++) {
       ai = a->adjoff[e]+i; aind = a->adjind[ai];
       deg[aind*3+0] = deg[aind*3+1] = deg[aind*3+2] = 1; /* should always be vertices */
@@ -292,21 +292,20 @@ static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2
 
 static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat C,Mat Cp)
 {
-  dInt elem,ei,d0,d1,d2,i,j,k,l,e[12],eP[12],v[8];
+  dInt elem,i,j,k,l,e[12],eP[12],v[8];
   dInt nrow,ncol,irow[10],icol[30];
   dScalar interp[30]; /* FIXME: check bounds */
   const dInt *f,*fP;
-  const dInt *aI=ma->adjind,*aO=ma->adjoff,*aP=ma->adjperm,*d;
+  const dInt *aI=ma->adjind,*aO=ma->adjoff,*aP=ma->adjperm;
   dErr err;
 
   dFunctionBegin;
   for (elem=0; elem<nx; elem++) {
-    ei = xi[elem];
-    d = deg+3*ei;
-    d0 = d[0]; d1 = d[1]; d2 = d[2];
-    switch (ma->topo[elem]) {
-      const dInt scan[3] = {d1*d2,d2,1};
-      case dTOPO_HEX:
+    const dInt ei = xi[elem]; /* Element index, \a deg and everything in \a ma is addressed by \a ei. */
+    const dInt *d = deg+3*ei,d0 = d[0],d1 = d[1],d2 = d[2];
+    const dInt scan[3] = {d1*d2,d2,1};
+    switch (ma->topo[ei]) {
+      case dTOPO_HEX:                              /* ****************************** HEX ************************** */
         f = aI+aO[ei];         /* Array of indices for adjacent faces */
         fP = aP+aO[ei];        /* Permutations for faces */
         for (i=0; i<12; i++) { /* Extract and orient edges */
@@ -314,12 +313,14 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             {{0,0,0},{4,3,1}}, {{1,0,0},{4,2,1}}, {{2,0,0},{4,1,1}}, {{3,0,0},{4,0,1}},  /* bottom */
             {{0,2,1},{5,0,0}}, {{1,2,1},{5,1,0}}, {{2,2,1},{5,2,0}}, {{3,2,1},{5,3,0}},  /* top */
             {{0,3,1},{3,1,0}}, {{0,1,0},{1,3,1}}, {{1,1,0},{2,3,1}}, {{2,1,0},{3,3,1}}}; /* vertical */
-          const dInt fperm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},{0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
-          e[i] = aI[aO[f[fe[i][0].f]] + fperm[fe[i][0].f][fe[i][0].e]];
-          if (e[i] != aI[aO[f[fe[i][1].f]] + fperm[fe[i][1].f][fe[i][1].e]])
+          //const dInt fperm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},{3,2,1,0},{0,3,2,1},{1,0,3,2},{0,3,2,1}};
+          const dInt iperm[8][4] = {{0,1,2,3},{3,0,1,2},{2,3,0,1},{1,2,3,0},{3,2,1,0},{0,3,2,1},{1,0,3,2},{0,3,2,1}};
+          const dInt ef0 = fe[i][0].f,ef1 = fe[i][1].f;
+          e[i] = aI[aO[f[ef0]] + iperm[fP[ef0]][fe[i][0].e]];
+          if (e[i] != aI[aO[f[ef1]] + iperm[fP[ef1]][fe[i][1].e]])
             dERROR(1,"faces don't agree about edge");
-          eP[i] = aP[aO[f[fe[i][0].f]] + fperm[fe[i][0].f][fe[i][0].e]] ^ fe[i][0].o;
-          if (eP[i] != (aP[aO[f[fe[i][1].f]] + fperm[fe[i][1].f][fe[i][1].e]] ^ fe[i][1].o))
+          eP[i] = aP[aO[f[ef0]] + iperm[fP[ef0]][fe[i][0].e]] ^ (((fP[ef0]>>2) & 1) ^ fe[i][0].o);
+          if (eP[i] != (aP[aO[f[ef1]] + iperm[fP[ef1]][fe[i][1].e]] ^ (((fP[ef1]>>2) & 1) ^ fe[i][1].o)))
             dERROR(1,"orientations do not agree");
         }
         for (i=0; i<8; i++) { /* Extract vertices */
@@ -335,7 +336,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
 #undef E
 #undef EV
         }
-        for (i=0; i<8; i++) { /* Set vertices, always conforming for now */
+        for (i=0; i<8; i++) { /* Set vertices, always conforming until we have h-nonconforming meshes */
           const dInt T[8][3] = {{0,0,0},{d0-1,0,0},{d0-1,d1-1,0},{0,d1-1,0},
                                 {0,0,d2-1},{d0-1,0,d2-1},{d0-1,d1-1,d2-1},{0,d1-1,d2-1}};
           err = MatSetValue(C, xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
@@ -347,7 +348,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             {{1,0,d2-1},0,1,d0-1}, {{d0-1,1,d2-1},1,1,d1-1}, {{d0-1,d1-1,d2-1},0,-1,0}, {{0,d1-1,d2-1},1,-1,0},
             {{0,0,1},2,1,d2-1}, {{d0-1,0,1},2,1,d2-1}, {{d0-1,d1-1,1},2,1,d2-1}, {{0,d1-1,1},2,1,d2-1}};
           const dInt *start = E[i].start,incd = E[i].incd,inci = E[i].inci,end = E[i].end;
-          if (deg[3*e[i]] != deg[3*elem+E[i].incd]) dERROR(1,"degree does not agree, p-nonconforming");
+          if (deg[3*e[i]] != deg[3*ei+E[i].incd]) dERROR(1,"degree does not agree, p-nonconforming");
           for (j=E[i].start[E[i].incd]; j!=E[i].end; j += E[i].inci) {
             nrow = 0; ncol = 0;
             irow[nrow++] = xs[elem] + (start[0]*d1+start[1])*d2+start[2] + (j-start[incd])*scan[incd];
@@ -396,7 +397,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
           }
         }
         break;
-      default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
+      default: dERROR(1,"not implemented for expanded topology %d",ma->topo[ei]);
     }
   }
   dFunctionReturn(0);

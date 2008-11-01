@@ -10,7 +10,6 @@ extern dErr dFSCreate_Cont(dFS);
 typedef struct {
   dBool usecmatrix;
   dMeshTag ruletag,degreetag;
-  dInt m;                       /* number of expanded dofs */
 
    /*
    * Since we don't do matrix-free computations with these elements, they don't need to be persistant (i.e. defined

@@ -299,7 +299,6 @@ dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
 
 /**
 * This function allocates memory for the tag.  It should be freed with PetscFree()
-* 
 */
 dErr dMeshGetTagName(dMesh mesh,dMeshTag tag,char **name)
 {
@@ -737,13 +736,6 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-
-#undef __FUNCT__
-#define __FUNCT__ "dMeshGetEntSetName"
-/*@
-   dMeshGetEntSetName -
-
-@*/
 dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str)
 {
   MeshListData buf=MLZ;
@@ -776,12 +768,6 @@ dErr dMeshGetInstance(dMesh m,iMesh_Instance *mi)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshDestroy"
-/*@
-   dMeshDestroy -
-
-@*/
 dErr dMeshDestroy(dMesh m)
 {
   dErr err;
@@ -895,8 +881,8 @@ static dErr dMeshAdjacencyPermutations_Private(struct dMeshAdjacency *ma,const d
   dErr err;
 
   dFunctionBegin;
-  for (e=ma->toff[dTYPE_EDGE]; e<ma->toff[dTYPE_REGION+1]; e++) { /* All non-vertex entities */
-    switch (ma->topo[i]) {
+  for (e=ma->toff[dTYPE_EDGE]; e<ma->toff[dTYPE_ALL]; e++) { /* All non-vertex entities */
+    switch (ma->topo[e]) {
       case dTOPO_HEX:
         for (i=0; i<6; i++) {
           ai = ma->adjoff[e]+i; aind = ma->adjind[ai];
@@ -909,11 +895,10 @@ static dErr dMeshAdjacencyPermutations_Private(struct dMeshAdjacency *ma,const d
           err = dGeomOrientFindPerm_QuadLine(conn+connoff[e],conn+connoff[aind],i,&ma->adjperm[ai]);dCHK(err);
         }
         break;
-      case iMesh_LINE_SEGMENT:
+      case dTOPO_LINE:
         for (i=0; i<2; i++) { /* Both endpoints are vertices, they always have degree 1 */
           ai = ma->adjoff[e]+i; aind = ma->adjind[ai];
           ma->adjperm[ai] = 0;  /* Vertices cannot be permuted */
-          if (!(conn[connoff[e]+i] == conn[connoff[aind]])) dERROR(1,"Looks like incorrect connectivity");
         }
         break;
       default: dERROR(1,"Topology %s not supported",iMesh_TopologyName[ma->topo[e]]);
@@ -938,7 +923,8 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *inadj)
   dValidPointer(inadj,3);
   err = dMemzero(inadj,sizeof(*inadj));dCHK(err);
 
-  /**
+  ma.set = set;                 /* Store set used to check out adjacencies */
+  /*
   * Step 1: number all entities in \a set
   */
 
@@ -986,18 +972,18 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *inadj)
   err = dMeshTagSetData(mesh,indexTag,ma.ents,ma.nents,eind,ma.nents,dDATA_INT);dCHK(err);
   err = dFree(eind);dCHK(err);
 
-  /**
+  /*
   * Step 2: use connectivity and indices for all adjacent entities
   */
 
   { /* connectivity for all entities, vertices have null connectivity */
     MeshListEH  ml_conn=MLZ;
     MeshListInt ml_connoff=MLZ;
-    iMesh_getEntArrAdj(mi,ma.ents+ma.toff[dTYPE_FACE],ma.nents-ma.toff[dTYPE_FACE],iBase_VERTEX,MLREF(ml_conn),MLREF(ml_connoff),&ierr);dICHK(mi,ierr);
+    iMesh_getEntArrAdj(mi,ma.ents+ma.toff[dTYPE_EDGE],ma.nents-ma.toff[dTYPE_EDGE],iBase_VERTEX,MLREF(ml_conn),MLREF(ml_connoff),&ierr);dICHK(mi,ierr);
     err = dMallocA2(ml_connoff.s+ma.toff[dTYPE_EDGE],&connoff,ml_conn.s,&conn);dCHK(err);
     for (i=0; i<ma.toff[dTYPE_EDGE]; i++) { connoff[i] = 0; } /* empty connectivity for vertices */
     err = dMemcpy(conn,ml_conn.v,ml_conn.s*sizeof(*conn));dCHK(err);
-    err = dMemcpy(connoff+ma.toff[dTYPE_EDGE],ml_conn.v,ml_conn.s*sizeof(*connoff));dCHK(err);
+    err = dMemcpy(connoff+ma.toff[dTYPE_EDGE],ml_connoff.v,ml_connoff.s*sizeof(*connoff));dCHK(err);
     MeshListFree(ml_conn); MeshListFree(ml_connoff);dCHK(err);
   }
 
@@ -1008,7 +994,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *inadj)
     for (type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
       iMesh_getEntArrAdj(mi,ma.ents+ma.toff[type],ma.toff[type+1]-ma.toff[type],type-1,MLREF(ml_adj[type]),MLREF(ml_adjoff[type]),&ierr);dICHK(mi,ierr);
     }
-    for (type=0; type<3; type++) {
+    for (type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
       if (ml_adjoff[type].s != ma.toff[type+1]-ma.toff[type]+1) dERROR(1,"unexpected number of adjacent offsets");
     }
     nadj = ml_adj[1].s+ml_adj[2].s+ml_adj[3].s; /* total number of adjacent entities */
@@ -1037,11 +1023,14 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *inadj)
 
   /* Determine permutation of adjacent entities */
   err = dMeshAdjacencyPermutations_Private(&ma,connoff,conn);dCHK(err);
+#if 1 /* defined(dMESHADJACENCY_HAS_CONNECTIVITY) */
+  ma.connoff = connoff; ma.conn = conn;
+#else
   err = dFree2(connoff,conn);dCHK(err);
+#endif
   err = dMemcpy(inadj,&ma,sizeof(ma));dCHK(err);
   dFunctionReturn(0);
 }
-
 
 dErr dMeshRestoreAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *ma)
 {

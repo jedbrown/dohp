@@ -148,6 +148,15 @@ dErr dFSView(dFS fs,dViewer viewer)
       }
       err = PetscViewerASCIIPrintf(viewer,"number of vertices=%d edges=%d faces=%d regions=%d\n",nents[0],nents[1],nents[2],nents[3]);dCHK(err);
     }
+    {                           /* print aggregate sizes */
+      PetscMPIInt gm[2],lm[2];
+      lm[0] = fs->m; lm[1] = fs->nlocal; /* set local `element' size and `local' size */
+      err = MPI_Reduce(lm,gm,2,MPI_INT,MPI_SUM,0,((dObject)fs)->comm);dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer,"on rank 0, %d/%d element dofs constrained against %d/%d local dofs\n",
+                                   lm[0],gm[0],lm[1],gm[1]);dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer,"on rank 0, %d local (%d owned,%d ghosted) out of %d global",
+                                   fs->nlocal,fs->n,fs->nlocal-fs->n,fs->N);dCHK(err);
+    }
     if (fs->ops->view) {
       err = (*fs->ops->view)(fs,viewer);dCHK(err);
     } else {

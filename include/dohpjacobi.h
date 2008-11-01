@@ -89,8 +89,12 @@ struct MeshRegion {
 struct dMeshAdjacency {
   dMeshESH set;
   dInt nents;
-  dInt tnents[4],toff[4];
+  dInt toff[5];
   dInt *adjoff,*adjind,*adjperm;
+#if 1 /* defined(dMESHADJACENCY_HAS_CONNECTIVITY) */
+  dInt *connoff;
+  dMeshEH *conn;
+#endif
   dEntTopology *topo;
   dMeshEH *ents;
 };

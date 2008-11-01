@@ -1,9 +1,8 @@
 #include "cont.h"
 #include "dohpmesh.h"
 
-static dErr dFSView_Cont(dFS fs,dViewer viewer)
+static dErr dFSView_Cont(dFS dUNUSED fs,dViewer viewer)
 {
-  dFS_Cont *fsc = fs->data;
   dBool ascii;
   dErr err;
 
@@ -11,15 +10,6 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"Continuous Galerkin function space\n");dCHK(err);
-    {                           /* print aggregate sizes */
-      PetscMPIInt gm[2],lm[2];
-      lm[0] = fsc->m; lm[1] = fs->nlocal; /* set local `element' size and `local' size */
-      err = MPI_Reduce(lm,gm,2,MPI_INT,MPI_SUM,0,((dObject)fs)->comm);dCHK(err);
-      err = PetscViewerASCIIPrintf(viewer,"on rank 0, %d/%d element dofs constrained against %d/%d local dofs\n",
-                                   lm[0],gm[0],lm[1],gm[1]);dCHK(err);
-      err = PetscViewerASCIIPrintf(viewer,"on rank 0, %d local (%d owned,%d ghosted) out of %d global",
-                                   fs->nlocal,fs->n,fs->nlocal-fs->n,fs->N);dCHK(err);
-    }
   }
   dFunctionReturn(0);
 }
@@ -80,7 +70,8 @@ static dErr dFSContPropogateDegree(dFS fs,const struct dMeshAdjacency *ma)
 static dErr dFSBuildSpace_Cont(dFS fs)
 {
   MPI_Comm comm = ((dObject)fs)->comm;
-  dFS_Cont *cont = fs->data;
+  /* The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
+  dUNUSED dFS_Cont *cont = fs->data;
   struct { dInt start,ndofs; } *fieldSpec;
   struct dMeshAdjacency ma;
   dMesh mesh;
@@ -179,20 +170,25 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     const dInt ii = ma.toff[dTYPE_REGION] + i;
     xind[i] = ii;               /* Index of entity in full arrays */
     xstart[i] = xcnt;           /* first node on this entity */
-    xcnt += xnodes[i];
+    xcnt += xnodes[ii];
   }
-  xstart[nregions] = xcnt;
+  fs->m = xstart[nregions] = xcnt;
 
   err = dMallocA2(xcnt,&nnz,xcnt,&pnnz);dCHK(err);
   err = dJacobiGetConstraintCount(fs->jacobi,nregions,xind,xstart,deg,&ma,nnz,pnnz);dCHK(err);
 
   /* We don't solve systems with these so it will never make sense for them to use a different format */
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,cont->m,fs->nlocal,-1,nnz,&fs->C);dCHK(err);
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,cont->m,fs->nlocal,-1,pnnz,&fs->Cp);dCHK(err);
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,fs->m,fs->nlocal,-1,nnz,&fs->C);dCHK(err);
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,fs->m,fs->nlocal,-1,pnnz,&fs->Cp);dCHK(err);
   err = dFree2(nnz,pnnz);dCHK(err);
 
   err = dJacobiAddConstraints(fs->jacobi,nregions,xind,xstart,istart,deg,&ma,fs->C,fs->Cp);dCHK(err);
   err = dFree2(xind,xstart);dCHK(err);
+
+  err = MatAssemblyBegin(fs->C,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyBegin(fs->Cp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(fs->C,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(fs->Cp,MAT_FINAL_ASSEMBLY);dCHK(err);
 
   /* FIXME: get EFS and Rule */
 

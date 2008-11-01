@@ -10,12 +10,12 @@ static dErr createHexMesh(iMesh_Instance mi)
 {
   double vtx[12*3] = {0,0,0, 1,0,0, 1,1,0, 0,1,0,
                       0,0,1, 1,0,1, 1,1,1, 0,1,1,
-                      2,0,0, 2,1,0, 2,0,1, 2,1,};
-  int rconn[16] = {0,1,2,3,4,5,6,7, 1,2,6,5,8,10,11,9};
+                      2,0,0, 2,1,0, 2,1,1, 2,1,0};
+  int rconn[16] = {0,1,2,3,4,5,6,7, 1,2,6,5,8,9,10,11};
   int fconn[11*4] = {0,1,2,3, 1,2,6,5, 2,3,7,6, 0,3,7,4, 0,1,5,4, 5,6,7,4,
-                     1,8,9,5, 8,10,11,9, 10,2,6,11, 1,8,10,2, 11,9,5,6};
-  int econn[20*2] = {0,1,4,5,7,6,3,2, 1,8,5,9,6,11,2,10,
-                     0,3,3,7,7,4,4,0, 1,2,2,6,6,5,5,1, 8,10,10,11,11,9,9,8};
+                     8,11,5,1, 2,1,8,9, 8,9,10,11, 11,10,6,5, 9,10,6,2};
+  int econn[20*2] = {0,1,4,5,7,6,3,2, 1,8,5,11,6,10,2,9,
+                     0,3,3,7,7,4,4,0, 1,2,2,6,6,5,5,1, 8,11,11,10,10,9,9,8};
   iBase_EntityHandle work[100];
   MeshListEH v=MLZ,e=MLZ,f=MLZ,r=MLZ,tv=MLZ;
   MeshListInt stat=MLZ,off=MLZ;
@@ -56,7 +56,7 @@ static dErr tagHexes(dMesh mesh,dMeshTag *intag)
   *intag = 0;
   err = dMeshTagCreateTemp(mesh,"anisotropic",3,dDATA_INT,&tag);dCHK(err);
   /* tag edges and faces with high values, currently needed to propogate degrees (will overwrite high values) */
-  for (dEntType type=dTYPE_EDGE; type<=dTYPE_FACE; type++) {
+  for (dEntType type=dTYPE_VERTEX; type<=dTYPE_FACE; type++) {
     err = dMeshGetEnts(mesh,0,type,dTOPO_ALL,ents,ALEN(ents),&nents);
     for (dInt i=0; i<3*nents; i++) adata[i] = 30;
     err = dMeshTagSetData(mesh,tag,ents,nents,adata,3*nents,dDATA_INT);dCHK(err);

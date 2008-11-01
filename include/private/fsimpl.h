@@ -40,6 +40,7 @@ struct _p_dFS {
   dInt                n,N;      /**< length of the owned and global vectors */
   dInt                nlocal;   /**< number of owned+ghost dofs on this process */
   dInt                rstart;   /**< global offset of first owned dof */
+  dInt                m;        /**< Number of expanded dofs */
   dInt                D;        /**< Number of dofs per (non-boundary) node */
   dRule              *rule;     /**< Integration rule */
   dEFS               *efs;      /**< Element function space, defined for all entities */

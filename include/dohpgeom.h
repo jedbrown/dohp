@@ -62,22 +62,21 @@ INLINE void dGeomConvexComb_2_4(dReal x,dReal y,const dReal v[],const dInt p[],d
   (dGeomMatch2((q)[0],(q)[1],(l)[0],(l)[1]) ? 0                         \
    : (dGeomMatch2((q)[1],(q)[2],(l)[0],(l)[1]) ? 1                      \
       : (dGeomMatch2((q)[2],(q)[3],(l)[0],(l)[1]) ? 2                   \
-         : (dGeomMatch2((q)[3],(q)[0],(l)[0],(l)[1]) ? 3 : -1)))) 
+         : (dGeomMatch2((q)[3],(q)[0],(l)[0],(l)[1]) ? 3 : -1))))
 
-/** 
-* Finds the permutation of a Quad face so that it fits on a Hex, assumes that you know which number the face is.
-* 
+/** Find the permutation of a Quad face so that it fits on a Hex, needs to know which number the face is.
+*
 * @param rv vertex handles of the region (the Hex), length 8
 * @param fv vertex handles of the face (the Quad), lenth 4
 * @param fnum face number in canonical face ordering
-* @param orient permutation, range {0..7}, error thrown if they don't fit
-* 
-* @return 
+* @param orient permutation, range {0..7}
+*
+* @return error if they don't fit
 */
 INLINE dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH fv[],int fnum,dInt *orient)
 {
-  static const dInt perm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},
-                                  {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
+  //static const dInt perm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2}, {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
+  static const dInt perm[8][4] = {{0,1,2,3},{3,0,1,2},{2,3,0,1},{1,2,3,0}, {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
   static const dInt permorient[8] = {0,1,2,3,4,5,6,7};
   dInt i;
 
@@ -101,7 +100,7 @@ INLINE dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH fv[],in
       dFunctionReturn(0);
     }
   }
-  dERROR(1,"Faces cannot be matched");
+  dERROR(1,"Face (Quad) cannot be matched to region (Hex)");
   dFunctionReturn(0);
 }
 
