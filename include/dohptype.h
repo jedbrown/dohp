@@ -161,4 +161,6 @@ typedef unsigned char dEntStatus;
   PetscStackPop; \
   return;}
 
+#define dASSERT(cond) if (!(cond)) { dERROR(1,"Assertion failed: " #cond); }
+
 #endif  /* _DOHPTYPE_H */
