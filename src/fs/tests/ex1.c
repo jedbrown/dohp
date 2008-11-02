@@ -6,6 +6,10 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 
+struct Options {
+  dTruth constant_degree;
+} gopt;
+
 static dErr createHexMesh(iMesh_Instance mi)
 {
   double vtx[12*3] = {0,0,0, 1,0,0, 1,1,0, 0,1,0,
@@ -45,15 +49,47 @@ static dErr createHexMesh(iMesh_Instance mi)
   dFunctionReturn(0);
 }
 
+/* Verify the adjacencies against these hand-verified values, should prevent regressions */
+static dErr verifyAdjacencies(dMesh mesh)
+{
+  const dInt nents = 45,toff[5] = {0,12,32,43,45};
+  const dInt adjoff[46] = {0,0,0,0,0, 0,0,0,0,0, 0,0,0,2,4, 6,8,10,12,14, 16,18,20,22,24, 26,28,30,32,34,
+                           36,38,40,44,48, 52,56,60,64,68, 72,76,80,84,90, 96};
+  const dInt adjind[96] = {0,1,4,5,7, 6,3,2,1,8, 5,11,6,10,2, 9,0,3,3,7,
+                           7,4,4,0,1, 2,2,6,6,5, 5,1,8,11,11, 10,10,9,9,8,
+                           12,24,15,20,24, 25,26,27,15,21, 14,25,20,21,22, 23,12,27,13,23,
+                           26,14,22,13,28, 17,27,16,24,16, 31,19,31,30,29, 28,29,18,26,17,
+                           30,18,25,19,36, 33,34,35,32,37, 39,42,41,38,33, 40};
+  const dInt adjperm[96] = {0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0,
+                            0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0,
+                            0,0,1,1,0, 0,0,0,1,0, 0,1,0,0,0, 0,0,1,1,0,
+                            1,1,0,0,0, 1,0,0,1,0, 1,1,1,1,1, 1,0,1,0,0,
+                            1,1,1,0,0, 0,0,7,4,1, 7,5,2,2,4, 0};
+  struct dMeshAdjacency ma;
+  dInt i;
+  dErr err;
+
+  dFunctionBegin;
+  err = dMeshGetAdjacency(mesh,0,&ma);dCHK(err);
+  dASSERT(ma.nents == nents);
+  for (i=0; i<ALEN(toff); i++) dASSERT(ma.toff[i] == toff[i]);
+  for (i=0; i<ALEN(adjoff); i++) dASSERT(ma.adjoff[i] == adjoff[i]);
+  for (i=0; i<ALEN(adjind); i++) dASSERT(ma.adjind[i] == adjind[i]);
+  for (i=0; i<ALEN(adjperm); i++) dASSERT(ma.adjperm[i] == adjperm[i]);
+  err = dMeshRestoreAdjacency(mesh,0,&ma);dCHK(err);
+  dFunctionReturn(0);
+}
+
 static dErr tagHexes(dMesh mesh,dMeshTag *intag)
 {
   dMeshTag tag;
   dMeshEH ents[100],hex[2];
-  dInt adata[3*ALEN(ents)],data[3*ALEN(hex)] = {3,4,5,6,7,8},nhex,nents;
+  dInt adata[3*ALEN(ents)],nonconst_data[3*ALEN(hex)] = {3,4,5,6,7,8},const_data[3*ALEN(hex)] = {4,4,4,4,4,4},*data,nhex,nents;
   dErr err;
 
   dFunctionBegin;
   *intag = 0;
+  data = (gopt.constant_degree) ? const_data : nonconst_data;
   err = dMeshTagCreateTemp(mesh,"anisotropic",3,dDATA_INT,&tag);dCHK(err);
   /* tag edges and faces with high values, currently needed to propogate degrees (will overwrite high values) */
   for (dEntType type=dTYPE_VERTEX; type<=dTYPE_FACE; type++) {
@@ -120,11 +156,16 @@ int main(int argc,char *argv[])
   err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
+  err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
+    gopt.constant_degree = dFALSE;
+    err = PetscOptionsTruth("-constant_degree","Use constant isotropic degree on all elements",NULL,gopt.constant_degree,&gopt.constant_degree,NULL);dCHK(err);
+  } err = PetscOptionsEnd();dCHK(err);
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   err = createHexMesh(mi);dCHK(err);
   err = dMeshView(mesh,viewer);dCHK(err);
+  err = verifyAdjacencies(mesh);dCHK(err);
   iMesh_getRootSet(mi,&domain,&err);dICHK(mi,err);
 
   err = dJacobiCreate(comm,&jac);dCHK(err);
