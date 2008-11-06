@@ -76,7 +76,7 @@ INLINE void dGeomConvexComb_2_4(dReal x,dReal y,const dReal v[],const dInt p[],d
 INLINE dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH fv[],int fnum,dInt *orient)
 {
   //static const dInt perm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2}, {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
-  static const dInt perm[8][4] = {{0,1,2,3},{3,0,1,2},{2,3,0,1},{1,2,3,0}, {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
+  static const dInt perm[8][4] = {{0,1,2,3},{3,0,1,2},{2,3,0,1},{1,2,3,0}, {0,3,2,1},{1,0,3,2},{2,1,0,3},{3,2,1,0}};
   static const dInt permorient[8] = {0,1,2,3,4,5,6,7};
   dInt i;
 

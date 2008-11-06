@@ -193,21 +193,27 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,const struct dMeshAd
 
 static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEntTopology top[],const dInt deg[],dInt inode[],dInt xnode[])
 {
+  dInt ideg[3];
+  const dInt *xdeg;
 
   dFunctionBegin;
   for (dInt i=0; i<count; i++) {
+    for (dInt j=0; j<3; j++) {
+      ideg[j] = dMax(0,deg[3*i+j]-2);
+    }
+    xdeg = deg+3*i;
     switch (top[i]) {
       case dTOPO_HEX:
-        if (inode) inode[i] = (deg[3*i]-1)*(deg[3*i+1]-1)*(deg[3*i+2]-1);
-        if (xnode) xnode[i] = deg[3*i]*deg[3*i+1]*deg[3*i+2];
+        if (inode) inode[i] = ideg[0]*ideg[1]*ideg[2];
+        if (xnode) xnode[i] = xdeg[0]*xdeg[1]*xdeg[2];
         break;
       case dTOPO_QUAD:
-        if (inode) inode[i] = (deg[3*i]-1)*(deg[3*i+1]-1);
-        if (xnode) xnode[i] = deg[3*i]*deg[3*i+1];
+        if (inode) inode[i] = ideg[0]*ideg[1];
+        if (xnode) xnode[i] = xdeg[0]*xdeg[1];
         break;
       case dTOPO_LINE:
-        if (inode) inode[i] = deg[3*i]-1;
-        if (xnode) xnode[i] = deg[3*i];
+        if (inode) inode[i] = ideg[0];
+        if (xnode) xnode[i] = xdeg[0];
         break;
       case dTOPO_POINT:
         if (inode) inode[i] = 1;
@@ -273,14 +279,14 @@ static inline dInt same2(dInt a,dInt b)
 */
 static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2],dInt *ind)
 {
-  const dInt M = dim[0]-2,N = dim[1]-2,i = ij[0]-1,j = ij[1]-1;
+  const dInt M = dim[0]-2,N = dim[1]-2,i = ij[0],j = ij[1];
 
   dFunctionBegin;
   switch (perm) {
     case 0: *ind = i*N + j; break;
-    case 1: *ind = i + (N-1-j)*M; break;
+    case 1: *ind = (M-1-i) + j*M; break;
     case 2: *ind = (M-1-i)*N + (N-1-j); break;
-    case 3: *ind = (M-1-i)*N + j; break;
+    case 3: *ind = i + (N-1-j)*M; break;
     case 4: *ind = i + j*M; break;
     case 5: *ind = i*N + (N-1-j); break;
     case 6: *ind = (M-1-i) + (N-1-j)*M; break;
@@ -367,8 +373,8 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             {{d0-2,d1-1,1},{0,2},{-1,1},{0,d2-1}}, {{0,d1-2,1},{1,2},{-1,1},{0,d2-1}},
             {{1,1,0},{1,0},{1,1},{d1-1,d0-1}},     {{1,1,d2-1},{0,1},{1,1},{d0-1,d1-1}}};
           const dInt *start = F[i].start,*incd = F[i].incd,*inc = F[i].inc,*end = F[i].end;
-          for (j=start[incd[0]]; j!=end[incd[0]]; j+=inc[incd[0]]) {
-            for (k=start[incd[1]]; j!=end[incd[1]]; j+=inc[incd[1]]) {
+          for (j=start[incd[0]]; j!=end[0]; j+=inc[0]) {
+            for (k=start[incd[1]]; k!=end[1]; k+=inc[1]) {
               const dInt faceDim[2] = {d[incd[0]],d[incd[1]]};
               dInt facejk[2],faceIndex;
               nrow = ncol = 0;
@@ -377,7 +383,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
               facejk[0] = (j-start[incd[0]])/inc[0];
               facejk[1] = (k-start[incd[1]])/inc[1];
               err = dGeomPermQuadIndex(fP[i],faceDim,facejk,&faceIndex);dCHK(err);
-              icol[ncol++] = is[e[i]] + faceIndex;
+              icol[ncol++] = is[f[i]] + faceIndex;
               interp[0] = 1;
               err = MatSetValues(C, nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
               err = MatSetValues(Cp,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
