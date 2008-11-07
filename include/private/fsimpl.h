@@ -2,7 +2,7 @@
 #define _FSIMPL_H
 
 #include "dohpfs.h"
-#include "src/dm/dmimpl.h"
+#include "private/dmimpl.h"
 
 PETSC_EXTERN_CXX_BEGIN
 

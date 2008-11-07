@@ -2,8 +2,7 @@
 #define _DOHPIMPL_H
 
 #include "dohp.h"
-#include "src/dm/dmimpl.h"
-// #include "private/jacimpl.h"
+#include "private/dmimpl.h"
 
 PetscCookie dDM_COOKIE,dMFS_COOKIE;
 PetscLogEvent dLOG_MatMult, dLOG_FunctionEval, dLOG_JacobianEval;
