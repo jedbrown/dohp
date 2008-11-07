@@ -320,7 +320,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             {{0,2,1},{5,0,0}}, {{1,2,1},{5,1,0}}, {{2,2,1},{5,2,0}}, {{3,2,1},{5,3,0}},  /* top */
             {{0,3,1},{3,1,0}}, {{0,1,0},{1,3,1}}, {{1,1,0},{2,3,1}}, {{2,1,0},{3,3,1}}}; /* vertical */
           //const dInt fperm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2},{3,2,1,0},{0,3,2,1},{1,0,3,2},{0,3,2,1}};
-          const dInt iperm[8][4] = {{0,1,2,3},{3,0,1,2},{2,3,0,1},{1,2,3,0},{3,2,1,0},{0,3,2,1},{1,0,3,2},{0,3,2,1}};
+          const dInt iperm[8][4] = {{0,1,2,3},{3,0,1,2},{2,3,0,1},{1,2,3,0},{3,2,1,0},{0,3,2,1},{1,0,3,2},{2,1,0,3}};
           const dInt ef0 = fe[i][0].f,ef1 = fe[i][1].f;
           e[i] = aI[aO[f[ef0]] + iperm[fP[ef0]][fe[i][0].e]];
           if (e[i] != aI[aO[f[ef1]] + iperm[fP[ef1]][fe[i][1].e]])
@@ -364,7 +364,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             }
             interp[0] = 1;
             err = MatSetValues(C,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
-            err = MatSetValues(C,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
+            err = MatSetValues(Cp,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
           }
         }
         for (i=0; i<6; i++) { /* Faces */
