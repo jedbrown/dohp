@@ -247,7 +247,9 @@ static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const d
         default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
       }
     } else {
-      nnz[i] = pnnz[i] = 1;
+      for (j=xs[i]; j<xs[i+1]; j++) {
+        nnz[j] = pnnz[j] = 1;
+      }
     }
   }
   dFunctionReturn(0);
@@ -349,13 +351,13 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
           err = MatSetValue(Cp,xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
         }
         for (i=0; i<12; i++) { /* Set edges */
-          const struct {dInt start[3],incd,inci,end;} E[12] = { /* How to traverse the edge in forward order */
-            {{1,0,0},0,1,d0-1}, {{d0-1,1,0},1,1,d1-1}, {{d0-1,d1-1,0},0,-1,0}, {{0,d1-1,0},1,-1,0},
-            {{1,0,d2-1},0,1,d0-1}, {{d0-1,1,d2-1},1,1,d1-1}, {{d0-1,d1-1,d2-1},0,-1,0}, {{0,d1-1,d2-1},1,-1,0},
+          const struct {dInt start[3],incd,inci,end;} E[12] = { /* How to traverse the interior of the edge in forward order */
+            {{1,0,0},0,1,d0-1}, {{d0-1,1,0},1,1,d1-1}, {{d0-2,d1-1,0},0,-1,0}, {{0,d1-2,0},1,-1,0},
+            {{1,0,d2-1},0,1,d0-1}, {{d0-1,1,d2-1},1,1,d1-1}, {{d0-2,d1-1,d2-1},0,-1,0}, {{0,d1-2,d2-1},1,-1,0},
             {{0,0,1},2,1,d2-1}, {{d0-1,0,1},2,1,d2-1}, {{d0-1,d1-1,1},2,1,d2-1}, {{0,d1-1,1},2,1,d2-1}};
           const dInt *start = E[i].start,incd = E[i].incd,inci = E[i].inci,end = E[i].end;
           if (deg[3*e[i]] != deg[3*ei+E[i].incd]) dERROR(1,"degree does not agree, p-nonconforming");
-          for (j=E[i].start[E[i].incd]; j!=E[i].end; j += E[i].inci) {
+          for (j=start[incd]; j!=end; j += inci) {
             nrow = 0; ncol = 0;
             irow[nrow++] = xs[elem] + (start[0]*d1+start[1])*d2+start[2] + (j-start[incd])*scan[incd];
             switch (eP[i]) {
@@ -395,7 +397,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
           for (k=1; k<d1-1; k++) {
             for (l=1; l<d2-1; l++) {
               irow[0] = xs[elem] + (j*d1+k)*d2+l;
-              icol[0] = is[elem] + ((j-1)*(d1-1)+(k-1))*(d2-1)+(l-1);
+              icol[0] = is[ei] + ((j-1)*(d1-2)+(k-1))*(d2-2)+(l-1);
               interp[0] = 1;
               err = MatSetValues(C, 1,irow,1,icol,interp,INSERT_VALUES);dCHK(err);
               err = MatSetValues(Cp,1,irow,1,icol,interp,INSERT_VALUES);dCHK(err);
