@@ -1,6 +1,5 @@
 project (Dohp)
-
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 2.6.2)
 
 list (APPEND CMAKE_MODULE_PATH "${Dohp_SOURCE_DIR}/CMake")
 
@@ -15,11 +14,9 @@ mark_as_advanced(MPI_COMPILER MPI_EXEC)
 # PETSc knows how to link MPI so we don't need to find it separately.
 #find_package (MPI REQUIRED)
 
-# How do we identify whether all libs link against the same MPI?
-
 #find_package (Doxygen)
 
-include_directories (${PETSC_INCLUDE_PATH} ${IMESH_INCLUDE_PATH} ${MPI_INCLUDE_PATH})
+include_directories (${PETSC_INCLUDES} ${IMESH_INCLUDES} ${MPI_INCLUDE_PATH})
 add_definitions (${PETSC_DEFINITIONS} ${MPI_COMPILE_FLAGS})
 
 option (Dohp_USE_DEBUG     "Compile with debugging support" ON)
@@ -48,7 +45,7 @@ add_custom_target (etags
   etags `find include src sandbox -name *.[ch]`
   WORKING_DIRECTORY ${Dohp_SOURCE_DIR})
 
-include_directories (${Dohp_SOURCE_DIR} ${Dohp_SOURCE_DIR}/include)
+include_directories (${Dohp_SOURCE_DIR}/include)
 
 set (Dohp_LIBRARIES dohp ${IMESH_LIBRARIES} ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
 
