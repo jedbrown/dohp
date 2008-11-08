@@ -120,7 +120,8 @@ typedef unsigned char dEntStatus;
 
 #define dMax(a,b) PetscMax(a,b)
 #define dMin(a,b) PetscMin(a,b)
-#define dSqr(a) PetscSqr(a)
+#define dSqr(a)   PetscSqr(a)
+#define dAbs(a)   PetscAbs(a)
 
 #define dGamma(a) tgamma(a) /* This is defined in math.h as of C99. */
 

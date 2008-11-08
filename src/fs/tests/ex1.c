@@ -139,6 +139,52 @@ static dErr examine(dMesh mesh,dMeshTag tag)
   dFunctionReturn(0);
 }
 
+static dErr useFS(dFS fs)
+{
+  Vec x,y,g;
+  dScalar *xx;
+  dReal norm;
+  dInt nx=-1;
+  dErr err;
+
+  dFunctionBegin;
+  err = dFSCreateGlobalVector(fs,&g);dCHK(err);
+  err = dFSCreateExpandedVector(fs,&x);dCHK(err);
+  err = VecGetSize(x,&nx);dCHK(err);
+  {
+    dInt n,rstart,rend;
+    err = VecGetSize(g,&n);dCHK(err);
+    err = VecGetOwnershipRange(g,&rstart,&rend);dCHK(err);
+    err = PetscPrintf(PETSC_COMM_WORLD,"expanded size %d, global size %d, range %d .. %d \n",nx,n,rstart,rend);dCHK(err);
+  }
+  err = VecDuplicate(x,&y);dCHK(err);
+  err = VecGetArray(x,&xx);dCHK(err);
+  for (dInt i=0; i<nx; i++) {
+    xx[i] = 1000 + 1.0 * i;
+  }
+  err = VecRestoreArray(x,&xx);dCHK(err);
+  err = VecSet(x,1.0);dCHK(err);
+  err = dFSExpandedToGlobal(fs,x,INSERT_VALUES,g);dCHK(err);
+  err = dFSGlobalToExpandedBegin(fs,g,INSERT_VALUES,y);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,g,INSERT_VALUES,y);dCHK(err);
+  {
+    dScalar xsum,ysum,gsum;
+    err = VecSum(x,&xsum);dCHK(err);
+    err = VecSum(g,&gsum);dCHK(err);
+    err = VecSum(y,&ysum);dCHK(err);
+    err = PetscPrintf(PETSC_COMM_WORLD,"|x| = %f, |g| = %f, |y| = %f\n",xsum,gsum,ysum);dCHK(err);
+    if (dAbs(xsum-gsum) > 1e-14) dERROR(1,"Expanded sum does not match global sum");
+    /* There are 16 points on the interface between the elements, these points get double-counted in both elements, so
+    * the expanded sum is larger than the global sum by 32. */
+    if (dAbs(ysum-gsum-32) > 1e-14) dERROR(1,"Unexpected expanded sum %f != %f + 32",ysum,gsum);
+  }
+  if (norm != 0) dERROR(1,"Norm does not agree.");
+  err = VecDestroy(x);dCHK(err);
+  err = VecDestroy(y);dCHK(err);
+  err = VecDestroy(g);dCHK(err);
+  dFunctionReturn(0);
+}
+
 int main(int argc,char *argv[])
 {
   /* const char pTagName[] = "dohp_partition"; */
@@ -180,6 +226,8 @@ int main(int argc,char *argv[])
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
+
+  err = useFS(fs);dCHK(err);
 
   err = examine(mesh,dtag);dCHK(err);
 

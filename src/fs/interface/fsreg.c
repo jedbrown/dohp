@@ -10,9 +10,13 @@ static PetscFList FSList = 0;
 */
 static const struct _dFSOps defaultFSOps = { .view = dFSView,
                                              .createglobalvector = dFSCreateGlobalVector,
-                                             .createlocalvector = dFSCreateLocalVector,
-                                             .destroy = dFSDestroy,
-                                             .impldestroy = 0};
+                                             .createlocalvector  = dFSCreateExpandedVector,
+                                             .localtoglobal      = dFSExpandedToGlobal,
+                                             .globaltolocalbegin = dFSGlobalToExpandedBegin,
+                                             .globaltolocalend   = dFSGlobalToExpandedEnd,
+                                             .getmatrix          = dFSGetMatrix,
+                                             .destroy            = dFSDestroy,
+                                             .impldestroy        = 0};
 
 dErr dFSCreate(MPI_Comm comm,dFS *infs)
 {

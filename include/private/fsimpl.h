@@ -46,6 +46,7 @@ struct _p_dFS {
   dEFS               *efs;      /**< Element function space, defined for all entities */
   Mat                 C;        /**< full-order constraint matrix (element dofs to local numbering) */
   Mat                 Cp;       /**< preconditioning constraint matrix (element dofs to local numbering, as sparse as possible) */
+  Vec                 weight;   /**< Vector in global space, used to compensate for overcounting after local to global */
   void               *data;
 };
 

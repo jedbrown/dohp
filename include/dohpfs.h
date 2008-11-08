@@ -34,8 +34,12 @@ EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSAddBdy(dFS,const char*,dMeshESH,dMeshTag,dBool,PF); /* name, facets, orientation tag, flip orientation?, normal -> constraints */
 EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);
-EXTERN dErr dFSCreateLocalVector(dFS,Vec*);
+EXTERN dErr dFSCreateExpandedVector(dFS,Vec*);
 EXTERN dErr dFSCreateGlobalVector(dFS,Vec*);
+EXTERN dErr dFSGlobalToExpandedBegin(dFS,Vec,InsertMode,Vec);
+EXTERN dErr dFSGlobalToExpandedEnd(dFS,Vec,InsertMode,Vec);
+EXTERN dErr dFSExpandedToGlobal(dFS,Vec,InsertMode,Vec);
+EXTERN dErr dFSGetMatrix(dFS,const MatType,Mat*);
 EXTERN dErr dFSBuildSpace(dFS);
 EXTERN dErr dFSGetBoundaryType(dFS,dInt,const dMeshEH[],dBdyType[]);
 EXTERN dErr dFSCreateSubspace(dFS,dInt,dFSBoundary,dFS*);

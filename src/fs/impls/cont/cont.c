@@ -144,7 +144,11 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dFree(fieldSpec);dCHK(err);
 
   err = SlicedCreate(((dObject)fs)->comm,&fs->sliced);dCHK(err);
-  err = SlicedSetGhosts(fs->sliced,1,fs->n,fs->nlocal-fs->n,ghostind);dCHK(err);
+  if (fs->nlocal-fs->n == 0) {
+    err = SlicedSetGhosts(fs->sliced,1,fs->n,0,NULL);dCHK(err);
+  } else {
+    err = SlicedSetGhosts(fs->sliced,1,fs->n,fs->nlocal-fs->n,ghostind);dCHK(err);
+  }
   err = dFree(ghostind);dCHK(err);
 
   /**
@@ -178,8 +182,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dJacobiGetConstraintCount(fs->jacobi,nregions,xind,xstart,deg,&ma,nnz,pnnz);dCHK(err);
 
   /* We don't solve systems with these so it will never make sense for them to use a different format */
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,fs->m,fs->nlocal,-1,nnz,&fs->C);dCHK(err);
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,fs->m,fs->nlocal,-1,pnnz,&fs->Cp);dCHK(err);
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,fs->m,fs->nlocal,1,nnz,&fs->C);dCHK(err);
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,fs->m,fs->nlocal,1,pnnz,&fs->Cp);dCHK(err);
   err = dFree2(nnz,pnnz);dCHK(err);
 
   err = dJacobiAddConstraints(fs->jacobi,nregions,xind,xstart,istart,deg,&ma,fs->C,fs->Cp);dCHK(err);

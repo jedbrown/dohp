@@ -191,53 +191,125 @@ dErr dFSDestroy(dFS fs)
 */
 dErr dFSBuildSpace(dFS fs)
 {
-  dMesh mesh = fs->mesh;
-  iMesh_Instance mi;
+  Vec x,g;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  /**
+  /*
   * FIXME:
   *
   */
-  err = dMeshGetInstance(mesh,&mi);dCHK(err);
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
   }
+
+  /* Determine the number of elements in which each dof appears */
+  err = dFSCreateExpandedVector(fs,&x);dCHK(err);
+  err = dFSCreateGlobalVector(fs,&g);dCHK(err);
+  err = VecSet(x,1);dCHK(err);
+  err = VecZeroEntries(g);dCHK(err);
+  err = dFSExpandedToGlobal(fs,x,ADD_VALUES,g);dCHK(err);
+  err = VecGhostUpdateBegin(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecDestroy(x);dCHK(err);
+
   fs->spacebuilt = true;
   dFunctionReturn(0);
 }
 
-dErr dFSCreateLocalVector(dFS fs,Vec *U)
+dErr dFSCreateExpandedVector(dFS fs,Vec *x)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  dValidPointer(U,2);
-  *U = 0;
-  if (fs->sliced) {
-    err = SlicedCreateLocalVector(fs->sliced,U);dCHK(err);
-  } else {
-    dERROR(1,"no sliced");
-  }
+  dValidPointer(x,2);
+  err = MatGetVecs(fs->C,NULL,x);dCHK(err);
   dFunctionReturn(0);
 }
 
-dErr dFSCreateGlobalVector(dFS fs,Vec *U)
+dErr dFSCreateGlobalVector(dFS fs,Vec *g)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  dValidHeader(U,VEC_COOKIE,2);
-  if (fs->sliced) {
-    err = SlicedCreateGlobalVector(fs->sliced,U);dCHK(err);
-  } else {
-    dERROR(1,"no sliced");
-  }
+  dValidPointer(g,2);
+  err = SlicedCreateGlobalVector(fs->sliced,g);dCHK(err);
   dFunctionReturn(0);
+}
+
+dErr dFSGlobalToExpandedBegin(dFS fs,Vec g,InsertMode imode,Vec x)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(x,VEC_COOKIE,4);
+  err = VecGhostUpdateBegin(g,imode,SCATTER_FORWARD);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSGlobalToExpandedEnd(dFS fs,Vec g,InsertMode imode,Vec x)
+{
+  Vec lform;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(x,VEC_COOKIE,4);
+  err = VecGhostUpdateEnd(g,imode,SCATTER_FORWARD);dCHK(err);
+  err = VecGhostGetLocalForm(g,&lform);dCHK(err);
+  switch (imode) {
+    case INSERT_VALUES:
+      err = MatMult(fs->C,lform,x);dCHK(err);
+      break;
+    case ADD_VALUES:
+      err = MatMultAdd(fs->C,lform,x,x);dCHK(err);
+      break;
+    default:
+      dERROR(1,"InsertMode %d not supported",imode);
+  }
+  err = VecGhostRestoreLocalForm(g,&lform);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSExpandedToGlobal(dFS fs,Vec x,InsertMode imode,Vec g)
+{
+  Vec lform;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(x,VEC_COOKIE,2);
+  dValidHeader(g,VEC_COOKIE,4);
+  err = VecGhostGetLocalForm(g,&lform);dCHK(err);
+  switch (imode) {
+    case INSERT_VALUES:
+      err = MatMultTranspose(fs->C,x,lform);dCHK(err);
+      break;
+    case ADD_VALUES:
+      err = MatMultTransposeAdd(fs->C,x,lform,lform);dCHK(err);
+      break;
+    default:
+      dERROR(1,"InsertMode %d not supported",imode);
+  }
+  err = VecGhostRestoreLocalForm(g,&lform);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *J)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidPointer(J,3);
+  err = SlicedGetMatrix(fs->sliced,mtype,J);dCHK(err);
+  dFunctionReturn(0);dCHK(err);
 }
 
 /**
