@@ -35,6 +35,7 @@ struct _p_dFS {
   dQuotient           quotient;
   dJacobi             jacobi;
   dTruth              spacebuilt;
+  dTruth              assemblefull; /**< Use full order constraints for assembly */
   Sliced              sliced;
   dInt                nbdofs;
   dInt                n,N;      /**< length of the owned and global vectors */

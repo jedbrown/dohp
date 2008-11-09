@@ -312,6 +312,75 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *J)
   dFunctionReturn(0);dCHK(err);
 }
 
+dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const dInt idxn[],const dScalar v[],InsertMode imode)
+{
+  dInt lidxms[128],lidxns[128];
+  dScalar lvs[1024],lvts[1024];
+  Mat C;
+  dInt lm,ln,*lidxm = lidxms,*lidxn = lidxns;
+  dInt i,j,k,li,lj,row,col,cn,*ci,*cj;
+  dScalar *lv = lvs,*lvt = lvts,*ca;
+  dTruth done;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(A,MAT_COOKIE,2);
+  dValidPointer(idxm,4);dCHK(err);
+  dValidPointer(idxn,6);dCHK(err);
+  dValidPointer(v,7);dCHK(err);
+  C = (fs->assemblefull) ? fs->C : fs->Cp;
+  err = MatGetRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
+  if (!done) dERROR(1,"Could not get indices");
+  err = MatGetArray(C,&ca);dCHK(err);
+  for (i=0,lm=0; i<m; i++) {
+    /* Count the number of columns in constraint matrix for each row of input matrix, this will be the total number of
+    * rows in result matrix */
+    lm += ci[idxm[i]+1] - ci[idxm[i]];
+  }
+  for (j=0,ln=0; j<n; j++) {
+    /* Count the number of columns in constraint matrix for each column of input matrix, this will be the total number of
+    * columns in result matrix */
+    ln += ci[idxn[j]+1] - ci[idxn[j]];
+  }
+  if (lm > 128) {err = dMallocA(lm,&lidxm);dCHK(err);}
+  if (ln > 128) {err = dMallocA(ln,&lidxn);dCHK(err);}
+  if (lm*ln > 1024) {err = dMallocA(lm*ln,&lv);dCHK(err);}
+  if (m*ln > 1024) {err = dMallocA(lm*n,&lv);dCHK(err);}
+
+  /* Expand columns into temporary matrix \a lvt */
+  for (j=0,lj=0; j<n; j++) {         /* columns in input matrix */
+    col = idxn[j];
+    for (k=ci[col]; k<ci[col+1]; k++) { /* become columns in temporary matrix */
+      for (i=0; i<m; i++) {       /* row */
+        lvt[i*ln+lj] = ca[k] * v[i*n+j];
+      }
+      lidxn[lj++] = cj[k];
+    }
+  }
+  /* Expand rows of temporary matrix \a lvt into \a lv */
+  for (i=0,li=0; i<m; i++) {         /* rows of temporary matrix */
+    row = idxm[i];
+    for (k=ci[row]; k<ci[row+1]; k++) {
+      for (j=0; j<ln; j++) {
+        lv[li*ln+j] = ca[k] * lvt[i*ln+j];
+      }
+      lidxm[li++] = cj[k];
+    }
+  }
+
+  err = MatRestoreArray(C,&ca);dCHK(err);
+  err = MatRestoreRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
+  if (!done) dERROR(1,"Failed to return indices");
+  err = MatSetValuesLocal(A,lm,lidxm,ln,lidxn,lv,imode);dCHK(err);
+
+  if (lidxm != lidxms) {err = dFree(lidxm);dCHK(err);}
+  if (lidxn != lidxms) {err = dFree(lidxn);dCHK(err);}
+  if (lv != lvs)       {err = dFree(lv);dCHK(err);}
+  if (lvt != lvts)     {err = dFree(lvt);dCHK(err);}
+  dFunctionReturn(0);
+}
+
 /**
 * Create a function space based on a simpler space
 *
