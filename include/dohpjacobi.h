@@ -28,19 +28,41 @@ PETSC_EXTERN_CXX_BEGIN
 extern PetscCookie dJACOBI_COOKIE;
 
 /**
-* Handle for manipulating EFS objects.  Since these are actually stored in arrays, the handle is the actual object
-* rather than just a pointer.  This means that a certain amount of library code (dFS) will have to be able to see the
-* struct definition (in order to know the size, to make an array).  This is okay since the objects are so simple
-* (everything is implementation-dependent, the details of which are still hidden).
-*
+* Handle for manipulating EFS objects.  The EFS are stored directly in arrays so other components (like dFS) will have
+* to be able to see the struct definition in order to know the size.  This is okay since the objects are so simple that
+* they should never change.  Note that implementations must have the same size as the opaque prototype (this might
+* require a union in some cases).  The tensor products are always okay.
 */
-typedef struct p_dEFS *dEFS;
+typedef struct s_dEFS *dEFS;
 
 /**
-* As above, the handle is the actual object.
-*
+* Handle for manipulating dRule objects (quadrature rules)
 */
-typedef struct p_dRule *dRule;
+typedef struct s_dRule *dRule;
+
+/**
+* The vtable is allocated by the dJacobi, one for each element topology and amount of unrolling.  We could move the
+* vtable here if we were worried about inlining, but performance studies show that it doesn't actually matter.
+*/
+#define dEFSHEADER                              \
+  struct _dEFSOps *ops;                         \
+  dRule            rule
+
+/** This struct should only be referenced in code that holds the array. */
+typedef struct s_dEFS {
+  dEFSHEADER;
+  void *opaque[3];
+} s_dEFS;
+
+
+#define dRuleHEADER                             \
+  struct _dRuleOps *ops
+
+/** This struct should only be referenced in code that holds the array. */
+typedef struct s_dRule {
+  dRuleHEADER;
+  void *opaque[3];
+} s_dRule;
 
 /**
 * Indicates whether or not to apply the transpose of a interpolation/derivative matrix.

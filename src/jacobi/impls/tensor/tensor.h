@@ -127,36 +127,20 @@ struct s_Tensor {
   dInt M;                       /**< number of rules */
   dInt N;                       /**< basis size limit */
   /* dBufferList data; */
-  struct v_dRuleOps *ruleOpsLine,*ruleOpsQuad,*ruleOpsHex;
-  struct v_dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
+  struct _dRuleOps *ruleOpsLine,*ruleOpsQuad,*ruleOpsHex;
+  struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
   dBool setupcalled;
 };
 
-struct s_dRule_Tensor_Line {
-  dRuleHEADER;
-  TensorRule trule[1];
-};
-struct s_dRule_Tensor_Quad {
-  dRuleHEADER;
-  TensorRule trule[2];
-};
-struct s_dRule_Tensor_Hex {
+typedef struct {
   dRuleHEADER;
   TensorRule trule[3];
-};
+} dRule_Tensor;
 
-struct s_dEFS_Tensor_Line {
-  dEFSHEADER;
-  TensorBasis basis[1];
-};
-struct s_dEFS_Tensor_Quad {
-  dEFSHEADER;
-  TensorBasis basis[2];
-};
-struct s_dEFS_Tensor_Hex {
+typedef struct {
   dEFSHEADER;
   TensorBasis basis[3];
-};
+} dEFS_Tensor;
 
 EXTERN dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac);
 EXTERN dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);

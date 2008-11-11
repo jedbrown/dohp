@@ -55,39 +55,39 @@ _F(TensorMult_Hex);
 */
 dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
 {
-  static const struct v_dEFSOps efsOpsLine = { .view = dEFSView_Tensor_Line,
-                                               .getSizes = dEFSGetSizes_Tensor_Line,
-                                               .getTensorNodes = dEFSGetTensorNodes_Tensor_Line,
-                                               .apply = dEFSApply_Tensor_Line,
-                                               .scatterInt = 0,
-                                               .scatterFacet = 0 };
-  static const struct v_dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
-                                               .getSizes = dEFSGetSizes_Tensor_Quad,
-                                               .getTensorNodes = dEFSGetTensorNodes_Tensor_Quad,
-                                               .apply = dEFSApply_Tensor_Quad,
-                                               .scatterInt = 0,
-                                               .scatterFacet = 0 };
-  static const struct v_dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
-                                               .getSizes = dEFSGetSizes_Tensor_Hex,
-                                               .getTensorNodes = dEFSGetTensorNodes_Tensor_Hex,
-                                               .apply = dEFSApply_Tensor_Hex,
-                                               .scatterInt = 0,
-                                               .scatterFacet = 0 };
+  static const struct _dEFSOps efsOpsLine = { .view = dEFSView_Tensor_Line,
+                                              .getSizes = dEFSGetSizes_Tensor_Line,
+                                              .getTensorNodes = dEFSGetTensorNodes_Tensor_Line,
+                                              .apply = dEFSApply_Tensor_Line,
+                                              .scatterInt = 0,
+                                              .scatterFacet = 0 };
+  static const struct _dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
+                                              .getSizes = dEFSGetSizes_Tensor_Quad,
+                                              .getTensorNodes = dEFSGetTensorNodes_Tensor_Quad,
+                                              .apply = dEFSApply_Tensor_Quad,
+                                              .scatterInt = 0,
+                                              .scatterFacet = 0 };
+  static const struct _dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
+                                              .getSizes = dEFSGetSizes_Tensor_Hex,
+                                              .getTensorNodes = dEFSGetTensorNodes_Tensor_Hex,
+                                              .apply = dEFSApply_Tensor_Hex,
+                                              .scatterInt = 0,
+                                              .scatterFacet = 0 };
   Tensor this = (Tensor)jac->impl;
   dErr err;
 
   dFunctionBegin;
   if (!this->efsOpsLine) {
-    err = dMalloc(sizeof(struct v_dEFSOps),&this->efsOpsLine);dCHK(err);
-    err = dMemcpy(this->efsOpsLine,&efsOpsLine,sizeof(struct v_dEFSOps));
+    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsLine);dCHK(err);
+    err = dMemcpy(this->efsOpsLine,&efsOpsLine,sizeof(struct _dEFSOps));
   }
   if (!this->efsOpsQuad) {
-    err = dMalloc(sizeof(struct v_dEFSOps),&this->efsOpsQuad);dCHK(err);
-    err = dMemcpy(this->efsOpsQuad,&efsOpsQuad,sizeof(struct v_dEFSOps));
+    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsQuad);dCHK(err);
+    err = dMemcpy(this->efsOpsQuad,&efsOpsQuad,sizeof(struct _dEFSOps));
   }
   if (!this->efsOpsHex) {
-    err = dMalloc(sizeof(struct v_dEFSOps),&this->efsOpsHex);dCHK(err);
-    err = dMemcpy(this->efsOpsHex,&efsOpsHex,sizeof(struct v_dEFSOps));
+    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsHex);dCHK(err);
+    err = dMemcpy(this->efsOpsHex,&efsOpsHex,sizeof(struct _dEFSOps));
   }
   dFunctionReturn(0);
 }
@@ -131,7 +131,7 @@ static dErr dEFSView_Tensor_Line(dEFS efs,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Tensor_Private("Tensor_Line",efs->rule,1,((struct s_dEFS_Tensor_Line*)efs)->basis,viewer);dCHK(err);
+  err = dEFSView_Tensor_Private("Tensor_Line",efs->rule,1,((dEFS_Tensor*)efs)->basis,viewer);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr dEFSView_Tensor_Quad(dEFS efs,PetscViewer viewer)
@@ -139,7 +139,7 @@ static dErr dEFSView_Tensor_Quad(dEFS efs,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Tensor_Private("Tensor_Quad",efs->rule,2,((struct s_dEFS_Tensor_Quad*)efs)->basis,viewer);dCHK(err);
+  err = dEFSView_Tensor_Private("Tensor_Quad",efs->rule,2,((dEFS_Tensor*)efs)->basis,viewer);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr dEFSView_Tensor_Hex(dEFS efs,PetscViewer viewer)
@@ -147,13 +147,13 @@ static dErr dEFSView_Tensor_Hex(dEFS efs,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Tensor_Private("Tensor_Hex",efs->rule,3,((struct s_dEFS_Tensor_Hex*)efs)->basis,viewer);dCHK(err);
+  err = dEFSView_Tensor_Private("Tensor_Hex",efs->rule,3,((dEFS_Tensor*)efs)->basis,viewer);dCHK(err);
   dFunctionReturn(0);
 }
 
 static dErr dEFSGetSizes_Tensor_Line(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Line*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 1;
@@ -163,7 +163,7 @@ static dErr dEFSGetSizes_Tensor_Line(dEFS efs,dInt *dim,dInt *inodes,dInt *total
 }
 static dErr dEFSGetSizes_Tensor_Quad(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 2;
@@ -173,7 +173,7 @@ static dErr dEFSGetSizes_Tensor_Quad(dEFS efs,dInt *dim,dInt *inodes,dInt *total
 }
 static dErr dEFSGetSizes_Tensor_Hex(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 3;
@@ -184,7 +184,7 @@ static dErr dEFSGetSizes_Tensor_Hex(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 
 static dErr dEFSGetTensorNodes_Tensor_Line(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Line*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 1;
@@ -195,7 +195,7 @@ static dErr dEFSGetTensorNodes_Tensor_Line(dEFS efs,dInt *dim,dInt tsize[restric
 
 static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 2;
@@ -208,7 +208,7 @@ static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS efs,dInt *dim,dInt tsize[restric
 
 static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
   dFunctionBegin;
   if (dim) *dim = 3;
@@ -221,7 +221,7 @@ static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[restrict
 
 static dErr dEFSApply_Tensor_Line(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
   /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[1];
   dInt P[1],Q[1],chunk;
@@ -268,7 +268,7 @@ static dErr dEFSApply_Tensor_Line(dEFS efs,dInt D,dInt *wlen,dScalar**restrict w
 
 static dErr dEFSApply_Tensor_Quad(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Quad*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
   /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[2];
   dInt P[2],Q[2],chunk;
@@ -315,7 +315,7 @@ static dErr dEFSApply_Tensor_Quad(dEFS efs,dInt D,dInt *wlen,dScalar**restrict w
 
 static dErr dEFSApply_Tensor_Hex(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
-  TensorBasis *b = ((struct s_dEFS_Tensor_Hex*)efs)->basis;
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
   /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[3];
   dInt P[3],Q[3],chunk;

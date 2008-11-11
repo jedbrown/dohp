@@ -9,7 +9,7 @@ PETSC_EXTERN_CXX_BEGIN
 * There is exactly one #dRule on each element.  The ops table is normally shared across the domain.
 *
 */
-struct v_dRuleOps {
+struct _dRuleOps {
   dErr (*view)(dRule,PetscViewer);
   dErr (*getSize)(dRule,dInt*,dInt*); /**< topological dimension of the space, total number of nodes */
   dErr (*getNodeWeight)(dRule,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
@@ -19,18 +19,11 @@ struct v_dRuleOps {
                                                                                * be implemented.  */
 };
 
-#define dRuleHEADER                             \
-  struct v_dRuleOps *ops
-
-struct p_dRule {
-  dRuleHEADER;
-};
-
 /**
 * Operations required for an EFS.  Defined here so that these function calls can be inlined.
 *
 */
-struct v_dEFSOps {
+struct _dEFSOps {
   dErr (*view)(dEFS,PetscViewer);
   dErr (*getSizes)(dEFS,dInt*,dInt*,dInt*); /**< topological dimension, number of interior nodes, total number of nodes */
   dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**);
@@ -42,18 +35,6 @@ struct v_dEFSOps {
   *
   */
   dErr (*scatterFacet)(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode);
-};
-
-/**
-* This is held once for every function space on every element.  This part of the implementation is not really private.
-*
-*/
-#define dEFSHEADER                              \
-  struct v_dEFSOps *ops;                        \
-  dRule             rule
-
-struct p_dEFS {
-  dEFSHEADER;
 };
 
 /**
