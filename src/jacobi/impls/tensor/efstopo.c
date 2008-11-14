@@ -222,7 +222,6 @@ static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[restrict
 static dErr dEFSApply_Tensor_Line(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
-  /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[1];
   dInt P[1],Q[1],chunk;
   dTransposeMode tpose[1];
@@ -269,7 +268,6 @@ static dErr dEFSApply_Tensor_Line(dEFS efs,dInt D,dInt *wlen,dScalar**restrict w
 static dErr dEFSApply_Tensor_Quad(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
-  /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[2];
   dInt P[2],Q[2],chunk;
   dTransposeMode tpose[2];
@@ -316,7 +314,6 @@ static dErr dEFSApply_Tensor_Quad(dEFS efs,dInt D,dInt *wlen,dScalar**restrict w
 static dErr dEFSApply_Tensor_Hex(dEFS efs,dInt D,dInt *wlen,dScalar**restrict work,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
-  /* const dInt *P=&b->P,*Q=&b->Q; */
   dScalar *A[3];
   dInt P[3],Q[3],chunk;
   dTransposeMode tpose[3];
@@ -398,7 +395,7 @@ static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],dInt *wlen,dS
 
   switch (imode) {
     case INSERT_VALUES:
-      err = dMemzero(g,Q[0]*D);dCHK(err);
+      err = dMemzero(g,Q[0]*D*sizeof(g[0]));dCHK(err);
       break;
     case ADD_VALUES:
       break;
@@ -458,7 +455,7 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dInt *wlen,dS
   err = dMemzero(*work,idx*sizeof(a[0]));dCHK(err);
   switch (imode) {
     case INSERT_VALUES:
-      err = dMemzero(g,Q[0]*Q[1]*D);dCHK(err);
+      err = dMemzero(g,Q[0]*Q[1]*D*sizeof(g[0]));dCHK(err);
       break;
     case ADD_VALUES:
       break;
@@ -546,7 +543,7 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dInt *wlen,dSc
   err = dMemzero(*work,idx*sizeof(a[0]));dCHK(err);
   switch (imode) {
     case INSERT_VALUES:
-      err = dMemzero(g,Q[0]*Q[1]*Q[2]*D);dCHK(err);
+      err = dMemzero(g,Q[0]*Q[1]*Q[2]*D*sizeof(g[0]));dCHK(err);
       break;
     case ADD_VALUES:
       break;

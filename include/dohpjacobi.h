@@ -136,8 +136,8 @@ EXTERN dErr dJacobiRegisterAll(const char[]);
 EXTERN dErr dJacobiInitializePackage(const char[]);
 
 EXTERN dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
-EXTERN dErr dJacobiGetRule(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index);
-EXTERN dErr dJacobiGetEFS(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index);
+EXTERN dErr dJacobiGetRule(dJacobi,dInt,const dEntTopology[],const dInt[],dRule);
+EXTERN dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
 
 EXTERN dErr dRuleView(dRule rule,PetscViewer);
 EXTERN dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);

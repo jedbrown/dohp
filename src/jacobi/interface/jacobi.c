@@ -301,64 +301,48 @@ dErr dJacobiSetDegrees(dJacobi jac,dInt basisdegree,dInt ruleexcess)
   dFunctionReturn(0);
 }
 
-/**
-* Writes a new Rule into the buffer pointed to by \a rule.  The number of bytes required is returned in \a bytes.  The
-* \c dRule struct has an array of private pointers at the end.  Different topology and/or basis types may need a
-* different number of pointers.
-*
-* @example An anisotropic tensor product rule for a Hexahedron needs 3 data pointers hence \a bytes will be
-* 'sizeof(dRule)+3*sizeof(void*)'
+/** Fill an array of dRule starting at \a firstrule.
 *
 * @param jac the context
-* @param top topology of the element
+* @param n number of elements
+* @param topo topology of the element
 * @param rsize number of points in each Cartesian direction
-* @param rule place to put the newly constructed dRule
-* @param base start of \c void* private data array (if NULL, neither \a rule or \a base will be used)
-* @param index offset of start of private data in \a base.
-*
-* @return err
+* @param firstrule place to put the newly constructed dRule, normally this will be \c s_dRule[]
 */
-dErr dJacobiGetRule(dJacobi jac,dEntTopology top,const dInt rsize[],dRule *rule,void **base,dInt *index)
+dErr dJacobiGetRule(dJacobi jac,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(jac,dJACOBI_COOKIE,1);
-  dValidPointer(rsize,3);
-  dValidPointer(index,6);
-  if (base) {
-    dValidPointer(rule,4);
-    dValidPointer(base,5);
-  }
-  err = jac->ops->GetRule(jac,top,rsize,rule,base,index);dCHK(err);
+  dValidPointer(topo,3);
+  dValidPointer(rsize,4);
+  dValidPointer(firstrule,5);
+  err = jac->ops->GetRule(jac,n,topo,rsize,firstrule);dCHK(err);
   dFunctionReturn(0);
 }
 
 
-/**
-* Get an EFS context.
+/** Fill an array of EFS starting at \a firstefs compatible with the array of dRule starting at \a firstrule
 *
-* @param jac context
-* @param top topology of the given element
-* @param bsize number of basis functions
-* @param rule pointer to rule structure
-* @param[out] efs pointer to EFS structure
-* @param base base of \c void* array holding private data
-* @param index index into \a base at which to start writing private data
-*
-* @return
+* @param jac Jacobi
+* @param n number of EFS to extract
+* @param topo topology of elements
+* @param bsize anisotropic basis degree
+* @param firstrule handle of first Rule, usually an array
+* @param firstefs handle of first EFS, usually an array
 */
-dErr dJacobiGetEFS(dJacobi jac,dEntTopology top,const dInt bsize[],dRule rule,dEFS *efs,void **base,dInt *index)
+dErr dJacobiGetEFS(dJacobi jac,dInt n,const dEntTopology topo[],const dInt bsize[],dRule firstrule,dEFS firstefs)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(jac,dJACOBI_COOKIE,1);
-  dValidPointer(bsize,3);
-  dValidPointer(rule,4);
-  dValidPointer(efs,5);
-  dValidPointer(index,7);
-  err = jac->ops->GetEFS(jac,top,bsize,rule,efs,base,index);dCHK(err);
+  dValidPointer(topo,3)
+  dValidPointer(bsize,4);
+  dValidPointer(firstrule,5);
+  dValidPointer(firstefs,6);
+  err = jac->ops->GetEFS(jac,n,topo,bsize,firstrule,firstefs);dCHK(err);
   dFunctionReturn(0);
 }
 

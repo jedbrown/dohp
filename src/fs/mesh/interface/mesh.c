@@ -795,7 +795,7 @@ dErr dMeshDestroy(dMesh m)
 * dMeshDestroyRuleTag().
 *
 * @param mesh mesh
-* @param esh entity set handle on which to add the tag, tags all non-vertex entities in \a esh
+* @param set entity set handle on which to add the tag, tags all non-vertex entities in \a set
 * @param jac dJacobi to use when generating the tags
 * @param name unique identifier for the tag (mostly for debugging)
 * @param degree polynomial degree which should be integrated exactly when the element has an affine map
@@ -803,18 +803,13 @@ dErr dMeshDestroy(dMesh m)
 *
 * @return err
 */
-dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char name[],dInt degree,dMeshTag *inrtag)
+dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dJacobi jac,const char name[],dInt degree,dMeshTag *inrtag)
 {
-  static const int topologies[] = {0,iMesh_LINE_SEGMENT,iMesh_QUADRILATERAL,iMesh_HEXAHEDRON};
-  static const int ntopologies[] = {0,1,1,1};
-  const dInt rdeg[3] = {degree,degree,degree};
-  iMesh_Instance mi = mesh->mi;
   dMeshTag rtag;
-  dMeshESH root;
-  MeshListEH ent=MLZ;
-  void **base;
-  dInt rulesize,needed,nents,maxnents,index;
-  dRule *rules;
+  dMeshEH *ents;
+  dInt nents,toff[dTYPE_ALL+1],*rdeg;
+  dEntTopology *topo;
+  s_dRule *rules;
   dErr err;
 
   dFunctionBegin;
@@ -823,38 +818,29 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH esh,dJacobi jac,const char 
   *inrtag = 0;
   err = dMeshTagCreate(mesh,name,sizeof(dRule),dDATA_BYTE,&rtag);dCHK(err);
 
-  base = NULL; needed = 0; maxnents = 0;
-  for (dInt pass=1; pass<=2; pass++) { /* determine preallocation, then allocate and fill */
-    if (pass == 2) {
-      err = dMalloc(needed*sizeof(*base),&base);dCHK(err);
-      err = dMalloc(maxnents*sizeof(dMeshEH),&ent.v);dCHK(err);
-      ent.a = maxnents; ent.s = 0;
-      err = dMalloc(maxnents*sizeof(dRule),&rules);dCHK(err);
-      index = 0;
-    }
-    for (int type=iBase_EDGE; type<iBase_ALL_TYPES; type++) {
-      for (int topo=topologies[type]; topo<topologies[type]+ntopologies[type]; topo++) {
-        if (pass == 1) {
-          rulesize = 0;
-          err = dJacobiGetRule(jac,topo,rdeg,NULL,NULL,&rulesize);dCHK(err); /* determine the amount of space needed for this topology */
-          iMesh_getNumOfTopo(mi,esh,topo,&nents,&err);dICHK(mi,err);
-          needed += nents*rulesize;
-          maxnents = dMax(maxnents,nents);
-        } else {
-          iMesh_getEntities(mi,esh,type,topo,&ent.v,&ent.a,&ent.s,&err);dICHK(mi,err);
-          for (dInt i=0; i<ent.s; i++) {
-            err = dJacobiGetRule(jac,topo,rdeg,&rules[i],base,&index);dCHK(err);
-          }
-          err = dMeshTagSetData(mesh,rtag,ent.v,ent.s,rules,ent.s*(dInt)sizeof(dRule),dDATA_BYTE);dCHK(err);
-        }
-      }
+  toff[dTYPE_VERTEX] = toff[dTYPE_EDGE] = 0;
+  for (dEntType type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
+    dInt t;
+    err = dMeshGetNumEnts(mesh,set,type,dTOPO_ALL,&t);dCHK(err);
+    toff[type+1] = toff[type] + t;
+  }
+  nents = toff[dTYPE_ALL];
+  err = dMallocA4(nents,&ents,nents,&topo,3*nents,&rdeg,nents,&rules);dCHK(err);
+  for (dEntType type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
+    err = dMeshGetEnts(mesh,set,type,dTOPO_ALL,ents+toff[type],toff[type+1]-toff[type],NULL);dCHK(err);
+  }
+  err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
+  for (dInt i=0; i<nents; i++) {
+    switch (topo[i]) {
+      case dTOPO_LINE: rdeg[3*i+0] = degree; rdeg[3*i+1] = rdeg[3*i+2] = 1; break;
+      case dTOPO_QUAD: rdeg[3*i+0] = rdeg[3*i+1] = degree; rdeg[3*i+2] = 1; break;
+      case dTOPO_HEX:  rdeg[3*i+0] = rdeg[3*i+1] = rdeg[3*i+2] = degree; break;
+      default: dERROR(1,"Topology %d not supported",topo[i]);
     }
   }
-  err = dFree(ent.v);dCHK(err);
-  err = dFree(rules);dCHK(err);
-  iMesh_getRootSet(mi,&root,&err);dICHK(mi,err);
-  if (sizeof(base) != sizeof(dRule)) dERROR(1,"Very strange, pointer sizes don't agree");
-  iMesh_setEntSetData(mi,root,rtag,(char*)&base,sizeof(base),&err);dICHK(mi,err);
+  err = dJacobiGetRule(jac,nents,topo,rdeg,rules);dCHK(err);
+  err = dMeshTagSetData(mesh,rtag,ents,nents,rules,nents*(dInt)sizeof(s_dRule),dDATA_BYTE);dCHK(err);
+  err = dFree4(ents,topo,rdeg,rules);dCHK(err);
   *inrtag = rtag;
   dFunctionReturn(0);
 }

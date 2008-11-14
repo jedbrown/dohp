@@ -118,10 +118,12 @@ typedef unsigned char dEntStatus;
 
 #define dStrlen(s,l) PetscStrlen((s),(l))
 
-#define dMax(a,b) PetscMax(a,b)
-#define dMin(a,b) PetscMin(a,b)
-#define dSqr(a)   PetscSqr(a)
-#define dAbs(a)   PetscAbs(a)
+static inline dInt dMaxInt(dInt a,dInt b) { return (a > b) ? a : b; }
+static inline dInt dMinInt(dInt a,dInt b) { return (a < b) ? a : b; }
+static inline dReal dMax(dReal a,dReal b) { return (a > b) ? a : b; }
+static inline dReal dMin(dReal a,dReal b) { return (a < b) ? a : b; }
+static inline dReal dAbs(dScalar a) { return fabs(a); }
+static inline dScalar dSqr(dScalar a) { return a * a; }
 
 #define dGamma(a) tgamma(a) /* This is defined in math.h as of C99. */
 
