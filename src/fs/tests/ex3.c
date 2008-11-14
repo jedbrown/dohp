@@ -39,7 +39,6 @@ int main(int argc,char *argv[])
   PetscMPIInt rank;
   dErr err;
 
-  dFunctionBegin;
   err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   err = MPI_Comm_rank(comm,&rank);dCHK(err);
@@ -108,5 +107,5 @@ int main(int argc,char *argv[])
   err = dJacobiDestroy(jac);dCHK(err);
   err = dMeshDestroy(mesh);
   err = PetscFinalize();dCHK(err);
-  dFunctionReturn(0);
+  return 0;
 }

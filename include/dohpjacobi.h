@@ -20,7 +20,6 @@
 */
 
 #include "dohptype.h"
-#include "petscsys.h"
 #include "petscmat.h"
 
 PETSC_EXTERN_CXX_BEGIN

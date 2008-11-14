@@ -1,13 +1,6 @@
 static const char help[] = "Tests the dJacobi object.";
 
 #include "dohpjacobi.h"
-#include "private/jacimpl.h"
-#include "petscvec.h"
-#include <stdlib.h>
-
-#define JACOBI_VIEW 0
-#define RULE_VIEW 0
-#define EFS_VIEW 0
 
 static struct {
   dErr (*function)(dInt,const dReal[],dScalar[]);
@@ -322,12 +315,11 @@ int main(int argc,char *argv[])
   dInt ex;
   dErr err;
 
-  dFunctionBegin;
   err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
 
-  ex = 1;
+  ex = 0;
   err = PetscOptionsBegin(comm,NULL,"Jacobi ex1 test driver options",NULL);dCHK(err);
   err = PetscOptionsInt("-exact","exact solution number",NULL,ex,&ex,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
@@ -346,11 +338,8 @@ int main(int argc,char *argv[])
   err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
-#if JACOBI_VIEW
-  err = dJacobiView(jac,viewer);dCHK(err);
-#endif
   err = checkRulesAndEFS(jac);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);
   err = PetscFinalize();dCHK(err);
-  dFunctionReturn(0);
+  return 0;
 }
