@@ -142,7 +142,15 @@ static inline dScalar dSqr(dScalar a) { return a * a; }
 #define dNAME_LEN     256
 #define dSTR_LEN      256
 
-#define dUNUSED __attribute__((unused))
+#if defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
+# define dUNUSED __attribute__((unused))
+# define dLIKELY(x)   __builtin_expect(!!(x),1)
+# define dUNLIKELY(x) __builtin_expect(!!(x),0)
+#else
+# define dUNUSED
+# define dLIKELY(x)   (x)
+# define dUNLIKELY(x) (x)
+#endif
 
 #define dFunctionBegin \
   {\
