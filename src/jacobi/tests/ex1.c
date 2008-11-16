@@ -117,8 +117,8 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
   dRule rule;
   dReal *x[3],y[3],w,z,dz;
   const dReal *qx[3],*qw[3];
-  dScalar *f,*g=NULL,*dg=NULL,*work=NULL,h[3],dh[9];
-  dInt P[3],Q[3],ind,size,wsize=0,dim,needed,qind,gsize=0;
+  dScalar *f,*g=NULL,(*dg)[3]=NULL;
+  dInt P[3],Q[3],ind,size,dim,needed,qind,gsize=0;
   dErr err;
 
   dFunctionBegin;
@@ -166,14 +166,14 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     if (needed > gsize) {
       err = dFree2(g,dg);dCHK(err);
       gsize = needed * 2;
-      err = dMallocA2(gsize,&g,dim*gsize,&dg);dCHK(err);
+      err = dMallocA2(gsize,&g,3*gsize,&dg);dCHK(err);
     }
 
     err = dMemzero(g,gsize*sizeof g[0]);dCHK(err);
     for (dInt j=0; j<gsize; j++) { g[j] = NAN; }
-    for (dInt j=0; j<gsize*dim; j++) { dg[j] = NAN; }
-    err = dEFSApply(&efs[i],dim,&wsize,&work,f+ind,g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[i],dim,&wsize,&work,f+ind,dg,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    for (dInt j=0; j<gsize*dim; j++) { ((dScalar*)dg)[j] = NAN; }
+    err = dEFSApply(&efs[i],NULL,dim,f+ind,g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(&efs[i],NULL,dim,f+ind,&dg[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
 
     /* compare to exact solution */
     switch (dim) {
@@ -186,22 +186,20 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     for (dInt j=0; j<Q[0]; j++) {
       for (dInt k=0; k<Q[1]; k++) {
         for (dInt l=0; l<Q[2]; l++) {
+          const dScalar *qg = &g[qind];
+          const dScalar (*qdg)[3] = (const dScalar (*)[3])dg[qind];
+          dScalar h[3],dh[3][3];
           y[0] = qx[0][j];
           y[1] = (dim > 1) ? qx[1][k] : 0.0;
           y[2] = (dim > 2) ? qx[2][l] : 0.0;
-          err = exact.function(dim,y,h);dCHK(err);
-          err = exact.deriv(dim,y,dh);dCHK(err);
+          err = exact.function(dim,y,&h[0]);dCHK(err);
+          err = exact.deriv(dim,y,&dh[0][0]);dCHK(err);
           w = qw[0][j] * (dim>1 ? qw[1][k] : 1.0) * (dim>2 ? qw[2][l] : 1.0);
           for (dInt d=0; d<dim; d++) {
-            z += dSqr(g[qind+d] - h[d]) * w;
-            for (dInt e=0; e<dim; e++) {
-              /* The gradient function gives us chunks with each column of the Jacobian */
-              const dInt chunk = dim*Q[0]*Q[1]*Q[2],qii = qind + d;
+            z += dSqr(qg[d] - h[d]) * w;
+            for (dInt e=0; e<3; e++) { /* direction */
               dReal l2error;
-              if (e*chunk+qii >= gsize*dim) {
-                dERROR(1,"About to make invalid read");
-              }
-              l2error = dSqr(dg[e*chunk+qii] - dh[d*dim+e]);
+              l2error = dSqr(qdg[d][e] - dh[d][e]);
               dz += l2error * w;
             }
           }
@@ -218,7 +216,6 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
   }
   err = VecRestoreArray(u,&f);dCHK(err);
   err = dFree2(g,dg);dCHK(err);
-  err = dFree(work);dCHK(err);
   dFunctionReturn(0);
 }
 

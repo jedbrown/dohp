@@ -8,30 +8,6 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
-#define CACHE_LINE    64l       /* my cache lines are 64 bytes long */
-#define DEFAULT_ALIGN 16l       /* SSE instructions require 16 byte alignment */
-
-#define dNextCacheAligned(p) dNextAlignedAddr(CACHE_LINE,p)
-#define dNextAligned(p)      dNextAlignedAddr(DEFAULT_ALIGN,p)
-
-/**
-* Returns the next address which satisfies the given alignment.
-*
-* This function cannot fail.
-*
-* @param alignment must be a power of 2
-* @param ptr The pointer
-*
-* @return aligned address
-*/
-static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
-{
-  size_t base = (size_t)ptr;
-  size_t mask = alignment-1;
-  if (base & mask) return (void*)(base + (alignment - (base & mask)));
-  return (void*)base;
-}
-
 typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
 
 /**
@@ -76,7 +52,7 @@ struct s_TensorRule {
   dReal *weight,*coord;            /**< weights and nodal coordinates */
 };
 
-typedef dErr (*TensorMultFunction)(dInt,const dInt*,const dInt*,dInt*,dScalar**restrict,const dReal**,const dTransposeMode*,const dScalar*,dScalar*restrict,InsertMode);
+typedef dErr (*TensorMultFunction)(dInt,const dInt*,const dInt*,const dReal**,const dScalar*,dScalar*restrict,InsertMode);
 
 typedef struct s_TensorBasis *TensorBasis;
 /**
@@ -87,6 +63,7 @@ struct s_TensorBasis {
   TensorMultFunction mult;
   dInt  P,Q;
   dReal *interp,*deriv,*node;
+  dReal *interpTranspose,*derivTranspose;
 };
 
 typedef struct s_TensorBasisOptions *TensorBasisOptions;

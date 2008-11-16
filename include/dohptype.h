@@ -142,7 +142,8 @@ static inline dScalar dSqr(dScalar a) { return a * a; }
 #define dNAME_LEN     256
 #define dSTR_LEN      256
 
-#if defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
+/* defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__) */
+#if 1
 # define dUNUSED __attribute__((unused))
 # define dLIKELY(x)   __builtin_expect(!!(x),1)
 # define dUNLIKELY(x) __builtin_expect(!!(x),0)
@@ -151,6 +152,37 @@ static inline dScalar dSqr(dScalar a) { return a * a; }
 # define dLIKELY(x)   (x)
 # define dUNLIKELY(x) (x)
 #endif
+
+#define dCACHE_LINE    64l       /* my cache lines are 64 bytes long */
+#define dRPCL dCACHE_LINE/sizeof(dReal)
+#define dSPCL dCACHE_LINE/sizeof(dScalar)
+
+#define dDEFAULT_ALIGN 16l       /* SSE instructions require 16 byte alignment */
+
+#define dNextCacheAligned(p) dNextAlignedAddr(CACHE_LINE,p)
+#define dNextAligned(p)      dNextAlignedAddr(DEFAULT_ALIGN,p)
+
+/** Returns the next address satisfying the given alignment.
+*
+* This function cannot fail.
+*
+* @param alignment must be a power of 2
+* @param ptr The pointer
+*
+* @return aligned address
+*/
+static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
+{
+  const uintptr_t base = (uintptr_t)ptr;
+  const uintptr_t mask = (uintptr_t)alignment-1;
+  return (void*)((base + mask) & ~mask);
+}
+
+/* Needs to be a macro because of pointer arithmetic */
+#define dMemClaim(mem,n,p) do {                         \
+    (p) = dNextAligned(mem);                            \
+    (mem) = dNextAligned((p) + (n));                    \
+  } while (0)
 
 #define dFunctionBegin \
   {\

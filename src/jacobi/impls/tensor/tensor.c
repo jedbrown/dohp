@@ -627,7 +627,7 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
   if (!opt) dERROR(1,"TensorRuleOptions not set.");
   if (opt->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %d not supported",opt->family);
   err = dNew(struct s_TensorBasis,&b);dCHK(err);
-  err = PetscMalloc3(P*Q,dReal,&b->interp,P*Q,dReal,&b->deriv,P,dReal,&b->node);dCHK(err);
+  err = dMallocA5(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node);dCHK(err);
   err = TensorBuilderGetArray(build,2*P*Q,&work);dCHK(err); /* We're not using this now */
   b->Q = Q;
   b->P = P;
@@ -657,6 +657,14 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
       }
     }
   }
+  /* Storing the transposed version explicitly is sort of lame because it costs the same or less to multiply dense
+  * transposed matrices with vectors, however it makes things simple for now. */
+  for (dInt i=0; i<Q; i++) {
+    for (dInt j=0; j<P; j++) {
+      b->interpTranspose[j*Q+i] = b->interp[i*P+j];
+      b->derivTranspose[j*Q+i] = b->interp[i*P+j];
+    }
+  }
   *basis = b;
   dFunctionReturn(0);
 }
@@ -667,7 +675,7 @@ static dErr TensorBasisDestroy(TensorBasis basis)
 
   dFunctionBegin;
   if (!basis) dFunctionReturn(0);
-  err = PetscFree3(basis->interp,basis->deriv,basis->node);dCHK(err);
+  err = dFree5(basis->interp,basis->deriv,basis->interpTranspose,basis->derivTranspose,basis->node);dCHK(err);
   err = dFree(basis);dCHK(err);
   dFunctionReturn(0);
 }

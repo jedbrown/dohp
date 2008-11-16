@@ -67,13 +67,23 @@ typedef struct s_dRule {
 * Indicates whether or not to apply the transpose of a interpolation/derivative matrix.
 *
 */
-typedef enum { dTRANSPOSE_NO=113634,dTRANSPOSE_YES=853467 } dTransposeMode;
+typedef enum {
+  dTRANSPOSE_NO=30001,
+  dTRANSPOSE_YES
+} dTransposeMode;
 
 /**
 * Indicates what type of basis operation to do, see dEFSApply().
 *
 */
-typedef enum { dAPPLY_INTERP=40001,dAPPLY_INTERP_TRANSPOSE=40002,dAPPLY_GRAD=40003,dAPPLY_GRAD_TRANSPOSE=40004 } dApplyMode;
+typedef enum {
+  dAPPLY_INTERP=40001,
+  dAPPLY_INTERP_TRANSPOSE,
+  dAPPLY_GRAD,
+  dAPPLY_GRAD_TRANSPOSE,
+  dAPPLY_SYMGRAD,
+  dAPPLY_SYMGRAD_TRANSPOSE
+} dApplyMode;
 
 /**
 * Handle for setting up #dRule and #dEFS contexts.
@@ -147,7 +157,7 @@ EXTERN dErr dEFSView(dEFS efs,PetscViewer viewer);
 EXTERN dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
 EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**);
 EXTERN dErr dEFSGetRule(dEFS efs,dRule *rule);
-EXTERN dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode);
+EXTERN dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
 EXTERN dErr dJacobiPropogateDown(dJacobi,const struct dMeshAdjacency*,dInt[]);
 EXTERN dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 

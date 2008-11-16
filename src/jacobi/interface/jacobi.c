@@ -453,13 +453,13 @@ dErr dEFSGetRule(dEFS efs,dRule *rule)
   dFunctionReturn(0);
 }
 
-dErr dEFSApply(dEFS efs,dInt dofs,dInt *wlen,dScalar **work,const dScalar *in,dScalar *out,dApplyMode amode,InsertMode imode)
+dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScalar out[restrict],dApplyMode amode,InsertMode imode)
 {
   dErr err;
 
   dFunctionBegin;
   dValidPointer(efs,1);
-  err = (*efs->ops->apply)(efs,dofs,wlen,work,in,out,amode,imode);dCHK(err);
+  err = (*efs->ops->apply)(efs,mapdata,dofs,in,out,amode,imode);dCHK(err);
   dFunctionReturn(0);
 }
 
