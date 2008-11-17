@@ -21,7 +21,7 @@ _F(dEFSGetTensorNodes_Tensor_Line);
 _F(dEFSGetTensorNodes_Tensor_Quad);
 _F(dEFSGetTensorNodes_Tensor_Hex);
 #undef _F
-#define _F(f) static dErr f(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode) /* dEFSApply */
+#define _F(f) static dErr f(dEFS,const dReal[restrict],dInt,const dScalar[restrict],dScalar[restrict],dApplyMode,InsertMode) /* dEFSApply */
 _F(dEFSApply_Tensor_Line);
 _F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);
@@ -49,6 +49,9 @@ _F(dRuleMappingApply_Tensor_Line);
 _F(dRuleMappingApply_Tensor_Quad);
 _F(dRuleMappingApply_Tensor_Hex);
 #undef _F
+
+static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
+static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
 
 /**
 * Set up the EFS ops table for each topology.  This is the only exported function in this file.
@@ -317,7 +320,7 @@ static dErr dEFSApply_Tensor_Quad(dEFS efs,const dReal mapdata[],dInt D,const dS
   dFunctionReturn(0);
 }
 
-static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal mapdata[],dInt D,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
+static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
   dReal *A[3];
@@ -350,9 +353,23 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal mapdata[],dInt D,const dSc
       err = TensorMult_Hex(D,P,Q,A,in,df[1],INSERT_VALUES);dCHK(err);
       A[0] = b[0]->interp; A[1] = b[1]->interp; A[2] = b[2]->deriv;
       err = TensorMult_Hex(D,P,Q,A,in,df[2],INSERT_VALUES);dCHK(err);
-      err = dRuleMappingApply_Tensor_Hex((dRule_Tensor*)efs->rule,mapdata,D,&df[0][0],out,imode);dCHK(err);
+      err = dRuleMappingApply_Tensor_Hex((dRule_Tensor*)efs->rule,jinv,D,&df[0][0],out,imode);dCHK(err);
     } break;
-    case dAPPLY_GRAD_TRANSPOSE:
+    case dAPPLY_GRAD_TRANSPOSE: {
+      dScalar df[3][Q[0]*Q[1]*Q[2]*D];
+      err = TensorRuleMappingTranspose(Q[0]*Q[1]*Q[2],jinv,D,in,&df[0][0],imode);dCHK(err);
+      switch (imode) {
+        case INSERT_VALUES: err = dMemzero(out,P[0]*P[1]*P[2]*D*sizeof(out[0]));dCHK(err); break;
+        case ADD_VALUES: break;
+        default: dERROR(1,"InsertMode %d invalid or unimplemented",imode);
+      }
+      A[0] = b[0]->derivTranspose; A[1] = b[1]->interpTranspose; A[2] = b[2]->interpTranspose;
+      err = TensorMult_Hex(D,Q,P,A,df[0],out,ADD_VALUES);dCHK(err);
+      A[0] = b[0]->interpTranspose; A[1] = b[1]->derivTranspose; A[2] = b[2]->interpTranspose;
+      err = TensorMult_Hex(D,Q,P,A,df[1],out,ADD_VALUES);dCHK(err);
+      A[0] = b[0]->interpTranspose; A[1] = b[1]->interpTranspose; A[2] = b[2]->derivTranspose;
+      err = TensorMult_Hex(D,Q,P,A,df[2],out,ADD_VALUES);dCHK(err);
+    } break;
     default:
       dERROR(1,"invalid/unimplemented dApplyMode %d specified",amode);
   }
@@ -506,8 +523,10 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],co
 }
 
 
-static dErr TensorRuleNoMapping(dInt Q,dInt D,const dScalar u[3][Q][D],dScalar v[Q][D][3],InsertMode imode)
+static dErr TensorRuleNoMapping(dInt Q,dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode)
 {
+  const dScalar (*restrict u)[Q][D] = (const dScalar(*)[Q][D])in;
+  dScalar (*restrict v)[D][3] = (dScalar(*)[D][3])out;
 
   dFunctionBegin;
   switch (imode) {
@@ -534,54 +553,122 @@ static dErr TensorRuleNoMapping(dInt Q,dInt D,const dScalar u[3][Q][D],dScalar v
   dFunctionReturn(0);
 }
 
+/** Push gradients wrt reference space forward to gradients wrt physical space
+*
+* @param Q number of quadrature points
+* @param jinv_flat inverse jacobian at quadrature points, logically of type 'const dReal[Q][3][3]'
+* @param D number of dofs per node
+* @param in gradients in reference space, logically 'const dReal[3][Q][D]'
+* @param out gradients in physical space, logically 'const dReal[Q][D][3]'
+* @param imode INSERT_VALUES or ADD_VALUES
+*/
+static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode)
+{
+  const dReal (*restrict jinv)[3][3] = (const dReal(*)[3][3])jinv_flat;
+  const dScalar (*restrict u)[Q][D] = (const dScalar(*)[Q][D])in;
+  dScalar (*restrict v)[D][3] = (dScalar(*)[D][3])out;
+
+  dFunctionBegin;
+  switch (imode) {
+    case INSERT_VALUES: {
+      for (dInt i=0; i<Q; i++) {
+        for (dInt d=0; d<D; d++) {
+          for (dInt e=0; e<3; e++) {
+            v[i][d][e] = u[0][i][d] * jinv[i][0][e] + u[1][i][d] * jinv[i][1][e] + u[2][i][d] * jinv[i][2][e];
+          }
+        }
+      }
+    } break;
+    case ADD_VALUES: {
+      for (dInt i=0; i<Q; i++) {
+        for (dInt d=0; d<D; d++) {
+          for (dInt e=0; e<3; e++) {
+            v[i][d][e] += u[0][i][d] * jinv[i][0][e] + u[1][i][d] * jinv[i][1][e] + u[2][i][d] * jinv[i][2][e];
+          }
+        }
+      }
+    } break;
+    default: dERROR(1,"InsertMode %d invalid or not implemented",imode);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode)
+{
+  const dReal (*restrict jinv)[3][3] = (const dReal(*)[3][3])jinv_flat;
+  const dScalar (*restrict u)[D][3] = (const dScalar(*)[D][3])in;
+  dScalar (*restrict v)[Q][D] = (dScalar(*)[Q][D])out;
+
+  dFunctionBegin;
+  switch (imode) {
+    case INSERT_VALUES: {
+      for (dInt i=0; i<Q; i++) {
+        for (dInt d=0; d<D; d++) {
+          for (dInt e=0; e<3; e++) {
+            v[e][i][d] = u[i][d][0] * jinv[i][e][0] + u[i][d][1] * jinv[i][e][1] + u[i][d][2] * jinv[i][e][2];
+          }
+        }
+      }
+    } break;
+    case ADD_VALUES: {
+      for (dInt i=0; i<Q; i++) {
+        for (dInt d=0; d<D; d++) {
+          for (dInt e=0; e<3; e++) {
+            v[e][i][d] += u[i][d][0] * jinv[i][e][0] + u[i][d][1] * jinv[i][e][1] + u[i][d][2] * jinv[i][e][2];
+          }
+        }
+      }
+    } break;
+    default: dERROR(1,"InsertMode %d invalid or not implemented",imode);
+  }
+  dFunctionReturn(0);
+}
+
+
 /**
 * The following functions are defined in this file so that they can be static.  Perhaps they should become virtual and
 * be put in ruletopo.c
 **/
-static dErr dRuleMappingApply_Tensor_Line(dRule_Tensor *rule,const dReal mapdata[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
+static dErr dRuleMappingApply_Tensor_Line(dRule_Tensor *rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
 {
   const dInt Q = rule->trule[0]->size;
-  const dScalar (*u)[Q][D] = (const dScalar (*)[Q][D])in;
-  dScalar (*v)[D][3] = (dScalar (*)[D][3])out;
   dErr err;
 
   dFunctionBegin;
-  if (mapdata) {
+  if (jinv) {
     dERROR(1,"Not implemented");
   } else {
-    err = TensorRuleNoMapping(Q,D,u,v,imode);dCHK(err);
+    err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
   }
   dFunctionReturn(0);
 }
 
-static dErr dRuleMappingApply_Tensor_Quad(dRule_Tensor *rule,const dReal mapdata[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
+static dErr dRuleMappingApply_Tensor_Quad(dRule_Tensor *rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
 {
-  const dInt Q[2] = {rule->trule[0]->size,rule->trule[1]->size},QQ = Q[0]*Q[1];
-  const dScalar (*u)[QQ][D] = (const dScalar (*)[QQ][D])in;
-  dScalar (*v)[D][3] = (dScalar (*)[D][3])out;
+  const dInt Q = rule->trule[0]->size * rule->trule[1]->size;
   dErr err;
 
   dFunctionBegin;
-  if (mapdata) {
+  if (jinv) {
     dERROR(1,"Not implemented");
   } else {
-    err = TensorRuleNoMapping(QQ,D,u,v,imode);dCHK(err);
+    err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
   }
   dFunctionReturn(0);
 }
 
-static dErr dRuleMappingApply_Tensor_Hex(dRule_Tensor *rule,const dReal mapdata[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
+static dErr dRuleMappingApply_Tensor_Hex(dRule_Tensor *rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
 {
-  const dInt Q[3] = {rule->trule[0]->size,rule->trule[1]->size,rule->trule[2]->size},QQ = Q[0]*Q[1]*Q[2];
-  const dScalar (*u)[QQ][D] = (const dScalar (*)[QQ][D])in;
-  dScalar (*restrict v)[D][3] = (dScalar(*)[D][3])out;
+  const TensorRule *r = rule->trule;
+  const dInt Q = r[0]->size * r[1]->size * r[2]->size;
   dErr err;
 
   dFunctionBegin;
-  if (mapdata) {
-    dERROR(1,"Not implemented");
+  if (jinv) {
+    if (imode != INSERT_VALUES) dERROR(1,"not implemented");
+    err = TensorRuleMapping(Q,jinv,D,in,out,imode);dCHK(err);
   } else {
-    err = TensorRuleNoMapping(QQ,D,u,v,imode);dCHK(err);
+    err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
   }
   dFunctionReturn(0);
 }

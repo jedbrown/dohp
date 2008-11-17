@@ -45,12 +45,34 @@ INLINE void dGeomQuadFaceNormal(const dReal a[],dReal b[]) {
 INLINE dBool dGeomQuadParallel(const dReal a[],const dReal b[]) /* return true if Quad a \dot b > 0 */
 {dReal f[3]; dGeomQuadFaceNormal(a,f); return (dGeomDotProd(b,f) > 0);}
 
-INLINE void dGeomConvexComb_2_4(dReal x,dReal y,const dReal v[],const dInt p[],dReal f[])
+INLINE dErr dGeomConvexComb_2_4(dReal x,dReal y,const dReal (*v)[3],const dInt p[],dReal f[])
 {
   dInt i;
+  if (!(-1 <= x && x <= 1 && -1 <= y && y <= 1)) dERROR(1,"Point out of bounds");
   for (i=0; i<3; i++) {
-    f[i] = 0.25*((-1-x)*((-1-y)*v[p[0]*3+i] + (1+y)*v[p[3]*3+i]) + (1+x)*((-1-y)*v[p[1]*3+i] + (1+y)*v[p[2]*3+i]));
+    f[i] = 0.25*((1-x)*((1-y)*v[p[0]][i] + (1+y)*v[p[3]][i]) + (1+x)*((1-y)*v[p[1]][i] + (1+y)*v[p[2]][i]));
   }
+  return 0;
+}
+
+INLINE dErr dGeomInvert3(const dReal a[restrict static 9],dReal b[restrict static 9],dReal det[restrict static 1])
+{
+  const dReal b0 =  (a[1*3+1]*a[2*3+2] - a[2*3+1]*a[1*3+2]);
+  const dReal b3 = -(a[1*3+0]*a[2*3+2] - a[2*3+0]*a[1*3+2]);
+  const dReal b6 =  (a[1*3+0]*a[2*3+1] - a[2*3+0]*a[1*3+1]);
+  const dReal ldet = a[0]*b0 + a[1]*b3 + a[2]*b6;
+  const dReal idet = 1.0 / ldet;
+  b[0] =  idet*b0;
+  b[1] = -idet*(a[0*3+1]*a[2*3+2] - a[2*3+1]*a[0*3+2]);
+  b[2] =  idet*(a[0*3+1]*a[1*3+2] - a[1*3+1]*a[0*3+2]);
+  b[3] =  idet*b3;
+  b[4] =  idet*(a[0*3+0]*a[2*3+2] - a[2*3+0]*a[0*3+2]);
+  b[5] = -idet*(a[0*3+0]*a[1*3+2] - a[1*3+0]*a[0*3+2]);
+  b[6] =  idet*b6;
+  b[7] = -idet*(a[0*3+0]*a[2*3+1] - a[2*3+0]*a[0*3+1]);
+  b[8] =  idet*(a[0*3+0]*a[1*3+1] - a[1*3+0]*a[0*3+1]);
+  det[0] =  ldet;
+  return 0;
 }
 
 /**

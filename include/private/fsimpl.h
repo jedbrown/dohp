@@ -43,8 +43,8 @@ struct _p_dFS {
   dInt                rstart;   /**< global offset of first owned dof */
   dInt                m;        /**< Number of expanded dofs */
   dInt                D;        /**< Number of dofs per (non-boundary) node */
-  dRule              *rule;     /**< Integration rule */
-  dEFS               *efs;      /**< Element function space, defined for all entities */
+  s_dRule            *rule;     /**< Integration rule */
+  s_dEFS             *efs;      /**< Element function space, defined for all entities */
   Mat                 C;        /**< full-order constraint matrix (element dofs to local numbering) */
   Mat                 Cp;       /**< preconditioning constraint matrix (element dofs to local numbering, as sparse as possible) */
   Vec                 weight;   /**< Vector in global space, used to compensate for overcounting after local to global */

@@ -1,3 +1,4 @@
+#include "dohpgeom.h"
 #include "tensor.h"
 
 static dErr dRuleView_Tensor_Private(const char*,dInt,TensorRule*,PetscViewer);
@@ -203,5 +204,40 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Hex(dRule rule,dInt *dim,dInt nnodes
     weight[1] = r[1]->weight;
     weight[2] = r[2]->weight;
   }
+  dFunctionReturn(0);
+}
+
+static dErr dRuleComputeMapping_Tensor_Hex(dRule rule,const dReal vtx[],dReal jinv[restrict][3][3],dReal jdet[restrict])
+{
+  const TensorRule *r = ((dRule_Tensor*)rule)->trule;
+  const dInt Q[3] = {r[0]->size,r[1]->size,r[2]->size},QQ = Q[0]*Q[1]*Q[2];
+  const dReal *qx[3] = {r[0]->coord,r[1]->coord,r[2]->coord};
+  const dReal (*restrict x)[3] = (const dReal(*)[3])vtx;
+  dErr err;
+
+  dFunctionBegin;
+  for (dInt i=0; i<Q[0]; i++) {
+    for (dInt j=0; j<Q[1]; j++) {
+      for (dInt k=0; k<Q[2]; k++) {
+        const dInt p = (i*Q[1]+j)*Q[2]+k;                /* Index of quadrature point */
+        const dReal q[3] = {qx[0][i],qx[1][j],qx[2][k]}; /* location of quadrature point in reference coordinates */
+        dReal J[3][3],f[6][3];
+        err = dGeomConvexComb_2_4(q[0],q[2],x,dMeshConnectHexQuad[0],f[0]);dCHK(err);
+        err = dGeomConvexComb_2_4(q[1],q[2],x,dMeshConnectHexQuad[1],f[1]);dCHK(err);
+        err = dGeomConvexComb_2_4(-q[0],q[2],x,dMeshConnectHexQuad[2],f[2]);dCHK(err);
+        err = dGeomConvexComb_2_4(-q[1],q[2],x,dMeshConnectHexQuad[3],f[3]);dCHK(err);
+        err = dGeomConvexComb_2_4(q[0],q[1],x,dMeshConnectHexQuad[4],f[4]);dCHK(err);
+        err = dGeomConvexComb_2_4(q[0],q[1],x,dMeshConnectHexQuad[5],f[5]);dCHK(err);
+        for (dInt l; l<3; l++) {
+          J[l][0] = 0.5 * (f[1][l] - f[3][l]);
+          J[l][1] = 0.5 * (f[2][l] - f[0][l]);
+          J[l][2] = 0.5 * (f[5][l] - f[4][l]);
+        }
+        err = dGeomInvert3(&J[0][0],&jinv[p][0][0],&jdet[p]);dCHK(err);
+      }
+    }
+  }
+  /* Assume the optimizer has eliminated common subexpressions, this estimate is about right */
+  PetscLogFlops(QQ*(6+6*30+6+42);
   dFunctionReturn(0);
 }
