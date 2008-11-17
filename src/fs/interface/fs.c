@@ -326,9 +326,9 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
   dValidHeader(A,MAT_COOKIE,2);
-  dValidPointer(idxm,4);dCHK(err);
-  dValidPointer(idxn,6);dCHK(err);
-  dValidPointer(v,7);dCHK(err);
+  dValidPointer(idxm,4);
+  dValidPointer(idxn,6);
+  dValidPointer(v,7);
   C = (fs->assemblefull) ? fs->C : fs->Cp;
   err = MatGetRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Could not get indices");

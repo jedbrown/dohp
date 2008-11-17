@@ -132,12 +132,6 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
   ind = 0;
   for (dInt i=0; i<N; i++) {
     err = dEFSGetTensorNodes(&efs[i],&dim,P,x);dCHK(err);
-    switch (dim) {
-      case 1: P[1] = 1; P[2] = 1; break;
-      case 2: P[2] = 1; break;
-      case 3: break;
-      default: dERROR(1,"dim %d out of range",dim);
-    }
     for (dInt j=0; j<P[0]; j++) {
       for (dInt k=0; k<P[1]; k++) {
         for (dInt l=0; l<P[2]; l++) {
@@ -170,10 +164,12 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     }
 
     err = dMemzero(g,gsize*sizeof g[0]);dCHK(err);
-    for (dInt j=0; j<gsize; j++) { g[j] = NAN; }
-    for (dInt j=0; j<gsize*dim; j++) { ((dScalar*)dg)[j] = NAN; }
-    err = dEFSApply(&efs[i],NULL,dim,f+ind,g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[i],NULL,dim,f+ind,&dg[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    for (dInt count=0; count<10; count++) {
+      for (dInt j=0; j<gsize; j++) { g[j] = NAN; }
+      for (dInt j=0; j<gsize*dim; j++) { ((dScalar*)dg)[j] = NAN; }
+      err = dEFSApply(&efs[i],NULL,dim,f+ind,g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+      err = dEFSApply(&efs[i],NULL,dim,f+ind,&dg[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    }
 
     /* compare to exact solution */
     switch (dim) {
@@ -246,7 +242,7 @@ static dErr checkRulesAndEFS(dJacobi jac)
   const dInt dim = 3;
   PetscViewer viewer = PETSC_VIEWER_STDOUT_WORLD;
   MPI_Comm comm = ((PetscObject)jac)->comm;
-  Vec u;
+  Vec u = NULL;
   dInt N,minrdeg,maxrdeg,minbdeg,maxbdeg,*rdeg,*bdeg;
   dEntTopology *topo;
   dTruth showrules,showefs;

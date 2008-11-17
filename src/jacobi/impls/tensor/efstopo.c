@@ -192,8 +192,16 @@ static dErr dEFSGetTensorNodes_Tensor_Line(dEFS efs,dInt *dim,dInt tsize[restric
 
   dFunctionBegin;
   if (dim) *dim = 1;
-  if (tsize) tsize[0] = b[0]->P;
-  x[0] = b[0]->node;
+  if (tsize) {
+    tsize[0] = b[0]->P;
+    tsize[1] = 1;
+    tsize[2] = 1;
+  }
+  if (x) {
+    x[0] = b[0]->node;
+    x[1] = NULL;
+    x[2] = NULL;
+  }
   dFunctionReturn(0);
 }
 
@@ -203,9 +211,15 @@ static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS efs,dInt *dim,dInt tsize[restric
 
   dFunctionBegin;
   if (dim) *dim = 2;
-  for (dInt i=0; i<2; i++) {
-    if (tsize) tsize[i] = b[i]->P;
-    if (x) x[i] = b[i]->node;
+  if (tsize) {
+    tsize[0] = b[0]->P;
+    tsize[1] = b[1]->P;
+    tsize[2] = 1;
+  }
+  if (x) {
+    x[0] = b[0]->node;
+    x[1] = b[1]->node;
+    x[2] = NULL;
   }
   dFunctionReturn(0);
 }
@@ -216,9 +230,15 @@ static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[restrict
 
   dFunctionBegin;
   if (dim) *dim = 3;
-  for (dInt i=0; i<3; i++) {
-    if (tsize) tsize[i] = b[i]->P;
-    if (x) x[i] = b[i]->node;
+  if (tsize) {
+    tsize[0] = b[0]->P;
+    tsize[1] = b[1]->P;
+    tsize[2] = b[2]->P;
+  }
+  if (x) {
+    x[0] = b[0]->node;
+    x[1] = b[1]->node;
+    x[2] = b[2]->node;
   }
   dFunctionReturn(0);
 }
@@ -417,18 +437,27 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dReal *A[2],c
 *
 * @return err
 */
-static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],const dScalar f[],dScalar g[restrict],InsertMode imode)
+static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],const dScalar in[],dScalar out[restrict],InsertMode imode)
 {
-  dScalar a[Q[0]*P[1]*P[2]*D],b[Q[0]*Q[1]*P[2]*D];
+  dScalar amem[Q[0]*P[1]*P[2]*D],bmem[Q[0]*Q[1]*P[2]*D];
+  dScalar (*restrict a)[P[1]][P[2]][D] = (dScalar (*restrict)[P[1]][P[2]][D])amem;
+  dScalar (*restrict b)[Q[1]][P[2]][D] = (dScalar (*restrict)[Q[1]][P[2]][D])bmem;
+  dScalar (*restrict g)[Q[1]][Q[2]][D] = (dScalar (*restrict)[Q[1]][Q[2]][D])out;
+  const dScalar (*restrict f)[P[1]][P[2]][D] = (const dScalar (*)[P[1]][P[2]][D])in;
+  const dReal (*Ax)[P[0]] = (const dReal (*)[P[0]])A[0];
+  const dReal (*Ay)[P[1]] = (const dReal (*)[P[1]])A[1];
+  const dReal (*Az)[P[2]] = (const dReal (*)[P[2]])A[2];
   dInt i,j,k,l,d;
   dErr err;
 
   dFunctionBegin;
-  err = dMemzero(a,D*Q[0]*P[1]*P[2]*sizeof(a[0]));dCHK(err);
-  err = dMemzero(b,D*Q[0]*Q[1]*P[2]*sizeof(b[0]));dCHK(err);
+  if (D*Q[0]*P[1]*P[2]*sizeof(amem[0]) != Q[0]*sizeof(a[0])
+      || D*Q[0]*Q[1]*Q[2]*sizeof(out[0]) != Q[0]*sizeof(g[0])) dERROR(1,"sizeof not working as expected");
+  err = dMemzero(a,Q[0]*sizeof(a[0]));dCHK(err);
+  err = dMemzero(b,Q[0]*sizeof(b[0]));dCHK(err);
   switch (imode) {
     case INSERT_VALUES:
-      err = dMemzero(g,D*Q[0]*Q[1]*Q[2]*sizeof(g[0]));dCHK(err);
+      err = dMemzero(g,Q[0]*sizeof(g[0]));dCHK(err);
       break;
     case ADD_VALUES:
       break;
@@ -441,7 +470,8 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],co
       for (j=0; j<P[1]; j++) {
         for (k=0; k<P[2]; k++) {
           for (d=0; d<D; d++) {
-            a[((l*P[1]+j)*P[2]+k)*D+d] += A[0][l*P[0]+i] * f[((i*P[1]+j)*P[2]+k)*D+d];
+            //amem[((l*P[1]+j)*P[2]+k)*D+d] += A[0][l*P[0]+i] * in[((i*P[1]+j)*P[2]+k)*D+d];
+            a[l][j][k][d] += Ax[l][i] * f[i][j][k][d];
           }
         }
       }
@@ -452,7 +482,8 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],co
       for (j=0; j<P[1]; j++) {
         for (k=0; k<P[2]; k++) {
           for (d=0; d<D; d++) {
-            b[((i*Q[1]+l)*P[2]+k)*D+d] += A[1][l*P[1]+j] * a[((i*P[1]+j)*P[2]+k)*D+d];
+            //bmem[((i*Q[1]+l)*P[2]+k)*D+d] += A[1][l*P[1]+j] * amem[((i*P[1]+j)*P[2]+k)*D+d];
+            b[i][l][k][d] += Ay[l][j] * a[i][j][k][d];
           }
         }
       }
@@ -463,12 +494,14 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],co
       for (l=0; l<Q[2]; l++) {
         for (k=0; k<P[2]; k++) {
           for (d=0; d<D; d++) {
-            g[((i*Q[1]+j)*Q[2]+l)*D+d] += A[2][l*P[2]+k] * b[((i*Q[1]+j)*P[2]+k)*D+d];
+            //out[((i*Q[1]+j)*Q[2]+l)*D+d] += A[2][l*P[2]+k] * bmem[((i*Q[1]+j)*P[2]+k)*D+d];
+            g[i][j][l][d] += Az[l][k] * b[i][j][k][d];
           }
         }
       }
     }
   }
+  PetscLogFlops((Q[0]*P[0]*P[1]*P[2] + Q[0]*Q[1]*P[1]*P[2] + Q[0]*Q[1]*Q[2]*P[2])*D*2);
   dFunctionReturn(0);
 }
 

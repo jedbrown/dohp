@@ -143,7 +143,6 @@ static dErr useFS(dFS fs)
 {
   Vec x,y,g;
   dScalar *xx;
-  dReal norm;
   dInt nx=-1;
   dErr err;
 
@@ -178,7 +177,6 @@ static dErr useFS(dFS fs)
     * the expanded sum is larger than the global sum by 32. */
     if (dAbs(ysum-gsum-32) > 1e-14) dERROR(1,"Unexpected expanded sum %f != %f + 32",ysum,gsum);
   }
-  if (norm != 0) dERROR(1,"Norm does not agree.");
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(y);dCHK(err);
   err = VecDestroy(g);dCHK(err);

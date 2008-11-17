@@ -376,7 +376,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
           for (j=start[incd[0]]; j!=end[0]; j+=inc[0]) {
             for (k=start[incd[1]]; k!=end[1]; k+=inc[1]) {
               const dInt faceDim[2] = {d[incd[0]],d[incd[1]]};
-              dInt facejk[2],faceIndex;
+              dInt facejk[2],faceIndex = -1;
               nrow = ncol = 0;
               irow[nrow++] = (xs[elem] + (start[0]*d1+start[1])*d2+start[2]
                               + (j-start[incd[0]])*scan[incd[0]] + (k-start[incd[1]])*scan[incd[1]]);

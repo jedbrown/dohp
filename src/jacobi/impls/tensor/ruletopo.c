@@ -142,9 +142,21 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Line(dRule rule,dInt *dim,dInt nnode
   TensorRule *r = ((dRule_Tensor*)rule)->trule;
   dFunctionBegin;
   if (dim) *dim = 1;
-  if (nnodes) nnodes[0] = r[0]->size;
-  if (coord) coord[0] = r[0]->coord;
-  if (weight) weight[0] = r[0]->weight;
+  if (nnodes) {
+    nnodes[0] = r[0]->size;
+    nnodes[1] = 0;
+    nnodes[2] = 0;
+  }
+  if (coord) {
+    coord[0] = r[0]->coord;
+    coord[1] = NULL;
+    coord[2] = NULL;
+  }
+  if (weight) {
+    weight[0] = r[0]->weight;
+    weight[1] = NULL;
+    weight[2] = NULL;
+  }
   dFunctionReturn(0);
 }
 
@@ -156,14 +168,17 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Quad(dRule rule,dInt *dim,dInt nnode
   if (nnodes) {
     nnodes[0] = r[0]->size;
     nnodes[1] = r[1]->size;
+    nnodes[2] = 0;
   }
   if (coord) {
     coord[0] = r[0]->coord;
     coord[1] = r[1]->coord;
+    coord[2] = NULL;
   }
   if (weight) {
     weight[0] = r[0]->weight;
     weight[1] = r[1]->weight;
+    weight[2] = NULL;
   }
   dFunctionReturn(0);
 }
