@@ -6,8 +6,29 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 
+/* A global variable for the exact solution */
+struct {
+  dErr (*function)(const dReal[3],dScalar[1]);
+  dErr (*gradient)(const dReal[3],dScalar[1][3]);
+} exact;
+
+static dErr exact_0_function(const dReal x[3],dScalar f[1])
+{
+  f[0] = sin(x[0])*cosh(x[1]) + exp(x[1]) + sinh(x[1])*tanh(x[2]);
+  return 0;
+}
+
+static dErr exact_0_gradient(const dReal x[3],dScalar df[1][3])
+{
+  df[0][0] = cos(x[0])*cosh(x[1]) + exp(x[1]);
+  df[0][1] = sin(x[0])*sinh(x[1]) + exp(x[1]) + cosh(x[1])*tanh(x[2]);
+  df[0][2] = sinh(x[1]) * (1.0 - dSqr(tanh(x[2])));
+  return 0;
+}
+
 struct Options {
-  dTruth constant_degree;
+  dInt constBDeg;
+  dInt nominalRDeg;
 } gopt;
 
 static dErr createHexMesh(iMesh_Instance mi)
@@ -84,12 +105,14 @@ static dErr tagHexes(dMesh mesh,dMeshTag *intag)
 {
   dMeshTag tag;
   dMeshEH ents[100],hex[2];
-  dInt adata[3*ALEN(ents)],nonconst_data[3*ALEN(hex)] = {3,4,5,6,7,8},const_data[3*ALEN(hex)] = {4,4,4,4,4,4},*data,nhex,nents;
+  dInt adata[3*ALEN(ents)],hexDegree[3*ALEN(hex)] = {3,4,5,6,7,8},nhex,nents;
   dErr err;
 
   dFunctionBegin;
   *intag = 0;
-  data = (gopt.constant_degree) ? const_data : nonconst_data;
+  if (gopt.constBDeg) {
+    for (dInt i=0; i<ALEN(hexDegree); i++) hexDegree[i] = gopt.constBDeg;
+  }
   err = dMeshTagCreateTemp(mesh,"anisotropic",3,dDATA_INT,&tag);dCHK(err);
   /* tag edges and faces with high values, currently needed to propogate degrees (will overwrite high values) */
   for (dEntType type=dTYPE_VERTEX; type<=dTYPE_FACE; type++) {
@@ -100,7 +123,7 @@ static dErr tagHexes(dMesh mesh,dMeshTag *intag)
   /* tag the hexes with meaningful values */
   err = dMeshGetEnts(mesh,0,dTYPE_ALL,dTOPO_HEX,hex,ALEN(hex),&nhex);dCHK(err);
   if (nhex != 2) dERROR(1,"wrong number of hexes");
-  err = dMeshTagSetData(mesh,tag,hex,nhex,data,3*nhex,dDATA_INT);dCHK(err);
+  err = dMeshTagSetData(mesh,tag,hex,nhex,hexDegree,3*nhex,dDATA_INT);dCHK(err);
   *intag = tag;
   dFunctionReturn(0);
 }
@@ -175,11 +198,97 @@ static dErr useFS(dFS fs)
     if (dAbs(xsum-gsum) > 1e-14) dERROR(1,"Expanded sum does not match global sum");
     /* There are 16 points on the interface between the elements, these points get double-counted in both elements, so
     * the expanded sum is larger than the global sum by 32. */
-    if (dAbs(ysum-gsum-32) > 1e-14) dERROR(1,"Unexpected expanded sum %f != %f + 32",ysum,gsum);
+    if (gopt.constBDeg) {
+      if (dAbs(ysum-gsum-2.0*dSqr(gopt.constBDeg)) > 1e-14) dERROR(1,"Unexpected expanded sum %f != %f + 32",ysum,gsum);
+    } else {
+      dERROR(1,"Don't know how to check for non-const Basis Degree");
+    }
   }
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(y);dCHK(err);
   err = VecDestroy(g);dCHK(err);
+  dFunctionReturn(0);
+}
+
+struct ProjContext {
+  dFS fs;
+  Vec x,y;
+};
+
+static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
+{
+  struct ProjContext *proj = ctx;
+  dFS fs = proj->fs;
+  dInt n,*off,*geomoff;
+  s_dRule *rule;
+  s_dEFS *efs;
+  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
+  dScalar *x,*y,*u,*v;
+  dErr err;
+
+  dFunctionBegin;
+  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+
+  err = VecGetArray(proj->x,&x);dCHK(err);
+  err = VecZeroEntries(proj->y);dCHK(err);
+  err = VecGetArray(proj->y,&y);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    for (dInt i=0; i<off[e+1]-off[e]; i++) {
+      dScalar f[1];             /* Scalar problem */
+      err = exact.function(q[i],f);dCHK(err);
+      v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
+    }
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+  }
+  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(proj->x,&x);dCHK(err);
+  err = VecRestoreArray(proj->y,&y);dCHK(err);
+  err = dFSExpandedToGlobalBegin(fs,proj->y,INSERT_VALUES,gy);dCHK(err);
+  err = dFSExpandedToGlobalEnd(fs,proj->y,INSERT_VALUES,gy);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr doProjection(dFS fs)
+{
+  struct ProjContext proj;
+  MPI_Comm comm;
+  SNES snes;
+  Vec r,x;
+  dErr err;
+
+  dFunctionBegin;
+  proj.fs = fs;
+  err = dFSCreateExpandedVector(fs,&proj.x);dCHK(err);
+  err = VecDuplicate(proj.x,&proj.y);dCHK(err);
+
+  err = dFSCreateGlobalVector(fs,&r);dCHK(err);
+  err = dObjectGetComm((dObject)fs,&comm);dCHK(err);
+  err = SNESCreate(comm,&snes);dCHK(err);
+  err = SNESSetFunction(snes,r,ProjResidual,(void*)&proj);dCHK(err);
+  err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-12,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
+  err = SNESSetFromOptions(snes);dCHK(err);
+  err = VecDuplicate(r,&x);dCHK(err);
+  err = VecZeroEntries(x);dCHK(err);
+  err = SNESSolve(snes,NULL,x);dCHK(err);
+  {
+    // err = SNESComputeFunction(snes,x,r);dCHK(err);
+    Vec *coords;
+    dReal norm[2],norminf;
+    err = VecDuplicateVecs(x,3,&coords);dCHK(err);
+    err = VecDestroyVecs(coords,3);dCHK(err);
+    err = VecNorm(r,NORM_1_AND_2,norm);dCHK(err);
+    err = VecNorm(r,NORM_INFINITY,&norminf);dCHK(err);
+    err = PetscPrintf(PETSC_COMM_WORLD,"Projection residual  |x|_1 = %5g  |x|_2 = %5g  |x|_inf = %5g\n",norm[0],norm[1],norminf);dCHK(err);
+  }
+  err = SNESDestroy(snes);dCHK(err);
+  err = VecDestroy(r);dCHK(err);
+  err = VecDestroy(x);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -194,14 +303,17 @@ int main(int argc,char *argv[])
   dMeshTag rtag,dtag;
   MPI_Comm comm;
   PetscViewer viewer;
+  dTruth showconn;
   dErr err;
 
   err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constant_degree = dFALSE;
-    err = PetscOptionsTruth("-constant_degree","Use constant isotropic degree on all elements",NULL,gopt.constant_degree,&gopt.constant_degree,NULL);dCHK(err);
+    gopt.constBDeg = 4; gopt.nominalRDeg = 8; showconn = dFALSE;
+    err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
+    err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)",NULL,gopt.nominalRDeg,&gopt.nominalRDeg,NULL);dCHK(err);
+    err = PetscOptionsTruth("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
@@ -215,7 +327,7 @@ int main(int argc,char *argv[])
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ex1_rule",5,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
   err = tagHexes(mesh,&dtag);dCHK(err);
 
   err = dFSCreate(comm,&fs);dCHK(err);
@@ -226,7 +338,11 @@ int main(int argc,char *argv[])
 
   err = useFS(fs);dCHK(err);
 
-  err = examine(mesh,dtag);dCHK(err);
+  if (showconn) {err = examine(mesh,dtag);dCHK(err);}
+
+  exact.function = exact_0_function;
+  exact.gradient = exact_0_gradient;
+  err = doProjection(fs);dCHK(err);
 
   err = dFSDestroy(fs);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);

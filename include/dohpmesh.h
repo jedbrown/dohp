@@ -125,6 +125,8 @@ EXTERN dErr dMeshGetStatus(dMesh,dInt,const dMeshEH[],dEntStatus[]);
 EXTERN dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
 EXTERN dErr dMeshGetAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
 EXTERN dErr dMeshRestoreAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
+EXTERN dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
+EXTERN dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
 
 PETSC_EXTERN_CXX_END
 #endif

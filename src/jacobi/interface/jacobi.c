@@ -401,7 +401,7 @@ dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight)
   dFunctionReturn(0);
 }
 
-dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight)
+dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[])
 {
   dErr err;
 
@@ -411,6 +411,15 @@ dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal **co
   dFunctionReturn(0);
 }
 
+dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal qg[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(rule,1);
+  err = rule->ops->computeGeometry(rule,vtx,qg,jinv,jdet);dCHK(err);
+  dFunctionReturn(0);
+}
 
 dErr dEFSView(dEFS efs,PetscViewer viewer)
 {

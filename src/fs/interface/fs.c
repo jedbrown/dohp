@@ -66,10 +66,9 @@ static inline dErr dBdyIntersect(dBdyType *a,dBdyType b)
   dFunctionReturn(0);
 }
 
-/** 
-* Get an array of boundary types associated with a list of entities
-* 
-* @param fs 
+/** Get an array of boundary types associated with a list of entities
+*
+* @param fs
 * @param[in] nents Number of entities
 * @param[in] ents handles
 * @param[out] btype array of boundary types, should be at least \a nents in length
@@ -178,6 +177,13 @@ dErr dFSDestroy(dFS fs)
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
   }
+  if (fs->workspace) {
+    s_dFSWorkspace *w = fs->workspace;
+    err = dFree7(w->q,w->jinv,w->jw,w->u,w->v,w->du,w->dv);dCHK(err);
+    err = dFree(fs->workspace);dCHK(err);
+  }
+  err = dFree3(fs->rule,fs->efs,fs->off);dCHK(err);
+  err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = PetscHeaderDestroy(fs);dCHK(err);
   dFunctionReturn(0);
 }
@@ -196,10 +202,7 @@ dErr dFSBuildSpace(dFS fs)
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  /*
-  * FIXME:
-  *
-  */
+  if (fs->spacebuilt) dERROR(1,"The space is already built, rebuilding is not implemented");
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
   }
@@ -214,7 +217,7 @@ dErr dFSBuildSpace(dFS fs)
   err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecDestroy(x);dCHK(err);
 
-  fs->spacebuilt = true;
+  fs->spacebuilt = dTRUE;
   dFunctionReturn(0);
 }
 
@@ -298,6 +301,123 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,InsertMode imode,Vec g)
       dERROR(1,"InsertMode %d not supported",imode);
   }
   err = VecGhostRestoreLocalForm(g,&lform);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** Updates the global values, does \b not broadcast the global values back to the ghosts */
+dErr dFSExpandedToGlobalBegin(dFS fs,Vec x,InsertMode imode,Vec g)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(x,VEC_COOKIE,2);
+  dValidHeader(g,VEC_COOKIE,4);
+  err = dFSExpandedToGlobal(fs,x,imode,g);dCHK(err);
+  err = VecGhostUpdateBegin(g,imode,SCATTER_REVERSE);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSExpandedToGlobalEnd(dFS fs,Vec x,InsertMode imode,Vec g)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(x,VEC_COOKIE,2);
+  dValidHeader(g,VEC_COOKIE,4);
+  err = VecGhostUpdateEnd(g,imode,SCATTER_REVERSE);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSGetElements(dFS fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt **geomoff,dReal (**geom)[3])
+{
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  if (n)       *n       = fs->nelem;
+  if (off)     *off     = fs->off;
+  if (rule)    *rule    = fs->rule;
+  if (efs)     *efs     = fs->efs;
+  if (geomoff) *geomoff = fs->vtxoff;
+  if (geom)    *geom    = fs->vtx;
+  dFunctionReturn(0);
+}
+
+dErr dFSRestoreElements(dFS fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt **geomoff,dReal (**geom)[3])
+{
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  if (n)       *n       = 0;
+  if (off)     *off     = NULL;
+  if (rule)    *rule    = NULL;
+  if (efs)     *efs     = NULL;
+  if (geomoff) *geomoff = NULL;
+  if (geom)    *geom    = NULL;
+  dFunctionReturn(0);
+}
+
+/** Get arrays sufficiently large to hold the necessary quantities on the highest order element present in the mesh.
+*
+* @param fs
+* @param q Pointer which will hold array of quadrature points, in physical space (not just the local tensor product)
+* @param jinv Inverse of element Jacobian evaluated at quadrature points, normally just passed on to dEFSApply
+* @param jw Array to store jacobian determinant times quadrature weights at quadrature points
+* @param u first array to hold D values per quadrature point
+* @param v second array to hold D values per quadrature point
+* @param du first array to hold 3*D values per quadrature point
+* @param dv second array to hold 3*D values per quadrature point
+*/
+dErr dFSGetWorkspace(dFS fs,dReal (**q)[3],dReal (**jinv)[3][3],dReal **jw,dScalar **u,dScalar **v,dScalar **du,dScalar **dv)
+{
+  s_dFSWorkspace *w;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  if (!fs->workspace) {
+    dInt Q = 0, D = fs->D;
+    err = dNew(s_dFSWorkspace,&w);dCHK(err);
+    for (dInt i=0; i<fs->nelem; i++) {
+      dInt nnodes;
+      err = dRuleGetSize(&fs->rule[i],NULL,&nnodes);dCHK(err);
+      if (nnodes > Q) Q = nnodes;
+    }
+    err = dMallocA7(Q,&w->q,Q,&w->jinv,Q,&w->jw,Q*D,&w->u,Q*D,&w->v,Q*D*3,&w->du,Q*D*3,&w->dv);dCHK(err);
+    fs->workspace = w;
+  }
+  w = fs->workspace;
+  if (q)    *q    = w->q;
+  if (jinv) *jinv = w->jinv;
+  if (jw)   *jw   = w->jw;
+  if (u)    *u    = w->u;
+  if (v)    *v    = w->v;
+  if (du)   *du   = w->du;
+  if (dv)   *dv   = w->dv;
+  dFunctionReturn(0);
+}
+
+/* These arrays are persistent for the life of the dFS so we just nullify the pointers */
+dErr dFSRestoreWorkspace(dFS fs,dReal (**q)[3],dReal (**jinv)[3][3],dReal **jw,dScalar **u,dScalar **v,dScalar **du,dScalar **dv)
+{
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+#define dCHECK_NULLIFY(var) do {                                        \
+    if (var) {                                                          \
+      if (*var == fs->workspace->var) *var = NULL;                      \
+      else dERROR(1,"Unable to restore array " #var " because it was not gotten or has been modified"); \
+    }                                                                   \
+  } while (false)
+  dCHECK_NULLIFY(q);
+  dCHECK_NULLIFY(jinv);
+  dCHECK_NULLIFY(jw);
+  dCHECK_NULLIFY(u);
+  dCHECK_NULLIFY(v);
+  dCHECK_NULLIFY(du);
+  dCHECK_NULLIFY(dv);
+#undef dCHECK_NULLIFY
   dFunctionReturn(0);
 }
 

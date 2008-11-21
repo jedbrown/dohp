@@ -2,20 +2,31 @@
 #include "tensor.h"
 
 static dErr dRuleView_Tensor_Private(const char*,dInt,TensorRule*,PetscViewer);
-static dErr dRuleView_Tensor_Line(dRule,PetscViewer);
-static dErr dRuleView_Tensor_Quad(dRule,PetscViewer);
-static dErr dRuleView_Tensor_Hex(dRule,PetscViewer);
-static dErr dRuleGetSize_Tensor_Line(dRule,dInt*,dInt*);
-static dErr dRuleGetSize_Tensor_Quad(dRule,dInt*,dInt*);
-static dErr dRuleGetSize_Tensor_Hex(dRule,dInt*,dInt*);
-#if 0
-static dErr dRuleGetNodeWeight_Tensor_Line(dRule*,dReal*,dReal*);
-static dErr dRuleGetNodeWeight_Tensor_Quad(dRule*,dReal*,dReal*);
-static dErr dRuleGetNodeWeight_Tensor_Hex(dRule*,dReal*,dReal*);
-#endif
-static dErr dRuleGetTensorNodeWeight_Tensor_Line(dRule,dInt*,dInt[],const dReal**,const dReal**);
-static dErr dRuleGetTensorNodeWeight_Tensor_Quad(dRule,dInt*,dInt[],const dReal**,const dReal**);
-static dErr dRuleGetTensorNodeWeight_Tensor_Hex(dRule,dInt*,dInt[],const dReal**,const dReal**);
+#define _F(f) static dErr f(dRule,PetscViewer)
+_F(dRuleView_Tensor_Line);
+_F(dRuleView_Tensor_Quad);
+_F(dRuleView_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dRule,dInt*,dInt*)
+_F(dRuleGetSize_Tensor_Line);
+_F(dRuleGetSize_Tensor_Quad);
+_F(dRuleGetSize_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dRule*,dReal*,dReal*)
+/* _F(dRuleGetNodeWeight_Tensor_Line); */
+/* _F(dRuleGetNodeWeight_Tensor_Quad); */
+/* _F(dRuleGetNodeWeight_Tensor_Line); */
+#undef _F
+#define _F(f) static dErr f(dRule,dInt*,dInt[],const dReal*[],const dReal*[])
+_F(dRuleGetTensorNodeWeight_Tensor_Line);
+_F(dRuleGetTensorNodeWeight_Tensor_Quad);
+_F(dRuleGetTensorNodeWeight_Tensor_Hex);
+#undef _F
+#define _F(f) static dErr f(dRule,const dReal[restrict][3],dReal[restrict][3],dReal[restrict][3][3],dReal[restrict])
+/* _F(dRuleComputeGeometry_Tensor_Line); */
+/* _F(dRuleComputeGeometry_Tensor_Quad); */
+_F(dRuleComputeGeometry_Tensor_Hex);
+#undef _F
 
 /**
 * Set up the rule ops table for each topology.
@@ -26,18 +37,27 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Hex(dRule,dInt*,dInt[],const dReal**
 */
 dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac)
 {
-  static const struct _dRuleOps ruleOpsLine = { .view = dRuleView_Tensor_Line,
-                                                .getSize = dRuleGetSize_Tensor_Line,
-                                                .getNodeWeight = NULL, /* dRuleGetNodeWeight_Tensor_Line, */
-                                                .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Line };
-  static const struct _dRuleOps ruleOpsQuad = { .view = dRuleView_Tensor_Quad,
-                                                .getSize = dRuleGetSize_Tensor_Quad,
-                                                .getNodeWeight = NULL, /* dRuleGetNodeWeight_Tensor_Quad, */
-                                                .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Quad };
-  static const struct _dRuleOps ruleOpsHex  = { .view = dRuleView_Tensor_Hex,
-                                                .getSize = dRuleGetSize_Tensor_Hex,
-                                                .getNodeWeight = NULL, /* dRuleGetNodeWeight_Tensor_Hex, */
-                                                .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Hex };
+  static const struct _dRuleOps ruleOpsLine = {
+    .view                = dRuleView_Tensor_Line,
+    .getSize             = dRuleGetSize_Tensor_Line,
+    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Line, */
+    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Line,
+    .computeGeometry     = NULL, /* Not implemented */
+  };
+  static const struct _dRuleOps ruleOpsQuad = {
+    .view                = dRuleView_Tensor_Quad,
+    .getSize             = dRuleGetSize_Tensor_Quad,
+    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Quad, */
+    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Quad,
+    .computeGeometry     = NULL, /* Not implemented */
+  };
+  static const struct _dRuleOps ruleOpsHex  = {
+    .view                = dRuleView_Tensor_Hex,
+    .getSize             = dRuleGetSize_Tensor_Hex,
+    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Hex, */
+    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Hex,
+    .computeGeometry     = dRuleComputeGeometry_Tensor_Hex,
+  };
   Tensor this = (Tensor)jac->impl;
   dErr err;
 
@@ -207,12 +227,11 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Hex(dRule rule,dInt *dim,dInt nnodes
   dFunctionReturn(0);
 }
 
-static dErr dRuleComputeMapping_Tensor_Hex(dRule rule,const dReal vtx[],dReal jinv[restrict][3][3],dReal jdet[restrict])
+static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3],dReal qg[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict])
 {
   const TensorRule *r = ((dRule_Tensor*)rule)->trule;
   const dInt Q[3] = {r[0]->size,r[1]->size,r[2]->size},QQ = Q[0]*Q[1]*Q[2];
   const dReal *qx[3] = {r[0]->coord,r[1]->coord,r[2]->coord};
-  const dReal (*restrict x)[3] = (const dReal(*)[3])vtx;
   dErr err;
 
   dFunctionBegin;
@@ -232,12 +251,14 @@ static dErr dRuleComputeMapping_Tensor_Hex(dRule rule,const dReal vtx[],dReal ji
           J[l][0] = 0.5 * (f[1][l] - f[3][l]);
           J[l][1] = 0.5 * (f[2][l] - f[0][l]);
           J[l][2] = 0.5 * (f[5][l] - f[4][l]);
+          qg[p][l] = 0.5 * ((1.0-q[1])*f[0][l] + (1.0+q[1])*f[2][l]);
         }
         err = dGeomInvert3(&J[0][0],&jinv[p][0][0],&jdet[p]);dCHK(err);
       }
     }
   }
-  /* Assume the optimizer has eliminated common subexpressions, this estimate is about right */
-  PetscLogFlops(QQ*(6+6*30+6+42);
+  /* Assume the optimizer has eliminated common subexpressions, this estimate is about right, some of the convex
+  * combinations could be hoisted out of the inner loop */
+  PetscLogFlops(QQ*(6+6*30+6+42));
   dFunctionReturn(0);
 }

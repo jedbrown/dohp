@@ -809,6 +809,7 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dJacobi jac,const char 
   dMeshEH *ents;
   dInt nents,toff[dTYPE_ALL+1],*rdeg;
   dEntTopology *topo;
+  dEntType firstType;
   s_dRule *rules;
   dErr err;
 
@@ -816,30 +817,34 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dJacobi jac,const char 
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(inrtag,2);
   *inrtag = 0;
-  err = dMeshTagCreate(mesh,name,sizeof(dRule),dDATA_BYTE,&rtag);dCHK(err);
+  //err = dMeshTagCreate(mesh,name,sizeof(dRule),dDATA_BYTE,&rtag);dCHK(err);
+  err = dMeshTagCreate(mesh,name,3,dDATA_INT,&rtag);dCHK(err);
 
+  firstType = dTYPE_VERTEX;  /* Hack: Get vertices as well (we should not need to label them) */
   toff[dTYPE_VERTEX] = toff[dTYPE_EDGE] = 0;
-  for (dEntType type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
+  for (dEntType type=firstType; type<dTYPE_ALL; type++) {
     dInt t;
     err = dMeshGetNumEnts(mesh,set,type,dTOPO_ALL,&t);dCHK(err);
     toff[type+1] = toff[type] + t;
   }
   nents = toff[dTYPE_ALL];
   err = dMallocA4(nents,&ents,nents,&topo,3*nents,&rdeg,nents,&rules);dCHK(err);
-  for (dEntType type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
+  for (dEntType type=firstType; type<dTYPE_ALL; type++) {
     err = dMeshGetEnts(mesh,set,type,dTOPO_ALL,ents+toff[type],toff[type+1]-toff[type],NULL);dCHK(err);
   }
   err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
   for (dInt i=0; i<nents; i++) {
     switch (topo[i]) {
+      case dTOPO_POINT: rdeg[3*i+0] = rdeg[3*i+1] = rdeg[3*i+2] = 1; break;
       case dTOPO_LINE: rdeg[3*i+0] = degree; rdeg[3*i+1] = rdeg[3*i+2] = 1; break;
       case dTOPO_QUAD: rdeg[3*i+0] = rdeg[3*i+1] = degree; rdeg[3*i+2] = 1; break;
       case dTOPO_HEX:  rdeg[3*i+0] = rdeg[3*i+1] = rdeg[3*i+2] = degree; break;
       default: dERROR(1,"Topology %d not supported",topo[i]);
     }
   }
-  err = dJacobiGetRule(jac,nents,topo,rdeg,rules);dCHK(err);
-  err = dMeshTagSetData(mesh,rtag,ents,nents,rules,nents*(dInt)sizeof(s_dRule),dDATA_BYTE);dCHK(err);
+  //err = dJacobiGetRule(jac,nents,topo,rdeg,rules);dCHK(err);
+  //err = dMeshTagSetData(mesh,rtag,ents,nents,rules,nents*(dInt)sizeof(s_dRule),dDATA_BYTE);dCHK(err);
+  err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,3,dDATA_INT);dCHK(err);
   err = dFree4(ents,topo,rdeg,rules);dCHK(err);
   *inrtag = rtag;
   dFunctionReturn(0);
@@ -1032,3 +1037,64 @@ dErr dMeshRestoreAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *ma)
   dFunctionReturn(0);
 }
 
+/** Get vertex coordinates for the vertices representing the connectivity of the entities.
+*
+* @example <c>x+xoff[i] ... x+xoff[i+1]</c> are the coordinates of the vertices in the connectivity of \c ents[i]
+*
+* @param mesh Mesh object
+* @param n number of entities
+* @param ents entity handles
+* @param inxoff address of offsets of vertices for each entity, NOT the offset of the first vertex coordinate because \a x has array type
+* @param inx address of vertex values
+*/
+dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
+{
+  iMesh_Instance mi         = mesh->mi;
+  MeshListEH     conn       = MLZ;
+  MeshListInt    connoff    = MLZ;
+  MeshListReal   vtx        = MLZ;
+  dIInt          ierr,order = iBase_INTERLEAVED;
+  dReal         *x;
+  dInt          *xoff;
+  dErr           err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(ents,3);
+  dValidPointer(inxoff,4);
+  dValidPointer(inx,5);
+  *inxoff = NULL; *inx = NULL;
+  iMesh_getEntArrAdj(mi,ents,n,iBase_VERTEX,MLREF(conn),MLREF(connoff),&ierr);dICHK(mi,ierr);
+  iMesh_getVtxArrCoords(mi,conn.v,conn.s,&order,MLREF(vtx),&ierr);dICHK(mi,ierr);
+
+  /* Allocate for coordinates \a x first to be sure they are suitable aligned (dReal has stricter alignment requirements
+  * than dInt) */
+  err = dMallocA2(connoff.v[n]*3,&x,n+1,&xoff);dCHK(err);
+  for (dInt i=0; i<n; i++) {
+    xoff[i] = connoff.v[i];     /* Leave the offset as number of vertices */
+    for (dInt j=3*connoff.v[i]; j<3*connoff.v[i+1]; j++) {
+      x[j] = vtx.v[j];
+    }
+  }
+  xoff[n] = 3*connoff.v[n];
+  MeshListFree(conn); MeshListFree(connoff); MeshListFree(vtx);
+  *inxoff = xoff;
+  *inx = (dReal(*)[3])x;
+  dFunctionReturn(0);
+}
+
+/*
+* Since the vertex coords are often persistent for the life of the dFS, it's common that \a ents will not be available
+* when this function is called, hence we accept a NULL argument.  This is a hack to preserve a symmetric interface.
+**/
+dErr dMeshRestoreVertexCoords(dMesh mesh,dUNUSED dInt n,const dUNUSED dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(inxoff,4);
+  dValidPointer(inx,5);
+  err = dFree2(*inx,*inxoff);dCHK(err);
+  dFunctionReturn(0);
+}

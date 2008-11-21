@@ -151,7 +151,8 @@ EXTERN dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,d
 EXTERN dErr dRuleView(dRule rule,PetscViewer);
 EXTERN dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
 EXTERN dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
-EXTERN dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal **coord,const dReal **weight);
+EXTERN dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
+EXTERN dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
 
 EXTERN dErr dEFSView(dEFS efs,PetscViewer viewer);
 EXTERN dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);

@@ -79,8 +79,10 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   /* MeshListEH v=MLZ,e=MLZ,f=MLZ,r=MLZ; */
   /* MeshListInt in=MLZ,rfo=MLZ,feo=MLZ,rdegree=MLZ; */
   /* dIInt nf; */
-  dInt i,j,gcnt,ghcnt,*inodes,*xnodes,*deg,*ghostind,nregions;
-  dInt *xind,*xstart,*istart,xcnt,*nnz,*pnnz;
+  dEntTopology *regTopo;
+  dInt i,j,gcnt,ghcnt,*inodes,*xnodes,*deg,*rdeg,*ghostind,nregions;
+  dInt *xind,*xstart,*istart,xcnt,*nnz,*pnnz,*regRDeg,*regBDeg;
+  dMeshEH *regEnts;
   dEntStatus *status;
   dErr err;
 
@@ -90,8 +92,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetAdjacency(mesh,fs->active,&ma);dCHK(err);
   err = dFSContPropogateDegree(fs,&ma);dCHK(err);
 
-  err = dMallocA4(ma.nents*3,&deg,ma.nents,&inodes,ma.nents,&xnodes,ma.nents,&status);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,3*ma.nents,dDATA_INT);
+  err = dMallocA5(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&xnodes,ma.nents,&status);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,3*ma.nents,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->ruletag,ma.ents,ma.nents,rdeg,3*ma.nents,dDATA_INT);dCHK(err);
   /* Fill the arrays \a inodes and \a xnodes with the number of interior and expanded nodes for each
   * (topology,degree) pair */
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,xnodes);dCHK(err);
@@ -169,11 +172,17 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   */
 
   nregions = ma.toff[dTYPE_REGION+1] - ma.toff[dTYPE_REGION];
-  err = dMallocA2(nregions,&xind,nregions+1,&xstart);dCHK(err);
+  err = dMallocA6(nregions,&xind,nregions+1,&xstart,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg,nregions,&regEnts);dCHK(err);
   for (i=0,xcnt=0; i<nregions; i++) {
     const dInt ii = ma.toff[dTYPE_REGION] + i;
     xind[i] = ii;               /* Index of entity in full arrays */
     xstart[i] = xcnt;           /* first node on this entity */
+    regTopo[i] = ma.topo[ii];
+    regEnts[i] = ma.ents[ii];
+    for (j=0; j<3; j++) {
+      regRDeg[i*3+j] = dMaxInt(rdeg[ii*3+j],deg[ii*3+j]+2); /* Use a slightly stronger quadrature rule than required to be Hausdorff */
+      regBDeg[i*3+j] = deg[ii*3+j];
+    }
     xcnt += xnodes[ii];
   }
   fs->m = xstart[nregions] = xcnt;
@@ -187,23 +196,29 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dFree2(nnz,pnnz);dCHK(err);
 
   err = dJacobiAddConstraints(fs->jacobi,nregions,xind,xstart,istart,deg,&ma,fs->C,fs->Cp);dCHK(err);
-  err = dFree2(xind,xstart);dCHK(err);
+  err = dFree(istart);dCHK(err);
+  err = dFree5(deg,rdeg,inodes,xnodes,status);dCHK(err);
+  err = dMeshRestoreAdjacency(mesh,fs->active,&ma);dCHK(err);
 
   err = MatAssemblyBegin(fs->C,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyBegin(fs->Cp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(fs->C,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(fs->Cp,MAT_FINAL_ASSEMBLY);dCHK(err);
 
-  /* FIXME: get EFS and Rule */
+  /* Get Rule and EFS for domain ents. */
+  fs->nelem = nregions;
+  err = dMallocA3(nregions,&fs->rule,nregions,&fs->efs,nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
+  err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
+  err = dJacobiGetRule(fs->jacobi,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
+  err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
+  err = dMeshGetVertexCoords(mesh,nregions,regEnts,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
+  err = dFree6(xind,xstart,regTopo,regRDeg,regBDeg,regEnts);dCHK(err);
 
-  err = dFree(istart);dCHK(err);
-  err = dFree4(deg,inodes,xnodes,status);dCHK(err);
-  err = dMeshRestoreAdjacency(mesh,fs->active,&ma);dCHK(err);
   dFunctionReturn(0);
 }
 
 /**
-* Create the private structure used by a continuous galerkin function space.
+* Create the private structure used by a continuous Galerkin function space.
 *
 * This function does not allocate the constraint matrices.
 *

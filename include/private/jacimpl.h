@@ -17,6 +17,7 @@ struct _dRuleOps {
                                                                                * nodes in each direction, weights in
                                                                                * each direction.  Does not copy, may not
                                                                                * be implemented.  */
+  dErr (*computeGeometry)(dRule,const dReal[restrict][3],dReal[restrict][3],dReal[restrict][3][3],dReal[restrict]);
 };
 
 /**
