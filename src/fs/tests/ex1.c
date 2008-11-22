@@ -33,9 +33,15 @@ struct Options {
 
 static dErr createHexMesh(iMesh_Instance mi)
 {
-  double vtx[12*3] = {0,0,0, 1,0,0, 1,1,0, 0,1,0,
-                      0,0,1, 1,0,1, 1,1,1, 0,1,1,
-                      2,0,0, 2,1,0, 2,1,1, 2,1,0};
+  static const int vtxlen = 12*3;
+  static const double vtx_affine[12*3] = {0,0,0, 1,0,0, 1,1,0, 0,1,0,
+                                          0,0,1, 1,0,1, 1,1,1, 0,1,1,
+                                          2,0,0, 2,1,0, 2,1,1, 2,1,0};
+  static const double vtx_parametric[12*3] = {0.1,0.2,0.3, 1.3,0.2,0.1, 1.1,1.2,0.3, 0.3,1.2,0.1,
+                                              0.1,0.2,1.3, 1.3,0.2,1.1, 1.1,1.2,1.3, 0.3,1.2,1.1,
+                                              2.1,0.2,0.3, 2.3,1.2,0.1, 2.1,1.2,1.3, 2.3,1.2,0.1};
+  const double *vtx;
+  dTruth iaffine = dFALSE;
   int rconn[16] = {0,1,2,3,4,5,6,7, 1,2,6,5,8,9,10,11};
   int fconn[11*4] = {0,1,2,3, 1,2,6,5, 2,3,7,6, 0,3,7,4, 0,1,5,4, 5,6,7,4,
                      8,11,5,1, 2,1,8,9, 8,9,10,11, 11,10,6,5, 9,10,6,2};
@@ -45,9 +51,14 @@ static dErr createHexMesh(iMesh_Instance mi)
   MeshListEH v=MLZ,e=MLZ,f=MLZ,r=MLZ,tv=MLZ;
   MeshListInt stat=MLZ,off=MLZ;
   dIInt ierr;
+  dErr err;
 
   dFunctionBegin;
-  iMesh_createVtxArr(mi,ALEN(vtx)/3,iBase_INTERLEAVED,vtx,ALEN(vtx),MLREF(v),&ierr);dICHK(mi,ierr);
+  err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"Hex mesh options",NULL);dCHK(err);
+  err = PetscOptionsTruth("-affine","Use an affine coordinate map",NULL,iaffine,&iaffine,NULL);dCHK(err);
+  err = PetscOptionsEnd();dCHK(err);
+  vtx = iaffine ? vtx_affine : vtx_parametric;
+  iMesh_createVtxArr(mi,vtxlen/3,iBase_INTERLEAVED,vtx,vtxlen,MLREF(v),&ierr);dICHK(mi,ierr);
   for (int i=0; i<ALEN(rconn); i++) work[i] = v.v[rconn[i]];
   iMesh_createEntArr(mi,iMesh_HEXAHEDRON,work,ALEN(rconn),MLREF(r),MLREF(stat),&ierr);dICHK(mi,ierr);
   {                             /* Check to see if any orientations changed */
@@ -254,6 +265,43 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dFunctionReturn(0);
 }
 
+static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorms[static 3])
+{
+  dFS fs = proj->fs;
+  dInt n,*off,*geomoff;
+  s_dRule *rule;
+  s_dEFS *efs;
+  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
+  dScalar *x,*u;
+  dErr err;
+
+  dFunctionBegin;
+  err = dMemzero(residualNorms,3*sizeof(residualNorms));dCHK(err);
+  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+  err = VecGetArray(proj->x,&x);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    for (dInt i=0; i<off[e+1]-off[e]; i++) {
+      dScalar f[1],r[1];             /* Scalar problem */
+      err = exact.function(q[i],f);dCHK(err);
+      r[0] = u[i*1+0] - f[0];
+      residualNorms[0] += dAbs(r[0]) * jw[i];               /* 1-norm */
+      residualNorms[1] += dSqr(r[0]) * jw[i];               /* 2-norm */
+      residualNorms[2] = dMax(residualNorms[2],dAbs(r[0])); /* Sup-norm */
+      //printf("pointwise stats %8g %8g %8g %8g\n",jw[i],r[0],dSqr(r[0]),residualNorms[1]);
+    }
+  }
+  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(proj->x,&x);dCHK(err);
+  residualNorms[1] = dSqrt(residualNorms[1]);
+  dFunctionReturn(0);
+}
+
 static dErr doProjection(dFS fs)
 {
   struct ProjContext proj;
@@ -279,12 +327,14 @@ static dErr doProjection(dFS fs)
   {
     // err = SNESComputeFunction(snes,x,r);dCHK(err);
     Vec *coords;
-    dReal norm[2],norminf;
+    dReal norm[2],norminf,resNorms[3];
     err = VecDuplicateVecs(x,3,&coords);dCHK(err);
     err = VecDestroyVecs(coords,3);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,norm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&norminf);dCHK(err);
-    err = PetscPrintf(PETSC_COMM_WORLD,"Projection residual  |x|_1 = %5g  |x|_2 = %5g  |x|_inf = %5g\n",norm[0],norm[1],norminf);dCHK(err);
+    err = PetscPrintf(PETSC_COMM_WORLD,"Algebraic projection residual  |x|_1 %5g  |x|_2 %5g  |x|_inf %5g\n",norm[0],norm[1],norminf);dCHK(err);
+    err = ProjResidualNorms(&proj,x,resNorms);dCHK(err);
+    err = PetscPrintf(PETSC_COMM_WORLD,"Pointwise projection residual  |x|_1 %5g  |x|_2 %5g  |x|_inf %5g\n",resNorms[0],resNorms[1],resNorms[2]);dCHK(err);
   }
   err = SNESDestroy(snes);dCHK(err);
   err = VecDestroy(r);dCHK(err);
