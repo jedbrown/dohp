@@ -239,7 +239,7 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
   pd->nsre = nsre;
 
   /* Allocate for the rank mappings */
-  err = PetscMalloc4(nr,dInt,&pd->ir,nr,dInt,&pd->rns,nr,dInt,&pd->rank,size,dInt,&pd->irank);dCHK(err);
+  err = dMallocA4(nr,&pd->ir,nr,&pd->rns,nr,&pd->rank,size,&pd->irank);dCHK(err);
   {
     dInt ir = 0,r = 0;
     for (dInt i=0; i<size; i++) {
@@ -302,11 +302,14 @@ static dErr MeshPackDataPrepare(dMesh mesh,PackData *pd,dMeshTag tag)
   iMesh_getTagType(mi,tag,&ttype,&err);dICHK(mi,err);
   tsize = tlen * iBase_SizeFromType[ttype];
   if (pd->maxtsize < tsize) {  /* Reallocate the buffers */
-    err = PetscFree2(pd->data,pd->mine);dCHK(err); /* the first time around, these will be NULL which is safe with PetscFree2 */
+    /* the first time around, these will be NULL which is safe with dFree */
+    err = dFree(pd->data);dCHK(err);
+    err = dFree(pd->mine);dCHK(err);
     pd->maxtsize   = tsize;
     pd->datasize   = pd->nsre * tsize;
     pd->minesize   = pd->ne * tsize;
-    err = PetscMalloc2(pd->datasize,char,&pd->data,pd->minesize,char,&pd->mine);dCHK(err);
+    err = dMalloc(pd->datasize*sizeof(char),&pd->data);dCHK(err);
+    err = dMalloc(pd->minesize*sizeof(char),&pd->mine);dCHK(err);
   }
   pd->tag = tag;
   pd->tsize = tsize;
@@ -410,10 +413,11 @@ static dErr PackDataDestroy(PackData *pd)
 
   dFunctionBegin;
   //err = PetscFree6(pd->set,pd->is,pd->estart,pd->sne,pd->snr,pd->spacksize);dCHK(err);
-  err = PetscFree4(pd->ir,pd->rns,pd->rank,pd->irank);dCHK(err);
+  err = dFree4(pd->ir,pd->rns,pd->rank,pd->irank);dCHK(err);
   //err = PetscFree3(pd->sr,pd->rs,pd->jd);dCHK(err);
   //err = PetscFree5(pd->ib,pd->ibsize,pd->ibused,pd->mpireq,pd->ents);dCHK(err);
-  err = PetscFree2(pd->data,pd->mine);dCHK(err);
+  err = dFree(pd->data);dCHK(err);
+  err = dFree(pd->mine);dCHK(err);
   dFunctionReturn(0);
 }
 

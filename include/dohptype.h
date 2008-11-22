@@ -71,23 +71,6 @@ typedef unsigned char dEntStatus;
 #define dMallocA(n,p) (dMalloc((n)*sizeof(**(p)),(p)))
 #define dCalloc(n,p) (dMalloc((n),(p)) || dMemzero(*(p),(n)))
 
-#define dFree2(a,b) PetscFree2((a),(b))
-#define dFree3(a,b,c) PetscFree3((a),(b),(c))
-#define dFree4(a,b,c,d) PetscFree4((a),(b),(c),(d))
-#define dFree5(a,b,c,d,e) PetscFree5((a),(b),(c),(d),(e))
-#define dFree6(a,b,c,d,e,f) PetscFree6((a),(b),(c),(d),(e),(f))
-#define dFree7(a,b,c,d,e,f,g) PetscFree7((a),(b),(c),(d),(e),(f),(g))
-
-#define dMallocA2(n0,p0,n1,p1) PetscMalloc2((n0),**(p0),(p0),(n1),**(p1),p1)
-#define dMallocA3(n0,p0,n1,p1,n2,p2) PetscMalloc3((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2))
-#define dMallocA4(n0,p0,n1,p1,n2,p2,n3,p3) PetscMalloc4((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3))
-#define dMallocA5(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4)                        \
-  PetscMalloc5((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3),(n4),**(p4),(p4))
-#define dMallocA6(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5)                  \
-  PetscMalloc6((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3),(n4),**(p4),(p4),(n5),**(p5),(p5))
-#define dMallocA7(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5,n6,p6)            \
-  PetscMalloc7((n0),**(p0),(p0),(n1),**(p1),(p1),(n2),**(p2),(p2),(n3),**(p3),(p3),(n4),**(p4),(p4),(n5),**(p5),(p5),(n6),**(p6),(p6))
-
 #define dValidPointer2(a,b,c,d) (dValidPointer((a),(b)) || dValidPointer((c),(d)))
 #define dValidPointer3(a,b,c,d,e,f) (dValidPointer2((a),(b),(c),(d)) || dValidPointer((e),(f)))
 #define dValidPointer4(a,b,c,d,e,f,g,h) (dValidPointer3((a),(b),(c),(d),(e),(f)) || dValidPointer((g),(h)))
@@ -125,6 +108,7 @@ static inline dReal dMax(dReal a,dReal b) { return (a > b) ? a : b; }
 static inline dReal dMin(dReal a,dReal b) { return (a < b) ? a : b; }
 static inline dReal dAbs(dScalar a) { return fabs(a); }
 static inline dScalar dSqr(dScalar a) { return a * a; }
+static inline dReal dSqrt(dReal a) { return sqrt(a); }
 
 #define dGamma(a) tgamma(a) /* This is defined in math.h as of C99. */
 
@@ -160,8 +144,8 @@ static inline dScalar dSqr(dScalar a) { return a * a; }
 
 #define dDEFAULT_ALIGN 16l       /* SSE instructions require 16 byte alignment */
 
-#define dNextCacheAligned(p) dNextAlignedAddr(CACHE_LINE,p)
-#define dNextAligned(p)      dNextAlignedAddr(DEFAULT_ALIGN,p)
+#define dNextCacheAligned(p) dNextAlignedAddr(dCACHE_LINE,(p))
+#define dNextAligned(p)      dNextAlignedAddr(dDEFAULT_ALIGN,(p))
 
 /** Returns the next address satisfying the given alignment.
 *
@@ -185,25 +169,73 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
     (mem) = dNextAligned((p) + (n));                    \
   } while (0)
 
-#define dFunctionBegin \
-  {\
-   if (petscstack && (petscstack->currentsize < PETSCSTACKSIZE)) {    \
-    petscstack->function[petscstack->currentsize]  = __func__; \
-    petscstack->file[petscstack->currentsize]      = __FILE__; \
-    petscstack->directory[petscstack->currentsize] = __SDIR__; \
-    petscstack->line[petscstack->currentsize]      = __LINE__; \
-    petscstack->currentsize++; \
-  }}
+#if defined(PETSC_USE_DEBUG)
+# define dMallocA2(n0,p0,n1,p1) (dMallocA((n0),(p0)) || dMallocA((n1),(p1)))
+# define dMallocA3(n0,p0,n1,p1,n2,p2) (dMallocA((n0),(p0)) || dMallocA2((n1),(p1),(n2),(p2)))
+# define dMallocA4(n0,p0,n1,p1,n2,p2,n3,p3) (dMallocA((n0),(p0)) || dMallocA3((n1),(p1),(n2),(p2),(n3),(p3)))
+# define dMallocA5(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4)                       \
+  (dMallocA((n0),(p0)) || dMallocA4((n1),(p1),(n2),(p2),(n3),(p3),(n4),(p4)))
+# define dMallocA6(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5)                  \
+  (dMallocA((n0),(p0)) || dMallocA5((n1),(p1),(n2),(p2),(n3),(p3),(n4),(p4),(n5),(p5)))
+# define dMallocA7(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5,n6,p6)            \
+  (dMallocA((n0),(p0)) || dMallocA6((n1),(p1),(n2),(p2),(n3),(p3),(n4),(p4),(n5),(p5),(n6),(p6)))
+# define dFree2(a,b) (dFree(a) || dFree(b))
+# define dFree3(a,b,c) (dFree(a) || dFree(b) || dFree(c))
+# define dFree4(a,b,c,d) (dFree(a) || dFree(b) || dFree(c) || dFree(d))
+# define dFree5(a,b,c,d,e) (dFree(a) || dFree(b) || dFree(c) || dFree(d) || dFree(e))
+# define dFree6(a,b,c,d,e,f) (dFree(a) || dFree(b) || dFree(c) || dFree(d) || dFree(e) || dFree(f))
+# define dFree7(a,b,c,d,e,f,g) (dFree(a) || dFree(b) || dFree(c) || dFree(d) || dFree(e) || dFree(f) || dFree(g))
+#else
+# define dMallocA2(n0,p0,n1,p1)                                         \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+dDEFAULT_ALIGN,(p0)) \
+   || (*(p1) = dNextAligned(*(p0)+(n0)),0))
+# define dMallocA3(n0,p0,n1,p1,n2,p2)                                   \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+2*dDEFAULT_ALIGN,(p0)) \
+   || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),0))
+# define dMallocA4(n0,p0,n1,p1,n2,p2,n3,p3)                             \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+3*dDEFAULT_ALIGN,(p0)) \
+   || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),0))
+# define dMallocA5(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4)                       \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+4*dDEFAULT_ALIGN,(p0)) \
+   || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),*(p4) = dNextAligned(*(p3)+(n3)),0))
+# define dMallocA6(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5)                 \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+(n5)*sizeof(**(p5))+5*dDEFAULT_ALIGN,(p0)) \
+   || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),*(p4) = dNextAligned(*(p3)+(n3)),*(p5) = dNextAligned(*(p4)+(n4)),0))
+# define dMallocA7(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5,n6,p6)             \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+(n5)*sizeof(**(p5))+(n6)*sizeof(**(p6))+6*dDEFAULT_ALIGN,(p0)) \
+   || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),*(p4) = dNextAligned(*(p3)+(n3)),*(p5) = dNextAligned(*(p4)+(n4)),*(p6) = dNextAligned(*(p5)+(n5)),0))
+# define dFree2(a,b) dFree(a)
+# define dFree3(a,b,c) dFree(a)
+# define dFree4(a,b,c,d) dFree(a)
+# define dFree5(a,b,c,d,e) dFree(a)
+# define dFree6(a,b,c,d,e,f) dFree(a)
+# define dFree7(a,b,c,d,e,f,g) dFree(a)
+#endif
 
-#define dFunctionReturn(a) \
-  {\
-  PetscStackPop; \
-  return(a);}
+#if defined(PETSC_USE_DEBUG)
+# define dFunctionBegin                                                 \
+  {                                                                     \
+    if (petscstack && (petscstack->currentsize < PETSCSTACKSIZE)) {     \
+      petscstack->function[petscstack->currentsize]  = __func__;        \
+      petscstack->file[petscstack->currentsize]      = __FILE__;        \
+      petscstack->directory[petscstack->currentsize] = __SDIR__;        \
+      petscstack->line[petscstack->currentsize]      = __LINE__;        \
+      petscstack->currentsize++;                                        \
+    }}
+# define dFunctionReturn(a)                     \
+  {                                             \
+    PetscStackPop;                              \
+    return(a);}
 
-#define dFunctionReturnVoid() \
-  {\
-  PetscStackPop; \
-  return;}
+# define dFunctionReturnVoid()                  \
+  {                                             \
+    PetscStackPop;                              \
+    return;}
+#else
+# define dFunctionBegin do { } while (0)
+# define dFunctionReturn(a) return (a)
+# define dFunctienReturnVoid() return
+#endif
 
 #define dASSERT(cond) if (!(cond)) { dERROR(1,"Assertion failed: " #cond); }
 

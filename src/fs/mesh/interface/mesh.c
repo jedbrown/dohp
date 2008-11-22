@@ -803,7 +803,7 @@ dErr dMeshDestroy(dMesh m)
 *
 * @return err
 */
-dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dJacobi jac,const char name[],dInt degree,dMeshTag *inrtag)
+dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,const char name[],dInt degree,dMeshTag *inrtag)
 {
   dMeshTag rtag;
   dMeshEH *ents;
