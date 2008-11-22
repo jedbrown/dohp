@@ -247,7 +247,7 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
         err = dGeomConvexComb_2_4(-q[1],q[2],x,dMeshConnectHexQuad[3],f[3]);dCHK(err);
         err = dGeomConvexComb_2_4(q[0],q[1],x,dMeshConnectHexQuad[4],f[4]);dCHK(err);
         err = dGeomConvexComb_2_4(q[0],q[1],x,dMeshConnectHexQuad[5],f[5]);dCHK(err);
-        for (dInt l; l<3; l++) {
+        for (dInt l=0; l<3; l++) {
           J[l][0] = 0.5 * (f[1][l] - f[3][l]);
           J[l][1] = 0.5 * (f[2][l] - f[0][l]);
           J[l][2] = 0.5 * (f[5][l] - f[4][l]);
