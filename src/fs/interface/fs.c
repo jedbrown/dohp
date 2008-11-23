@@ -440,6 +440,11 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *J)
   dFunctionReturn(0);dCHK(err);
 }
 
+/* We call these directly because otherwise MatGetArray spends huge amounts of time in PetscMallocValidate (unless error
+* checking is disabled) */
+extern PetscErrorCode MatGetArray_SeqAIJ(Mat A,PetscScalar *array[]);
+extern PetscErrorCode MatRestoreArray_SeqAIJ(Mat A,PetscScalar *array[]);
+
 dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const dInt idxn[],const dScalar v[],InsertMode imode)
 {
   dInt lidxms[128],lidxns[128];
@@ -461,7 +466,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   C = (fs->assemblefull) ? fs->C : fs->Cp;
   err = MatGetRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Could not get indices");
-  err = MatGetArray(C,&ca);dCHK(err);
+  err = MatGetArray_SeqAIJ(C,&ca);dCHK(err);
   for (i=0,lm=0; i<m; i++) {
     /* Count the number of columns in constraint matrix for each row of input matrix, this will be the total number of
     * rows in result matrix */
@@ -500,7 +505,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
     err = PetscLogFlops((ci[row+1]-ci[row])*ln);dCHK(err);
   }
 
-  err = MatRestoreArray(C,&ca);dCHK(err);
+  err = MatRestoreArray_SeqAIJ(C,&ca);dCHK(err);
   err = MatRestoreRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Failed to return indices");
   err = MatSetValuesLocal(A,lm,lidxm,ln,lidxn,lv,imode);dCHK(err);

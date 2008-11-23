@@ -445,7 +445,6 @@ static dErr doProjection(dFS fs)
   }
   if (gopt.showsoln) {err = VecView(x,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
   {
-    // err = SNESComputeFunction(snes,x,r);dCHK(err);
     Vec *coords;
     dReal norm[2],norminf,resNorms[3],gresNorms[3];
     err = VecDuplicateVecs(x,3,&coords);dCHK(err);
@@ -520,6 +519,7 @@ int main(int argc,char *argv[])
 
   err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
   err = tagHexes(mesh,&dtag);dCHK(err);
+  if (showconn) {err = examine(mesh,dtag);dCHK(err);}
 
   err = dFSCreate(comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
@@ -528,8 +528,6 @@ int main(int argc,char *argv[])
   err = dFSSetFromOptions(fs);dCHK(err);
 
   err = useFS(fs);dCHK(err);
-
-  if (showconn) {err = examine(mesh,dtag);dCHK(err);}
 
   switch (exactChoice) {
     case 0:

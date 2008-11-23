@@ -989,6 +989,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *inadj)
       if (ml_adjoff[type].s != ma.toff[type+1]-ma.toff[type]+1) dERROR(1,"unexpected number of adjacent offsets");
     }
     nadj = ml_adj[1].s+ml_adj[2].s+ml_adj[3].s; /* total number of adjacent entities */
+    if (!nadj) dERROR(1,"No adjacent entities, seems like a deficient mesh");
     err = dMallocA(nadj,&adj);                  /* Freed after getting index tag values */
     err = dMallocA2(nadj,&ma.adjind,nadj,&ma.adjperm);dCHK(err);      /* Persistant */
     for (i=0; i<ma.toff[dTYPE_EDGE]+1; i++) { ma.adjoff[i] = 0; }     /* vertices have no adjacent entities */
