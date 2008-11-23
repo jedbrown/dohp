@@ -321,21 +321,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
         for (dInt k=0; k<P[2]-1; k++) {
-          /* Element indices for corners */
-#define C(i,j,k) (((i)*P[1]+(j))*P[2]+(k))
-          const dInt c[8] = {C(i,j,k),  C(i+1,j,k),  C(i+1,j+1,k),  C(i,j+1,k),
-                             C(i,j,k+1),C(i+1,j,k+1),C(i+1,j+1,k+1),C(i,j+1,k+1)};
-#undef C
-          const dInt rowcol[8] = {off[e]+c[0],off[e]+c[1],off[e]+c[2],off[e]+c[3],
-                                  off[e]+c[4],off[e]+c[5],off[e]+c[6],off[e]+c[7]};
-          const dReal corners[8][3] = {{nx[c[0]][0],nx[c[0]][1],nx[c[0]][2]},
-                                       {nx[c[1]][0],nx[c[1]][1],nx[c[1]][2]},
-                                       {nx[c[2]][0],nx[c[2]][1],nx[c[2]][2]},
-                                       {nx[c[3]][0],nx[c[3]][1],nx[c[3]][2]},
-                                       {nx[c[4]][0],nx[c[4]][1],nx[c[4]][2]},
-                                       {nx[c[5]][0],nx[c[5]][1],nx[c[5]][2]},
-                                       {nx[c[6]][0],nx[c[6]][1],nx[c[6]][2]},
-                                       {nx[c[7]][0],nx[c[7]][1],nx[c[7]][2]}};
+          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
           //const dScalar (*u)[1] = (const dScalar(*)[1])x+off[e]; /* Scalar valued function, can be indexed at corners as u[c[#]][0] */
           const dReal (*qx)[3],*jw,*basis,*deriv;
           dInt qn;
