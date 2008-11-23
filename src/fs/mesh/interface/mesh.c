@@ -1023,7 +1023,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *inadj)
   dFunctionReturn(0);
 }
 
-dErr dMeshRestoreAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *ma)
+dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,struct dMeshAdjacency *ma)
 {
   dErr err;
 
@@ -1087,7 +1087,7 @@ dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,d
 * Since the vertex coords are often persistent for the life of the dFS, it's common that \a ents will not be available
 * when this function is called, hence we accept a NULL argument.  This is a hack to preserve a symmetric interface.
 **/
-dErr dMeshRestoreVertexCoords(dMesh mesh,dUNUSED dInt n,const dUNUSED dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
+dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
 {
   dErr err;
 

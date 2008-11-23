@@ -243,7 +243,7 @@ dErr dFSCreateGlobalVector(dFS fs,Vec *g)
   dFunctionReturn(0);
 }
 
-dErr dFSGlobalToExpandedBegin(dFS fs,Vec g,InsertMode imode,Vec x)
+dErr dFSGlobalToExpandedBegin(dFS dUNUSED fs,Vec g,InsertMode imode,Vec dUNUSED x)
 {
   dErr err;
 
@@ -318,7 +318,7 @@ dErr dFSExpandedToGlobalBegin(dFS fs,Vec x,InsertMode imode,Vec g)
   dFunctionReturn(0);
 }
 
-dErr dFSExpandedToGlobalEnd(dFS fs,Vec x,InsertMode imode,Vec g)
+dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode imode,Vec g)
 {
   dErr err;
 
@@ -344,7 +344,7 @@ dErr dFSGetElements(dFS fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt *
   dFunctionReturn(0);
 }
 
-dErr dFSRestoreElements(dFS fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt **geomoff,dReal (**geom)[3])
+dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt **geomoff,dReal (**geom)[3])
 {
 
   dFunctionBegin;
