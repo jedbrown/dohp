@@ -6,6 +6,17 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 
+struct Options {
+  dInt constBDeg;
+  dInt nominalRDeg;
+  dTruth showsoln;
+  dInt cycles;
+  dReal q1scale;
+  dReal frequency[3];
+  dReal normRequirePtwise[3];
+  dReal normRequireGrad[3];
+} gopt;
+
 /* A global variable for the exact solution */
 struct {
   dErr (*function)(const dReal[3],dScalar[1]);
@@ -14,14 +25,16 @@ struct {
 
 static dErr exact_0_function(const dReal x[3],dScalar f[1])
 {
-  f[0] = sin(x[0])*cosh(x[1]) + exp(x[1]) + sinh(x[1])*tanh(x[2]);
+  const dReal a = gopt.frequency[0],b = gopt.frequency[1],c = gopt.frequency[2];
+  f[0] = sin(x[0])*cosh(b*x[1]) + cos(a*x[0])*exp(x[1]) + sinh(x[1])*tanh(c*x[2]);
   return 0;
 }
 static dErr exact_0_gradient(const dReal x[3],dScalar df[1][3])
 {
-  df[0][0] = cos(x[0])*cosh(x[1]);
-  df[0][1] = sin(x[0])*sinh(x[1]) + exp(x[1]) + cosh(x[1])*tanh(x[2]);
-  df[0][2] = sinh(x[1]) * (1.0 - dSqr(tanh(x[2])));
+  const dReal a = gopt.frequency[0],b = gopt.frequency[1],c = gopt.frequency[2];
+  df[0][0] = cos(x[0])*cosh(b*x[1]) - a*sin(a*x[0])*exp(x[1]);
+  df[0][1] = sin(x[0])*b*sinh(b*x[1]) + cos(a*x[0])*exp(x[1]) + cosh(x[1])*tanh(c*x[2]);
+  df[0][2] = sinh(x[1]) * c*(1.0 - dSqr(tanh(c*x[2])));
   return 0;
 }
 
@@ -29,13 +42,6 @@ static dErr exact_1_function(const dReal x[3],dScalar f[1])
 { f[0] = 10*x[0] + 1*x[1] + 0.1*x[2]; return 0; }
 static dErr exact_1_gradient(const dUNUSED dReal x[3],dScalar df[1][3])
 { df[0][0] = 10; df[0][1] = 1; df[0][2] = 0.1; return 0; }
-
-struct Options {
-  dInt constBDeg;
-  dInt nominalRDeg;
-  dTruth showsoln;
-  dInt cycles;
-} gopt;
 
 static dErr createHexMesh(iMesh_Instance mi)
 {
@@ -227,6 +233,17 @@ static dErr useFS(dFS fs)
   dFunctionReturn(0);
 }
 
+static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],const dReal required[3])
+{
+  static const char *normName[3] = {"1","2","infty"};
+  dFunctionBegin;
+  for (dInt i=0; i<3; i++) {
+    if (required[i] > 0 && resnorm[i] > required[i])
+      dERROR(1,"Norm requirement not met: ||%s||_%s = %g > %g",name,normName[i],resnorm[i],required[i]);
+  }
+  dFunctionReturn(0);
+}
+
 struct ProjContext {
   dFS fs;
   Vec x,y;
@@ -330,7 +347,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
               for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
                 sum += basis[ltest*qn+lq] * jw[lq] * basis[lp*qn+lq];
               }
-              K[ltest][lp] = sum;
+              K[ltest][lp] = sum * gopt.q1scale;
             }
           }
           err = dFSMatSetValuesExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
@@ -453,6 +470,8 @@ static dErr doProjection(dFS fs)
     err = ProjResidualNorms(&proj,x,resNorms,gresNorms);dCHK(err);
     err = dPrintf(PETSC_COMM_WORLD,"Pointwise projection residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",resNorms[0],resNorms[1],resNorms[2]);dCHK(err);
     err = dPrintf(PETSC_COMM_WORLD,"Gradient ptwise proj residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gresNorms[0],gresNorms[1],gresNorms[2]);dCHK(err);
+    err = confirmSufficientResiduals("Pointwise residuals",resNorms,gopt.normRequirePtwise);dCHK(err);
+    err = confirmSufficientResiduals("Pointwise gradients",gresNorms,gopt.normRequireGrad);dCHK(err);
   }
   err = SNESDestroy(snes);dCHK(err);
   err = MatDestroy(Jp);dCHK(err);
@@ -474,23 +493,31 @@ int main(int argc,char *argv[])
   dMeshTag rtag,dtag;
   MPI_Comm comm;
   PetscViewer viewer;
-  dTruth showconn,showmesh;
-  dInt exactChoice;
+  dTruth showconn,showmesh,flg;
+  dInt exactChoice,nset;
   dErr err;
 
   err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1;
+    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.q1scale = 1.0;
+    gopt.frequency[0] = 1; gopt.frequency[1] = 1; gopt.frequency[2] = 1;
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)",NULL,gopt.nominalRDeg,&gopt.nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsTruth("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
+    err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
+    err = PetscOptionsRealArray("-frequency","Frequency of oscillation in each cartesion direction",NULL,gopt.frequency,&nset,&flg);dCHK(err);
+    if (flg && nset > 3) dERROR(1,"frequency may be at most 3 values");
     err = PetscOptionsTruth("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
     err = PetscOptionsTruth("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
+    err = PetscOptionsRealArray("-require_ptwise","<L^1,L^2,L^infty> Error if pointwise norms exceed given values, negative to disable",NULL,gopt.normRequirePtwise,&nset,&flg);dCHK(err);
+    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_ptwise");
+    err = PetscOptionsRealArray("-require_grad","<L^1,L^2,L^infty> Error if pointwise gradient norms exceed given values, negative to disable",NULL,gopt.normRequireGrad,&nset,&flg);dCHK(err);
+    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_grad");
   } err = PetscOptionsEnd();dCHK(err);
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
