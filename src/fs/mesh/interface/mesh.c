@@ -1076,7 +1076,7 @@ dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,d
       x[j] = vtx.v[j];
     }
   }
-  xoff[n] = 3*connoff.v[n];
+  xoff[n] = connoff.v[n];       /* Leave the offset as number of vertices, not first coordinate of each vtx */
   MeshListFree(conn); MeshListFree(connoff); MeshListFree(vtx);
   *inxoff = xoff;
   *inx = (dReal(*)[3])x;

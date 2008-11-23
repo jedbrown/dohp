@@ -568,7 +568,7 @@ static dErr dMeshLoad_Pack(dMesh mesh)
   {
     dMeshESH *oset,*uset;       /* sets in each partition */
     dInt osi=0,usi=0;           /* number of sets */
-    err = PetscMalloc2(nallset,dMeshESH,&oset,nallset,dMeshESH,&uset);
+    err = dMallocA2(nallset,&oset,nallset,&uset);dCHK(err);
 
     for (dInt i=0; i<nallset; i++) {
       char pstatus,*stupid = &pstatus;

@@ -17,14 +17,16 @@ static dErr exact_0_function(const dReal x[3],dScalar f[1])
   f[0] = sin(x[0])*cosh(x[1]) + exp(x[1]) + sinh(x[1])*tanh(x[2]);
   return 0;
 }
-
 static dErr exact_0_gradient(const dReal x[3],dScalar df[1][3])
 {
-  df[0][0] = cos(x[0])*cosh(x[1]) + exp(x[1]);
+  df[0][0] = cos(x[0])*cosh(x[1]);
   df[0][1] = sin(x[0])*sinh(x[1]) + exp(x[1]) + cosh(x[1])*tanh(x[2]);
   df[0][2] = sinh(x[1]) * (1.0 - dSqr(tanh(x[2])));
   return 0;
 }
+
+static dErr exact_1_function(const dReal x[3],dScalar f[1]) { f[0] = x[0]; return 0; }
+static dErr exact_1_gradient(const dUNUSED dReal x[3],dScalar df[1][3]) { df[0][0] = 1; df[0][1]=df[0][2]=0; return 0; }
 
 struct Options {
   dInt constBDeg;
@@ -36,10 +38,10 @@ static dErr createHexMesh(iMesh_Instance mi)
   static const int vtxlen = 12*3;
   static const double vtx_affine[12*3] = {0,0,0, 1,0,0, 1,1,0, 0,1,0,
                                           0,0,1, 1,0,1, 1,1,1, 0,1,1,
-                                          2,0,0, 2,1,0, 2,1,1, 2,1,0};
+                                          2,0,0, 2,1,0, 2,1,1, 2,0,1};
   static const double vtx_parametric[12*3] = {0.1,0.2,0.3, 1.3,0.2,0.1, 1.1,1.2,0.3, 0.3,1.2,0.1,
                                               0.1,0.2,1.3, 1.3,0.2,1.1, 1.1,1.2,1.3, 0.3,1.2,1.1,
-                                              2.1,0.2,0.3, 2.3,1.2,0.1, 2.1,1.2,1.3, 2.3,1.2,0.1};
+                                              2.1,0.2,0.3, 2.3,1.2,0.1, 2.1,1.2,1.3, 2.3,0.2,1.1};
   const double *vtx;
   dTruth iaffine = dFALSE;
   int rconn[16] = {0,1,2,3,4,5,6,7, 1,2,6,5,8,9,10,11};
@@ -247,9 +249,11 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
+    dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    for (dInt i=0; i<off[e+1]-off[e]; i++) {
+    for (dInt i=0; i<Q; i++) {
       dScalar f[1];             /* Scalar problem */
       err = exact.function(q[i],f);dCHK(err);
       v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
@@ -265,40 +269,60 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dFunctionReturn(0);
 }
 
-static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorms[static 3])
+static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorms[static 3],dReal gresidualNorms[static 3])
 {
   dFS fs = proj->fs;
   dInt n,*off,*geomoff;
   s_dRule *rule;
   s_dEFS *efs;
   dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,*u;
+  dScalar *x,*u,(*du)[1][3];
   dErr err;
 
   dFunctionBegin;
   err = dMemzero(residualNorms,3*sizeof(residualNorms));dCHK(err);
+  err = dMemzero(gresidualNorms,3*sizeof(gresidualNorms));dCHK(err);
   err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
   err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
   err = VecGetArray(proj->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
+  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
+    dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    for (dInt i=0; i<off[e+1]-off[e]; i++) {
-      dScalar f[1],r[1];             /* Scalar problem */
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],&du[0][0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      dScalar f[1],df[1][3],r[1],gr[1][3],grsum;             /* Scalar problem */
       err = exact.function(q[i],f);dCHK(err);
+      err = exact.gradient(q[i],df);dCHK(err);
       r[0] = u[i*1+0] - f[0];
+      gr[0][0] = du[i][0][0] - df[0][0];
+      gr[0][1] = du[i][0][1] - df[0][1];
+      gr[0][2] = du[i][0][2] - df[0][2];
+      grsum = dSqr(gr[0][0]) + dSqr(gr[0][1]) + dSqr(gr[0][2]);
       residualNorms[0] += dAbs(r[0]) * jw[i];               /* 1-norm */
       residualNorms[1] += dSqr(r[0]) * jw[i];               /* 2-norm */
       residualNorms[2] = dMax(residualNorms[2],dAbs(r[0])); /* Sup-norm */
-      //printf("pointwise stats %8g %8g %8g %8g\n",jw[i],r[0],dSqr(r[0]),residualNorms[1]);
+      gresidualNorms[0] += grsum * jw[i];
+      gresidualNorms[1] += dSqr(grsum) * jw[i];
+      gresidualNorms[2] = dMax(gresidualNorms[2],grsum);
+#if 0
+      printf("pointwise stats %8g %8g %8g %8g\n",jw[i],r[0],dSqr(r[0]),residualNorms[1]);
+      printf("pointwise grads %8g %8g %8g (%8g)\n",gr[0][0],gr[0][1],gr[0][2],grsum);
+      printf("jinv[%2d][%3d]   %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f\n",e,i,
+             jinv[i][0][0],jinv[i][0][1],jinv[i][0][2],
+             jinv[i][1][0],jinv[i][1][1],jinv[i][1][2],
+             jinv[i][2][0],jinv[i][2][1],jinv[i][2][2]);
+#endif
     }
   }
   err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(proj->x,&x);dCHK(err);
   residualNorms[1] = dSqrt(residualNorms[1]);
+  gresidualNorms[1] = dSqrt(gresidualNorms[1]);
   dFunctionReturn(0);
 }
 
@@ -327,14 +351,15 @@ static dErr doProjection(dFS fs)
   {
     // err = SNESComputeFunction(snes,x,r);dCHK(err);
     Vec *coords;
-    dReal norm[2],norminf,resNorms[3];
+    dReal norm[2],norminf,resNorms[3],gresNorms[3];
     err = VecDuplicateVecs(x,3,&coords);dCHK(err);
     err = VecDestroyVecs(coords,3);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,norm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&norminf);dCHK(err);
-    err = PetscPrintf(PETSC_COMM_WORLD,"Algebraic projection residual  |x|_1 %5g  |x|_2 %5g  |x|_inf %5g\n",norm[0],norm[1],norminf);dCHK(err);
-    err = ProjResidualNorms(&proj,x,resNorms);dCHK(err);
-    err = PetscPrintf(PETSC_COMM_WORLD,"Pointwise projection residual  |x|_1 %5g  |x|_2 %5g  |x|_inf %5g\n",resNorms[0],resNorms[1],resNorms[2]);dCHK(err);
+    err = dPrintf(PETSC_COMM_WORLD,"Algebraic projection residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",norm[0],norm[1],norminf);dCHK(err);
+    err = ProjResidualNorms(&proj,x,resNorms,gresNorms);dCHK(err);
+    err = dPrintf(PETSC_COMM_WORLD,"Pointwise projection residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",resNorms[0],resNorms[1],resNorms[2]);dCHK(err);
+    err = dPrintf(PETSC_COMM_WORLD,"Gradient ptwise proj residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gresNorms[0],gresNorms[1],gresNorms[2]);dCHK(err);
   }
   err = SNESDestroy(snes);dCHK(err);
   err = VecDestroy(r);dCHK(err);
@@ -353,23 +378,26 @@ int main(int argc,char *argv[])
   dMeshTag rtag,dtag;
   MPI_Comm comm;
   PetscViewer viewer;
-  dTruth showconn;
+  dTruth showconn,showmesh;
+  dInt exactChoice;
   dErr err;
 
   err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constBDeg = 4; gopt.nominalRDeg = 8; showconn = dFALSE;
+    gopt.constBDeg = 4; gopt.nominalRDeg = 8; exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)",NULL,gopt.nominalRDeg,&gopt.nominalRDeg,NULL);dCHK(err);
+    err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsTruth("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
+    err = PetscOptionsTruth("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   err = createHexMesh(mi);dCHK(err);
-  err = dMeshView(mesh,viewer);dCHK(err);
+  if (showmesh) {err = dMeshView(mesh,viewer);dCHK(err);}
   err = verifyAdjacencies(mesh);dCHK(err);
   iMesh_getRootSet(mi,&domain,&err);dICHK(mi,err);
 
@@ -390,8 +418,17 @@ int main(int argc,char *argv[])
 
   if (showconn) {err = examine(mesh,dtag);dCHK(err);}
 
-  exact.function = exact_0_function;
-  exact.gradient = exact_0_gradient;
+  switch (exactChoice) {
+    case 0:
+      exact.function = exact_0_function;
+      exact.gradient = exact_0_gradient;
+      break;
+    case 1:
+      exact.function = exact_1_function;
+      exact.gradient = exact_1_gradient;
+      break;
+    default: dERROR(1,"Exact solution choice %d invalid",exactChoice);
+  }
   err = doProjection(fs);dCHK(err);
 
   err = dFSDestroy(fs);dCHK(err);

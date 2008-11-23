@@ -236,29 +236,64 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
 
   dFunctionBegin;
   for (dInt i=0; i<Q[0]; i++) {
+    const dReal q0 = qx[0][i],q0m = 0.125*(1-q0),q0p = 0.125*(1+q0),qmd = q0m,qpd = q0p;
     for (dInt j=0; j<Q[1]; j++) {
+      const dReal q1 = qx[1][j],q1m = 1-q1,q1p = 1+q1;
+      const dReal qmm = q0m*q1m;
+      const dReal qpm = q0p*q1m;
+      const dReal qmp = q0m*q1p;
+      const dReal qpp = q0p*q1p;
+      const dReal qdm = 0.125*q1m,qdp = 0.125*q1p;
       for (dInt k=0; k<Q[2]; k++) {
         const dInt p = (i*Q[1]+j)*Q[2]+k;                /* Index of quadrature point */
-        const dReal q[3] = {qx[0][i],qx[1][j],qx[2][k]}; /* location of quadrature point in reference coordinates */
-        dReal J[3][3],f[6][3];
-        err = dGeomConvexComb_2_4(q[0],q[2],x,dMeshConnectHexQuad[0],f[0]);dCHK(err);
-        err = dGeomConvexComb_2_4(q[1],q[2],x,dMeshConnectHexQuad[1],f[1]);dCHK(err);
-        err = dGeomConvexComb_2_4(-q[0],q[2],x,dMeshConnectHexQuad[2],f[2]);dCHK(err);
-        err = dGeomConvexComb_2_4(-q[1],q[2],x,dMeshConnectHexQuad[3],f[3]);dCHK(err);
-        err = dGeomConvexComb_2_4(q[0],q[1],x,dMeshConnectHexQuad[4],f[4]);dCHK(err);
-        err = dGeomConvexComb_2_4(q[0],q[1],x,dMeshConnectHexQuad[5],f[5]);dCHK(err);
+        const dReal q2 = qx[2][k],q2m = 1-q2,q2p = 1+q2;                      /* location of quadrature point in reference coordinates */
+        const dReal qdmm = qdm*q2m,qdmp = qdm*q2p,qdpm = qdp*q2m,qdpp = qdp*q2p;
+        const dReal qmdm = qmd*q2m,qmdp = qmd*q2p,qpdm = qpd*q2m,qpdp = qpd*q2p;
+        const dReal qmmm = qmm*q2m,qmmp = qmm*q2p,qmpm = qmp*q2m,qmpp = qmp*q2p;
+        const dReal qpmm = qpm*q2m,qpmp = qpm*q2p,qppm = qpp*q2m,qppp = qpp*q2p;
+        dReal J[3][3];
         for (dInt l=0; l<3; l++) {
-          J[l][0] = 0.5 * (f[1][l] - f[3][l]);
-          J[l][1] = 0.5 * (f[2][l] - f[0][l]);
-          J[l][2] = 0.5 * (f[5][l] - f[4][l]);
-          qg[p][l] = 0.5 * ((1.0-q[1])*f[0][l] + (1.0+q[1])*f[2][l]);
+          qg[p][l] = (0+x[0][l]*qmmm
+                      + x[1][l]*qpmm
+                      + x[2][l]*qppm
+                      + x[3][l]*qmpm
+                      + x[4][l]*qmmp
+                      + x[5][l]*qpmp
+                      + x[6][l]*qppp
+                      + x[7][l]*qmpp);
+          J[l][0] =  (0-x[0][l]*qdmm
+                      + x[1][l]*qdmm
+                      + x[2][l]*qdpm
+                      - x[3][l]*qdpm
+                      - x[4][l]*qdmp
+                      + x[5][l]*qdmp
+                      + x[6][l]*qdpp
+                      - x[7][l]*qdpp);
+          J[l][1] =  (0-x[0][l]*qmdm
+                      - x[1][l]*qpdm
+                      + x[2][l]*qpdm
+                      + x[3][l]*qmdm
+                      - x[4][l]*qmdp
+                      - x[5][l]*qpdp
+                      + x[6][l]*qpdp
+                      + x[7][l]*qmdp);
+          J[l][2] =  (0-x[0][l]*qmm
+                      - x[1][l]*qpm
+                      - x[2][l]*qpp
+                      - x[3][l]*qmp
+                      + x[4][l]*qmm
+                      + x[5][l]*qpm
+                      + x[6][l]*qpp
+                      + x[7][l]*qmp);
         }
         err = dGeomInvert3(&J[0][0],&jinv[p][0][0],&jdet[p]);dCHK(err);
+        if (jdet[p] <= 0.0)
+          dERROR(1,"Negative Jacobian at %d,%d,%d",i,j,k);
       }
     }
   }
   /* Assume the optimizer has eliminated common subexpressions, this estimate is about right, some of the convex
   * combinations could be hoisted out of the inner loop */
-  PetscLogFlops(QQ*(6+6*30+6+42));
+  PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */));
   dFunctionReturn(0);
 }
