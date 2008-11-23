@@ -72,6 +72,7 @@ dErr dFSSetFromOptions(dFS fs)
   } else if (!((dObject)fs)->type_name) {
     err = dFSSetType(fs,deft);dCHK(err);
   }
+  err = PetscOptionsInt("-dfs_rule_strength","Choose rules that are stronger than necessary","dFSRuleStrength",fs->ruleStrength,&fs->ruleStrength,NULL);dCHK(err);
   if (fs->ops->setfromoptions) {
     err = (*fs->ops->setfromoptions)(fs);dCHK(err);
   }

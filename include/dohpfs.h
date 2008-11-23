@@ -58,5 +58,8 @@ EXTERN dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
 EXTERN dErr dFSRegisterAll(const char[]);
 EXTERN dErr dFSInitializePackage(const char[]);
 
+EXTERN dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**qx)[3],const dReal **jw,const dReal **basis,const dReal **deriv);
+
+
 PETSC_EXTERN_CXX_END
 #endif  /* _DOHPFS_H */

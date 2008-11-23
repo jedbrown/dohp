@@ -495,7 +495,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   err = MatSetValuesLocal(A,lm,lidxm,ln,lidxn,lv,imode);dCHK(err);
 
   if (lidxm != lidxms) {err = dFree(lidxm);dCHK(err);}
-  if (lidxn != lidxms) {err = dFree(lidxn);dCHK(err);}
+  if (lidxn != lidxns) {err = dFree(lidxn);dCHK(err);}
   if (lv != lvs)       {err = dFree(lv);dCHK(err);}
   if (lvt != lvts)     {err = dFree(lvt);dCHK(err);}
   dFunctionReturn(0);

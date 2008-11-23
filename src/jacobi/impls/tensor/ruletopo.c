@@ -227,11 +227,12 @@ static dErr dRuleGetTensorNodeWeight_Tensor_Hex(dRule rule,dInt *dim,dInt nnodes
   dFunctionReturn(0);
 }
 
-static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3],dReal qg[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict])
+static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3],dReal qg[restrict][3],dReal jinv[restrict][3][3],dReal jw[restrict])
 {
   const TensorRule *r = ((dRule_Tensor*)rule)->trule;
   const dInt Q[3] = {r[0]->size,r[1]->size,r[2]->size},QQ = Q[0]*Q[1]*Q[2];
   const dReal *qx[3] = {r[0]->coord,r[1]->coord,r[2]->coord};
+  const dReal *qw[3] = {r[0]->weight,r[1]->weight,r[2]->weight};
   dErr err;
 
   dFunctionBegin;
@@ -246,14 +247,14 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
       const dReal qdm = 0.125*q1m,qdp = 0.125*q1p;
       for (dInt k=0; k<Q[2]; k++) {
         const dInt p = (i*Q[1]+j)*Q[2]+k;                /* Index of quadrature point */
-        const dReal q2 = qx[2][k],q2m = 1-q2,q2p = 1+q2;                      /* location of quadrature point in reference coordinates */
+        const dReal q2 = qx[2][k],q2m = 1-q2,q2p = 1+q2; /* location of quadrature point in reference coordinates */
         const dReal qdmm = qdm*q2m,qdmp = qdm*q2p,qdpm = qdp*q2m,qdpp = qdp*q2p;
         const dReal qmdm = qmd*q2m,qmdp = qmd*q2p,qpdm = qpd*q2m,qpdp = qpd*q2p;
         const dReal qmmm = qmm*q2m,qmmp = qmm*q2p,qmpm = qmp*q2m,qmpp = qmp*q2p;
         const dReal qpmm = qpm*q2m,qpmp = qpm*q2p,qppm = qpp*q2m,qppp = qpp*q2p;
-        dReal J[3][3];
+        dReal J[3][3],Jdet;
         for (dInt l=0; l<3; l++) {
-          qg[p][l] = (0+x[0][l]*qmmm
+          qg[p][l] = (+ x[0][l]*qmmm
                       + x[1][l]*qpmm
                       + x[2][l]*qppm
                       + x[3][l]*qmpm
@@ -261,7 +262,7 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
                       + x[5][l]*qpmp
                       + x[6][l]*qppp
                       + x[7][l]*qmpp);
-          J[l][0] =  (0-x[0][l]*qdmm
+          J[l][0] =  (- x[0][l]*qdmm
                       + x[1][l]*qdmm
                       + x[2][l]*qdpm
                       - x[3][l]*qdpm
@@ -269,7 +270,7 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
                       + x[5][l]*qdmp
                       + x[6][l]*qdpp
                       - x[7][l]*qdpp);
-          J[l][1] =  (0-x[0][l]*qmdm
+          J[l][1] =  (- x[0][l]*qmdm
                       - x[1][l]*qpdm
                       + x[2][l]*qpdm
                       + x[3][l]*qmdm
@@ -277,7 +278,7 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
                       - x[5][l]*qpdp
                       + x[6][l]*qpdp
                       + x[7][l]*qmdp);
-          J[l][2] =  (0-x[0][l]*qmm
+          J[l][2] =  (- x[0][l]*qmm
                       - x[1][l]*qpm
                       - x[2][l]*qpp
                       - x[3][l]*qmp
@@ -286,14 +287,12 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
                       + x[6][l]*qpp
                       + x[7][l]*qmp);
         }
-        err = dGeomInvert3(&J[0][0],&jinv[p][0][0],&jdet[p]);dCHK(err);
-        if (jdet[p] <= 0.0)
-          dERROR(1,"Negative Jacobian at %d,%d,%d",i,j,k);
+        err = dGeomInvert3(&J[0][0],&jinv[p][0][0],&Jdet);dCHK(err);
+        if (Jdet <= 0.0) dERROR(1,"Negative Jacobian at %d,%d,%d",i,j,k);
+        jw[p] = Jdet * qw[0][i] * qw[1][j] * qw[2][k]; /* Weight the determinant */
       }
     }
   }
-  /* Assume the optimizer has eliminated common subexpressions, this estimate is about right, some of the convex
-  * combinations could be hoisted out of the inner loop */
-  PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */));
+  PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */ + 3 /* weight */));
   dFunctionReturn(0);
 }

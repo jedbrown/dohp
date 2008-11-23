@@ -26,6 +26,11 @@ _F(dEFSApply_Tensor_Line);
 _F(dEFSApply_Tensor_Quad);
 _F(dEFSApply_Tensor_Hex);
 #undef _F
+#define _F(f) static dErr f(dEFS,const dReal(*)[3],dInt*,dInt[],dReal(*)[3]) /* dEFSGetGlobalCoordinates */
+//_F(dEFSGetGlobalCoordinates_Tensor_Line);
+//_F(dEFSGetGlobalCoordinates_Tensor_Quad);
+_F(dEFSGetGlobalCoordinates_Tensor_Hex);
+#undef _F
 #if 0
 # define _F(f) static dErr f(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
 _F(dEFSScatterInt_Tensor_Line);
@@ -78,6 +83,7 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
                                               .getSizes = dEFSGetSizes_Tensor_Hex,
                                               .getTensorNodes = dEFSGetTensorNodes_Tensor_Hex,
                                               .apply = dEFSApply_Tensor_Hex,
+                                              .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex,
                                               .scatterInt = 0,
                                               .scatterFacet = 0 };
   Tensor this = (Tensor)jac->impl;
@@ -372,6 +378,34 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
     } break;
     default:
       dERROR(1,"invalid/unimplemented dApplyMode %d specified",amode);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dEFSGetGlobalCoordinates_Tensor_Hex(dEFS efs,const dReal (*x)[3],dInt *dim,dInt P[static 3],dReal (*qx)[3])
+{
+  TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
+
+  dFunctionBegin;
+  *dim = 3; P[0] = b[0]->P; P[1] = b[1]->P; P[2] = b[2]->P;
+  for (dInt i=0; i<P[0]; i++) {
+    const dReal q0 = b[0]->node[i],q0m = 0.125*(1-q0),q0p = 0.125*(1+q0);
+    for (dInt j=0; j<P[1]; j++) {
+      const dReal q1 = b[1]->node[j],q1m = 1-q1,q1p = 1+q1;
+      const dReal qmm = q0m*q1m;
+      const dReal qpm = q0p*q1m;
+      const dReal qmp = q0m*q1p;
+      const dReal qpp = q0p*q1p;
+      for (dInt k=0; k<P[2]; k++) {
+        const dInt p = (i*P[1]+j)*P[2]+k;                /* Index of node */
+        const dReal q2 = b[2]->node[k],q2m = 1-q2,q2p = 1+q2; /* location of quadrature point in reference coordinates */
+        const dReal qmmm = qmm*q2m,qmmp = qmm*q2p,qmpm = qmp*q2m,qmpp = qmp*q2p;
+        const dReal qpmm = qpm*q2m,qpmp = qpm*q2p,qppm = qpp*q2m,qppp = qpp*q2p;
+        for (dInt l=0; l<3; l++) {
+          qx[p][l] = (+ x[0][l]*qmmm + x[1][l]*qpmm + x[2][l]*qppm + x[3][l]*qmpm + x[4][l]*qmmp + x[5][l]*qpmp + x[6][l]*qppp + x[7][l]*qmpp);
+        }
+      }
+    }
   }
   dFunctionReturn(0);
 }

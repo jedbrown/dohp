@@ -180,7 +180,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     regTopo[i] = ma.topo[ii];
     regEnts[i] = ma.ents[ii];
     for (j=0; j<3; j++) {
-      regRDeg[i*3+j] = dMaxInt(rdeg[ii*3+j],deg[ii*3+j]+2); /* Use a slightly stronger quadrature rule than required to be Hausdorff */
+      /* Perhaps use a rule which is stronger than required to be Hausdorff (see -dfs_rule_strength) */
+      regRDeg[i*3+j] = dMaxInt(rdeg[ii*3+j],deg[ii*3+j] + fs->ruleStrength);
       regBDeg[i*3+j] = deg[ii*3+j];
     }
     xcnt += xnodes[ii];

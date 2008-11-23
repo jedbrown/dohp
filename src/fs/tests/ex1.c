@@ -25,12 +25,16 @@ static dErr exact_0_gradient(const dReal x[3],dScalar df[1][3])
   return 0;
 }
 
-static dErr exact_1_function(const dReal x[3],dScalar f[1]) { f[0] = x[0]; return 0; }
-static dErr exact_1_gradient(const dUNUSED dReal x[3],dScalar df[1][3]) { df[0][0] = 1; df[0][1]=df[0][2]=0; return 0; }
+static dErr exact_1_function(const dReal x[3],dScalar f[1])
+{ f[0] = 10*x[0] + 1*x[1] + 0.1*x[2]; return 0; }
+static dErr exact_1_gradient(const dUNUSED dReal x[3],dScalar df[1][3])
+{ df[0][0] = 10; df[0][1] = 1; df[0][2] = 0.1; return 0; }
 
 struct Options {
   dInt constBDeg;
   dInt nominalRDeg;
+  dTruth showsoln;
+  dInt cycles;
 } gopt;
 
 static dErr createHexMesh(iMesh_Instance mi)
@@ -258,6 +262,11 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
       err = exact.function(q[i],f);dCHK(err);
       v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
     }
+    if (0) {
+      dReal sum = 0;
+      for (dInt i=0; i<Q; i++) sum += jw[i];
+      printf("sum of %d quadrature weights times Jdet = %g\n",Q,sum);
+    }
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
   err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
@@ -266,6 +275,82 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = VecRestoreArray(proj->y,&y);dCHK(err);
   err = dFSExpandedToGlobalBegin(fs,proj->y,INSERT_VALUES,gy);dCHK(err);
   err = dFSExpandedToGlobalEnd(fs,proj->y,INSERT_VALUES,gy);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStructure *structure,void *ctx)
+{
+  struct ProjContext *proj = ctx;
+  s_dRule *rule;
+  s_dEFS *efs;
+  dReal (*nx)[3];
+  dScalar *x;
+  dFS fs = proj->fs;
+  dInt n,*off,*geomoff;
+  dReal (*geom)[3];
+  dErr err;
+
+  dFunctionBegin;
+  err = MatZeroEntries(*Jp);dCHK(err);
+  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+  err = VecGetArray(proj->x,&x);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    dInt three,P[3];
+    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
+      for (dInt j=0; j<P[1]-1; j++) {
+        for (dInt k=0; k<P[2]-1; k++) {
+          /* Element indices for corners */
+#define C(i,j,k) (((i)*P[1]+(j))*P[2]+(k))
+          const dInt c[8] = {C(i,j,k),  C(i+1,j,k),  C(i+1,j+1,k),  C(i,j+1,k),
+                             C(i,j,k+1),C(i+1,j,k+1),C(i+1,j+1,k+1),C(i,j+1,k+1)};
+#undef C
+          const dInt rowcol[8] = {off[e]+c[0],off[e]+c[1],off[e]+c[2],off[e]+c[3],
+                                  off[e]+c[4],off[e]+c[5],off[e]+c[6],off[e]+c[7]};
+          const dReal corners[8][3] = {{nx[c[0]][0],nx[c[0]][1],nx[c[0]][2]},
+                                       {nx[c[1]][0],nx[c[1]][1],nx[c[1]][2]},
+                                       {nx[c[2]][0],nx[c[2]][1],nx[c[2]][2]},
+                                       {nx[c[3]][0],nx[c[3]][1],nx[c[3]][2]},
+                                       {nx[c[4]][0],nx[c[4]][1],nx[c[4]][2]},
+                                       {nx[c[5]][0],nx[c[5]][1],nx[c[5]][2]},
+                                       {nx[c[6]][0],nx[c[6]][1],nx[c[6]][2]},
+                                       {nx[c[7]][0],nx[c[7]][1],nx[c[7]][2]}};
+          //const dScalar (*u)[1] = (const dScalar(*)[1])x+off[e]; /* Scalar valued function, can be indexed at corners as u[c[#]][0] */
+          const dReal (*qx)[3],*jw,*basis,*deriv;
+          dInt qn;
+          dScalar K[8][8];
+          err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,&basis,&deriv);dCHK(err);
+          for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
+            for (dInt lp=0; lp<8; lp++) {         /* loop over trial basis functions (corners) */
+              dReal sum = 0;
+              for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
+                sum += basis[ltest*qn+lq] * jw[lq] * basis[lp*qn+lq];
+              }
+              K[ltest][lp] = sum;
+            }
+          }
+          err = dFSMatSetValuesExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+        }
+      }
+    }
+  }
+  err = dFSRestoreWorkspace(fs,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(proj->x,&x);dCHK(err);
+  err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  {
+    dTruth mat_view = dFALSE;
+    if (mat_view) {err = MatView(*Jp,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
+  }
+  /* Dummy assembly, somehow important for -snes_mf_operator */
+  err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  *structure = DIFFERENT_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
 
@@ -332,22 +417,30 @@ static dErr doProjection(dFS fs)
   MPI_Comm comm;
   SNES snes;
   Vec r,x;
+  Mat J,Jp;
   dErr err;
 
   dFunctionBegin;
+  err = dObjectGetComm((dObject)fs,&comm);dCHK(err);
   proj.fs = fs;
   err = dFSCreateExpandedVector(fs,&proj.x);dCHK(err);
   err = VecDuplicate(proj.x,&proj.y);dCHK(err);
 
   err = dFSCreateGlobalVector(fs,&r);dCHK(err);
-  err = dObjectGetComm((dObject)fs,&comm);dCHK(err);
+  err = dFSGetMatrix(fs,MATSEQAIJ,&Jp);dCHK(err);
+  err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
+  J = Jp;                       /* Use -snes_mf_operator to apply J matrix-free instead of actually using Jp as the Krylov matrix */
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,r,ProjResidual,(void*)&proj);dCHK(err);
+  err = SNESSetJacobian(snes,J,Jp,ProjJacobian,(void*)&proj);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-12,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
-  err = VecZeroEntries(x);dCHK(err);
-  err = SNESSolve(snes,NULL,x);dCHK(err);
+  for (dInt i=0; i<gopt.cycles; i++) {
+    err = VecZeroEntries(x);dCHK(err);
+    err = SNESSolve(snes,NULL,x);dCHK(err);
+  }
+  if (gopt.showsoln) {err = VecView(x,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
   {
     // err = SNESComputeFunction(snes,x,r);dCHK(err);
     Vec *coords;
@@ -386,10 +479,13 @@ int main(int argc,char *argv[])
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constBDeg = 4; gopt.nominalRDeg = 8; exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
+    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1;
+    exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)",NULL,gopt.nominalRDeg,&gopt.nominalRDeg,NULL);dCHK(err);
+    err = PetscOptionsTruth("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
+    err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
     err = PetscOptionsTruth("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
     err = PetscOptionsTruth("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
@@ -402,6 +498,7 @@ int main(int argc,char *argv[])
   iMesh_getRootSet(mi,&domain,&err);dICHK(mi,err);
 
   err = dJacobiCreate(comm,&jac);dCHK(err);
+  err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
 

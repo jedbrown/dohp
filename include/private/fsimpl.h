@@ -44,6 +44,7 @@ struct _p_dFS {
   dJacobi      jacobi;
   dTruth       spacebuilt;
   dTruth       assemblefull;    /**< Use full order constraints for assembly */
+  dInt         ruleStrength;
   Sliced       sliced;
   dInt         nbdofs;
   dInt         n,N;             /**< length of the owned and global vectors */

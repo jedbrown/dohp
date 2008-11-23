@@ -452,6 +452,20 @@ dErr dEFSGetTensorNodes(dEFS efs,dInt *dim,dInt *tsize,dReal *nodes[])
   dFunctionReturn(0);
 }
 
+dErr dEFSGetGlobalCoordinates(dEFS efs,const dReal x[restrict][3],dInt *dim,dInt P[3],dReal (*qx)[3])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  dValidPointer(x,2);
+  dValidPointer(dim,3);
+  dValidPointer(P,4);
+  dValidPointer(qx,5);
+  err = (*efs->ops->getGlobalCoordinates)(efs,x,dim,P,qx);dCHK(err);
+  dFunctionReturn(0);
+}
+
 dErr dEFSGetRule(dEFS efs,dRule *rule)
 {
 
