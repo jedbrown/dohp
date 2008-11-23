@@ -13,6 +13,7 @@
 #include "private/jacimpl.h"
 
 PetscCookie dJACOBI_COOKIE;
+PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 static PetscFList dJacobiList = 0;
 
 static const struct _dJacobiOps _defaultOps = {
@@ -266,6 +267,8 @@ dErr dJacobiInitializePackage(const char path[])
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
   err = PetscCookieRegister("Jacobi context",&dJACOBI_COOKIE);dCHK(err);
+  err = PetscLogEventRegister("dEFSApply",       dJACOBI_COOKIE,&dLOG_EFSApply);dCHK(err);
+  err = PetscLogEventRegister("dRuleComputeGeom",dJACOBI_COOKIE,&dLOG_RuleComputeGeometry);dCHK(err);
   err = dJacobiRegisterAll(path);dCHK(err);
   initialized = PETSC_TRUE;
   dFunctionReturn(0);
@@ -417,7 +420,9 @@ dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal qg[restr
 
   dFunctionBegin;
   dValidPointer(rule,1);
+  err = PetscLogEventBegin(dLOG_RuleComputeGeometry,0,0,0,0);dCHK(err);
   err = rule->ops->computeGeometry(rule,vtx,qg,jinv,jdet);dCHK(err);
+  err = PetscLogEventEnd(dLOG_RuleComputeGeometry,0,0,0,0);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -482,7 +487,9 @@ dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScal
 
   dFunctionBegin;
   dValidPointer(efs,1);
+  err = PetscLogEventBegin(dLOG_EFSApply,0,0,0,0);dCHK(err);
   err = (*efs->ops->apply)(efs,mapdata,dofs,in,out,amode,imode);dCHK(err);
+  err = PetscLogEventEnd(dLOG_EFSApply,0,0,0,0);dCHK(err);
   dFunctionReturn(0);
 }
 

@@ -6,7 +6,7 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
-extern PetscLogEvent dLOG_FSConstrain;
+extern PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 
 struct _p_dFSBoundary {
   PF                  constrain;

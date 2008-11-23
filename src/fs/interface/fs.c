@@ -182,6 +182,11 @@ dErr dFSDestroy(dFS fs)
     err = dFree7(w->q,w->jinv,w->jw,w->u,w->v,w->du,w->dv);dCHK(err);
     err = dFree(fs->workspace);dCHK(err);
   }
+  if (fs->sliced) {
+    err = SlicedDestroy(fs->sliced);dCHK(err);
+  }
+  err = MatDestroy(fs->C);dCHK(err);
+  err = MatDestroy(fs->Cp);dCHK(err);
   err = dFree3(fs->rule,fs->efs,fs->off);dCHK(err);
   err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = PetscHeaderDestroy(fs);dCHK(err);
@@ -216,6 +221,9 @@ dErr dFSBuildSpace(dFS fs)
   err = VecGhostUpdateBegin(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecDestroy(x);dCHK(err);
+
+  /* \todo Use g to set sparsity pattern */
+  err = VecDestroy(g);dCHK(err);
 
   fs->spacebuilt = dTRUE;
   dFunctionReturn(0);
@@ -449,6 +457,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   dValidPointer(idxm,4);
   dValidPointer(idxn,6);
   dValidPointer(v,7);
+  err = PetscLogEventBegin(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
   C = (fs->assemblefull) ? fs->C : fs->Cp;
   err = MatGetRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Could not get indices");
@@ -477,6 +486,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
       }
       lidxn[lj++] = cj[k];
     }
+    err = PetscLogFlops((ci[col+1]-ci[col])*m);dCHK(err);
   }
   /* Expand rows of temporary matrix \a lvt into \a lv */
   for (i=0,li=0; i<m; i++) {         /* rows of temporary matrix */
@@ -487,6 +497,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
       }
       lidxm[li++] = cj[k];
     }
+    err = PetscLogFlops((ci[row+1]-ci[row])*ln);dCHK(err);
   }
 
   err = MatRestoreArray(C,&ca);dCHK(err);
@@ -498,6 +509,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   if (lidxn != lidxns) {err = dFree(lidxn);dCHK(err);}
   if (lv != lvs)       {err = dFree(lv);dCHK(err);}
   if (lvt != lvts)     {err = dFree(lvt);dCHK(err);}
+  err = PetscLogEventEnd(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
   dFunctionReturn(0);
 }
 

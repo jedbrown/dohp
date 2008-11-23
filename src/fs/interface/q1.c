@@ -1,5 +1,6 @@
-#include <dohpfs.h>
-#include <dohpgeom.h>
+#include "dohpfs.h"
+#include "dohpgeom.h"
+#include "private/fsimpl.h"     /* Only for dLOG_Q1HexComputeQuadrature!  Otherwise this is stand-alone. */
 
 /** Compute basis functions and quadrature weights for Q1 element
 *
@@ -21,6 +22,7 @@ dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**inqx)[3]
   dErr err;
 
   dFunctionBegin;
+  err = PetscLogEventBegin(dLOG_Q1HexComputeQuadrature,0,0,0,0);dCHK(err);
   for (dInt i=0; i<2; i++) {
     const dReal q0 = linecoords[i],q0m = 0.125*(1-q0),q0p = 0.125*(1+q0),qmd = q0m,qpd = q0p;
     for (dInt j=0; j<2; j++) {
@@ -62,10 +64,12 @@ dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**inqx)[3]
       }
     }
   }
+  err = PetscLogFlops(2*(4+2*(8+2*(2+16+3*60+42+1+3*5))));dCHK(err);
   *n = 2*2*2;
   *inqx = (const dReal(*)[3])&qx[0][0];
   *injw = jw;
   *inbasis = &basis[0][0];
   *inderiv = &deriv[0][0][0];
+  err = PetscLogEventEnd(dLOG_Q1HexComputeQuadrature,0,0,0,0);dCHK(err);
   dFunctionReturn(0);
 }

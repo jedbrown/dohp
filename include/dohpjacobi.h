@@ -117,12 +117,13 @@ struct MeshRegion {
   dInt ntype[4],tstart[4];
 };
 
+#define dMESHADJACENCY_HAS_CONNECTIVITY 1
 struct dMeshAdjacency {
   dMeshESH set;
   dInt nents;
   dInt toff[5];
   dInt *adjoff,*adjind,*adjperm;
-#if 1 /* defined(dMESHADJACENCY_HAS_CONNECTIVITY) */
+#if defined(dMESHADJACENCY_HAS_CONNECTIVITY)
   dInt *connoff;
   dMeshEH *conn;
 #endif

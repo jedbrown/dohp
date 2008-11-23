@@ -455,8 +455,11 @@ static dErr doProjection(dFS fs)
     err = dPrintf(PETSC_COMM_WORLD,"Gradient ptwise proj residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gresNorms[0],gresNorms[1],gresNorms[2]);dCHK(err);
   }
   err = SNESDestroy(snes);dCHK(err);
+  err = MatDestroy(Jp);dCHK(err);
   err = VecDestroy(r);dCHK(err);
   err = VecDestroy(x);dCHK(err);
+  err = VecDestroy(proj.x);dCHK(err);
+  err = VecDestroy(proj.y);dCHK(err);
   dFunctionReturn(0);
 }
 

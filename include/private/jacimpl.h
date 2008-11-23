@@ -5,6 +5,8 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
+extern PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
+
 /**
 * There is exactly one #dRule on each element.  The ops table is normally shared across the domain.
 *

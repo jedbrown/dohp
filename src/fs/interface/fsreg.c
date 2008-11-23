@@ -1,6 +1,7 @@
 #include "private/fsimpl.h"
 
 PetscCookie dFS_COOKIE;
+PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 static PetscFList FSList = 0;
 
 /**
@@ -109,6 +110,8 @@ dErr dFSInitializePackage(const char path[])
   if (initialized) dFunctionReturn(0);
   initialized = PETSC_TRUE;
   err = PetscCookieRegister("Function Space",&dFS_COOKIE);dCHK(err);
+  err = PetscLogEventRegister("dQ1HexComputQuad",dFS_COOKIE,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
+  err = PetscLogEventRegister("dFSMatSetVExpand",dFS_COOKIE,&dLOG_FSMatSetValuesExpanded);dCHK(err);
   err = dFSRegisterAll(path);dCHK(err);
   dFunctionReturn(0);
 }

@@ -1014,7 +1014,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,struct dMeshAdjacency *inadj)
 
   /* Determine permutation of adjacent entities */
   err = dMeshAdjacencyPermutations_Private(&ma,connoff,conn);dCHK(err);
-#if 1 /* defined(dMESHADJACENCY_HAS_CONNECTIVITY) */
+#if defined(dMESHADJACENCY_HAS_CONNECTIVITY)
   ma.connoff = connoff; ma.conn = conn;
 #else
   err = dFree2(connoff,conn);dCHK(err);
@@ -1033,6 +1033,9 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,struct dMeshAdjacency
   if (set != ma->set) dERROR(1,"Adjacency for the wrong set");
   err = dFree3(ma->ents,ma->adjoff,ma->topo);dCHK(err);
   err = dFree2(ma->adjind,ma->adjperm);dCHK(err);
+#if defined(dMESHADJACENCY_HAS_CONNECTIVITY)
+  err = dFree2(ma->connoff,ma->conn);dCHK(err);
+#endif
   err = dMemzero(ma,sizeof(*ma));dCHK(err);
   dFunctionReturn(0);
 }
