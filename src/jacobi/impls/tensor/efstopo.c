@@ -359,11 +359,12 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
       err = TensorMult_Hex(D,P,Q,A,in,df[1],INSERT_VALUES);dCHK(err);
       A[0] = b[0]->interp; A[1] = b[1]->interp; A[2] = b[2]->deriv;
       err = TensorMult_Hex(D,P,Q,A,in,df[2],INSERT_VALUES);dCHK(err);
-      err = dRuleMappingApply_Tensor_Hex((dRule_Tensor*)efs->rule,jinv,D,&df[0][0],out,imode);dCHK(err);
+      //err = dRuleMappingApply_Tensor_Hex((dRule_Tensor*)efs->rule,jinv,D,&df[0][0],out,imode);dCHK(err);
+      err = TensorRuleMapping(Q[0]*Q[1]*Q[2],jinv,D,&df[0][0],out,imode);dCHK(err);
     } break;
     case dAPPLY_GRAD_TRANSPOSE: {
       dScalar df[3][Q[0]*Q[1]*Q[2]*D];
-      err = TensorRuleMappingTranspose(Q[0]*Q[1]*Q[2],jinv,D,in,&df[0][0],imode);dCHK(err);
+      err = TensorRuleMappingTranspose(Q[0]*Q[1]*Q[2],jinv,D,in,&df[0][0],INSERT_VALUES);dCHK(err);
       switch (imode) {
         case INSERT_VALUES: err = dMemzero(out,P[0]*P[1]*P[2]*D*sizeof(out[0]));dCHK(err); break;
         case ADD_VALUES: break;
@@ -634,6 +635,7 @@ static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dI
   dScalar (*restrict v)[Q][D] = (dScalar(*)[Q][D])out;
 
   dFunctionBegin;
+  if (!jinv_flat) dERROR(1,"No Jinv, need a mapping");
   switch (imode) {
     case INSERT_VALUES: {
       for (dInt i=0; i<Q; i++) {

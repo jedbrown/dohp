@@ -13,7 +13,7 @@
 **/
 dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**inqx)[3],const dReal **injw,const dReal **inbasis,const dReal **inderiv)
 {
-  static const dReal linecoords[2] = {-0.57735026918962573,0.57735026918962573}; /* 2-point Gauss quadrature */
+  static const dReal linecoords[2] = {-0.57735026918962562,0.57735026918962562}; /* 2-point Gauss quadrature */
   //static const dReal lineweight[2] = {1.0,1.0};
   //static const dReal linebasis[2][2] = {{0.78867513459481287,0.21132486540518708},{0.21132486540518708,0.78867513459481287}};
   //static const dReal linederiv[2][2] = {{-0.5,-0.5},{0.5,0.5}};
@@ -42,7 +42,7 @@ dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**inqx)[3]
         const dReal hbasis[8] = {qmmm,qpmm,qppm,qmpm,qmmp,qpmp,qppp,qmpp};         /* Hex basis at this quadrature point */
         const dReal hderiv[3][8] = {{-qdmm,qdmm,qdpm,-qdpm,-qdmp,qdmp,qdpp,-qdpp}, /* Hex reference deriv at this quadrature point */
                                     {-qmdm,-qpdm,qpdm,qmdm,-qmdp,-qpdp,qpdp,qmdp},
-                                    {-qmm,qpm,-qpp,-qmp,qmm,qpm,qpp,qmp}};
+                                    {-qmm,-qpm,-qpp,-qmp,qmm,qpm,qpp,qmp}};
         dReal J[3][3],Jinv[3][3],Jdet;
         for (dInt l=0; l<3; l++) {
           /* Set the global coordinates at each quadrature point */
@@ -55,11 +55,11 @@ dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**inqx)[3]
         err = dGeomInvert3(&J[0][0],&Jinv[0][0],&Jdet);dCHK(err);
         jw[p] = hexweight[p]*Jdet;
         for (dInt l=0; l<8; l++) { /* Loop over corners in canonical order */
-          basis[l][p] = hbasis[l]; /* Basis from corner \a l evaluated at this quadrature point (\a p) */
+          basis[p][l] = hbasis[l]; /* Basis from corner \a l evaluated at this quadrature point (\a p) */
           /* Derivatives of basis from corner \a l with respect to global coordinates, evaluated at this quadrature point (\a p) */
-          deriv[l][p][0] = hderiv[0][l] * Jinv[0][0] + hderiv[1][l] * Jinv[1][0] + hderiv[2][l] * Jinv[2][0];
-          deriv[l][p][1] = hderiv[0][l] * Jinv[0][1] + hderiv[1][l] * Jinv[1][1] + hderiv[2][l] * Jinv[2][1];
-          deriv[l][p][2] = hderiv[0][l] * Jinv[0][2] + hderiv[1][l] * Jinv[1][2] + hderiv[2][l] * Jinv[2][2];
+          deriv[p][l][0] = hderiv[0][l] * Jinv[0][0] + hderiv[1][l] * Jinv[1][0] + hderiv[2][l] * Jinv[2][0];
+          deriv[p][l][1] = hderiv[0][l] * Jinv[0][1] + hderiv[1][l] * Jinv[1][1] + hderiv[2][l] * Jinv[2][1];
+          deriv[p][l][2] = hderiv[0][l] * Jinv[0][2] + hderiv[1][l] * Jinv[1][2] + hderiv[2][l] * Jinv[2][2];
         }
       }
     }

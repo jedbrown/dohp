@@ -322,11 +322,11 @@ dErr dFSExpandedToGlobalBegin(dFS fs,Vec x,InsertMode imode,Vec g)
   dValidHeader(x,VEC_COOKIE,2);
   dValidHeader(g,VEC_COOKIE,4);
   err = dFSExpandedToGlobal(fs,x,imode,g);dCHK(err);
-  err = VecGhostUpdateBegin(g,imode,SCATTER_REVERSE);dCHK(err);
+  err = VecGhostUpdateBegin(g,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
   dFunctionReturn(0);
 }
 
-dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode imode,Vec g)
+dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode dUNUSED imode,Vec g)
 {
   dErr err;
 
@@ -334,7 +334,7 @@ dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode imode,Vec g)
   dValidHeader(fs,dFS_COOKIE,1);
   dValidHeader(x,VEC_COOKIE,2);
   dValidHeader(g,VEC_COOKIE,4);
-  err = VecGhostUpdateEnd(g,imode,SCATTER_REVERSE);dCHK(err);
+  err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
   dFunctionReturn(0);
 }
 

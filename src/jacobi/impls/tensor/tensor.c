@@ -662,7 +662,7 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
   for (dInt i=0; i<Q; i++) {
     for (dInt j=0; j<P; j++) {
       b->interpTranspose[j*Q+i] = b->interp[i*P+j];
-      b->derivTranspose[j*Q+i] = b->interp[i*P+j];
+      b->derivTranspose[j*Q+i] = b->deriv[i*P+j];
     }
   }
   *basis = b;

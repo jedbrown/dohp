@@ -109,6 +109,9 @@ static inline dReal dMin(dReal a,dReal b) { return (a < b) ? a : b; }
 static inline dReal dAbs(dScalar a) { return fabs(a); }
 static inline dScalar dSqr(dScalar a) { return a * a; }
 static inline dReal dSqrt(dReal a) { return sqrt(a); }
+static inline dScalar dDotScalar3(const dScalar a[3],const dScalar b[3]) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+static inline dScalar dColonSymScalar3(const dScalar a[6],const dScalar b[6])
+{ return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + 2*a[3]*b[3] + 2*a[4]*b[4] + 2*a[5]*b[5]; }
 
 #define dGamma(a) tgamma(a) /* This is defined in math.h as of C99. */
 

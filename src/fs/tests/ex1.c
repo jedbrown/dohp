@@ -323,17 +323,21 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
         for (dInt k=0; k<P[2]-1; k++) {
           dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
           //const dScalar (*u)[1] = (const dScalar(*)[1])x+off[e]; /* Scalar valued function, can be indexed at corners as u[c[#]][0] */
-          const dReal (*qx)[3],*jw,*basis,*deriv;
+          const dReal (*qx)[3],*jw,*flatBasis,*flatDeriv;
           dInt qn;
           dScalar K[8][8];
-          err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,&basis,&deriv);dCHK(err);
-          for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
-            for (dInt lp=0; lp<8; lp++) {         /* loop over trial basis functions (corners) */
-              dReal sum = 0;
-              for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
-                sum += basis[ltest*qn+lq] * jw[lq] * basis[lp*qn+lq];
+          err = dMemzero(K,sizeof(K));dCHK(err);
+          err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,&flatBasis,&flatDeriv);dCHK(err);
+          {                     /* Scoping for VLA-pointer access */
+            const dReal (*basis)[8] = (const dReal(*)[8])flatBasis;
+            // const dReal (*deriv)[qn][8] = (const dReal(*)[qn][8])flatDeriv; /* UNUSED */
+            if (qn != 8) dERROR(1,"Unexpected number of quadrature points %d, but it *should* work, disable this error",qn);
+            for (dInt lq=0; lq<qn; lq++) {           /* Loop over quadrature points */
+              for (dInt ltest=0; ltest<8; ltest++) { /* Loop over test basis functions (corners) */
+                for (dInt lp=0; lp<8; lp++) {        /* Loop over trial basis functions (corners) */
+                  K[ltest][lp] += gopt.q1scale * (basis[lq][ltest] * jw[lq] * basis[lq][lp]);
+                }
               }
-              K[ltest][lp] = sum * gopt.q1scale;
             }
           }
           err = dFSMatSetValuesExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
@@ -346,10 +350,6 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
   err = VecRestoreArray(proj->x,&x);dCHK(err);
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
-  {
-    dTruth mat_view = dFALSE;
-    if (mat_view) {err = MatView(*Jp,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
-  }
   /* Dummy assembly, somehow important for -snes_mf_operator */
   err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
