@@ -288,9 +288,9 @@ static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2
     case 2: *ind = (M-1-i)*N + (N-1-j); break;
     case 3: *ind = i + (N-1-j)*M; break;
     case 4: *ind = i + j*M; break;
-    case 5: *ind = i*N + (N-1-j); break;
+    case 5: *ind = (M-1-i)*N + j; break;
     case 6: *ind = (M-1-i) + (N-1-j)*M; break;
-    case 7: *ind = (M-1-i)*N + j; break;
+    case 7: *ind = i*N + (N-1-j); break;
     default: dERROR(1,"Invalid permutation");
   }
   dFunctionReturn(0);
