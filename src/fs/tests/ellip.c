@@ -209,7 +209,7 @@ static inline dErr EllipPointwiseComputeStore(struct EllipParam *prm,const dReal
   dErr err;
 
   gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
-  espg = dSqr(prm->epsilon + gamma);
+  espg = dSqr(prm->epsilon) + gamma;
   power = (1-prm->exponent)/(2*prm->exponent);
   st->eta = pow(espg,power);
   st->deta = power * st->eta / espg;
@@ -269,6 +269,50 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
     for (dInt i=0; i<Q; i++) {
       struct EllipStore *st = &elp->store[elp->storeoff[e]+i];
       err = EllipPointwiseFunction(&elp->param,&elp->exact,&elp->exactctx,q[i],jw[i],&u[i],&du[i*3],st,&v[i],&dv[i*3]);dCHK(err);
+    }
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
+  }
+  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(elp->x,&x);dCHK(err);
+  err = VecRestoreArray(elp->y,&y);dCHK(err);
+  err = VecZeroEntries(gy);dCHK(err); /* Necessary? */
+  err = dFSExpandedToGlobalBegin(fs,elp->y,INSERT_VALUES,gy);dCHK(err);
+  err = dFSExpandedToGlobalEnd(fs,elp->y,INSERT_VALUES,gy);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
+{
+  Ellip elp;
+  dFS fs;
+  dInt n,*off,*geomoff;
+  s_dRule *rule;
+  s_dEFS *efs;
+  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
+  dScalar *x,*y,*u,*v,*du,*dv;
+  dErr err;
+
+  dFunctionBegin;
+  err = MatShellGetContext(J,(void**)&elp);dCHK(err);
+  fs = elp->fs;
+  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
+  err = VecGetArray(elp->x,&x);dCHK(err);
+  err = VecZeroEntries(elp->y);dCHK(err);
+  err = VecGetArray(elp->y,&y);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    dInt Q;
+    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      struct EllipStore *st = &elp->store[elp->storeoff[e]+i];
+      err = EllipPointwiseJacobian(&elp->param,st,jw[i],&u[i],&du[i*3],&v[i],&dv[i*3]);dCHK(err);
     }
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
@@ -380,7 +424,15 @@ int main(int argc,char *argv[])
   err = dFSGetMatrix(fs,MATSEQAIJ,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
   err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
-  J = Jp;
+
+  {
+    dInt m,n,M,N;
+    err = MatGetLocalSize(Jp,&m,&n);dCHK(err);
+    err = MatGetSize(Jp,&M,&N);dCHK(err);
+    err = MatCreateShell(comm,m,n,M,N,elp,&J);dCHK(err);
+    err = MatSetOptionsPrefix(J,"j");dCHK(err);
+    err = MatShellSetOperation(J,MATOP_MULT,(void(*)(void))EllipShellMatMult);dCHK(err);
+  }
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,r,EllipFunction,elp);dCHK(err);
   err = SNESSetJacobian(snes,J,Jp,EllipJacobian,elp);dCHK(err);
@@ -390,12 +442,12 @@ int main(int argc,char *argv[])
   err = VecZeroEntries(x);dCHK(err);
   err = VecZeroEntries(r);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err);
-  //err = VecView(x,viewer);dCHK(err);
 
   err = VecDestroy(r);dCHK(err);
   err = VecDestroy(x);dCHK(err);
   err = SNESDestroy(snes);dCHK(err);
   err = MatDestroy(Jp);dCHK(err);
+  err = MatDestroy(J);dCHK(err);
   err = EllipDestroy(elp);dCHK(err);
   err = PetscFinalize();dCHK(err);
   return 0;
