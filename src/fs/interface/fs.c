@@ -338,7 +338,7 @@ dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode dUNUSED imod
   dFunctionReturn(0);
 }
 
-dErr dFSGetElements(dFS fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt **geomoff,dReal (**geom)[3])
+dErr dFSGetElements(dFS fs,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
 {
 
   dFunctionBegin;
@@ -352,7 +352,7 @@ dErr dFSGetElements(dFS fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt *
   dFunctionReturn(0);
 }
 
-dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS **efs,dInt **geomoff,dReal (**geom)[3])
+dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
 {
 
   dFunctionBegin;
@@ -377,7 +377,7 @@ dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt **off,s_dRule **rule,s_dEFS 
 * @param du first array to hold 3*D values per quadrature point
 * @param dv second array to hold 3*D values per quadrature point
 */
-dErr dFSGetWorkspace(dFS fs,dReal (**q)[3],dReal (**jinv)[3][3],dReal **jw,dScalar **u,dScalar **v,dScalar **du,dScalar **dv)
+dErr dFSGetWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
 {
   s_dFSWorkspace *w;
   dErr err;
@@ -407,7 +407,7 @@ dErr dFSGetWorkspace(dFS fs,dReal (**q)[3],dReal (**jinv)[3][3],dReal **jw,dScal
 }
 
 /* These arrays are persistent for the life of the dFS so we just nullify the pointers */
-dErr dFSRestoreWorkspace(dFS fs,dReal (**q)[3],dReal (**jinv)[3][3],dReal **jw,dScalar **u,dScalar **v,dScalar **du,dScalar **dv)
+dErr dFSRestoreWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
 {
 
   dFunctionBegin;

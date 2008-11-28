@@ -16,17 +16,16 @@ struct EllipExactCtx {
   dReal a,b,c;
 };
 struct EllipExact {
-  dErr (*solution)(const struct EllipExactCtx*,const struct EllipParam*,const dReal x[3],dReal f[1]);
-  dErr (*forcing)(const struct EllipExactCtx*,const struct EllipParam*,const dReal x[3],dReal f[1]);
+  void (*solution)(const struct EllipExactCtx*,const struct EllipParam*,const dReal x[3],dReal f[1]);
+  void (*forcing)(const struct EllipExactCtx*,const struct EllipParam*,const dReal x[3],dReal f[1]);
 };
 
-static dErr EllipExact_0_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal x[3],dReal u[1])
+static void EllipExact_0_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal x[3],dReal u[1])
 {
   const dReal a = ctx->a,b = ctx->b,c = ctx->c;
   u[0] = cos(a*x[0]) * exp(b*x[1]) * sin(c*x[2]);
-  return 0;
 }
-static dErr EllipExact_0_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dReal f[1])
+static void EllipExact_0_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dReal f[1])
 {
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],eps = prm->epsilon,n = prm->exponent;
   /** The following expression was generated with Maxima:
@@ -39,17 +38,15 @@ static dErr EllipExact_0_Forcing(const struct EllipExactCtx *ctx,const struct El
     t15=sin(t7);
   f[0] = -dSqr(c*c)*t10*t11*t8*t14*t15 - t6*t13*t15 + dSqr(b*b)*t12*t11*exp(3*b*y)*t14 - dSqr(a*a)*t12*t11*t3*t4*t14
     + t5*exp(b*y)*t13 - t1*t3*t13;
-  return 0;
 }
 
-static dErr EllipExact_1_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dReal u[1])
+static void EllipExact_1_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dReal u[1])
 {
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
   u[0] = a*dSqr(x) + b*dSqr(y) + c*(1-dSqr(z));
   u[0] = 10*x+y;                /* DEBUG */
-  return 0;
 }
-static dErr EllipExact_1_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dReal f[1])
+static void EllipExact_1_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dReal f[1])
 {
   const dUNUSED dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],eps = prm->epsilon,n = prm->exponent;
   /** Maxima optimized
@@ -60,7 +57,6 @@ static dErr EllipExact_1_Forcing(const struct EllipExactCtx *ctx,const struct El
   const dReal t1=x*x,t2=y*y,t3=z*z,t4=2*(t1+t2+t3)+eps*eps,t5=1-n,t6=1/n,t7=t5*t6,t8=pow(t4,t7-1);
   f[0] = 8*t5*t6*t8*(-t3+t2+t1) + 2*pow(t4,t7);
   f[0] = 10*x+y;                /* DEBUG */
-  return 0;
 }
 
 struct EllipStore {
@@ -203,42 +199,40 @@ static dErr EllipDestroy(Ellip elp)
   dFunctionReturn(0);
 }
 
-static inline dErr EllipPointwiseComputeStore(struct EllipParam *prm,const dReal dUNUSED x[3],const dReal dUNUSED u[1],const dReal Du[3],struct EllipStore *st)
+static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal dUNUSED x[3],const dReal dUNUSED u[1],const dReal Du[3],struct EllipStore *st)
 {
   dReal gamma,espg,power;
-  dErr err;
-
   gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
   espg = dSqr(prm->epsilon) + gamma;
   power = (1-prm->exponent)/(2*prm->exponent);
   st->eta = pow(espg,power);
   st->deta = power * st->eta / espg;
-  err = dMemcpy(st->Du,Du,sizeof(st->Du));dCHK(err);
-  return 0;
+  st->Du[0] = Du[0]; st->Du[1] = Du[1]; st->Du[2] = Du[2];
 }
 
-static inline dErr EllipPointwiseFunction(struct EllipParam *prm,struct EllipExact *exact,struct EllipExactCtx *exactctx,
+static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExact *exact,struct EllipExactCtx *exactctx,
                                           const dReal x[3],dReal weight,const dReal u[1],const dReal Du[3],
                                           struct EllipStore *st,dReal v[1],dReal Dv[3])
 {
   dScalar f[1];
-  dErr err;
-  err = EllipPointwiseComputeStore(prm,x,u,Du,st);dCHK(err);
-  err = exact->forcing(exactctx,prm,x,f);dCHK(err);
+  EllipPointwiseComputeStore(prm,x,u,Du,st);
+  exact->forcing(exactctx,prm,x,f);
   v[0] = - weight * f[0];       /* Coefficient of \a v in weak form */
   for (dInt i=0; i<3; i++) {
     Dv[i] = weight * st->eta * Du[i]; /* Coefficient of Dv in weak form */
   }
-  return 0;
 }
 
-static inline dErr EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const struct EllipStore *st,dReal weight,
-                                          const dReal dUNUSED u[1],const dReal Du[3],dReal v[1],dReal Dv[3])
+static inline void EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const struct EllipStore *restrict st,dReal weight,
+                                          const dReal dUNUSED u[restrict static 1],const dReal Du[restrict static 3],
+                                          dScalar v[restrict static 1],dReal Dv[restrict static 3])
 {
-  const dReal dot = dDotScalar3(st->Du,Du);
+  const dScalar dot = dDotScalar3(st->Du,Du);
+  const dReal etaw = st->eta*weight,dotdetaw = dot*st->deta*weight;
   v[0] = 0;
-  for (dInt i=0; i<3; i++) Dv[i] = (st->eta*Du[i] + st->deta*st->Du[i]*dot) * weight;
-  return 0;
+  Dv[0] = etaw*Du[0] + dotdetaw*st->Du[0];
+  Dv[1] = etaw*Du[1] + dotdetaw*st->Du[1];
+  Dv[2] = etaw*Du[2] + dotdetaw*st->Du[2];
 }
 
 static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
@@ -248,8 +242,8 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   dInt n,*off,*geomoff;
   s_dRule *rule;
   s_dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,*y,*u,*v,*du,*dv;
+  dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
+  dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
   dErr err;
 
   dFunctionBegin;
@@ -267,8 +261,8 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      struct EllipStore *st = &elp->store[elp->storeoff[e]+i];
-      err = EllipPointwiseFunction(&elp->param,&elp->exact,&elp->exactctx,q[i],jw[i],&u[i],&du[i*3],st,&v[i],&dv[i*3]);dCHK(err);
+      struct EllipStore *restrict st = &elp->store[elp->storeoff[e]+i];
+      EllipPointwiseFunction(&elp->param,&elp->exact,&elp->exactctx,q[i],jw[i],&u[i],&du[i*3],st,&v[i],&dv[i*3]);
     }
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
@@ -290,8 +284,8 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   dInt n,*off,*geomoff;
   s_dRule *rule;
   s_dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,*y,*u,*v,*du,*dv;
+  dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
+  dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
   dErr err;
 
   dFunctionBegin;
@@ -311,8 +305,8 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      struct EllipStore *st = &elp->store[elp->storeoff[e]+i];
-      err = EllipPointwiseJacobian(&elp->param,st,jw[i],&u[i],&du[i*3],&v[i],&dv[i*3]);dCHK(err);
+      struct EllipStore *restrict st = &elp->store[elp->storeoff[e]+i];
+      EllipPointwiseJacobian(&elp->param,st,jw[i],&u[i],&du[i*3],&v[i],&dv[i*3]);
     }
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
@@ -370,13 +364,13 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
                 st_Du[1] += deriv[lq][lp][1] * uc[c[lp]][0];
                 st_Du[2] += deriv[lq][lp][2] * uc[c[lp]][0];
               }
-              err = EllipPointwiseComputeStore(&elp->param,qx[lq],st_u,st_Du,&st);dCHK(err);
+              EllipPointwiseComputeStore(&elp->param,qx[lq],st_u,st_Du,&st);
             }
             for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
               for (dInt lp=0; lp<8; lp++) {                     /* loop over trial basis functions (corners) */
                 const dReal *u = &basis[lq][lp],*Du = deriv[lq][lp];
                 dReal v[1],Dv[3];
-                err = EllipPointwiseJacobian(&elp->param,&st,jw[lq],u,Du,v,Dv);dCHK(err);
+                EllipPointwiseJacobian(&elp->param,&st,jw[lq],u,Du,v,Dv);
                 K[ltest][lp] += basis[lq][ltest] * v[0]
                   + deriv[lq][ltest][0] * Dv[0]
                   + deriv[lq][ltest][1] * Dv[1]
