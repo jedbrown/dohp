@@ -492,24 +492,17 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dReal *A[2],c
 static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],const dScalar in[],dScalar out[restrict],InsertMode imode)
 {
   dScalar amem[Q[0]*P[1]*P[2]*D],bmem[Q[0]*Q[1]*P[2]*D];
-  dScalar (*restrict a)[P[1]][P[2]][D] = (dScalar (*restrict)[P[1]][P[2]][D])amem;
-  dScalar (*restrict b)[Q[1]][P[2]][D] = (dScalar (*restrict)[Q[1]][P[2]][D])bmem;
-  dScalar (*restrict g)[Q[1]][Q[2]][D] = (dScalar (*restrict)[Q[1]][Q[2]][D])out;
-  const dScalar (*restrict f)[P[1]][P[2]][D] = (const dScalar (*)[P[1]][P[2]][D])in;
-  const dReal (*Ax)[P[0]] = (const dReal (*)[P[0]])A[0];
-  const dReal (*Ay)[P[1]] = (const dReal (*)[P[1]])A[1];
-  const dReal (*Az)[P[2]] = (const dReal (*)[P[2]])A[2];
-  dInt i,j,k,l,d;
+  const dReal (*restrict Ax)[P[0]] = (const dReal (*)[P[0]])A[0];
+  const dReal (*restrict Ay)[P[1]] = (const dReal (*)[P[1]])A[1];
+  const dReal (*restrict Az)[P[2]] = (const dReal (*)[P[2]])A[2];
   dErr err;
 
   dFunctionBegin;
-  if (D*Q[0]*P[1]*P[2]*sizeof(amem[0]) != Q[0]*sizeof(a[0])
-      || D*Q[0]*Q[1]*Q[2]*sizeof(out[0]) != Q[0]*sizeof(g[0])) dERROR(1,"sizeof not working as expected");
-  err = dMemzero(a,Q[0]*sizeof(a[0]));dCHK(err);
-  err = dMemzero(b,Q[0]*sizeof(b[0]));dCHK(err);
+  err = dMemzero(amem,sizeof(amem));dCHK(err);
+  err = dMemzero(bmem,sizeof(bmem));dCHK(err);
   switch (imode) {
     case INSERT_VALUES:
-      err = dMemzero(g,Q[0]*sizeof(g[0]));dCHK(err);
+      err = dMemzero(out,Q[0]*Q[1]*Q[2]*D*sizeof(out[0]));dCHK(err);
       break;
     case ADD_VALUES:
       break;
@@ -517,41 +510,63 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],co
       dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
   }
 
-  for (l=0; l<Q[0]; l++) {
-    for (i=0; i<P[0]; i++) {
-      for (j=0; j<P[1]; j++) {
-        for (k=0; k<P[2]; k++) {
-          for (d=0; d<D; d++) {
-            //amem[((l*P[1]+j)*P[2]+k)*D+d] += A[0][l*P[0]+i] * in[((i*P[1]+j)*P[2]+k)*D+d];
-            a[l][j][k][d] += Ax[l][i] * f[i][j][k][d];
-          }
+  for (dInt l=0; l<Q[0]; l++) {
+    const dInt JKD = P[1]*P[2]*D;
+    const dScalar *restrict Axl = Ax[l];
+    dScalar *restrict aa = &amem[l*JKD];
+    for (dInt i=0; i<P[0]; i++) {
+      const dScalar *restrict ff = &in[i*JKD];
+      const dReal aax = Axl[i];
+      for (dInt jkd=0; jkd<JKD; jkd++) {
+        aa[jkd] += aax * ff[jkd];
+      }
+    }
+  }
+  for (dInt i=0; i<Q[0]; i++) {
+    const dInt JKD = P[1]*P[2]*D,KD = P[2]*D;
+    dScalar *restrict aa = &amem[i*JKD];
+    for (dInt l=0; l<Q[1]; l++) {
+      dScalar *restrict bb = &bmem[(i*Q[1]+l)*KD];
+      const dReal *restrict Ayl = Ay[l];
+      for (dInt j=0; j<P[1]; j++) {
+        const dScalar *restrict aaa = &aa[j*KD];
+        const dReal aay = Ayl[j];
+        for (dInt kd=0; kd<KD; kd++) {
+          bb[kd] += aay * aaa[kd];
         }
       }
     }
   }
-  for (i=0; i<Q[0]; i++) {
-    for (l=0; l<Q[1]; l++) {
-      for (j=0; j<P[1]; j++) {
-        for (k=0; k<P[2]; k++) {
-          for (d=0; d<D; d++) {
-            //bmem[((i*Q[1]+l)*P[2]+k)*D+d] += A[1][l*P[1]+j] * amem[((i*P[1]+j)*P[2]+k)*D+d];
-            b[i][l][k][d] += Ay[l][j] * a[i][j][k][d];
+  switch (D) {
+    case 1:
+      for (dInt ij=0; ij<Q[0]*Q[1]; ij++) {
+        const dScalar *restrict bb = &bmem[ij*P[2]];
+        dScalar *restrict cc = &out[ij*Q[2]];
+        for (dInt l=0; l<Q[2]; l++) {
+          const dScalar *restrict aaz = Az[l];
+          dScalar s = 0;
+          for (dInt k=0; k<P[2]; k++) {
+            s += aaz[k] * bb[k];
+          }
+          cc[l] += s;
+        }
+      }
+      break;
+    default:
+      for (dInt ij=0; ij<Q[0]*Q[1]; ij++) {
+        const dScalar *restrict bb = &bmem[ij*P[2]];
+        for (dInt l=0; l<Q[2]; l++) {
+          dScalar *restrict cc = &out[(ij*Q[2]+l)*D];
+          const dScalar *restrict aa = Az[l];
+          dInt kd = 0;
+          for (dInt k=0; k<P[2]; k++) {
+            const dScalar aaz = aa[k];
+            for (dInt d=0; d<D; d++,kd++) {
+              cc[d] += aaz * bb[kd];
+            }
           }
         }
       }
-    }
-  }
-  for (i=0; i<Q[0]; i++) {
-    for (j=0; j<Q[1]; j++) {
-      for (l=0; l<Q[2]; l++) {
-        for (k=0; k<P[2]; k++) {
-          for (d=0; d<D; d++) {
-            //out[((i*Q[1]+j)*Q[2]+l)*D+d] += A[2][l*P[2]+k] * bmem[((i*Q[1]+j)*P[2]+k)*D+d];
-            g[i][j][l][d] += Az[l][k] * b[i][j][k][d];
-          }
-        }
-      }
-    }
   }
   PetscLogFlops((Q[0]*P[0]*P[1]*P[2] + Q[0]*Q[1]*P[1]*P[2] + Q[0]*Q[1]*Q[2]*P[2])*D*2);
   dFunctionReturn(0);
