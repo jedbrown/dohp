@@ -40,7 +40,32 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
   dFunctionReturn(0);
 }
 
-dErr dFSAddBdy(dFS fs,const char *name,dMeshESH entset,dMeshTag orient,dBool flip,PF constrain)
+dErr dFSSetBlockSize(dFS fs,dInt D)
+{
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  if (fs->D != 1) dERROR(1,"Block size has already been set");
+  fs->newD = D;
+  dFunctionReturn(0);
+}
+
+/** Register a boundary condition with the function space.  After all boundary conditions are registered and the block
+* size set, dFSUpdate can be used.
+*
+* @param fs function space object
+* @param man manifold on which to apply the boundary condition
+* @param flip FALSE to use the manifold orientation, TRUE to use the opposite orientation
+* @param cfunc constraint function
+* @param user context for constraint function
+*
+* @note The constraint function \b must be a pure function (no side-effects, only writes to it's output matrix) with the
+* same definition on every process.  The constraint matrix \b must be invertible and should probably be orthogonal.  The
+* number of dofs declared global and local should be the same at every point (this is not actually essential, but it's
+* convenient).  The reason it is not declared statically (outside of the function definition) is merely to avoid
+* duplicating information that must be kept consistent.
+**/
+dErr dFSRegisterBoundary(dFS fs,dMeshManifold man,dTruth flip,dFSBoundaryConstraintFunction cfunc,void *user)
 {
   dFSBoundary bdy;
   dErr err;
@@ -48,13 +73,77 @@ dErr dFSAddBdy(dFS fs,const char *name,dMeshESH entset,dMeshTag orient,dBool fli
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
   err = dNew(struct _p_dFSBoundary,&bdy);dCHK(err);
-  err = PetscStrallocpy(name,&bdy->name);dCHK(err);
-  bdy->entset = entset;
-  bdy->orient = orient;
-  bdy->fliporient = flip;
-  bdy->constrain = constrain;
+  if (!fs->newD) dERROR(1,"Cannot register boundary before setting block size");
+  {
+    dReal x[3] = {0,0,0},b[3][3] = {{1,0,0},{0,1,0},{0,0,1}},T[dSqr(fs->newD)];
+    dInt g;
+    /* Run the user function on dummy data to determine the number of global dofs per node (maybe not needed?) */
+    err = cfunc(user,x,b,T,&g);dCHK(err);
+    bdy->nGlobal = g;
+    bdy->nDirichlet = fs->newD - g;
+  }
+  bdy->manifold = man;
+  bdy->flip = flip;
+  bdy->cfunc = cfunc;
+  bdy->user = user;
   bdy->next = fs->bdylist;      /* Cons with list */
   fs->bdylist = bdy;
+  dFunctionReturn(0);
+}
+
+/** Commit changes requested by dFSSetBlockSize and dFSRegisterBoundary.
+*
+* Any Mat/Vec previously obtained from this function space will no longer be compatible with the new dFS.
+*
+* Internally, new constraint matrices are created that support a vector-valued field (block size) with given boundary
+* conditions.  By default, the nonzero pattern of the matrix will be set so that each block is fully coupled using the
+* same nonzero pattern as the scalar case.
+**/
+dErr dFSUpdate(dFS fs)
+{
+  struct { dFSBoundaryConstraintFunction cfunc; void *user } *bc;
+  struct dMeshAdjacency ma;
+  dFSBoundary b;
+  dMeshTag bTag;
+  dReal *tmat;
+  dInt i,nb,D,D2;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,dFS_COOKIE,1);
+  nb = 0; b = fs->boundaryList;
+  while (b) {
+    nb++;
+    b = b->next;
+  }
+  err = dMallocA(nb,&bc);dCHK(err);
+  err = dMeshTagCreateTemp(fs->mesh,"boundary_label",1,dDATA_INT,&bTag);dCHK(err);
+  for (i=0,b=fs->boundaryList; i<nb; i++,b=b->next) {
+    dInt toff[5];
+    const dMeshEH *ents;
+    const char *orient;
+    const dInt *label;
+    err = dMeshManifoldGetElements(b->manifold,toff,&ents,&orient);dCHK(err);
+    err = dMallocA(toff[dTYPE_ALL],&label);dCHK(err);
+    for (dInt j=toff[0]; j<toff[4]; j++) label[j] = i;
+    err = dMeshTagSetData(mesh,bTag,ents,toff[4],label,toff[4],dDATA_INT);dCHK(err);
+    err = dFree(label);dCHK(err);
+    err = dMeshManifoldRestoreElements(b->manifold,toff,&ents,&orient);dCHK(err);
+    bc[i].cfunc = b->cfunc;
+    bc[i].user = b->user;
+  }
+  D = fs->newD; D2 = D*D;
+  err = dMallocA2(fs->nlocal*D2,&tmat);dCHK(err);
+  /* We need the old and new  */
+  err = dMeshGetAdjacency(fs->mesh,fs->active,&ma);dCHK(err);
+  err = 
+  /* \todo Get coordinates and normals at each node */
+  for (i=0; i<fs->nlocal; i++) {
+    dReal *T = tmat + i*D2;
+    
+    err = 
+  }
+  err = dFree(bc);dCHK(err);
   dFunctionReturn(0);
 }
 

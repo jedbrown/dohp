@@ -80,6 +80,9 @@ typedef struct {
 #define dTAG_BDY_NUM            "dohp_bdy_num"
 #define dTAG_BDY_NORMAL         "dohp_bdy_normal"
 
+#define dTAG_MANIFOLD_NAME      "dohp_manifold_name"   /* name tag on manifold sets */
+#define dTAG_MANIFOLD_ORIENT    "dohp_manifold_orient" /* orientation on entities (usually just faces) in a manifold set */
+
 #define dMeshType char *
 #define dMESHPACK   "pack"
 #define dMESHSERIAL "serial"
@@ -111,6 +114,7 @@ EXTERN dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 EXTERN dErr dMeshGetInstance(dMesh,iMesh_Instance*);
 EXTERN dErr dMeshGetNumEnts(dMesh,dMeshESH,dEntType,dEntTopology,dInt*);
 EXTERN dErr dMeshGetEnts(dMesh,dMeshESH,dEntType,dEntTopology,dMeshEH[],dInt,dInt*);
+EXTERN dErr dMeshGetEntsOff(dMesh,dMeshESH,dInt*,dMeshEH**);
 EXTERN dErr dMeshGetAdjIndex(dMesh,const dMeshEH[],dInt,const dMeshEH[],dInt,dInt[],dInt*);
 
 EXTERN dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag);
@@ -119,6 +123,8 @@ EXTERN dErr dMeshTagCreate(dMesh mesh,const char[],dInt count,dDataType type,dMe
 EXTERN dErr dMeshTagCreateTemp(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
 EXTERN dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type);
 EXTERN dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type);
+EXTERN dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type);
+EXTERN dErr dMeshGetTaggedSets(dMesh,dMeshTag,dMeshESH**,dInt*);
 EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
 EXTERN dErr dMeshGetStatus(dMesh,dInt,const dMeshEH[],dEntStatus[]);
@@ -127,6 +133,17 @@ EXTERN dErr dMeshGetAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
 EXTERN dErr dMeshRestoreAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
 EXTERN dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
 EXTERN dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
+
+typedef struct _p_dMeshManifold *dMeshManifold;
+
+EXTERN dErr dMeshLoadManifolds(dMesh,const char[],const char[]);
+EXTERN dErr dMeshUnloadManifolds(dMesh,const char[],const char[]);
+EXTERN dErr dMeshGetManifold(dMesh,const char[],dMeshManifold*);
+EXTERN dErr dMeshRestoreManifold(dMesh,const char[],dMeshManifold*);
+EXTERN dErr dMeshManifoldGetElements(dMeshManifold,dInt[],const dMeshEH**,const char**);
+EXTERN dErr dMeshManifoldRestoreElements(dMeshManifold,dInt[],const dMeshEH**,const char**);
+EXTERN dErr dMeshGetNumSubsets(dMesh,dMeshESH,dInt*);
+EXTERN dErr dMeshGetSubsets(dMesh,dMeshESH,dMeshESH[],dInt,dInt*);
 
 PETSC_EXTERN_CXX_END
 #endif

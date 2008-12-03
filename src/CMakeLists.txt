@@ -27,6 +27,9 @@ LIST (APPEND Dohp_SRCS
   fs/mesh/impls/pack/pack.c
   fs/mesh/impls/serial/serial.c)
 
+LIST (APPEND Dohp_SRCS
+  util/util.c)
+
 ADD_LIBRARY (dohp ${Dohp_SRCS})
 
 if (Dohp_BUILD_TESTS)

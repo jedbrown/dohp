@@ -22,6 +22,16 @@ struct _p_dMesh {
   MeshListData orf,ofe;
   MeshListReal x;
   void *data;
+  dMeshTag manifoldTag,manifoldOrientTag;
+  dMeshManifold *manifoldList;
+  dInt nManifolds;
+};
+
+struct _p_dMeshManifold {
+  char name[dNAME_LEN];
+  dInt toff[5];
+  dMeshEH *ents;
+  char *orient;
 };
 
 #endif

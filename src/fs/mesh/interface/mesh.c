@@ -1,6 +1,7 @@
 #include "private/dmeshimpl.h"
 #include "dohpgeom.h"
 #include <iMeshP.h>
+#include <iMesh_extensions.h>
 #include <MBParallelConventions.h>
 #include <ctype.h>              /* needed for isprint() */
 
@@ -411,6 +412,33 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   dFunctionReturn(0);
 }
 
+dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type)
+{
+  return dMeshTagGetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type); /* Maybe only for MOAB */
+}
+
+dErr dMeshGetTaggedSets(dMesh mesh,dMeshTag tag,dMeshESH **insets,dInt *innsets)
+{
+  dInt nsets;
+  MeshListESH allsets=MLZ;
+  dMeshESH *sets,root;
+  dIInt ierr;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(insets,3);
+  dValidPointer(innsets,4);
+  err = dMeshGetRootSet(mesh,&root);dCHK(err);
+  iMesh_getEntSetsByTagsRec(mesh->mi,root,&tag,NULL,1,1,MLREF(allsets),&ierr);dICHK(mesh->mi,ierr);
+  err = dMallocA(allsets.s,&sets);dCHK(err);
+  err = dMemcpy(sets,allsets.v,allsets.s*sizeof(sets[0]));dCHK(err);
+  *insets = sets;
+  *innsets = allsets.s;
+  MeshListFree(allsets);
+  dFunctionReturn(0);
+}
+
 dErr dMeshGetNumEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dInt *num)
 {
   dIInt ierr,n;
@@ -439,6 +467,33 @@ dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshE
   iMesh_getEntities(mesh->mi,set,type,topo,&e,&ea,&es,&ierr);dICHK(mesh->mi,ierr);
   if (e != ents || ea != esize) dERROR(1,"should not happen");
   if (nents) *nents = es;
+  dFunctionReturn(0);
+}
+
+/** Get entities of every type in a set.
+* @param mesh mesh object
+* @param set set to get entities from
+* @param toff array of length 5, offset of entities of each type
+* @param inents pointer to array of entities, free with dFree()
+*/
+dErr dMeshGetEntsOff(dMesh mesh,dMeshESH set,dInt toff[],dMeshEH **inents)
+{
+  dMeshEH *ents;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(toff,3);
+  dValidPointer(ents,4);
+  err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&n);dCHK(err);
+  err = dMallocA(n,ents);dCHK(err);
+  toff[0] = 0;
+  for (dEntType type=dTYPE_VERTEX; type<dTYPE_ALL; type++) {
+    dInt used;
+    err = dMeshGetEnts(mesh,set,type,dTOPO_ALL,ents+toff[type],n-toff[type],&used);dCHK(err);
+    toff[type+1] = toff[type] + used;
+  }
+  *inents = ents;
   dFunctionReturn(0);
 }
 
@@ -781,6 +836,7 @@ dErr dMeshDestroy(dMesh m)
   MeshListFree(m->arf); MeshListFree(m->afe); MeshListFree(m->aev);
   MeshListFree(m->orf); MeshListFree(m->ofe);
   MeshListFree(m->x);
+  err = dMeshUnloadManifolds(m,NULL,NULL);dCHK(err);
   iMesh_dtor(m->mi,&err);dICHK(m->mi,err);
   err = PetscStrfree(m->infile);dCHK(err);
   err = PetscStrfree(m->inoptions);dCHK(err);
@@ -1100,5 +1156,137 @@ dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dM
   dValidPointer(inxoff,4);
   dValidPointer(inx,5);
   err = dFree2(*inx,*inxoff);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** Load a manifold set off the mesh
+* @param mesh Mesh object
+* @param manTagName In non-NULL, name of tag on set holding manifold sets, otherwise default is used
+* @param orientTagName If non-NULL, name of tag on manifold faces, indicating orientation
+*/
+dErr dMeshLoadManifolds(dMesh mesh,const char manTagName[],const char orientTagName[])
+{
+  dMeshTag tag,otag;
+  dMeshESH *sets;
+  dMeshManifold *mList;
+  dInt *nsets;
+  dErr err;
+
+  dFunctionBegin;
+  if (mesh->manifoldList) dERROR(1,"Manifolds already loaded");
+  err = dMeshGetTag(mesh,manTagName?manTagName:dTAG_MANIFOLD_NAME,&tag);dCHK(err);
+  err = dMeshGetTag(mesh,orientTagName?orientTagName:dTAG_MANIFOLD_ORIENT,&tag);dCHK(err);
+  err = dMeshGetTaggedSets(mesh,tag,&sets,&nsets);dCHK(err);
+  err = dMallocA(nsets,&mList);dCHK(err);
+  for (dInt i=0; i<nsets; i++) {
+    dInt    *toff = mList[i].toff;
+    char    *orient;
+    dMeshEH *ents;
+    err = dMeshTagSGetData(mesh,tag,sets[i],nsets,mList[i].name,sizeof(mList[i].name),dDATA_BYTE);dCHK(err); /* get indices of adj ents */
+    err = dMeshGetEntsOff(mesh,sets[i],mList[i].toff,&ents);dCHK(err);
+    err = dMallocA(toff[dTYPE_ALL],&orient);dCHK(err);
+    err = dMemzero(orient,toff[dTYPE_ALL]*sizeof(orient[0]));dCHK(err);
+    err = dMeshTagGetData(mesh,otag,ents+toff[dTYPE_FACE],toff[dTYPE_FACE+1]-toff[dTYPE_FACE],dDATA_BYTE);dCHK(err);
+    mList[i].ents   = ents;
+    mList[i].orient = orient;
+  }
+  mesh->manifoldTag       = tag;
+  mesh->manifoldOrientTag = otag;
+  mesh->nManifolds        = nsets;
+  mesh->manifoldList      = mList;
+  dFunctionReturn(0);
+}
+
+dErr dMeshUnloadManifolds(dMesh mesh,const char manTagName[],const char orientTagName[])
+{
+  char *mname,*oname;
+  dErr err;
+
+  dFunctionBegin;
+  if (mesh->manifoldList) {
+    if (manTagName) {
+      err = dMeshGetTagName(m,mesh->manifoldTag,&mname);dCHK(err);
+      if (strcmp(mname,manTagName))
+        dERROR(1,"manifold tag name does not match the loaded manifolds");
+      err = dFree(mname);dCHK(err);
+    }
+    if (orientTagName) {
+      err = dMeshGetTagName(m,mesh->manifoldOrientTag,&oname);dCHK(err);
+      if (strcmp(oname,orientTagName))
+        dERROR(1,"orientation tag name does not match the loaded manifolds");
+      err = dFree(oname);dCHK(err);
+    }
+    for (dInt i=0; i<mesh->nManifolds; i++) {
+      err = dFree(mesh->manifoldList[i].ents);dCHK(err);
+      err = dFree(mesh->manifoldList[i].orient);dCHK(err);
+    }
+    err = dFree(mesh->manifoldList);dCHK(err);
+  }
+  mesh->nManifolds   = 0;
+  mesh->manifoldList = NULL;
+  dFunctionReturn(0);
+}
+
+dErr dMeshGetManifold(dMesh mesh,const char name[],dMeshManifold *inman)
+{
+  dErr err;
+  dMeshManifold man;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(name,2);
+  dValidPointer(inman,3);
+  for (dInt i=0; i<mesh->nManifolds; i++) {
+    if (!strcmp(name,mesh->manifoldList[i].name)) {
+      *inman = &mesh->manifoldList[i];
+      dFunctionReturn(0);
+    }
+  }
+  *inman = 0;
+  dFunctionReturn(0);
+}
+
+dErr dMeshRestoreManifold(dMesh mesh,const char name[],dMeshManifold *inman)
+{
+  dMeshManifold man = *inman;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(name,2);
+  dValidPointer(inman,3);
+  if (!inman) dFunctionReturn(0);
+  if (*inman < &mesh->manifoldList[0] || &mesh->manifoldList[mesh->nManifolds-1] < *inman)
+    dERROR(1,"Manifold is not loaded in mesh, suspect memory corruption");
+  *inman = NULL;
+  dFunctionReturn(0);
+}
+
+dErr dMeshManifoldGetElements(dMeshManifold man,dInt toff[],const dMeshEH **ents,const char **orient)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(man,1);
+  if (toff) {err = dMemcpy(toff,man->toff,sizeof(man->toff));dCHK(err);}
+  if (ents) *ents = man->ents;
+  if (orient) *orient = man->orient;
+  dFunctionReturn(0);
+}
+
+dErr dMeshManifoldRestoreElements(dMeshManifold man,dInt toff[],const dMeshEH **ents,const char **orient)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (toff) {err = dMemzero(toff,sizeof(man->toff));dCHK(err);}
+  if (ents) {
+    if (ents != man->ents) dERROR(1,"Attempt to restore different elements");
+    *ents = NULL;
+  }
+  if (orient) {
+    if (orient != man->orient) dERROR(1,"Attempt to restore different orientation (but entities are the same, suspect memory)");
+    *orient = NULL;
+  }
   dFunctionReturn(0);
 }

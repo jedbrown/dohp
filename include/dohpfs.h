@@ -13,13 +13,14 @@
 #include "dohpmesh.h"
 #include "dohpjacobi.h"
 #include "dohpquotient.h"
-#include "petscpf.h"
 
 PETSC_EXTERN_CXX_BEGIN
 
 typedef struct _p_dFS *dFS;
 
 typedef struct _p_dFSBoundary *dFSBoundary;
+
+typedef dErr (*dFSBoundaryConstraintFunction)(void*,const dReal[],const dReal(*)[3],dReal[],dInt*);
 
 #define dFSType char *
 
@@ -31,7 +32,9 @@ EXTERN dErr dFSCreate(MPI_Comm,dFS*);
 EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
-EXTERN dErr dFSAddBdy(dFS,const char*,dMeshESH,dMeshTag,dBool,PF); /* name, facets, orientation tag, flip orientation?, normal -> constraints */
+EXTERN dErr dFSSetBlockSize(dFS,dInt);
+EXTERN dErr dFSRegisterBoundary(dFS,dMeshManifold,dTruth,dFSBoundaryConstraintFunction,void*);
+EXTERN dErr dFSUpdate(dFS);
 EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);
 EXTERN dErr dFSCreateExpandedVector(dFS,Vec*);

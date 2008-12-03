@@ -15,14 +15,14 @@ static const char help[] = "Create a hexahedral mesh of a block domain with full
 typedef struct {
   double x0,x1,y0,y1,z0,z1;
 } Box;
-static int on_wall(Box *b,double xx[])
+static int on_wall(const Box *b,const double xx[])
 {
   return (xx[0] == b->x0 || xx[0] == b->x1 || xx[1] == b->y0 || xx[1] == b->y1 || xx[2] == b->z0);
 }
-static int on_lid(Box *b,double xx[])  {
+static int on_lid(const Box *b,const double xx[])  {
   return (xx[2] == b->z1);
 }
-typedef int OnBdyFunc(Box *box,double[]);
+typedef int OnBdyFunc(const Box*,const double[]);
 
 
 static dErr doMaterial(iMesh_Instance mesh)
@@ -40,8 +40,8 @@ static dErr doMaterial(iMesh_Instance mesh)
   dErr err;
 
   dFunctionBegin;
-  iMesh_createTag(mesh,matSetName,1,iBase_INTEGER,&matSetTag,&err,strlen(matSetName));dICHK(mesh,err);
-  iMesh_createTag(mesh,matNumName,1,iBase_DOUBLE,&matNumTag,&err,strlen(matNumName));dICHK(mesh,err);
+  iMesh_createTag(mesh,matSetName,1,iBase_INTEGER,&matSetTag,&err,sizeof(matSetName));dICHK(mesh,err);
+  iMesh_createTag(mesh,matNumName,1,iBase_DOUBLE,&matNumTag,&err,sizeof(matNumName));dICHK(mesh,err);
   iMesh_getEntities(mesh,0,iBase_REGION,iMesh_ALL_TOPOLOGIES,MLREF(r),&err);dICHK(mesh,err);
   iMesh_getEntArrAdj(mesh,r.v,r.s,iBase_VERTEX,MLREF(v),MLREF(rvo),&err);dICHK(mesh,err);
   iMesh_getVtxArrCoords(mesh,v.v,v.s,&order,MLREF(x),&err);dICHK(mesh,err);
@@ -106,7 +106,7 @@ static dErr doGlobalID(iMesh_Instance mesh)
   for (int i=0; i<owned; i++) {
     number[i] = count[type.v[i]]++;
   }
-  iMesh_getTagHandle(mesh,"GLOBAL_ID",&idTag,&err,strlen("GLOBAL_ID"));dICHK(mesh,err);
+  iMesh_getTagHandle(mesh,"GLOBAL_ID",&idTag,&err,sizeof("GLOBAL_ID"));dICHK(mesh,err);
   iMesh_setIntArrData(mesh,ents.v,owned,idTag,number,owned,&err);dICHK(mesh,err);
   err = dFree(number);dCHK(err);
   MeshListFree(ents); MeshListFree(type);
@@ -250,7 +250,7 @@ int main(int argc, char *argv[])
     if (strcmp(pTagName,"MATERIAL_SET")) {
       iMesh_createTag(mesh,pTagName,1,iBase_INTEGER,&pTag,&err,sizeof(pTagName));dICHK(mesh,err);
     } else {
-      iMesh_getTagHandle(mesh,"MATERIAL_SET",&pTag,&err,strlen("MATERIAL_SET"));dICHK(mesh,err);
+      iMesh_getTagHandle(mesh,"MATERIAL_SET",&pTag,&err,sizeof("MATERIAL_SET"));dICHK(mesh,err);
     }
     iMesh_setIntArrData(mesh,r.v,r.s,pTag,part.v,part.s,&err);dICHK(mesh,err);
     MeshListFree(part);
@@ -391,9 +391,9 @@ int main(int argc, char *argv[])
       }
     }
     iMesh_createTag(mesh,dTAG_ORIENT_FACE_EDGE,4*sizeof(feOrient[0]),iBase_BYTES,
-                    &feOrientTag,&err,strlen(dTAG_ORIENT_FACE_EDGE));dICHK(mesh,err);
+                    &feOrientTag,&err,sizeof(dTAG_ORIENT_FACE_EDGE));dICHK(mesh,err);
     iMesh_setArrData(mesh,f.v,f.s,feOrientTag,(const char*)feOrient,feOrientSize*(dInt)sizeof(feOrient[0]),&err);dICHK(mesh,err);
-    iMesh_createTag(mesh,dTAG_ADJ_FACE_EDGE,4,iBase_ENTITY_HANDLE,&feAdjTag,&err,strlen(dTAG_ADJ_FACE_EDGE));dICHK(mesh,err);
+    iMesh_createTag(mesh,dTAG_ADJ_FACE_EDGE,4,iBase_ENTITY_HANDLE,&feAdjTag,&err,sizeof(dTAG_ADJ_FACE_EDGE));dICHK(mesh,err);
     iMesh_setEHArrData(mesh,f.v,f.s,feAdjTag,e.v,e.s,&err);dICHK(mesh,err);
 
     MeshListFree(f); MeshListFree(e); MeshListFree(feo); MeshListFree(fv); MeshListFree(fvo);
@@ -425,9 +425,9 @@ int main(int argc, char *argv[])
       }
     }
     iMesh_createTag(mesh,dTAG_ORIENT_REGION_FACE,6*sizeof(rfOrient[0]),iBase_BYTES,
-                    &rfOrientTag,&err,strlen(dTAG_ORIENT_REGION_FACE));dICHK(mesh,err);
+                    &rfOrientTag,&err,sizeof(dTAG_ORIENT_REGION_FACE));dICHK(mesh,err);
     iMesh_setArrData(mesh,r.v,r.s,rfOrientTag,(const char*)rfOrient,rfOrientSize*(dInt)sizeof(rfOrient[0]),&err);dICHK(mesh,err);
-    iMesh_createTag(mesh,dTAG_ADJ_REGION_FACE,6,iBase_ENTITY_HANDLE,&rfAdjTag,&err,strlen(dTAG_ADJ_REGION_FACE));dICHK(mesh,err);
+    iMesh_createTag(mesh,dTAG_ADJ_REGION_FACE,6,iBase_ENTITY_HANDLE,&rfAdjTag,&err,sizeof(dTAG_ADJ_REGION_FACE));dICHK(mesh,err);
     iMesh_setEHArrData(mesh,r.v,r.s,rfAdjTag,f.v,f.s,&err);dICHK(mesh,err);
     MeshListFree(r); MeshListFree(f); MeshListFree(rfo); MeshListFree(rv); MeshListFree(rvo);
     MeshListFree(fv); MeshListFree(fvo);
@@ -457,12 +457,12 @@ int main(int argc, char *argv[])
       }
     }
     /* Set name tags over all the boundary entity sets */
-    iMesh_createTag(mesh,dENT_SET_NAME,dNAME_LEN,iBase_BYTES,&nameTag,&err,strlen(dENT_SET_NAME));dICHK(mesh,err);
+    iMesh_createTag(mesh,dENT_SET_NAME,dNAME_LEN,iBase_BYTES,&nameTag,&err,sizeof(dENT_SET_NAME));dICHK(mesh,err);
     for (i=0; i<nbdy; i++) {
-      iMesh_setEntSetData(mesh,bdy[i],nameTag,bdyName[i],(int)strlen(bdyName[i]),&err);dICHK(mesh,err);
+      iMesh_setEntSetData(mesh,bdy[i],nameTag,bdyName[i],(int)sizeof(bdyName[i]),&err);dICHK(mesh,err);
       if (i > 0) { /* For each set other than root, create a tag indicating whether face normal points in or out of the region. */
         err = PetscSNPrintf(normalName,sizeof(normalName),"%s+%s",dTAG_BDY_NORMAL,bdyName[i]);dCHK(err);
-        iMesh_createTag(mesh,normalName,1,iBase_BYTES,&bdyNormal[i],&err,(int)strlen(normalName));dICHK(mesh,err);
+        iMesh_createTag(mesh,normalName,1,iBase_BYTES,&bdyNormal[i],&err,(int)sizeof(normalName));dICHK(mesh,err);
       }
     }
     /* Put the boundary vertices in the appropriate sets, defined by their coordinates */
@@ -577,8 +577,3 @@ int main(int argc, char *argv[])
   err = PetscFinalize();dCHK(err);
   dFunctionReturn(0);
 }
-
-
-
-#undef __FUNCT__
-#define __FUNCT__ "dMeshCreateBoundary"
