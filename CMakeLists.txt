@@ -19,16 +19,13 @@ mark_as_advanced(MPI_COMPILER MPI_EXEC)
 include_directories (${PETSC_INCLUDES} ${IMESH_INCLUDES} ${MPI_INCLUDE_PATH})
 add_definitions (${PETSC_DEFINITIONS} ${MPI_COMPILE_FLAGS})
 
-option (Dohp_USE_DEBUG     "Compile with debugging support" ON)
-option (Dohp_BUILD_TESTS   "Build tests"                    ON)
-option (Dohp_BUILD_SANDBOX "Build programs in sandbox"      ON)
-option (PEDANTIC_WARNINGS  "Compile with pedantic warnings" ON)
-option (BUILD_SHARED_LIBS  "Build shared Dohp libraries"    ON)
+option (dUSE_DEBUG         "Compile Dohp with extra debugging" ON)
+option (Dohp_BUILD_TESTS   "Build tests"                       ON)
+option (Dohp_BUILD_SANDBOX "Build programs in sandbox"         ON)
+option (PEDANTIC_WARNINGS  "Compile with pedantic warnings"    ON)
+option (BUILD_SHARED_LIBS  "Build shared Dohp libraries"       ON)
 
-add_definitions (-std=c99)
-if (Dohp_USE_DEBUG)
-  add_definitions (-DdUSE_DEBUG=1 -g3)
-endif (Dohp_USE_DEBUG)
+list (APPEND CMAKE_C_FLAGS -std=c99)
 
 if (Dohp_BUILD_TESTS)
   enable_testing ()
@@ -45,13 +42,25 @@ if (PEDANTIC_WARNINGS)
   add_definitions (${PEDANTIC_FLAGS})
 endif (PEDANTIC_WARNINGS)
 
+configure_file (${Dohp_SOURCE_DIR}/dohpconfig.h.in
+  ${Dohp_BINARY_DIR}/include/dohpconfig.h @ONLY)
+
 add_custom_target (etags
   etags `find include src sandbox -name *.[ch]`
   WORKING_DIRECTORY ${Dohp_SOURCE_DIR})
 
-include_directories (${Dohp_SOURCE_DIR}/include)
+include_directories (${Dohp_SOURCE_DIR}/include ${Dohp_BINARY_DIR}/include)
 
-set (Dohp_LIBRARIES dohp ${IMESH_LIBRARIES} ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+set (Dohp_DEPENDENT_LIBRARIES ${IMESH_LIBRARIES} ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+set (Dohp_LIBRARIES dohp ${Dohp_DEPENDENT_LIBRARIES})
+
+set (ARCHIVE_OUTPUT_DIRECTORY ${Dohp_BINARY_DIR}/lib CACHE PATH "Output directory for Dohp archives")
+set (LIBRARY_OUTPUT_DIRECTORY ${Dohp_BINARY_DIR}/lib CACHE PATH "Output directory for Dohp libraries")
+set (RUNTIME_OUTPUT_DIRECTORY ${Dohp_BINARY_DIR}/bin CACHE PATH "Output directory for Dohp executables")
+mark_as_advanced (ARCHIVE_OUTPUT_DIRECTORY LIBRARY_OUTPUT_DIRECTORY RUNTIME_OUTPUT_DIRECTORY)
+
+set (CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 add_subdirectory (include)
 add_subdirectory (src)
