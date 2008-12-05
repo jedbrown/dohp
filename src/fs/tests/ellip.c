@@ -10,6 +10,7 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Lap
 struct EllipParam {
   dReal epsilon;
   dReal exponent;
+  dTruth onlyproject;
 };
 
 struct EllipExactCtx {
@@ -82,6 +83,8 @@ static void EllipExact_2_Forcing(const struct EllipExactCtx *ctx,const struct El
   const dReal t1=x*x,t2=y*y,t3=z*z,t4=2*(t1+t2+t3)+eps*eps,t5=1-n,t6=1/n,t7=t5*t6,t8=pow(t4,t7-1);
   f[0] = 8*t5*t6*t8*(-t3+t2+t1) + 2*pow(t4,t7);
   f[0] = 10*x+y;                /* DEBUG */
+  f[0] = x+y;
+  //f[0] = sin(PETSC_PI*x) + sin(PETSC_PI*y);
 }
 
 struct EllipStore {
@@ -121,6 +124,7 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   prm = &elp->param;
   prm->exponent = 1.0;
   prm->epsilon  = 1.0;
+  prm->onlyproject = dFALSE;
 
   *ellip = elp;
   dFunctionReturn(0);
@@ -145,6 +149,7 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elp->nominalRDeg,&elp->nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_exponent","Exponent in p-Laplacian","",prm->exponent,&prm->exponent,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_epsilon","Regularization in p-Laplacian","",prm->epsilon,&prm->epsilon,NULL);dCHK(err);
+    err = PetscOptionsTruth("-onlyproject","Actually just do a projection","",prm->onlyproject,&prm->onlyproject,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
@@ -175,7 +180,7 @@ static dErr EllipSetFromOptions(Ellip elp)
   domain = 0;                   /* Root set in MOAB */
 
   err = dJacobiCreate(elp->comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,8,2);dCHK(err);
+  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
   elp->jac = jac;
@@ -247,8 +252,13 @@ static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExa
   EllipPointwiseComputeStore(prm,x,u,Du,st);
   exact->forcing(exactctx,prm,x,f);
   v[0] = - weight * f[0];       /* Coefficient of \a v in weak form */
-  for (dInt i=0; i<3; i++) {
-    Dv[i] = weight * st->eta * Du[i]; /* Coefficient of Dv in weak form */
+  if (prm->onlyproject) {
+    v[0] += weight * u[0];
+    Dv[0] = Dv[1] = Dv[2] = 0;
+  } else {
+    for (dInt i=0; i<3; i++) {
+      Dv[i] = weight * st->eta * Du[i]; /* Coefficient of Dv in weak form */
+  }
   }
 }
 
@@ -258,10 +268,15 @@ static inline void EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const s
 {
   const dScalar dot = dDotScalar3(st->Du,Du);
   const dReal etaw = st->eta*weight,dotdetaw = dot*st->deta*weight;
-  v[0] = 0;
-  Dv[0] = etaw*Du[0] + dotdetaw*st->Du[0];
-  Dv[1] = etaw*Du[1] + dotdetaw*st->Du[1];
-  Dv[2] = etaw*Du[2] + dotdetaw*st->Du[2];
+  if (prm->onlyproject) {
+    v[0] = weight * u[0];
+    Dv[0] = Dv[1] = Dv[2] = 0;
+  } else {
+    v[0] = 0;
+    Dv[0] = etaw*Du[0] + dotdetaw*st->Du[0];
+    Dv[1] = etaw*Du[1] + dotdetaw*st->Du[1];
+    Dv[2] = etaw*Du[2] + dotdetaw*st->Du[2];
+  }
 }
 
 static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
