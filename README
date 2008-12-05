@@ -1,0 +1,18 @@
+Dohp aims to be a very efficient implementation of the hp-version of
+the finite element method.  It exploits the tensor product structure
+of nodal bases on hexahedra to significantly reduce the memory
+requirements and computational cost compared to low-order elements.
+It uses Q1 elements on the nodes of the high-order basis to assemble a
+preconditioning matrix which is much sparser than Q2 elements.
+Preliminary results show that memory and solver runtime for arbitrary
+order (2-10 or so) is half that required by a standard Q2
+approximation.
+
+Dohp development is primarily focused on scalable solution of
+indefinite problems such as those found in incompressible flow and
+PDE-constrained optimization.
+
+Dohp currently depends on development versions of PETSc and MOAB.  If
+you are interested in Dohp, please let me know (jed at 59A2 dot org)
+and I'll fill you in on the design and how to get it installed (and
+update this README).
