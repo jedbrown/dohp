@@ -1,7 +1,0 @@
-ALL : lib
-
-DIRS = interface impls
-LIBBASE = libdohp
-LOCDIR = src/fs/mesh/
-
-include ${DOHP_DIR}/conf/base
