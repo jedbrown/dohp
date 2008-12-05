@@ -1,0 +1,6 @@
+#ifndef _DOHPCONFIG_H
+#define _DOHPCONFIG_H
+
+#cmakedefine dUSE_DEBUG
+
+#endif
