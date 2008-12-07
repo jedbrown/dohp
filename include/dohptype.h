@@ -109,6 +109,7 @@ static inline dReal dMax(dReal a,dReal b) { return (a > b) ? a : b; }
 static inline dReal dMin(dReal a,dReal b) { return (a < b) ? a : b; }
 static inline dReal dAbs(dScalar a) { return fabs(a); }
 static inline dScalar dSqr(dScalar a) { return a * a; }
+static inline dInt dSqrInt(dInt a) { return a * a; }
 static inline dReal dSqrt(dReal a) { return sqrt(a); }
 static inline dScalar dDotScalar3(const dScalar a[3],const dScalar b[3]) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
 static inline dScalar dColonSymScalar3(const dScalar a[6],const dScalar b[6])
@@ -241,5 +242,7 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 #endif
 
 #define dASSERT(cond) if (!(cond)) { dERROR(1,"Assertion failed: " #cond); }
+
+EXTERN dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict]);
 
 #endif  /* _DOHPTYPE_H */

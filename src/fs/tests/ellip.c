@@ -146,7 +146,7 @@ static dErr EllipSetFromOptions(Ellip elp)
   domain = 0;                   /* Root set in MOAB */
 
   err = dJacobiCreate(elp->comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,8,2);dCHK(err);
+  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
   elp->jac = jac;
@@ -253,7 +253,7 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   err = VecZeroEntries(elp->y);dCHK(err);
   err = VecGetArray(elp->y,&y);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
@@ -267,7 +267,7 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   err = VecRestoreArray(elp->y,&y);dCHK(err);
@@ -297,7 +297,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   err = VecZeroEntries(elp->y);dCHK(err);
   err = VecGetArray(elp->y,&y);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
@@ -311,7 +311,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   err = VecRestoreArray(elp->y,&y);dCHK(err);
@@ -339,7 +339,7 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
+  err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
@@ -371,10 +371,14 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
                 const dReal *u = &basis[lq][lp],*Du = deriv[lq][lp];
                 dReal v[1],Dv[3];
                 EllipPointwiseJacobian(&elp->param,&st,jw[lq],u,Du,v,Dv);
-                K[ltest][lp] += basis[lq][ltest] * v[0]
+#if 0
+                K[ltest][lp] += //basis[lq][ltest] * v[0]
                   + deriv[lq][ltest][0] * Dv[0]
                   + deriv[lq][ltest][1] * Dv[1]
                   + deriv[lq][ltest][2] * Dv[2];
+#else
+                K[ltest][lp] += basis[lq][ltest] * jw[lq] * basis[lq][lp];
+#endif
               }
             }
           }
@@ -383,7 +387,7 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
       }
     }
   }
-  err = dFSRestoreWorkspace(fs,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elp->x,&x);dCHK(err);
 

@@ -177,10 +177,17 @@ dErr dFSDestroy(dFS fs)
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
   }
-  if (fs->workspace) {
-    s_dFSWorkspace *w = fs->workspace;
-    err = dFree7(w->q,w->jinv,w->jw,w->u,w->v,w->du,w->dv);dCHK(err);
-    err = dFree(fs->workspace);dCHK(err);
+  for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
+    s_dFSWorkspace *w = &fs->workspace[i];
+    switch (w->status) {
+      case 0: continue;         /* Nothing here, nothing allocated */
+      case 1:                   /* Allocated, but is not currently checked out */
+        err = dFree7(w->q,w->jinv,w->jw,w->u,w->v,w->du,w->dv);dCHK(err);
+        break;
+      case 2:                   /* Still checked out */
+        dERROR(1,"Workspace checked out under name `%s' not restored",w->name);
+      default: dERROR(1,"Invalid status %d",w->status);
+    }
   }
   if (fs->sliced) {
     err = SlicedDestroy(fs->sliced);dCHK(err);
@@ -377,25 +384,43 @@ dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt *restrict*off,s_dRule *restr
 * @param du first array to hold 3*D values per quadrature point
 * @param dv second array to hold 3*D values per quadrature point
 */
-dErr dFSGetWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
+dErr dFSGetWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
 {
   s_dFSWorkspace *w;
+  dInt Q;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
-  if (!fs->workspace) {
-    dInt Q = 0, D = fs->D;
-    err = dNew(s_dFSWorkspace,&w);dCHK(err);
+  if (!fs->maxQ) {
+    Q = 0;
     for (dInt i=0; i<fs->nelem; i++) {
       dInt nnodes;
       err = dRuleGetSize(&fs->rule[i],NULL,&nnodes);dCHK(err);
       if (nnodes > Q) Q = nnodes;
     }
-    err = dMallocA7(Q,&w->q,Q,&w->jinv,Q,&w->jw,Q*D,&w->u,Q*D,&w->v,Q*D*3,&w->du,Q*D*3,&w->dv);dCHK(err);
-    fs->workspace = w;
+    fs->maxQ = Q;
   }
-  w = fs->workspace;
+  Q = fs->maxQ;
+  for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
+    const dInt D = fs->D;
+    w = &fs->workspace[i];
+    switch (w->status) {
+      case 0:                   /* Not allocated */
+        err = dMallocA7(Q,&w->q,Q,&w->jinv,Q,&w->jw,Q*D,&w->u,Q*D,&w->v,Q*D*3,&w->du,Q*D*3,&w->dv);dCHK(err);
+        w->status = 1;
+      case 1:                   /* Available */
+        goto found;
+      case 2:                   /* Checked out */
+        continue;
+      default: dERROR(1,"Invalid status %d\n",w->status);
+    }
+  }
+  dERROR(1,"No workspaces available");
+
+  found:
+  err = dStrcpyS(w->name,sizeof(w->name),name);dCHK(err);
+  w->status = 2;                /* Checked out */
   if (q)    *q    = w->q;
   if (jinv) *jinv = w->jinv;
   if (jw)   *jw   = w->jw;
@@ -407,8 +432,10 @@ dErr dFSGetWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],
 }
 
 /* These arrays are persistent for the life of the dFS so we just nullify the pointers */
-dErr dFSRestoreWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
+dErr dFSRestoreWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
 {
+  s_dFSWorkspace *w;
+  dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,dFS_COOKIE,1);
@@ -418,13 +445,24 @@ dErr dFSRestoreWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3]
       else dERROR(1,"Unable to restore array " #var " because it was not gotten or has been modified"); \
     }                                                                   \
   } while (false)
-  dCHECK_NULLIFY(q);
-  dCHECK_NULLIFY(jinv);
-  dCHECK_NULLIFY(jw);
-  dCHECK_NULLIFY(u);
-  dCHECK_NULLIFY(v);
-  dCHECK_NULLIFY(du);
-  dCHECK_NULLIFY(dv);
+  for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
+    w = &fs->workspace[i];
+    if (w->status == 2) {
+      if (!strcmp(name,w->name)) {
+        dCHECK_NULLIFY(q);
+        dCHECK_NULLIFY(jinv);
+        dCHECK_NULLIFY(jw);
+        dCHECK_NULLIFY(u);
+        dCHECK_NULLIFY(v);
+        dCHECK_NULLIFY(du);
+        dCHECK_NULLIFY(dv);
+        err = dMemzero(w->name,sizeof(w->name));dCHK(err);
+        w->status = 1;
+        dFunctionReturn(0);
+      }
+    }
+  }
+  dERROR(1,"Did not find a workspace matching `%s' checked out",name);
 #undef dCHECK_NULLIFY
   dFunctionReturn(0);
 }
