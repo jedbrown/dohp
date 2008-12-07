@@ -27,6 +27,9 @@ list (APPEND Dohp_SRCS
   fs/mesh/impls/pack/pack.c
   fs/mesh/impls/serial/serial.c)
 
+list (APPEND Dohp_SRCS
+  util/util.c)
+
 add_library (dohp ${Dohp_SRCS})
 target_link_libraries (dohp ${Dohp_DEPENDENT_LIBRARIES})
 install (TARGETS dohp
