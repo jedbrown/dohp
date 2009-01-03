@@ -14,23 +14,27 @@ list (APPEND Dohp_SRCS
   jacobi/impls/tensor/efstopo.c)
 
 # ADD_SUBDIRECTORY (fs)
-LIST (APPEND Dohp_SRCS
+list (APPEND Dohp_SRCS
   fs/interface/fs.c
   fs/interface/fsreg.c
   fs/interface/q1.c
   fs/impls/cont/cont.c)
 
 # ADD_SUBDIRECTORY (fs/mesh)
-LIST (APPEND Dohp_SRCS
+list (APPEND Dohp_SRCS
   fs/mesh/interface/mesh.c
   fs/mesh/interface/meshreg.c
   fs/mesh/impls/pack/pack.c
   fs/mesh/impls/serial/serial.c)
 
-LIST (APPEND Dohp_SRCS
+list (APPEND Dohp_SRCS
   util/util.c)
 
-ADD_LIBRARY (dohp ${Dohp_SRCS})
+add_library (dohp ${Dohp_SRCS})
+target_link_libraries (dohp ${Dohp_DEPENDENT_LIBRARIES})
+install (TARGETS dohp
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)
 
 if (Dohp_BUILD_TESTS)
   add_subdirectory (fs/tests)

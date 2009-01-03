@@ -6,7 +6,7 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   dErr  err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(mesh,dMESH_COOKIE,2);
   if (fs->quotient) {
     err = dQuotientGetMesh(fs->quotient,&qmesh);dCHK(err);
@@ -21,7 +21,7 @@ dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
 {
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   fs->ruletag = rtag;
   if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
   if (jac) fs->jacobi = jac;
@@ -32,7 +32,7 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
 {
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(jac,dJACOBI_COOKIE,2);
   fs->degreetag = deg;
   if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
@@ -71,7 +71,7 @@ dErr dFSRegisterBoundary(dFS fs,dMeshManifold man,dTruth flip,dFSBoundaryConstra
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   err = dNew(struct _p_dFSBoundary,&bdy);dCHK(err);
   if (!fs->newD) dERROR(1,"Cannot register boundary before setting block size");
   {
@@ -172,7 +172,7 @@ dErr dFSGetBoundaryType(dFS fs,dInt nents,const dMeshEH ents[],dBdyType btype[])
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(ents,3);
   dValidPointer(btype,4);
   bdy = fs->bdylist;
@@ -211,7 +211,7 @@ dErr dFSView(dFS fs,dViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((dObject)fs)->comm,&viewer);dCHK(err);
   }
@@ -262,14 +262,21 @@ dErr dFSDestroy(dFS fs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
   }
-  if (fs->workspace) {
-    s_dFSWorkspace *w = fs->workspace;
-    err = dFree7(w->q,w->jinv,w->jw,w->u,w->v,w->du,w->dv);dCHK(err);
-    err = dFree(fs->workspace);dCHK(err);
+  for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
+    s_dFSWorkspace *w = &fs->workspace[i];
+    switch (w->status) {
+      case 0: continue;         /* Nothing here, nothing allocated */
+      case 1:                   /* Allocated, but is not currently checked out */
+        err = dFree7(w->q,w->jinv,w->jw,w->u,w->v,w->du,w->dv);dCHK(err);
+        break;
+      case 2:                   /* Still checked out */
+        dERROR(1,"Workspace checked out under name `%s' not restored",w->name);
+      default: dERROR(1,"Invalid status %d",w->status);
+    }
   }
   if (fs->sliced) {
     err = SlicedDestroy(fs->sliced);dCHK(err);
@@ -295,7 +302,7 @@ dErr dFSBuildSpace(dFS fs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   if (fs->spacebuilt) dERROR(1,"The space is already built, rebuilding is not implemented");
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
@@ -323,7 +330,7 @@ dErr dFSCreateExpandedVector(dFS fs,Vec *x)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(x,2);
   err = MatGetVecs(fs->C,NULL,x);dCHK(err);
   dFunctionReturn(0);
@@ -334,7 +341,7 @@ dErr dFSCreateGlobalVector(dFS fs,Vec *g)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(g,2);
   err = SlicedCreateGlobalVector(fs->sliced,g);dCHK(err);
   dFunctionReturn(0);
@@ -345,7 +352,7 @@ dErr dFSGlobalToExpandedBegin(dFS dUNUSED fs,Vec g,InsertMode imode,Vec dUNUSED 
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(g,VEC_COOKIE,2);
   dValidHeader(x,VEC_COOKIE,4);
   err = VecGhostUpdateBegin(g,imode,SCATTER_FORWARD);dCHK(err);
@@ -358,7 +365,7 @@ dErr dFSGlobalToExpandedEnd(dFS fs,Vec g,InsertMode imode,Vec x)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(g,VEC_COOKIE,2);
   dValidHeader(x,VEC_COOKIE,4);
   err = VecGhostUpdateEnd(g,imode,SCATTER_FORWARD);dCHK(err);
@@ -383,7 +390,7 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,InsertMode imode,Vec g)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(x,VEC_COOKIE,2);
   dValidHeader(g,VEC_COOKIE,4);
   err = VecGhostGetLocalForm(g,&lform);dCHK(err);
@@ -407,7 +414,7 @@ dErr dFSExpandedToGlobalBegin(dFS fs,Vec x,InsertMode imode,Vec g)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(x,VEC_COOKIE,2);
   dValidHeader(g,VEC_COOKIE,4);
   err = dFSExpandedToGlobal(fs,x,imode,g);dCHK(err);
@@ -420,7 +427,7 @@ dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode dUNUSED imod
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(x,VEC_COOKIE,2);
   dValidHeader(g,VEC_COOKIE,4);
   err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
@@ -431,7 +438,7 @@ dErr dFSGetElements(dFS fs,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_d
 {
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   if (n)       *n       = fs->nelem;
   if (off)     *off     = fs->off;
   if (rule)    *rule    = fs->rule;
@@ -445,7 +452,7 @@ dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt *restrict*off,s_dRule *restr
 {
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   if (n)       *n       = 0;
   if (off)     *off     = NULL;
   if (rule)    *rule    = NULL;
@@ -466,25 +473,43 @@ dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt *restrict*off,s_dRule *restr
 * @param du first array to hold 3*D values per quadrature point
 * @param dv second array to hold 3*D values per quadrature point
 */
-dErr dFSGetWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
+dErr dFSGetWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
 {
   s_dFSWorkspace *w;
+  dInt Q;
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
-  if (!fs->workspace) {
-    dInt Q = 0, D = fs->D;
-    err = dNew(s_dFSWorkspace,&w);dCHK(err);
+  dValidHeader(fs,DM_COOKIE,1);
+  if (!fs->maxQ) {
+    Q = 0;
     for (dInt i=0; i<fs->nelem; i++) {
       dInt nnodes;
       err = dRuleGetSize(&fs->rule[i],NULL,&nnodes);dCHK(err);
       if (nnodes > Q) Q = nnodes;
     }
-    err = dMallocA7(Q,&w->q,Q,&w->jinv,Q,&w->jw,Q*D,&w->u,Q*D,&w->v,Q*D*3,&w->du,Q*D*3,&w->dv);dCHK(err);
-    fs->workspace = w;
+    fs->maxQ = Q;
   }
-  w = fs->workspace;
+  Q = fs->maxQ;
+  for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
+    const dInt D = fs->D;
+    w = &fs->workspace[i];
+    switch (w->status) {
+      case 0:                   /* Not allocated */
+        err = dMallocA7(Q,&w->q,Q,&w->jinv,Q,&w->jw,Q*D,&w->u,Q*D,&w->v,Q*D*3,&w->du,Q*D*3,&w->dv);dCHK(err);
+        w->status = 1;
+      case 1:                   /* Available */
+        goto found;
+      case 2:                   /* Checked out */
+        continue;
+      default: dERROR(1,"Invalid status %d\n",w->status);
+    }
+  }
+  dERROR(1,"No workspaces available");
+
+  found:
+  err = dStrcpyS(w->name,sizeof(w->name),name);dCHK(err);
+  w->status = 2;                /* Checked out */
   if (q)    *q    = w->q;
   if (jinv) *jinv = w->jinv;
   if (jw)   *jw   = w->jw;
@@ -496,24 +521,37 @@ dErr dFSGetWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],
 }
 
 /* These arrays are persistent for the life of the dFS so we just nullify the pointers */
-dErr dFSRestoreWorkspace(dFS fs,dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
+dErr dFSRestoreWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
 {
+  s_dFSWorkspace *w;
+  dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
 #define dCHECK_NULLIFY(var) do {                                        \
     if (var) {                                                          \
       if (*var == fs->workspace->var) *var = NULL;                      \
       else dERROR(1,"Unable to restore array " #var " because it was not gotten or has been modified"); \
     }                                                                   \
   } while (false)
-  dCHECK_NULLIFY(q);
-  dCHECK_NULLIFY(jinv);
-  dCHECK_NULLIFY(jw);
-  dCHECK_NULLIFY(u);
-  dCHECK_NULLIFY(v);
-  dCHECK_NULLIFY(du);
-  dCHECK_NULLIFY(dv);
+  for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
+    w = &fs->workspace[i];
+    if (w->status == 2) {
+      if (!strcmp(name,w->name)) {
+        dCHECK_NULLIFY(q);
+        dCHECK_NULLIFY(jinv);
+        dCHECK_NULLIFY(jw);
+        dCHECK_NULLIFY(u);
+        dCHECK_NULLIFY(v);
+        dCHECK_NULLIFY(du);
+        dCHECK_NULLIFY(dv);
+        err = dMemzero(w->name,sizeof(w->name));dCHK(err);
+        w->status = 1;
+        dFunctionReturn(0);
+      }
+    }
+  }
+  dERROR(1,"Did not find a workspace matching `%s' checked out",name);
 #undef dCHECK_NULLIFY
   dFunctionReturn(0);
 }
@@ -523,7 +561,7 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *J)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(J,3);
   err = SlicedGetMatrix(fs->sliced,mtype,J);dCHK(err);
   dFunctionReturn(0);dCHK(err);
@@ -546,7 +584,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(A,MAT_COOKIE,2);
   dValidPointer(idxm,4);
   dValidPointer(idxn,6);
@@ -620,7 +658,7 @@ dErr dFSCreateSubspace(dFS fs,dInt D,dFSBoundary bdy,dFS *infs)
   dFS nfs;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(infs,3);
   *infs = 0;
   if (fs->bdylist) dERROR(1,"Can only subspace a function space with no boundaries");

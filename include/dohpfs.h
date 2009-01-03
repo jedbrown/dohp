@@ -26,8 +26,6 @@ typedef dErr (*dFSBoundaryConstraintFunction)(void*,const dReal[],const dReal(*)
 
 #define dFSCONT "cont"
 
-extern PetscCookie dFS_COOKIE;
-
 EXTERN dErr dFSCreate(MPI_Comm,dFS*);
 EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
@@ -46,8 +44,8 @@ EXTERN dErr dFSExpandedToGlobalBegin(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSExpandedToGlobalEnd(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
-EXTERN dErr dFSGetWorkspace(dFS,dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
-EXTERN dErr dFSRestoreWorkspace(dFS,dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
+EXTERN dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
+EXTERN dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
 EXTERN dErr dFSMatSetValuesExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
 EXTERN dErr dFSGetMatrix(dFS,const MatType,Mat*);
 EXTERN dErr dFSBuildSpace(dFS);

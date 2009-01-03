@@ -1,6 +1,5 @@
 #include "private/fsimpl.h"
 
-PetscCookie dFS_COOKIE;
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 static PetscFList FSList = 0;
 
@@ -30,7 +29,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dFSInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,dFS_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
+  err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,DM_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
 
   err = dMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
   *infs = fs;
@@ -43,7 +42,7 @@ dErr dFSSetType(dFS fs,const dFSType type)
   dBool     match;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(fs,dFS_COOKIE,1);
+  PetscValidHeaderSpecific(fs,DM_COOKIE,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
@@ -65,7 +64,7 @@ dErr dFSSetFromOptions(dFS fs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
+  dValidHeader(fs,DM_COOKIE,1);
   err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space (dFS) options","dFS");dCHK(err);
   err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",FSList,deft,type,256,&flg);dCHK(err);
   if (flg) {
@@ -109,9 +108,9 @@ dErr dFSInitializePackage(const char path[])
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
   initialized = PETSC_TRUE;
-  err = PetscCookieRegister("Function Space",&dFS_COOKIE);dCHK(err);
-  err = PetscLogEventRegister("dQ1HexComputQuad",dFS_COOKIE,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
-  err = PetscLogEventRegister("dFSMatSetVExpand",dFS_COOKIE,&dLOG_FSMatSetValuesExpanded);dCHK(err);
+  err = DMInitializePackage(path);dCHK(err);
+  err = PetscLogEventRegister("dQ1HexComputQuad",DM_COOKIE,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
+  err = PetscLogEventRegister("dFSMatSetVExpand",DM_COOKIE,&dLOG_FSMatSetValuesExpanded);dCHK(err);
   err = dFSRegisterAll(path);dCHK(err);
   dFunctionReturn(0);
 }

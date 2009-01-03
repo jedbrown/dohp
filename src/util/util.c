@@ -14,10 +14,11 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
 {
   char *restrict d = dest;
   const char *restrict s = src;
+  dErr err;
 
   dFunctionBegin;
   if (n && !dest) dERROR(1,"attempting to copy into a NULL string");
-  while (--n && *d++ = *s++) {}
+  while (--n && (*d++ = *s++)) {}
   if (!n) dERROR(1,"String truncated");
   err = dMemzero(d,n);dCHK(err);
   dFunctionReturn(0);

@@ -1,6 +1,7 @@
 #ifndef _DOHPTYPE_H
 #define _DOHPTYPE_H
 
+#include "dohpconfig.h"
 #include "petsc.h"
 #include "iMesh.h"
 
@@ -131,8 +132,7 @@ static inline dScalar dColonSymScalar3(const dScalar a[6],const dScalar b[6])
 #define dNAME_LEN     256
 #define dSTR_LEN      256
 
-/* defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__) */
-#if 1
+#if defined(__GNUC__)
 # define dUNUSED __attribute__((unused))
 # define dLIKELY(x)   __builtin_expect(!!(x),1)
 # define dUNLIKELY(x) __builtin_expect(!!(x),0)

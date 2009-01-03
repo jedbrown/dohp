@@ -52,7 +52,7 @@ _F(TensorMult_Hex);
 #define _F(f) static dErr f(dRule_Tensor*,const dReal[],dInt,const dScalar[],dScalar[],InsertMode)
 _F(dRuleMappingApply_Tensor_Line);
 _F(dRuleMappingApply_Tensor_Quad);
-_F(dRuleMappingApply_Tensor_Hex);
+//_F(dRuleMappingApply_Tensor_Hex);
 #undef _F
 
 static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
@@ -708,6 +708,7 @@ static dErr dRuleMappingApply_Tensor_Quad(dRule_Tensor *rule,const dReal jinv[],
   dFunctionReturn(0);
 }
 
+#if 0
 static dErr dRuleMappingApply_Tensor_Hex(dRule_Tensor *rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
 {
   const TensorRule *r = rule->trule;
@@ -723,3 +724,4 @@ static dErr dRuleMappingApply_Tensor_Hex(dRule_Tensor *rule,const dReal jinv[],d
   }
   dFunctionReturn(0);
 }
+#endif

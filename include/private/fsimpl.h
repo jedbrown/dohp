@@ -19,7 +19,8 @@ struct _p_dFSBoundary {
 };
 
 typedef struct {
-  dInt Q;
+  dInt status;                  /* 0:unallocated 1:available 2:checked out */
+  char name[dNAME_LEN];
   dReal (*q)[3];
   dReal (*jinv)[3][3];
   dReal *jw;
@@ -32,6 +33,8 @@ struct _dFSOps {
   dErr (*impldestroy)(dFS);
   dErr (*buildspace)(dFS);
 };
+
+#define dFS_MAX_WORKSPACES 64
 
 struct _p_dFS {
   PETSCHEADER(struct _dFSOps);
@@ -64,7 +67,8 @@ struct _p_dFS {
   Mat          Cp;              /**< preconditioning constraint matrix (element dofs to local numbering, as sparse as possible) */
   Mat          Cd;              /**< constraint matrix for Dirichlet values */
   Vec          weight;          /**< Vector in global space, used to compensate for overcounting after local to global */
-  s_dFSWorkspace *workspace;
+  dInt         maxQ;
+  s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];
   void        *data;
 };
 

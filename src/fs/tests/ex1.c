@@ -268,7 +268,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = VecZeroEntries(proj->y);dCHK(err);
   err = VecGetArray(proj->y,&y);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
@@ -286,7 +286,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
     }
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(proj->x,&x);dCHK(err);
   err = VecRestoreArray(proj->y,&y);dCHK(err);
@@ -313,7 +313,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
   err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
   err = VecGetArray(proj->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
@@ -345,7 +345,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
       }
     }
   }
-  err = dFSRestoreWorkspace(fs,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(proj->x,&x);dCHK(err);
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -374,7 +374,7 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
   err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
   err = VecGetArray(proj->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
@@ -406,7 +406,7 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
 #endif
     }
   }
-  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(proj->x,&x);dCHK(err);
   residualNorms[1] = dSqrt(residualNorms[1]);
@@ -432,6 +432,7 @@ static dErr doProjection(dFS fs)
   err = dFSCreateGlobalVector(fs,&r);dCHK(err);
   err = dFSGetMatrix(fs,MATSEQAIJ,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
+  err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
   J = Jp;                       /* Use -snes_mf_operator to apply J matrix-free instead of actually using Jp as the Krylov matrix */
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,r,ProjResidual,(void*)&proj);dCHK(err);
@@ -495,12 +496,15 @@ int main(int argc,char *argv[])
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
     err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
+    nset = 3;
     err = PetscOptionsRealArray("-frequency","Frequency of oscillation in each cartesion direction",NULL,gopt.frequency,&nset,&flg);dCHK(err);
     if (flg && nset > 3) dERROR(1,"frequency may be at most 3 values");
     err = PetscOptionsTruth("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
     err = PetscOptionsTruth("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
+    nset = 3;
     err = PetscOptionsRealArray("-require_ptwise","<L^1,L^2,L^infty> Error if pointwise norms exceed given values, negative to disable",NULL,gopt.normRequirePtwise,&nset,&flg);dCHK(err);
-    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_ptwise");
+    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_ptwise, %d set",nset);
+    nset = 3;
     err = PetscOptionsRealArray("-require_grad","<L^1,L^2,L^infty> Error if pointwise gradient norms exceed given values, negative to disable",NULL,gopt.normRequireGrad,&nset,&flg);dCHK(err);
     if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_grad");
   } err = PetscOptionsEnd();dCHK(err);
