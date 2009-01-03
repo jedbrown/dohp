@@ -5,6 +5,7 @@ endmacro ()
 
 dohp_link_executable (fs-ex1 ex1.c)
 dohp_link_executable (ellip ellip.c)
+dohp_link_executable (cellip cellip.c)
 # add_executable (ex2 ex2.c)
 # target_link_libraries(ex2 ${Dohp_LIBRARIES})
 # add_executable (ex3 ex3.c)

@@ -25,8 +25,6 @@ typedef struct _p_dFSBoundary *dFSBoundary;
 
 #define dFSCONT "cont"
 
-extern PetscCookie dFS_COOKIE;
-
 EXTERN dErr dFSCreate(MPI_Comm,dFS*);
 EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
