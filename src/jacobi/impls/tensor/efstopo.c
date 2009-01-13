@@ -554,7 +554,7 @@ static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],co
       break;
     default:
       for (dInt ij=0; ij<Q[0]*Q[1]; ij++) {
-        const dScalar *restrict bb = &bmem[ij*P[2]];
+        const dScalar *restrict bb = &bmem[ij*P[2]*D];
         for (dInt l=0; l<Q[2]; l++) {
           dScalar *restrict cc = &out[(ij*Q[2]+l)*D];
           const dScalar *restrict aa = Az[l];
@@ -617,8 +617,13 @@ static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,cons
   const dReal (*restrict jinv)[3][3] = (const dReal(*)[3][3])jinv_flat;
   const dScalar (*restrict u)[Q][D] = (const dScalar(*)[Q][D])in;
   dScalar (*restrict v)[D][3] = (dScalar(*)[D][3])out;
+  dErr err;
 
   dFunctionBegin;
+  if (!jinv) {
+    err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
+    dFunctionReturn(0);
+  }
   switch (imode) {
     case INSERT_VALUES: {
       for (dInt i=0; i<Q; i++) {
@@ -707,21 +712,3 @@ static dErr dRuleMappingApply_Tensor_Quad(dRule_Tensor *rule,const dReal jinv[],
   }
   dFunctionReturn(0);
 }
-
-#if 0
-static dErr dRuleMappingApply_Tensor_Hex(dRule_Tensor *rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
-{
-  const TensorRule *r = rule->trule;
-  const dInt Q = r[0]->size * r[1]->size * r[2]->size;
-  dErr err;
-
-  dFunctionBegin;
-  if (jinv) {
-    if (imode != INSERT_VALUES) dERROR(1,"not implemented");
-    err = TensorRuleMapping(Q,jinv,D,in,out,imode);dCHK(err);
-  } else {
-    err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
-  }
-  dFunctionReturn(0);
-}
-#endif

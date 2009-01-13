@@ -9,20 +9,21 @@ static struct {
 
 static dErr exact_0(dInt dim,const dReal x[],dScalar f[])
 {
+  const dReal a=0.1,b=0.2,c=0.3;
 
   dFunctionBegin;
   switch (dim) {
     case 1:
-      f[0] = sin(x[0]);
+      f[0] = sin(x[0]-a);
       break;
     case 2:
-      f[0] = sin(x[0]) * cos(x[1]);
-      f[1] = cos(x[0]) * sin(x[1]);
+      f[0] = sin(x[0]-a) * cos(x[1]-b);
+      f[1] = cos(x[0]-a) * sin(x[1]-b);
       break;
     case 3:
-      f[0] = sin(x[0]) * cos(x[1]) * tanh(x[2]);
-      f[1] = cos(x[0]) * sin(x[1]) * tanh(x[2]);
-      f[2] = sinh(x[0]) * tanh(x[1]) * cosh(x[2]);
+      f[0] = sin(x[0]-a) * cos(-x[1]-b) * tanh(-x[2]-c);
+      f[1] = cos(x[0]-a) * sin(x[1]-b) * tanh(-x[2]-c);
+      f[2] = sinh(x[0]-a) * tanh(x[1]-b) * cosh(x[2]-c);
       break;
     default:
       dERROR(1,"dimension %d not in range",dim);
@@ -31,6 +32,7 @@ static dErr exact_0(dInt dim,const dReal x[],dScalar f[])
 }
 static dErr dexact_0(dInt dim,const dReal x[],dScalar f[])
 {
+  const dReal a=0.1,b=0.2,c=0.3;
 
   dFunctionBegin;
 #define dsin(a) cos(a)
@@ -40,24 +42,24 @@ static dErr dexact_0(dInt dim,const dReal x[],dScalar f[])
 #define dtanh(a) (1.0 - dSqr(tanh(a)))
   switch (dim) {
     case 1:
-      f[0] = dsin(x[0]);
+      f[0] = dsin(x[0]-a);
       break;
     case 2:
-      f[0] = dsin(x[0]) *  cos(x[1]);
-      f[1] =  sin(x[0]) * dcos(x[1]);
-      f[2] = dcos(x[0]) *  sin(x[1]);
-      f[3] =  cos(x[0]) * dsin(x[1]);
+      f[0] = dsin(x[0]-a) *  cos(x[1]-b);
+      f[1] =  sin(x[0]-a) * dcos(x[1]-b);
+      f[2] = dcos(x[0]-a) *  sin(x[1]-b);
+      f[3] =  cos(x[0]-a) * dsin(x[1]-b);
       break;
     case 3:
-      f[0] = dsin(x[0]) *  cos(x[1]) *  tanh(x[2]);
-      f[1] =  sin(x[0]) * dcos(x[1]) *  tanh(x[2]);
-      f[2] =  sin(x[0]) *  cos(x[1]) * dtanh(x[2]);
-      f[3] = dcos(x[0]) *  sin(x[1]) *  tanh(x[2]);
-      f[4] =  cos(x[0]) * dsin(x[1]) *  tanh(x[2]);
-      f[5] =  cos(x[0]) *  sin(x[1]) * dtanh(x[2]);
-      f[6] = dsinh(x[0]) *  tanh(x[1]) *  cosh(x[2]);
-      f[7] =  sinh(x[0]) * dtanh(x[1]) *  cosh(x[2]);
-      f[8] =  sinh(x[0]) *  tanh(x[1]) * dcosh(x[2]);
+      f[0] = dsin(x[0]-a) *  cos(-x[1]-b) *  tanh(-x[2]-c);
+      f[1] =  sin(x[0]-a) * dcos(-x[1]-b)*(-1) *  tanh(-x[2]-c);
+      f[2] =  sin(x[0]-a) *  cos(-x[1]-b) * dtanh(-x[2]-c)*(-1);
+      f[3] = dcos(x[0]-a) *  sin(x[1]-b) *  tanh(-x[2]-c);
+      f[4] =  cos(x[0]-a) * dsin(x[1]-b) *  tanh(-x[2]-c);
+      f[5] =  cos(x[0]-a) *  sin(x[1]-b) * dtanh(-x[2]-c)*(-1);
+      f[6] = dsinh(x[0]-a) *  tanh(x[1]-b) *  cosh(x[2]-c);
+      f[7] =  sinh(x[0]-a) * dtanh(x[1]-b) *  cosh(x[2]-c);
+      f[8] =  sinh(x[0]-a) *  tanh(x[1]-b) * dcosh(x[2]-c);
       break;
   }
 #undef dsin
@@ -74,7 +76,7 @@ static dErr exact_1(dInt D,const dReal x[],dScalar f[])
   dFunctionBegin;
   switch (D) {
     case 3:
-      f[0] = 0.5*dSqr(x[0]);
+      f[0] = 0.5 * dSqr(x[0]);
       f[1] = x[1];
       f[2] = x[2];
       break;
@@ -115,7 +117,7 @@ static dInt productInt(dInt N,const dInt a[])
 static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
 {
   dRule rule;
-  dReal *x[3],y[3],w,z,dz;
+  dReal *x[3],z,dz;
   const dReal *qx[3],*qw[3];
   dScalar *f,*g=NULL,(*dg)[3]=NULL;
   dInt P[3],Q[3],ind,size,dim,needed,qind,gsize=0;
@@ -135,6 +137,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     for (dInt j=0; j<P[0]; j++) {
       for (dInt k=0; k<P[1]; k++) {
         for (dInt l=0; l<P[2]; l++) {
+          dReal y[3];
           y[0] = x[0][j];
           y[1] = (dim > 1) ? x[1][k] : 0.0;
           y[2] = (dim > 2) ? x[2][l] : 0.0;
@@ -185,6 +188,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
           const dScalar *qg = &g[qind];
           const dScalar (*qdg)[3] = (const dScalar (*)[3])dg[qind];
           dScalar h[3],dh[3][3];
+          dReal y[3],w;
           y[0] = qx[0][j];
           y[1] = (dim > 1) ? qx[1][k] : 0.0;
           y[2] = (dim > 2) ? qx[2][l] : 0.0;
@@ -210,6 +214,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     }
     ind += dim*size;
   }
+  if (z > 1e-10 || dz > 1e-8) dERROR(1,"Residuals unacceptably large.");
   err = VecRestoreArray(u,&f);dCHK(err);
   err = dFree2(g,dg);dCHK(err);
   dFunctionReturn(0);
