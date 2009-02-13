@@ -60,7 +60,7 @@ static dErr doMaterial(iMesh_Instance mesh)
         nents++;
       }
     }
-    iMesh_addEntArrToSet(mesh,ents,nents,&mat[i],&err);dICHK(mesh,err);
+    iMesh_addEntArrToSet(mesh,ents,nents,mat[i],&err);dICHK(mesh,err);
     iMesh_setArrData(mesh,ents,nents,matNumTag,(char*)matnum,nents*(int)sizeof(matnum[0]),&err);dICHK(mesh,err);
   }
   dFree(ents);
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
   iBase_TagHandle pTag,feOrientTag,feAdjTag,rfOrientTag,rfAdjTag;
   MeshListEH v=MLZ,e=MLZ,f=MLZ,r=MLZ,c=MLZ,ev=MLZ,fv=MLZ,rv=MLZ;
   MeshListReal x=MLZ;
-  MeshListInt s=MLZ,part=MLZ,feo=MLZ,in=MLZ,fvo=MLZ,evo=MLZ,rfo=MLZ,rvo=MLZ;
+  MeshListInt s=MLZ,part=MLZ,feo=MLZ,fvo=MLZ,evo=MLZ,rfo=MLZ,rvo=MLZ;
   dInt *feOrient,*rfOrient;
   dInt feOrientSize,rfOrientSize;
   int err,i,j,k,m,n,p,M,N,P,I,J,K,order=iBase_INTERLEAVED;
@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
             }
           }
           printf("part[%d (%d,%d,%d)] has %d regions\n",(i*N+j)*P+k,i,j,k,(int)(entp-entbuf));
-          iMesh_addEntArrToSet(mesh,entbuf,(int)(entp-entbuf),&partset,&err);dICHK(mesh,err);
+          iMesh_addEntArrToSet(mesh,entbuf,(int)(entp-entbuf),partset,&err);dICHK(mesh,err);
           iMesh_setEntSetIntData(mesh,partset,pTag,(i*N+j)*P+k,&err);dICHK(mesh,err);
         }
       }
@@ -370,8 +370,7 @@ int main(int argc, char *argv[])
     /* Orient Edges with respect to Faces */
     iMesh_getEntities(mesh,0,iBase_FACE,iMesh_QUADRILATERAL,&f.v,&f.a,&f.s,&err);dICHK(mesh,err);
     iMesh_getAdjEntities(mesh,0,iBase_FACE,iMesh_QUADRILATERAL,iBase_EDGE,
-                         &e.v,&e.a,&e.s, &feo.v,&feo.a,&feo.s, &in.v,&in.a,&in.s, &err);dICHK(mesh,err);
-    MeshListFree(in);
+                         &e.v,&e.a,&e.s, &feo.v,&feo.a,&feo.s, &err);dICHK(mesh,err);
     iMesh_getEntArrAdj(mesh,f.v,f.s,iBase_VERTEX,&fv.v,&fv.a,&fv.s,&fvo.v,&fvo.a,&fvo.s,&err);dICHK(mesh,err);
     iMesh_getEntArrAdj(mesh,e.v,e.s,iBase_VERTEX,&ev.v,&ev.a,&ev.s,&evo.v,&evo.a,&evo.s,&err);dICHK(mesh,err);
     printf("f %d, e %d, fv %d, feo %d, fvo %d, ev %d, evo %d\n", f.s,e.s,fv.s,feo.s,fvo.s,ev.s,evo.s);
@@ -403,8 +402,7 @@ int main(int argc, char *argv[])
     /* Orient Faces with respect to Regions. */
     iMesh_getEntities(mesh,0,iBase_REGION,iMesh_HEXAHEDRON,&r.v,&r.a,&r.s,&err);dICHK(mesh,err);
     iMesh_getAdjEntities(mesh,0,iBase_REGION,iMesh_HEXAHEDRON,iBase_FACE,
-                         &f.v,&f.a,&f.s, &rfo.v,&rfo.a,&rfo.s, &in.v,&in.a,&in.s, &err);dICHK(mesh,err);
-    MeshListFree(in);
+                         &f.v,&f.a,&f.s, &rfo.v,&rfo.a,&rfo.s, &err);dICHK(mesh,err);
     iMesh_getEntArrAdj(mesh,r.v,r.s,iBase_VERTEX,&rv.v,&rv.a,&rv.s,&rvo.v,&rvo.a,&rvo.s,&err);dICHK(mesh,err);
     iMesh_getEntArrAdj(mesh,f.v,f.s,iBase_VERTEX,&fv.v,&fv.a,&fv.s,&fvo.v,&fvo.a,&fvo.s,&err);dICHK(mesh,err);
     printf("r %d, f %d, rv %d, rfo %d, rvo %d, fv %d, fvo %d\n", r.s,f.s,rv.s,rfo.s,rvo.s,fv.s,fvo.s);
@@ -453,7 +451,7 @@ int main(int argc, char *argv[])
     for (i=0; i<nbdy; i++) {
       iMesh_createEntSet(mesh,0,&bdy[i],&err);dICHK(mesh,err);
       if (i > 0) {
-        iMesh_addPrntChld(mesh,&bdy[0],&bdy[i],&err);dICHK(mesh,err);
+        iMesh_addPrntChld(mesh,bdy[0],bdy[i],&err);dICHK(mesh,err);
       }
     }
     /* Set name tags over all the boundary entity sets */
@@ -475,7 +473,7 @@ int main(int argc, char *argv[])
       for (j=0; j<v.s; j++) { /* All the vertices */
         if (onBdy[i](&box,&x.v[3*j])) b.v[b.s++] = v.v[j];
       }
-      iMesh_addEntArrToSet(mesh,b.v,b.s,&bdy[i],&err);dICHK(mesh,err);
+      iMesh_addEntArrToSet(mesh,b.v,b.s,bdy[i],&err);dICHK(mesh,err);
     }
     MeshListFree(b); MeshListFree(v); MeshListFree(x);
     /* Get entities of each dimension and adjacent vertices, check the vertices for membership, add entities to appropriate boundary sets */
@@ -493,7 +491,7 @@ int main(int argc, char *argv[])
             onbdy = onbdy && flg;
           }
           if (onbdy)  {
-            iMesh_addEntToSet(mesh,e.v[j],&bdy[i],&err);dICHK(mesh,err);
+            iMesh_addEntToSet(mesh,e.v[j],bdy[i],&err);dICHK(mesh,err);
             if (top.v[j] == iMesh_QUADRILATERAL) { /* Set the normal indicator for this boundary.  Normal=0 if face normal points outward. */
               xx = &x.v[off.v[j]*3]; /* The base for points of this face */
               dGeomVecMeanI(4,xx,y);  /* coordinate of center of face */
@@ -507,7 +505,7 @@ int main(int argc, char *argv[])
     }
     /* add all the boundary sets to the root boundary set */
     for (i=1; i<nbdy; i++) {
-      iMesh_addEntSet(mesh,bdy[i],&bdy[0],&err);dICHK(mesh,err);
+      iMesh_addEntSet(mesh,bdy[i],bdy[0],&err);dICHK(mesh,err);
     }
   }
 
