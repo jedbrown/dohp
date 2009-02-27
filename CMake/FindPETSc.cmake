@@ -7,6 +7,10 @@
 #  PETSC_COMPILER     - Compiler used by PETSc, helpful to find a compatible MPI
 #  PETSC_DEFINITIONS  - Compiler switches for using PETSc
 #  PETSC_MPIEXEC      - Executable for running MPI programs
+#  PETSC_VERSION      - Version string (MAJOR.MINOR.SUBMINOR)
+#
+#  Hack: PETSC_VERSION currently decides on the version based on the
+#  layout.  Otherwise we need to run C code to determine the version.
 #
 # Setting these changes the behavior of the search
 #  PETSC_DIR - directory in which PETSc resides
@@ -18,7 +22,9 @@
 
 find_path (PETSC_DIR include/petsc.h
   HINTS ENV PETSC_DIR
-  PATHS /usr/lib/petscdir/2.3.3 /usr/lib/petscdir/2.3.2 $ENV{HOME}/petsc
+  PATHS
+  /usr/lib/petscdir/3.0.0 /usr/lib/petscdir/2.3.3 /usr/lib/petscdir/2.3.2 # Debian
+  $ENV{HOME}/petsc
   DOC "PETSc Directory")
 
 if (PETSC_DIR AND NOT PETSC_ARCH)
@@ -41,18 +47,21 @@ if (PETSC_DIR AND NOT PETSC_ARCH)
   set (petscconf "NOTFOUND" CACHE INTERNAL "Scratch variable" FORCE)
 endif (PETSC_DIR AND NOT PETSC_ARCH)
 
-set (petsc_slaves LIBRARIES_SYS LIBRARIES_VEC LIBRARIES_MAT LIBRARIES_DM LIBRARIES_KSP LIBRARIES_SNES LIBRARIES_TS)
+set (petsc_slaves LIBRARIES_SYS LIBRARIES_VEC LIBRARIES_MAT LIBRARIES_DM LIBRARIES_KSP LIBRARIES_SNES LIBRARIES_TS
+  INCLUDE_DIR INCLUDE_CONF)
 include (FindPackageMultipass)
 find_package_multipass (PETSc petsc_config_current
   STATES DIR ARCH
   DEPENDENTS INCLUDES LIBRARIES COMPILER MPIEXEC ${petsc_slaves})
 
 # Determine whether the PETSc layout is old-style (through 2.3.3) or
-# new-style (not yet released, petsc-dev)
+# new-style (3.0.0)
 if (EXISTS ${PETSC_DIR}/${PETSC_ARCH}/include/petscconf.h)   # > 2.3.3
   set (petsc_conf_base ${PETSC_DIR}/conf/base)
+  set (PETSC_VERSION "3.0.0")
 elseif (EXISTS ${PETSC_DIR}/bmake/${PETSC_ARCH}/petscconf.h) # <= 2.3.3
   set (petsc_conf_base ${PETSC_DIR}/bmake/common/base)
+  set (PETSC_VERSION "2.3.3")
 else (EXISTS ${PETSC_DIR}/bmake/${PETSC_ARCH}/petscconf.h)
   set (petsc_conf_base "NOTFOUND")
 endif (EXISTS ${PETSC_DIR}/${PETSC_ARCH}/include/petscconf.h)
@@ -117,13 +126,13 @@ static const char help[] = \"PETSc test program.\";
 int main(int argc,char *argv[]) {
   PetscErrorCode ierr;
   TS ts;
-  PetscFunctionBegin;
+
   ierr = PetscInitialize(&argc,&argv,0,help);CHKERRQ(ierr);
   ierr = TSCreate(PETSC_COMM_WORLD,&ts);CHKERRQ(ierr);
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
   ierr = TSDestroy(ts);CHKERRQ(ierr);
   ierr = PetscFinalize();CHKERRQ(ierr);
-  PetscFunctionReturn(0);
+  return 0;
 }
 " ${runs})
     if (${${runs}})
