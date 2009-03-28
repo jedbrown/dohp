@@ -10,4 +10,7 @@ TAGS
 *.out
 sandbox
 *~
-ompic
+bompi*
+CMake
+docs/html
+docs/latex
