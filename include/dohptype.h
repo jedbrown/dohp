@@ -39,7 +39,6 @@ typedef enum { dTOPO_POINT, dTOPO_LINE, dTOPO_POLYGON, dTOPO_TRIANGLE,
                dTOPO_QUAD, dTOPO_POLYHEDRON, dTOPO_TET, dTOPO_HEX, dTOPO_PRISM,
                dTOPO_PYRAMID, dTOPO_SEPTAHEDRON, dTOPO_ALL } dEntTopology;
 typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } dEntType;
-typedef enum { dBDYTYPE_NO, dBDYTYPE_WEAK, dBDYTYPE_NORMAL, dBDYTYPE_SLIP, dBDYTYPE_STRONG } dBdyType;
 
 typedef unsigned char dEntStatus;
 #define dSTATUS_UNOWNED   (dEntStatus)0x1
@@ -172,6 +171,12 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
     (p) = dNextAligned(mem);                            \
     (mem) = dNextAligned((p) + (n));                    \
   } while (0)
+
+#if defined(PETSC_USE_INFO)
+# define dInfo(a,s,...) PetscInfo_Private(__func__,(a),(s),__VA_ARGS__)
+#else
+# define dInfo(a,s,...) 0
+#endif
 
 #if defined(PETSC_USE_DEBUG)
 # define dMallocA2(n0,p0,n1,p1) (dMallocA((n0),(p0)) || dMallocA((n1),(p1)))

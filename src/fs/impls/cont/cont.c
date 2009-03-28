@@ -47,8 +47,9 @@ static dErr dFSDestroy_Cont(dFS fs)
   dFunctionReturn(0);
 }
 
-static dErr dFSContPropogateDegree(dFS fs,const struct dMeshAdjacency *ma)
+static dErr dFSContPropogateDegree(dFS fs)
 {
+  dMeshAdjacency ma = fs->meshAdj;
   dInt *deg;
   dErr err;
 
@@ -89,8 +90,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   mesh = fs->mesh;
-  err = dMeshGetAdjacency(mesh,fs->active,&ma);dCHK(err);
-  err = dFSContPropogateDegree(fs,&ma);dCHK(err);
+  err = dMeshGetAdjacency(mesh,fs->active,&fs->meshAdj);dCHK(err);
+  err = dMemcpy(&ma,fs->meshAdj,sizeof ma);dCHK(err); /* To have an object rather than pointer semantics in this function. */
+  err = dFSContPropogateDegree(fs);dCHK(err);
 
   err = dMallocA5(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&xnodes,ma.nents,&status);dCHK(err);
   err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,3*ma.nents,dDATA_INT);dCHK(err);
@@ -199,7 +201,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dJacobiAddConstraints(fs->jacobi,nregions,xind,xstart,istart,deg,&ma,fs->C,fs->Cp);dCHK(err);
   err = dFree(istart);dCHK(err);
   err = dFree5(deg,rdeg,inodes,xnodes,status);dCHK(err);
-  err = dMeshRestoreAdjacency(mesh,fs->active,&ma);dCHK(err);
+  err = dMeshRestoreAdjacency(mesh,fs->active,&fs->meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
 
   err = MatAssemblyBegin(fs->C,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyBegin(fs->Cp,MAT_FINAL_ASSEMBLY);dCHK(err);

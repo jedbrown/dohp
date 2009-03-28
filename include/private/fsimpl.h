@@ -9,10 +9,8 @@ PETSC_EXTERN_CXX_BEGIN
 extern PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 
 struct _p_dFSBoundary {
-  dInt                           nDirichlet;
-  dInt                           nGlobal;
-  dMeshManifold                  manifold;
-  dTruth                         flip;
+  dMeshESH                       manset;
+  dTruth                         strong,expanded;
   dFSBoundaryConstraintFunction  cfunc;
   void                          *user;
   struct _p_dFSBoundary         *next;
@@ -40,12 +38,15 @@ struct _p_dFS {
   PETSCHEADER(struct _dFSOps);
   DMHEADER
   dMesh        mesh;
+  dMeshAdjacency meshAdj;
   dMeshTag     degreetag,ruletag; /**< tags on regions */
   dMeshTag     fieldSpecTag;      /**< 2-int tag on every entity in active set */
   dMeshESH     active;          /**< regions that will be part of this space */
-  dFSBoundary  bdylist;
   dQuotient    quotient;
   dJacobi      jacobi;
+  dFSBoundary  bdyStart;        /**< Start of linked list of boundary conditions to enforce */
+  dMeshTag     bdyTag;          /**< Tag for each boundary condition */
+  char         bdyTagName[dNAME_LEN]; /**< Usually "NEUMANN_SET" */
   dTruth       spacebuilt;
   dTruth       assemblefull;    /**< Use full order constraints for assembly */
   dInt         ruleStrength;
@@ -54,7 +55,7 @@ struct _p_dFS {
   dInt         n,N;             /**< length of the owned and global vectors */
   dInt         nlocal;          /**< number of owned+ghost dofs on this process */
   dInt         rstart;          /**< global offset of first owned dof */
-  dMeshEH     *ents;            /**< All entities in active set
+  dMeshEH     *ents;            /**< All entities in active set */
   dInt         m;               /**< Number of expanded dofs */
   dInt         D;               /**< Number of dofs per (non-boundary) node */
   dInt         nelem;
@@ -65,7 +66,6 @@ struct _p_dFS {
   dReal       (*vtx)[3];
   Mat          C;               /**< full-order constraint matrix (element dofs to local numbering) */
   Mat          Cp;              /**< preconditioning constraint matrix (element dofs to local numbering, as sparse as possible) */
-  Mat          Cd;              /**< constraint matrix for Dirichlet values */
   Vec          weight;          /**< Vector in global space, used to compensate for overcounting after local to global */
   dInt         maxQ;
   s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];

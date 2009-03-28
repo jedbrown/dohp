@@ -14,6 +14,7 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   }
   fs->mesh = mesh;
   fs->active = active;
+  err = dMeshGetTag(mesh,fs->bdyTagName,&fs->bdyTag);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -40,32 +41,40 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
   dFunctionReturn(0);
 }
 
+/** Set the block size for a function space.
+*
+* @param fs function space
+* @param D block size (number of dofs per unconstrained node)
+**/
 dErr dFSSetBlockSize(dFS fs,dInt D)
 {
 
   dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
-  if (fs->D != 1) dERROR(1,"Block size has already been set");
-  fs->newD = D;
+  dValidHeader(fs,DM_COOKIE,1);
+  fs->D = D;
   dFunctionReturn(0);
 }
 
-/** Register a boundary condition with the function space.  After all boundary conditions are registered and the block
-* size set, dFSUpdate can be used.
+/** Register a boundary condition with the function space.
+* After all boundary conditions are registered, dFSBuildSpace (called by dFSSetFromOptions) can be used.
 *
 * @param fs function space object
-* @param man manifold on which to apply the boundary condition
-* @param flip FALSE to use the manifold orientation, TRUE to use the opposite orientation
-* @param cfunc constraint function
+* @param mid Boundary ID, usually the value of the NEUMANN_SET tag
+* @param strong If true, the condition will be enforced strongly (all components removed from global system)
+* @param expanded If true, entries will be present in expanded space (so that weak forms can be evaluated)
+* @param cfunc constraint function, only makes sense if !strong, but some degrees of freedom must be removed anyway
 * @param user context for constraint function
 *
+* @note Collective on \p fs
+*
 * @note The constraint function \b must be a pure function (no side-effects, only writes to it's output matrix) with the
-* same definition on every process.  The constraint matrix \b must be invertible and should probably be orthogonal.  The
-* number of dofs declared global and local should be the same at every point (this is not actually essential, but it's
-* convenient).  The reason it is not declared statically (outside of the function definition) is merely to avoid
-* duplicating information that must be kept consistent.
+* same definition on every process.  The constraint matrix \b must be invertible and currently must be orthogonal.
+* Support for general constraint matrices is easy, but of doubtful usefulness.  The number of dofs declared global and
+* local should be the same at every point (this is not actually essential, but it's convenient).  The reason it is not
+* declared statically (outside of the function definition) is merely to avoid duplicating information that must be kept
+* consistent.
 **/
-dErr dFSRegisterBoundary(dFS fs,dMeshManifold man,dTruth flip,dFSBoundaryConstraintFunction cfunc,void *user)
+dErr dFSRegisterBoundary(dFS fs,dInt mid,dTruth strong,dTruth expanded,dFSBoundaryConstraintFunction cfunc,void *user)
 {
   dFSBoundary bdy;
   dErr err;
@@ -73,135 +82,13 @@ dErr dFSRegisterBoundary(dFS fs,dMeshManifold man,dTruth flip,dFSBoundaryConstra
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   err = dNew(struct _p_dFSBoundary,&bdy);dCHK(err);
-  if (!fs->newD) dERROR(1,"Cannot register boundary before setting block size");
-  {
-    dReal x[3] = {0,0,0},b[3][3] = {{1,0,0},{0,1,0},{0,0,1}},T[dSqr(fs->newD)];
-    dInt g;
-    /* Run the user function on dummy data to determine the number of global dofs per node (maybe not needed?) */
-    err = cfunc(user,x,b,T,&g);dCHK(err);
-    bdy->nGlobal = g;
-    bdy->nDirichlet = fs->newD - g;
-  }
-  bdy->manifold = man;
-  bdy->flip = flip;
+  err = dMeshGetTaggedSet(fs->mesh,fs->bdyTag,&mid,&bdy->manset);dCHK(err);
+  bdy->strong = strong;
+  bdy->expanded = expanded;
   bdy->cfunc = cfunc;
   bdy->user = user;
-  bdy->next = fs->bdylist;      /* Cons with list */
-  fs->bdylist = bdy;
-  dFunctionReturn(0);
-}
-
-/** Commit changes requested by dFSSetBlockSize and dFSRegisterBoundary.
-*
-* Any Mat/Vec previously obtained from this function space will no longer be compatible with the new dFS.
-*
-* Internally, new constraint matrices are created that support a vector-valued field (block size) with given boundary
-* conditions.  By default, the nonzero pattern of the matrix will be set so that each block is fully coupled using the
-* same nonzero pattern as the scalar case.
-**/
-dErr dFSUpdate(dFS fs)
-{
-  struct { dFSBoundaryConstraintFunction cfunc; void *user } *bc;
-  struct dMeshAdjacency ma;
-  dFSBoundary b;
-  dMeshTag bTag;
-  dReal *tmat;
-  dInt i,nb,D,D2;
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,dFS_COOKIE,1);
-  nb = 0; b = fs->boundaryList;
-  while (b) {
-    nb++;
-    b = b->next;
-  }
-  err = dMallocA(nb,&bc);dCHK(err);
-  err = dMeshTagCreateTemp(fs->mesh,"boundary_label",1,dDATA_INT,&bTag);dCHK(err);
-  for (i=0,b=fs->boundaryList; i<nb; i++,b=b->next) {
-    dInt toff[5];
-    const dMeshEH *ents;
-    const char *orient;
-    const dInt *label;
-    err = dMeshManifoldGetElements(b->manifold,toff,&ents,&orient);dCHK(err);
-    err = dMallocA(toff[dTYPE_ALL],&label);dCHK(err);
-    for (dInt j=toff[0]; j<toff[4]; j++) label[j] = i;
-    err = dMeshTagSetData(mesh,bTag,ents,toff[4],label,toff[4],dDATA_INT);dCHK(err);
-    err = dFree(label);dCHK(err);
-    err = dMeshManifoldRestoreElements(b->manifold,toff,&ents,&orient);dCHK(err);
-    bc[i].cfunc = b->cfunc;
-    bc[i].user = b->user;
-  }
-  D = fs->newD; D2 = D*D;
-  err = dMallocA2(fs->nlocal*D2,&tmat);dCHK(err);
-  /* We need the old and new  */
-  err = dMeshGetAdjacency(fs->mesh,fs->active,&ma);dCHK(err);
-  err = 
-  /* \todo Get coordinates and normals at each node */
-  for (i=0; i<fs->nlocal; i++) {
-    dReal *T = tmat + i*D2;
-    
-    err = 
-  }
-  err = dFree(bc);dCHK(err);
-  dFunctionReturn(0);
-}
-
-static inline dErr dBdyIntersect(dBdyType *a,dBdyType b)
-{
-  dFunctionBegin;
-  /* FIXME: make this handle complicated cases like dBDYTYPE_NORMAL \cap dBDYTYPE_SLIP (= dBDYTYPE_DIRICHLET)*/
-  *a = dMax(*a,b);
-  dFunctionReturn(0);
-}
-
-/** Get an array of boundary types associated with a list of entities
-*
-* @param fs
-* @param[in] nents Number of entities
-* @param[in] ents handles
-* @param[out] btype array of boundary types, should be at least \a nents in length
-*/
-dErr dFSGetBoundaryType(dFS fs,dInt nents,const dMeshEH ents[],dBdyType btype[])
-{
-  dFSBoundary bdy;
-  dMeshEH *eh;
-  dInt i,n,n_alloc;
-  dBdyType *bt;
-  dMeshTag tag;
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidPointer(ents,3);
-  dValidPointer(btype,4);
-  bdy = fs->bdylist;
-  err = dMeshTagCreateTemp(fs->mesh,"boundary_type",1,dDATA_INT,&tag);dCHK(err);
-
-  n_alloc = nents;
-  err = dMallocA2(nents,&eh,nents,&bt);dCHK(err); /* Usually plenty of space */
-  for (i=0; i<nents; i++) { bt[i] = dBDYTYPE_NO; }
-  err = dMeshTagSetData(fs->mesh,tag,ents,nents,bt,nents,dDATA_INT);dCHK(err); /* Clears all the values */
-  while (bdy) {
-    err = dMeshGetNumEnts(fs->mesh,bdy->entset,dTYPE_ALL,dTOPO_ALL,&n);dCHK(err); /* Should be superfluous range checking */
-    if (n > n_alloc) {
-      n_alloc = n;
-      err = dFree2(eh,bt);dCHK(err);
-      err = dMallocA2(n_alloc,&eh,n_alloc,&bt);dCHK(err);
-    }
-    /* Overwrite boundary type for all ents in set */
-    err = dMeshGetEnts(fs->mesh,bdy->entset,dTYPE_ALL,dTOPO_ALL,eh,n_alloc,&n);dCHK(err);
-    err = dMeshTagGetData(fs->mesh,tag,eh,n,bt,n,dDATA_INT);dCHK(err);
-    for (i=0; i<n; i++) {
-      err = dBdyIntersect(&bt[i],bdy->btype);dCHK(err);
-    }
-    err = dMeshTagSetData(fs->mesh,tag,eh,n,bt,n,dDATA_INT);dCHK(err);
-    bdy = bdy->next;
-  }
-  err = dFree2(eh,bt);dCHK(err);
-
-  err = dMeshTagGetData(fs->mesh,tag,ents,nents,btype,n,dDATA_INT);dCHK(err);
-  err = dMeshTagDestroy(fs->mesh,tag);dCHK(err);
+  bdy->next = fs->bdyStart;
+  fs->bdyStart = bdy;
   dFunctionReturn(0);
 }
 
@@ -642,63 +529,5 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   if (lv != lvs)       {err = dFree(lv);dCHK(err);}
   if (lvt != lvts)     {err = dFree(lvt);dCHK(err);}
   err = PetscLogEventEnd(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
-  dFunctionReturn(0);
-}
-
-/**
-* Create a function space based on a simpler space
-*
-* @param fs Function space on which to base the subspace
-* @param D Number of dofs per node in the new function space
-* @param bdy Boundary conditions to build into the new function space
-* @param infs The new function space
-*/
-dErr dFSCreateSubspace(dFS fs,dInt D,dFSBoundary bdy,dFS *infs)
-{
-  dFS nfs;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidPointer(infs,3);
-  *infs = 0;
-  if (fs->bdylist) dERROR(1,"Can only subspace a function space with no boundaries");
-  if (D == fs->D && !bdy) dERROR(1,"Attempting to subspace with no modification");
-  if (D < fs->D) dERROR(1,"Attempting to subspace by reducing the number of dofs per node");
-
-  dERROR(1,"not implemented");
-
-#if 0
-  err = dFSGetBoundaryType(fs,ma.nents,ma.ents,bdytype);dCHK(err);
-
-  err = dMallocA2(ma.nents,&idofs,ma.nents,&bdofs);dCHK(err); /* interior and boundary dofs */
-  /**
-  * Count the number of dofs that are owned, local, boundary.
-  */
-  fs->n = fs->nlocal = fs->nbdofs = 0;
-  for (type=dTYPE_VERTEX; type<dTYPE_ALL; type++) {
-    for (i=ma.toff[type]; i<ma.toff[type+1]; i++) {
-      switch (bdytype[i]) {     /* determine if nodes are on a boundary, remove dofs if appropriate */
-        case dBDYTYPE_NO:       /* Not on a boundary */
-        case dBDYTYPE_WEAK:     /* Neumann boundary, all dofs are in the function space */
-          idofs[i] = inodes[i] * cont->D;
-          bdofs[i] = 0;
-          break;
-        case dBDYTYPE_NORMAL:   /* The tangent components are strong (usually 0), normal component is weak */
-          idofs[i] = inodes[i];
-          bdofs[i] = inodes[i] * (cont->D - 1);
-          break;
-        case dBDYTYPE_SLIP:     /* The normal component is strong, tangent components are weak */
-          idofs[i] = inodes[i] * (cont->D - 1);
-          bdofs[i] = inodes[i];
-          break;
-        case dBDYTYPE_STRONG:   /* Dirichlet conditions */
-          idofs[i] = 0;
-          bdofs[i] = inodes[i] * cont->D;
-          break;
-      }
-    }
-  }
-#endif
-  *infs = nfs;
   dFunctionReturn(0);
 }

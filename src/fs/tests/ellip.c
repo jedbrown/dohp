@@ -415,7 +415,7 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
                 const dReal *u = &basis[lq][lp],*Du = deriv[lq][lp];
                 dReal v[1],Dv[3];
                 EllipPointwiseJacobian(&elp->param,&st,jw[lq],u,Du,v,Dv);
-#if 0
+#if 1
                 K[ltest][lp] += //basis[lq][ltest] * v[0]
                   + deriv[lq][ltest][0] * Dv[0]
                   + deriv[lq][ltest][1] * Dv[1]
@@ -460,7 +460,7 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
   err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
@@ -497,7 +497,7 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
 #endif
     }
   }
-  err = dFSRestoreWorkspace(fs,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   errorNorms[1] = dSqrt(errorNorms[1]);

@@ -109,17 +109,17 @@ static dErr verifyAdjacencies(dMesh mesh)
                             0,0,1,1,0, 0,0,0,1,0, 0,1,0,0,0, 0,0,1,1,0,
                             1,1,0,0,0, 1,0,0,1,0, 1,1,1,1,1, 1,0,1,0,0,
                             1,1,1,0,0, 0,0,5,4,1, 5,7,2,2,4, 0};
-  struct dMeshAdjacency ma;
+  dMeshAdjacency ma;
   dInt i;
   dErr err;
 
   dFunctionBegin;
   err = dMeshGetAdjacency(mesh,0,&ma);dCHK(err);
-  dASSERT(ma.nents == nents);
-  for (i=0; i<ALEN(toff); i++) dASSERT(ma.toff[i] == toff[i]);
-  for (i=0; i<ALEN(adjoff); i++) dASSERT(ma.adjoff[i] == adjoff[i]);
-  for (i=0; i<ALEN(adjind); i++) dASSERT(ma.adjind[i] == adjind[i]);
-  for (i=0; i<ALEN(adjperm); i++) dASSERT(ma.adjperm[i] == adjperm[i]);
+  dASSERT(ma->nents == nents);
+  for (i=0; i<ALEN(toff); i++) dASSERT(ma->toff[i] == toff[i]);
+  for (i=0; i<ALEN(adjoff); i++) dASSERT(ma->adjoff[i] == adjoff[i]);
+  for (i=0; i<ALEN(adjind); i++) dASSERT(ma->adjind[i] == adjind[i]);
+  for (i=0; i<ALEN(adjperm); i++) dASSERT(ma->adjperm[i] == adjperm[i]);
   err = dMeshRestoreAdjacency(mesh,0,&ma);dCHK(err);
   dFunctionReturn(0);
 }

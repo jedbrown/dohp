@@ -26,7 +26,18 @@ EXTERN const int iMesh_TypeFromTopology[];
     dErr _l_ret = err;                                          \
     char _l_desc[512] = "Description not available";            \
     iMesh_getDescription(mesh,_l_desc,&err,sizeof(_l_desc));    \
-    dERROR(1,"%s: %s",iBase_ErrorString[_l_ret],_l_desc);       \
+    dERROR(1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+  }
+#define dIGCHK(geom,err)                                        \
+  if (err) {                                                    \
+    dErr _l_ret = err;                                          \
+    char _l_desc[512] = "Description not available";            \
+    iGeom_getDescription(geom,_l_desc,&err,sizeof(_l_desc));    \
+    dERROR(1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+  }
+#define dIRCHK(assoc,err)                                               \
+  if (err) {                                                            \
+    dERROR(1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description); \
   }
 
 
@@ -69,19 +80,10 @@ typedef struct {
   dInt start, stride, end;
 } DohpLoopBounds;
 
-/* These tags are used to give full adjacencies because the builtin adjacencies are broken for nonconforming meshes */
-#define dTAG_ADJ_REGION_FACE    "dohp_adj_region_face"
-#define dTAG_ADJ_FACE_EDGE      "dohp_adj_face_edge"
-#define dTAG_ORIENT_REGION_FACE "dohp_orient_region_face"
-#define dTAG_ORIENT_FACE_EDGE   "dohp_orient_face_edge"
-
-#define dENT_SET_NAME           "dohp_ent_set_name"
-#define dBDY_ROOT               "dohp_bdy_root"
-#define dTAG_BDY_NUM            "dohp_bdy_num"
-#define dTAG_BDY_NORMAL         "dohp_bdy_normal"
-
-#define dTAG_MANIFOLD_NAME      "dohp_manifold_name"   /* name tag on manifold sets */
-#define dTAG_MANIFOLD_ORIENT    "dohp_manifold_orient" /* orientation on entities (usually just faces) in a manifold set */
+/* name tag on manifold sets, NEUMANN_SET is the default when coming from Cubit */
+#define dTAG_MANIFOLD_ID      "NEUMANN_SET"
+#define dTAG_SENSE            "SENSE"
+#define dTAG_EMPTYSET         "EMPTYSET"
 
 #define dMeshType char *
 #define dMESHPACK   "pack"
@@ -99,8 +101,8 @@ EXTERN dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
 EXTERN dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name);
 EXTERN dErr dMeshLoad(dMesh m);
 EXTERN dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
+EXTERN dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
 EXTERN dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
-EXTERN dErr dMeshOrientFacets(dMesh m);
 EXTERN dErr dMeshDestroy(dMesh);
 EXTERN dErr dMeshView(dMesh,PetscViewer);
 EXTERN dErr dMeshRegisterAll(const char path[]);
@@ -108,7 +110,6 @@ EXTERN dErr dMeshRegisterAll(const char path[]);
 EXTERN dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
 EXTERN dErr dMeshSetType(dMesh,const dMeshType);
 EXTERN dErr dMeshInitializePackage(const char[]);
-EXTERN dErr dMeshGetEntSetName(dMesh m,dMeshESH set,char **str);
 EXTERN dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
 EXTERN dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 EXTERN dErr dMeshGetInstance(dMesh,iMesh_Instance*);
@@ -124,24 +125,18 @@ EXTERN dErr dMeshTagCreateTemp(dMesh mesh,const char[],dInt count,dDataType type
 EXTERN dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type);
 EXTERN dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type);
 EXTERN dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type);
-EXTERN dErr dMeshGetTaggedSets(dMesh,dMeshTag,dMeshESH**,dInt*);
+EXTERN dErr dMeshGetTaggedSet(dMesh,dMeshTag,const void*,dMeshESH*);
 EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
 EXTERN dErr dMeshGetStatus(dMesh,dInt,const dMeshEH[],dEntStatus[]);
 EXTERN dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
-EXTERN dErr dMeshGetAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
-EXTERN dErr dMeshRestoreAdjacency(dMesh,dMeshESH,struct dMeshAdjacency*);
+EXTERN dErr dMeshGetAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
+EXTERN dErr dMeshRestoreAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
 EXTERN dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
 EXTERN dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
 
 typedef struct _p_dMeshManifold *dMeshManifold;
 
-EXTERN dErr dMeshLoadManifolds(dMesh,const char[],const char[]);
-EXTERN dErr dMeshUnloadManifolds(dMesh,const char[],const char[]);
-EXTERN dErr dMeshGetManifold(dMesh,const char[],dMeshManifold*);
-EXTERN dErr dMeshRestoreManifold(dMesh,const char[],dMeshManifold*);
-EXTERN dErr dMeshManifoldGetElements(dMeshManifold,dInt[],const dMeshEH**,const char**);
-EXTERN dErr dMeshManifoldRestoreElements(dMeshManifold,dInt[],const dMeshEH**,const char**);
 EXTERN dErr dMeshGetNumSubsets(dMesh,dMeshESH,dInt*);
 EXTERN dErr dMeshGetSubsets(dMesh,dMeshESH,dMeshESH[],dInt,dInt*);
 

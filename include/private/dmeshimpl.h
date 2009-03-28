@@ -16,22 +16,15 @@ struct _p_dMesh {
   PETSCHEADER(struct _dMeshOps);
   char *infile,*inoptions;
   iMesh_Instance mi;
-  iBase_EntitySetHandle root;
+  dMeshESH root,emptyset;
   MeshListEH v,e,f,r;           /* vertices, edges, faces, vertices */
   MeshListEH arf,afe,aev;       /* adjacencies region -> face -> edge -> vertex */
   MeshListData orf,ofe;
   MeshListReal x;
   void *data;
-  dMeshTag manifoldTag,manifoldOrientTag;
+  dMeshTag manifoldTag,manifoldOrientTag,senseTag;
   dMeshManifold *manifoldList;
   dInt nManifolds;
-};
-
-struct _p_dMeshManifold {
-  char name[dNAME_LEN];
-  dInt toff[5];
-  dMeshEH *ents;
-  char *orient;
 };
 
 #endif

@@ -1,3 +1,4 @@
+#include <MBTagConventions.hpp>
 #include "private/fsimpl.h"
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
@@ -31,7 +32,8 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 #endif
   err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,DM_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
 
-  err = dMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
+  err = dMemcpy(fs->ops,&defaultFSOps,sizeof defaultFSOps);dCHK(err);
+  err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);
   *infs = fs;
   dFunctionReturn(0);
 }

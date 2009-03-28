@@ -20,7 +20,20 @@ typedef struct _p_dFS *dFS;
 
 typedef struct _p_dFSBoundary *dFSBoundary;
 
-typedef dErr (*dFSBoundaryConstraintFunction)(void*,const dReal[],const dReal(*)[3],dReal[],dInt*);
+/** User-provided constraint function.
+* @param ctx User context
+* @param x coordinates of node to generate constraints for (vector of length 3)
+* @param b basis at node (3 vectors of length 3), the first vector \c b[0] is the normal vector, the others (\c b[1] and \c b[2]) are tangent vectors.
+* @param T constraint matrix, the first \p g vectors correspond to global basis functions, the remaining vectors represent Dirichlet functions
+* @param g Number of values to be represented in global system
+*
+* @note This function \b must be pure (no side effects, only output is T, g, and possible error code).
+*
+* @note The number of values in the global system \p g should \b not depend on the location or the normal (i.e. it is
+*   constant for each boundary type).  Rationale: setting the number of global dofs separately makes it possible for the
+*   constraint function to become out of sync with the number of global dofs.
+**/
+typedef dErr (*dFSBoundaryConstraintFunction)(void *ctx,const dReal x[],const dReal b[],dReal T[],dInt *g);
 
 #define dFSType char *
 
@@ -31,8 +44,7 @@ EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetBlockSize(dFS,dInt);
-EXTERN dErr dFSRegisterBoundary(dFS,dMeshManifold,dTruth,dFSBoundaryConstraintFunction,void*);
-EXTERN dErr dFSUpdate(dFS);
+EXTERN dErr dFSRegisterBoundary(dFS,dInt,dTruth,dTruth,dFSBoundaryConstraintFunction,void*);
 EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);
 EXTERN dErr dFSCreateExpandedVector(dFS,Vec*);
@@ -49,7 +61,6 @@ EXTERN dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*res
 EXTERN dErr dFSMatSetValuesExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
 EXTERN dErr dFSGetMatrix(dFS,const MatType,Mat*);
 EXTERN dErr dFSBuildSpace(dFS);
-EXTERN dErr dFSGetBoundaryType(dFS,dInt,const dMeshEH[],dBdyType[]);
 EXTERN dErr dFSCreateSubspace(dFS,dInt,dFSBoundary,dFS*);
 
 EXTERN dErr dFSDestroy(dFS);

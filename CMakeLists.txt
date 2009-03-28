@@ -1,23 +1,16 @@
+cmake_minimum_required (VERSION 2.6.3)
 project (Dohp)
-cmake_minimum_required (VERSION 2.6.2)
 
 list (APPEND CMAKE_MODULE_PATH "${Dohp_SOURCE_DIR}/CMake")
 
+# Normally PETSc is built with MPI, if not, use CC=mpicc, etc
 find_package (PETSc REQUIRED)
-find_package (iMesh REQUIRED)
-# use the PETSc compiler as a hint when looking for an MPI compiler
-set (MPI_COMPILER ${PETSC_COMPILER} CACHE FILEPATH "MPI compiler. Used only to detect MPI compilation flags.")
-set (MPIEXEC ${PETSC_MPIEXEC} CACHE FILEPATH "Executable for running MPI programs.")
-mark_as_advanced(MPI_COMPILER MPI_EXEC)
-
-# Can we get things to stop here, MPI doesn't reconfigure well?
-# PETSc knows how to link MPI so we don't need to find it separately.
-#find_package (MPI REQUIRED)
+find_package (ITAPS COMPONENTS MESH GEOM REL)
 
 #find_package (Doxygen)
 
-include_directories (${PETSC_INCLUDES} ${IMESH_INCLUDES} ${MPI_INCLUDE_PATH})
-add_definitions (${PETSC_DEFINITIONS} ${MPI_COMPILE_FLAGS})
+include_directories (${PETSC_INCLUDES} ${ITAPS_INCLUDES})
+add_definitions (${PETSC_DEFINITIONS})
 
 option (dUSE_DEBUG         "Compile Dohp with extra debugging" ON)
 option (Dohp_BUILD_TESTS   "Build tests"                       ON)
@@ -51,7 +44,7 @@ add_custom_target (etags
 
 include_directories (${Dohp_SOURCE_DIR}/include ${Dohp_BINARY_DIR}/include)
 
-set (Dohp_DEPENDENT_LIBRARIES ${IMESH_LIBRARIES} ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+set (Dohp_DEPENDENT_LIBRARIES "${ITAPS_REL_LIBRARIES}" "${ITAPS_MESH_LIBRARIES}" "${ITAPS_GEOM_LIBRARIES}" "${PETSC_LIBRARIES}")
 set (Dohp_LIBRARIES dohp ${Dohp_DEPENDENT_LIBRARIES})
 
 set (ARCHIVE_OUTPUT_DIRECTORY ${Dohp_BINARY_DIR}/lib CACHE PATH "Output directory for Dohp archives")

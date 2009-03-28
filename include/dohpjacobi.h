@@ -118,6 +118,7 @@ struct MeshRegion {
 };
 
 #define dMESHADJACENCY_HAS_CONNECTIVITY 1
+typedef struct dMeshAdjacency *dMeshAdjacency;
 struct dMeshAdjacency {
   dMeshESH set;
   dInt nents;
