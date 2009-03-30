@@ -465,8 +465,8 @@ int main(int argc, char *argv[])
 
   if (do_geom)
   {
-    char geom_options[] = "ENGINE=OCC:",
-      geom_save_options[] = ":TYPE=OCC:";
+    char geom_options[] = ";ENGINE=OCC;",
+      geom_save_options[] = ";TYPE=OCC;";
     iGeom_Instance geom;
     iRel_Instance assoc;
     iRel_RelationHandle rel;
