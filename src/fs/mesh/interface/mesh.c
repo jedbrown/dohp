@@ -356,28 +356,39 @@ dErr dMeshTagCreateTemp(dMesh mesh,const char template[],dInt count,dDataType ty
   dFunctionBegin;
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(intag,4);
-  err = PetscSNPrintf(name,sizeof(name),"TEMP_%s_%d",template,unique_id++);dCHK(err);
+  err = PetscSNPrintf(name,sizeof(name),"__DOHP_%s_%d",template,unique_id++);dCHK(err);
   err = dMeshTagCreate(mesh,name,count,type,intag);dCHK(err);
   dFunctionReturn(0);
 }
 
 dErr dMeshTagCreate(dMesh mesh,const char name[],dInt count,dDataType type,dMeshTag *intag)
 {
-  dMeshTag tag;
-  dIInt ierr,itype;
-  size_t namelen;
-  dErr err;
+  dMeshTag       tag;
+  iMesh_Instance mi;
+  dIInt          ierr,itype;
+  size_t         namelen;
+  dErr           err;
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(intag,4);
   *intag = 0;
-  if (count > 0) {
-    err = dDataTypeToITAPS(type,&itype);dCHK(err);
-    err = dStrlen(name,&namelen);dCHK(err);
-    iMesh_createTag(mesh->mi,name,count,itype,&tag,&ierr,(dIInt)namelen);dICHK(mesh->mi,ierr);
-    *intag = tag;
+  mi = mesh->mi;
+  if (count <= 0) dERROR(1,"Tags must have positive count");
+  err = dDataTypeToITAPS(type,&itype);dCHK(err);
+  err = dStrlen(name,&namelen);dCHK(err);
+  iMesh_getTagHandle(mi,name,&tag,&ierr,(dIInt)namelen);
+  if (ierr == iBase_TAG_NOT_FOUND) {
+    iMesh_createTag(mi,name,count,itype,&tag,&ierr,(dIInt)namelen);dICHK(mi,ierr);
+  } else {
+    dIInt existing_itype,existing_count;
+    dICHK(mi,ierr);
+    iMesh_getTagType(mi,tag,&existing_itype,&ierr);dICHK(mi,ierr);
+    if (itype != existing_itype) dERROR(1,"tag exists with different type");
+    iMesh_getTagSizeValues(mi,tag,&existing_count,&ierr);dICHK(mi,ierr);
+    if (count != existing_count) dERROR(1,"tag exists with same type but different count");
   }
+  *intag = tag;
   dFunctionReturn(0);
 }
 
@@ -420,6 +431,7 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   dValidPointer(ents,3);
   dValidPointer(data,5);
   alloc = count * iBase_SizeFromType[type];
+  size = 0;                     /* protect against degenerate case */
   iMesh_getArrData(mi,ents,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
   if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type])
     dERROR(1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
@@ -427,9 +439,16 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   dFunctionReturn(0);
 }
 
+/* Might only work for MOAB */
+dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,const void *data,dInt count,dDataType type)
+{
+  return dMeshTagSetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type);
+}
+
+/* Might only work for MOAB */
 dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type)
 {
-  return dMeshTagGetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type); /* Maybe only for MOAB */
+  return dMeshTagGetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type);
 }
 
 dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
@@ -475,6 +494,31 @@ dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshE
   dFunctionReturn(0);
 }
 
+dErr dMeshGetNumSubsets(dMesh mesh,dMeshESH set,dInt hops,dInt *nsubsets)
+{
+  dIInt ierr,n;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(nsubsets,4);
+  iMesh_getNumEntSets(mesh->mi,set,hops,&n,&ierr);dICHK(mesh->mi,ierr);
+  *nsubsets = n;
+  dFunctionReturn(0);
+}
+
+dErr dMeshGetSubsets(dMesh mesh,dMeshESH set,dInt hops,dMeshESH subsets[],dInt alloc,dInt *size)
+{
+  dIInt ierr,s;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(subsets,4);
+  s = 0;
+  iMesh_getEntSets(mesh->mi,set,hops,&subsets,&alloc,&s,&ierr);dICHK(mesh->mi,ierr);
+  if (size) *size = s;
+  dFunctionReturn(0);
+}
+
 /** Get entities of every type in a set.
 * @param mesh mesh object
 * @param set set to get entities from
@@ -514,7 +558,7 @@ dErr dMeshGetEntsOff(dMesh mesh,dMeshESH set,dInt toff[],dMeshEH **inents)
 *
 * @return err
 */
-dErr dMeshGetStatus(dMesh mesh,dInt count,const dMeshEH ents[],dEntStatus status[])
+dErr dMeshGetStatus(dMesh mesh,const dMeshEH ents[],dInt count,dEntStatus status[])
 {
   dMPIInt size;
   dMeshTag tag;
@@ -558,6 +602,18 @@ dErr dMeshTagBcast(dMesh m,dMeshTag tag)
   if (m->ops->tagbcast) {
     err = (*m->ops->tagbcast)(m,tag);dCHK(err);
   }
+  dFunctionReturn(0);
+}
+
+dErr dMeshSetCreate(dMesh mesh,dMeshESH *inset)
+{
+  dIInt ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(inset,2);
+  *inset = 0;
+  iMesh_createEntSet(mesh->mi,0,inset,&ierr);dICHK(mesh->mi,ierr);
   dFunctionReturn(0);
 }
 
@@ -605,13 +661,6 @@ dErr dMeshLoad(dMesh mesh)
     iMesh_setEntSetEHData(mi,root,emptysettag,(iBase_EntityHandle)eset,&ierr);dICHK(mi,ierr);
   } else dICHK(mi,ierr);
   iMesh_getEntSetEHData(mi,root,emptysettag,(iBase_EntityHandle*)&mesh->emptyset,&ierr);dICHK(mi,ierr);
-
-  /* Get the manifold tag, create if it doesn't exist */
-  iMesh_getTagHandle(mi,dTAG_MANIFOLD_ID,&mesh->manifoldTag,&ierr,sizeof(dTAG_MANIFOLD_ID));
-  if (ierr == iBase_TAG_NOT_FOUND) {
-    err = dInfo(mesh,"Missing tag \"%s\".  Creating but this may cause problems",dTAG_MANIFOLD_ID);dCHK(err);
-    iMesh_createTag(mi,dTAG_MANIFOLD_ID,1,iBase_INTEGER,&mesh->manifoldTag,&ierr,sizeof(dTAG_MANIFOLD_ID));dICHK(mi,ierr);
-  } else dICHK(mi,ierr);
 
   /* Get all entities of each type. */
   iMesh_getEntities(mi,root,iBase_REGION,iMesh_ALL_TOPOLOGIES,&mesh->r.v,&mesh->r.a,&mesh->r.s,&ierr);dICHK(mi,ierr);
@@ -945,7 +994,6 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
 {
   iMesh_Instance mi = mesh->mi;
   struct dMeshAdjacency ma;
-  dMeshTag indexTag;
   dMeshEH *adj,*conn;
   dEntType type;
   dInt i,rank,cnt,nadj,*connoff,tnents,*eind;
@@ -1002,8 +1050,8 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
   }
 
   /* Create the tag to hold indices and set it with strictly increasing values */
-  err = dMeshTagCreateTemp(mesh,"index",1,dDATA_INT,&indexTag);dCHK(err);
-  err = dMeshTagSetData(mesh,indexTag,ma.ents,ma.nents,eind,ma.nents,dDATA_INT);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"index",1,dDATA_INT,&ma.indexTag);dCHK(err);
+  err = dMeshTagSetData(mesh,ma.indexTag,ma.ents,ma.nents,eind,ma.nents,dDATA_INT);dCHK(err);
   err = dFree(eind);dCHK(err);
 
   /*
@@ -1052,9 +1100,8 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
     }
   }
 
-  err = dMeshTagGetData(mesh,indexTag,adj,nadj,ma.adjind,nadj,dDATA_INT);dCHK(err); /* get indices of adj ents */
+  err = dMeshTagGetData(mesh,ma.indexTag,adj,nadj,ma.adjind,nadj,dDATA_INT);dCHK(err); /* get indices of adj ents */
   err = dFree(adj);dCHK(err);
-  err = dMeshTagDestroy(mesh,indexTag);dCHK(err);
 
   /* Determine permutation of adjacent entities */
   err = dMeshAdjacencyPermutations_Private(&ma,connoff,conn);dCHK(err);
@@ -1079,6 +1126,7 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
   ma = *inma;
   *inma = 0;
   if (set != ma->set) dERROR(1,"Adjacency for the wrong set");
+  err = dMeshTagDestroy(mesh,ma->indexTag);dCHK(err);
   err = dFree3(ma->ents,ma->adjoff,ma->topo);dCHK(err);
   err = dFree2(ma->adjind,ma->adjperm);dCHK(err);
 #if defined(dMESHADJACENCY_HAS_CONNECTIVITY)
@@ -1147,5 +1195,28 @@ dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dM
   dValidPointer(inxoff,4);
   dValidPointer(inx,5);
   err = dFree2(*inx,*inxoff);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
+dErr dMeshPartitionOnOwnership(dMesh mesh,dMeshEH ents[],dInt n,dInt *ghstart)
+{
+  dEntStatus *status;
+  dMeshEH    *pents;
+  dInt        owned;
+  dErr        err;
+
+  dFunctionBegin;
+  err = dMallocA2(n,&status,n,&pents);dCHK(err);
+  err = dMeshGetStatus(mesh,ents,n,status);dCHK(err);
+  owned = 0;
+  for (dInt i=0; i<n; i++) owned += !!(~status[i] & dSTATUS_UNOWNED);
+  *ghstart = owned;
+  for (dInt i=0,o=0,g=owned; i<n; i++) {
+    if (status[i] & dSTATUS_UNOWNED) pents[g++] = ents[i];
+    else                             pents[o++] = ents[i];
+  }
+  err = dMemcpy(ents,pents,n*sizeof ents[0]);dCHK(err);
+  err = dFree2(status,pents);dCHK(err);
   dFunctionReturn(0);
 }

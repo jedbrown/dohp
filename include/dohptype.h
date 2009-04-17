@@ -2,8 +2,8 @@
 #define _DOHPTYPE_H
 
 #include "dohpconfig.h"
-#include "petsc.h"
-#include "iMesh.h"
+#include <petsc.h>
+#include <iMesh_extensions.h>
 
 /**
 * These types all have to be exactly the Petsc versions.  These typedefs are here just to shorten the names, not to
@@ -50,8 +50,8 @@ typedef unsigned char dEntStatus;
 #define dEntTopoToITAPS(dtopo,itopo) (*(itopo) = (dtopo), 0)
 #define dEntTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
 
-#define dCHK(err) if (err) {return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(err),0," ");}
-#define dERROR(n,...) return PetscError(__LINE__,__func__,__FILE__,__SDIR__,n,1,__VA_ARGS__)
+#define dCHK(err) if (err) return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(err),0," ")
+#define dERROR(n,...) return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(n),1,__VA_ARGS__)
 
 #define dPrintf PetscPrintf
 #define dMemcpy(a,b,c) PetscMemcpy(a,b,c)

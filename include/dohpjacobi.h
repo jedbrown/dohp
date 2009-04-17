@@ -91,36 +91,11 @@ typedef enum {
 */
 typedef struct p_dJacobi *dJacobi;
 
-/**
-* This struct is public since it is used to exchange mesh data between the dFS and dJacobi packages.
-*
-* @example Boundary specs for some boundary conditions:
-*
-* Dirichlet: dofspernode=0, cperdof does not matter
-* Neumann: dofspernode=D, cperdof=1
-* Slip: dofspernode=2, cperdof=3
-* Normal: dofspernode=1, cperdof=3
-* Interior entities: dofspernode=D, cperdof=1
-*
-*/
-struct MeshRegion {
-  dMeshEH *conn;                /**< conn[connoff[i]+j] = j'th vertex of entity [i] */
-  dInt *connoff;
-  dInt *adj;                    /**< adj[adjoff[i]+j] = index of the j'th entity adjacent to entity i */
-  dInt *adjoff;
-  dEntTopology *topo;
-  dEntStatus *status;           /**< parallel status */
-  dInt *deg;                    /**< deg[3*i..3*i+2] */
-  dInt *dofspernode;            /**< number of dofs per node (0..D), always D for interior nodes */
-  dInt *cperdof;                /**< number of contrstrainst per dof */
-  dInt nents;
-  dInt ntype[4],tstart[4];
-};
-
 #define dMESHADJACENCY_HAS_CONNECTIVITY 1
 typedef struct dMeshAdjacency *dMeshAdjacency;
 struct dMeshAdjacency {
   dMeshESH set;
+  dMeshTag indexTag;
   dInt nents;
   dInt toff[5];
   dInt *adjoff,*adjind,*adjperm;
@@ -165,8 +140,8 @@ EXTERN dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],
 EXTERN dErr dJacobiPropogateDown(dJacobi,const struct dMeshAdjacency*,dInt[]);
 EXTERN dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 
-EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[]);
-EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat);
+EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],dInt,const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[],dInt[]);
+EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],dInt,const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat,Mat);
 
 PETSC_EXTERN_CXX_END
 

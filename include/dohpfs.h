@@ -18,8 +18,6 @@ PETSC_EXTERN_CXX_BEGIN
 
 typedef struct _p_dFS *dFS;
 
-typedef struct _p_dFSBoundary *dFSBoundary;
-
 /** User-provided constraint function.
 * @param ctx User context
 * @param x coordinates of node to generate constraints for (vector of length 3)
@@ -33,7 +31,16 @@ typedef struct _p_dFSBoundary *dFSBoundary;
 *   constant for each boundary type).  Rationale: setting the number of global dofs separately makes it possible for the
 *   constraint function to become out of sync with the number of global dofs.
 **/
-typedef dErr (*dFSBoundaryConstraintFunction)(void *ctx,const dReal x[],const dReal b[],dReal T[],dInt *g);
+typedef dErr (*dFSConstraintFunction)(void *ctx,const dReal x[],const dReal b[],dReal T[],dInt *g);
+
+enum { dFSBSTATUS_MASK = 0xffff }; /* Reserved for number of strongly enforced dofs */
+typedef enum {
+  dFSBSTATUS_INTERIOR  = 0,
+  dFSBSTATUS_DIRICHLET = (dFSBSTATUS_MASK+1) << 0, /* Do not represent in global space */
+  dFSBSTATUS_WEAK      = (dFSBSTATUS_MASK+1) << 1, /* A weak form must be evaluated on this element */
+} dFSBStatus;
+
+typedef enum {dFS_HOMOGENEOUS, dFS_INHOMOGENEOUS} dFSHomogeneousMode;
 
 #define dFSType char *
 
@@ -44,16 +51,20 @@ EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetBlockSize(dFS,dInt);
-EXTERN dErr dFSRegisterBoundary(dFS,dInt,dTruth,dTruth,dFSBoundaryConstraintFunction,void*);
+EXTERN dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
 EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);
 EXTERN dErr dFSCreateExpandedVector(dFS,Vec*);
 EXTERN dErr dFSCreateGlobalVector(dFS,Vec*);
-EXTERN dErr dFSGlobalToExpandedBegin(dFS,Vec,InsertMode,Vec);
-EXTERN dErr dFSGlobalToExpandedEnd(dFS,Vec,InsertMode,Vec);
+EXTERN dErr dFSCreateDirichletVector(dFS,Vec*);
+EXTERN dErr dFSGlobalToExpandedBegin(dFS,Vec,dFSHomogeneousMode,Vec);
+EXTERN dErr dFSGlobalToExpandedEnd(dFS,Vec,dFSHomogeneousMode,Vec);
 EXTERN dErr dFSExpandedToGlobal(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSExpandedToGlobalBegin(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSExpandedToGlobalEnd(dFS,Vec,InsertMode,Vec);
+EXTERN dErr dFSExpandedToDirichlet(dFS,Vec,InsertMode,Vec);
+EXTERN dErr dFSRotateLocalVector(dFS,Vec xloc,Vec save_strong,Vec correct_strong);
+EXTERN dErr dFSUnRotateLocalVector(dFS,Vec,Vec,Vec);
 EXTERN dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
@@ -61,7 +72,6 @@ EXTERN dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*res
 EXTERN dErr dFSMatSetValuesExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
 EXTERN dErr dFSGetMatrix(dFS,const MatType,Mat*);
 EXTERN dErr dFSBuildSpace(dFS);
-EXTERN dErr dFSCreateSubspace(dFS,dInt,dFSBoundary,dFS*);
 
 EXTERN dErr dFSDestroy(dFS);
 EXTERN dErr dFSView(dFS,PetscViewer);

@@ -13,8 +13,20 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
     if (mesh != qmesh) fs->quotient = 0; /* The Quotient is stale */
   }
   fs->mesh = mesh;
-  fs->active = active;
+  fs->activeSet = active;
   err = dMeshGetTag(mesh,fs->bdyTagName,&fs->bdyTag);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"boundary_status",1,dDATA_INT,&fs->bstatusTag);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"boundary_constraint",sizeof(struct dFSConstraintCtx),dDATA_BYTE,&fs->bdyConstraintTag);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"global_offset",1,dDATA_INT,&fs->goffsetTag);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"global_dirichlet_offset",1,dDATA_INT,&fs->gdoffsetTag);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"local_offset",1,dDATA_INT,&fs->loffsetTag);dCHK(err);
+  err = dMeshTagCreate(mesh,"global_closure_offset",1,dDATA_INT,&fs->gcoffsetTag);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->ownedExplicitSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->ghostExplicitSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->ownedDirichletSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->ghostDirichletSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->weakFaceSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->boundaries);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -44,14 +56,14 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
 /** Set the block size for a function space.
 *
 * @param fs function space
-* @param D block size (number of dofs per unconstrained node)
+* @param bs block size (number of dofs per node)
 **/
-dErr dFSSetBlockSize(dFS fs,dInt D)
+dErr dFSSetBlockSize(dFS fs,dInt bs)
 {
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
-  fs->D = D;
+  fs->bs = bs;
   dFunctionReturn(0);
 }
 
@@ -60,8 +72,7 @@ dErr dFSSetBlockSize(dFS fs,dInt D)
 *
 * @param fs function space object
 * @param mid Boundary ID, usually the value of the NEUMANN_SET tag
-* @param strong If true, the condition will be enforced strongly (all components removed from global system)
-* @param expanded If true, entries will be present in expanded space (so that weak forms can be evaluated)
+* @param bstat Boundary status, determines how boundary should be represented (weak, global, dirichlet)
 * @param cfunc constraint function, only makes sense if !strong, but some degrees of freedom must be removed anyway
 * @param user context for constraint function
 *
@@ -74,21 +85,27 @@ dErr dFSSetBlockSize(dFS fs,dInt D)
 * declared statically (outside of the function definition) is merely to avoid duplicating information that must be kept
 * consistent.
 **/
-dErr dFSRegisterBoundary(dFS fs,dInt mid,dTruth strong,dTruth expanded,dFSBoundaryConstraintFunction cfunc,void *user)
+dErr dFSRegisterBoundary(dFS fs,dInt mid,dFSBStatus bstat,dFSConstraintFunction cfunc,void *user)
 {
-  dFSBoundary bdy;
-  dErr err;
+  dMeshESH         bset;
+  iMesh_Instance   mi;
+  dErr             err;
+  dIInt            ierr;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
-  err = dNew(struct _p_dFSBoundary,&bdy);dCHK(err);
-  err = dMeshGetTaggedSet(fs->mesh,fs->bdyTag,&mid,&bdy->manset);dCHK(err);
-  bdy->strong = strong;
-  bdy->expanded = expanded;
-  bdy->cfunc = cfunc;
-  bdy->user = user;
-  bdy->next = fs->bdyStart;
-  fs->bdyStart = bdy;
+  err = dFSBStatusValid(bstat);dCHK(err);
+  if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(1,"Cannot impose strong conditions on more dofs than the block size");
+  err = dMeshGetTaggedSet(fs->mesh,fs->bdyTag,&mid,&bset);dCHK(err);
+  err = dMeshTagSSetData(fs->mesh,fs->bstatusTag,&bset,1,&bstat,1,dDATA_INT);dCHK(err);
+  if (cfunc) {
+    struct dFSConstraintCtx ctx;
+    ctx.cfunc = cfunc;
+    ctx.user = user;
+    err = dMeshTagSSetData(fs->mesh,fs->bdyConstraintTag,&bset,1,&ctx,sizeof(ctx),dDATA_BYTE);dCHK(err);
+  }
+  err = dMeshGetInstance(fs->mesh,&mi);dCHK(err);
+  iMesh_addEntSet(mi,bset,fs->boundaries,&ierr);dICHK(mi,ierr);
   dFunctionReturn(0);
 }
 
@@ -119,18 +136,16 @@ dErr dFSView(dFS fs,dViewer viewer)
       dInt nents[4];
       err = PetscViewerASCIIPrintf(viewer,"General information about the mesh topology.\n");dCHK(err);
       for (dEntType type=dTYPE_VERTEX; type<dTYPE_ALL; type++) {
-        err = dMeshGetNumEnts(fs->mesh,fs->active,type,dTOPO_ALL,&nents[type]);dCHK(err);
+        err = dMeshGetNumEnts(fs->mesh,fs->activeSet,type,dTOPO_ALL,&nents[type]);dCHK(err);
       }
       err = PetscViewerASCIIPrintf(viewer,"number of vertices=%d edges=%d faces=%d regions=%d\n",nents[0],nents[1],nents[2],nents[3]);dCHK(err);
     }
     {                           /* print aggregate sizes */
       PetscMPIInt gm[2],lm[2];
-      lm[0] = fs->m; lm[1] = fs->nlocal; /* set local `element' size and `local' size */
+      err = MatGetSize(fs->E,&lm[0],&lm[1]);dCHK(err);
       err = MPI_Reduce(lm,gm,2,MPI_INT,MPI_SUM,0,((dObject)fs)->comm);dCHK(err);
       err = PetscViewerASCIIPrintf(viewer,"on rank 0, %d/%d element dofs constrained against %d/%d local dofs\n",
                                    lm[0],gm[0],lm[1],gm[1]);dCHK(err);
-      err = PetscViewerASCIIPrintf(viewer,"on rank 0, %d local (%d owned,%d ghosted) out of %d global",
-                                   fs->nlocal,fs->n,fs->nlocal-fs->n,fs->N);dCHK(err);
     }
     if (fs->ops->view) {
       err = (*fs->ops->view)(fs,viewer);dCHK(err);
@@ -165,11 +180,11 @@ dErr dFSDestroy(dFS fs)
       default: dERROR(1,"Invalid status %d",w->status);
     }
   }
-  if (fs->sliced) {
-    err = SlicedDestroy(fs->sliced);dCHK(err);
-  }
-  err = MatDestroy(fs->C);dCHK(err);
-  err = MatDestroy(fs->Cp);dCHK(err);
+  if (fs->slice) {err = SlicedDestroy(fs->slice);dCHK(err);}
+  if (fs->dslice) {err = SlicedDestroy(fs->dslice);dCHK(err);}
+  err = MatDestroy(fs->E);dCHK(err);
+  err = MatDestroy(fs->Ep);dCHK(err);
+  err = MatDestroy(fs->Ed);dCHK(err);
   err = dFree3(fs->rule,fs->efs,fs->off);dCHK(err);
   err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = PetscHeaderDestroy(fs);dCHK(err);
@@ -219,7 +234,7 @@ dErr dFSCreateExpandedVector(dFS fs,Vec *x)
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(x,2);
-  err = MatGetVecs(fs->C,NULL,x);dCHK(err);
+  err = MatGetVecs(fs->E,NULL,x);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -230,11 +245,22 @@ dErr dFSCreateGlobalVector(dFS fs,Vec *g)
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(g,2);
-  err = SlicedCreateGlobalVector(fs->sliced,g);dCHK(err);
+  err = SlicedCreateGlobalVector(fs->slice,g);dCHK(err);
   dFunctionReturn(0);
 }
 
-dErr dFSGlobalToExpandedBegin(dFS dUNUSED fs,Vec g,InsertMode imode,Vec dUNUSED x)
+dErr dFSCreateDirichletVector(dFS fs,Vec *d)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidPointer(d,2);
+  err = SlicedCreateGlobalVector(fs->dslice,d);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSGlobalToExpandedBegin(dFS dUNUSED fs,Vec g,dFSHomogeneousMode dUNUSED hmode,Vec dUNUSED x)
 {
   dErr err;
 
@@ -242,11 +268,11 @@ dErr dFSGlobalToExpandedBegin(dFS dUNUSED fs,Vec g,InsertMode imode,Vec dUNUSED 
   dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(g,VEC_COOKIE,2);
   dValidHeader(x,VEC_COOKIE,4);
-  err = VecGhostUpdateBegin(g,imode,SCATTER_FORWARD);dCHK(err);
+  err = VecGhostUpdateBegin(g,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   dFunctionReturn(0);
 }
 
-dErr dFSGlobalToExpandedEnd(dFS fs,Vec g,InsertMode imode,Vec x)
+dErr dFSGlobalToExpandedEnd(dFS fs,Vec g,dFSHomogeneousMode hmode,Vec x)
 {
   Vec lform;
   dErr err;
@@ -255,22 +281,39 @@ dErr dFSGlobalToExpandedEnd(dFS fs,Vec g,InsertMode imode,Vec x)
   dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(g,VEC_COOKIE,2);
   dValidHeader(x,VEC_COOKIE,4);
-  err = VecGhostUpdateEnd(g,imode,SCATTER_FORWARD);dCHK(err);
-  err = VecGhostGetLocalForm(g,&lform);dCHK(err);
-  switch (imode) {
-    case INSERT_VALUES:
-      err = MatMult(fs->C,lform,x);dCHK(err);
+  switch (hmode) {
+    case dFS_HOMOGENEOUS:
+      err = VecZeroEntries(x);dCHK(err);
       break;
-    case ADD_VALUES:
-      err = MatMultAdd(fs->C,lform,x,x);dCHK(err);
+    case dFS_INHOMOGENEOUS:
+      err = MatMult(fs->Ed,fs->dl,x);dCHK(err);
       break;
     default:
-      dERROR(1,"InsertMode %d not supported",imode);
+      dERROR(1,"dFSHomogeneousMode %d not supported",hmode);
   }
+  err = VecGhostUpdateEnd(g,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecGhostGetLocalForm(g,&lform);dCHK(err);
+  err = MatMultAdd(fs->E,lform,x,x);dCHK(err);
   err = VecGhostRestoreLocalForm(g,&lform);dCHK(err);
   dFunctionReturn(0);
 }
 
+/** Assemble expanded vector into global form.
+*
+* @param fs Function space
+* @param x  Expanded vector
+* @param imode sum into local form or overwrite it, see note below
+* @param g  Global vector (must be a VecGhost, as obtained with dFSCreateGlobalVector()), see note 2 below
+*
+* @note \a imode is treated differently here than in most of PETSc, it never runs a scatter with INSERT_VALUES since
+* there are \e always multiple inputs mapped to the same output (at least for continuous spaces).  Instead \a imode
+* determines whether to clear the local form before assembly (INSERT_VALUES) or whether to just sum into the existing
+* vector (ADD_VALUES).
+*
+* @note Not collective!  While the name indicates that it only updates the global vector, it also updates the local
+* form.  For the collective operation which sums contributions from multiple processes, see dFSExpandedToGlobalBegin().
+*
+**/
 dErr dFSExpandedToGlobal(dFS fs,Vec x,InsertMode imode,Vec g)
 {
   Vec lform;
@@ -283,10 +326,10 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,InsertMode imode,Vec g)
   err = VecGhostGetLocalForm(g,&lform);dCHK(err);
   switch (imode) {
     case INSERT_VALUES:
-      err = MatMultTranspose(fs->C,x,lform);dCHK(err);
+      err = MatMultTranspose(fs->E,x,lform);dCHK(err);
       break;
     case ADD_VALUES:
-      err = MatMultTransposeAdd(fs->C,x,lform,lform);dCHK(err);
+      err = MatMultTransposeAdd(fs->E,x,lform,lform);dCHK(err);
       break;
     default:
       dERROR(1,"InsertMode %d not supported",imode);
@@ -295,7 +338,10 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,InsertMode imode,Vec g)
   dFunctionReturn(0);
 }
 
-/** Updates the global values, does \b not broadcast the global values back to the ghosts */
+/** Updates the global values, does \b not broadcast the global values back to the ghosts.
+*
+* Call VecGhostUpdate{Begin,End}(g,INSERT_VALUES,SCATTER_FORWARD) after this to update ghost values.
+**/
 dErr dFSExpandedToGlobalBegin(dFS fs,Vec x,InsertMode imode,Vec g)
 {
   dErr err;
@@ -318,6 +364,27 @@ dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode dUNUSED imod
   dValidHeader(x,VEC_COOKIE,2);
   dValidHeader(g,VEC_COOKIE,4);
   err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSExpandedToDirichlet(dFS fs,Vec x,InsertMode imode,Vec d)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(d,VEC_COOKIE,2);
+  dValidHeader(x,VEC_COOKIE,4);
+  switch (imode) {
+    case INSERT_VALUES:
+      err = MatMultTranspose(fs->Ed,x,d);dCHK(err);
+      break;
+    case ADD_VALUES:
+      err = MatMultTransposeAdd(fs->Ed,x,d,d);dCHK(err);
+      break;
+    default:
+      dERROR(1,"InsertMode %d not supported",imode);
+  }
   dFunctionReturn(0);
 }
 
@@ -355,10 +422,10 @@ dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt *restrict*off,s_dRule *restr
 * @param q Pointer which will hold array of quadrature points, in physical space (not just the local tensor product)
 * @param jinv Inverse of element Jacobian evaluated at quadrature points, normally just passed on to dEFSApply
 * @param jw Array to store jacobian determinant times quadrature weights at quadrature points
-* @param u first array to hold D values per quadrature point
-* @param v second array to hold D values per quadrature point
-* @param du first array to hold 3*D values per quadrature point
-* @param dv second array to hold 3*D values per quadrature point
+* @param u first array to hold \c bs values per quadrature point
+* @param v second array to hold \c bs values per quadrature point
+* @param du first array to hold \c 3*bs values per quadrature point
+* @param dv second array to hold \c 3*bs values per quadrature point
 */
 dErr dFSGetWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (*restrict*jinv)[3][3],dReal *restrict*jw,dScalar *restrict*u,dScalar *restrict*v,dScalar *restrict*du,dScalar *restrict*dv)
 {
@@ -379,11 +446,11 @@ dErr dFSGetWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (*res
   }
   Q = fs->maxQ;
   for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
-    const dInt D = fs->D;
+    const dInt bs = fs->bs;
     w = &fs->workspace[i];
     switch (w->status) {
       case 0:                   /* Not allocated */
-        err = dMallocA7(Q,&w->q,Q,&w->jinv,Q,&w->jw,Q*D,&w->u,Q*D,&w->v,Q*D*3,&w->du,Q*D*3,&w->dv);dCHK(err);
+        err = dMallocA7(Q,&w->q,Q,&w->jinv,Q,&w->jw,Q*bs,&w->u,Q*bs,&w->v,Q*bs*3,&w->du,Q*bs*3,&w->dv);dCHK(err);
         w->status = 1;
       case 1:                   /* Available */
         goto found;
@@ -450,7 +517,7 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *J)
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(J,3);
-  err = SlicedGetMatrix(fs->sliced,mtype,J);dCHK(err);
+  err = SlicedGetMatrix(fs->slice,mtype,J);dCHK(err);
   dFunctionReturn(0);dCHK(err);
 }
 
@@ -477,7 +544,7 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   dValidPointer(idxn,6);
   dValidPointer(v,7);
   err = PetscLogEventBegin(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
-  C = (fs->assemblefull) ? fs->C : fs->Cp;
+  C = (fs->assemblefull) ? fs->E : fs->Ep;
   err = MatGetRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Could not get indices");
   err = MatGetArray_SeqAIJ(C,&ca);dCHK(err);

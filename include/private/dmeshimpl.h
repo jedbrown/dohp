@@ -17,14 +17,12 @@ struct _p_dMesh {
   char *infile,*inoptions;
   iMesh_Instance mi;
   dMeshESH root,emptyset;
+  dMeshTag senseTag;
   MeshListEH v,e,f,r;           /* vertices, edges, faces, vertices */
   MeshListEH arf,afe,aev;       /* adjacencies region -> face -> edge -> vertex */
   MeshListData orf,ofe;
   MeshListReal x;
   void *data;
-  dMeshTag manifoldTag,manifoldOrientTag,senseTag;
-  dMeshManifold *manifoldList;
-  dInt nManifolds;
 };
 
 #endif

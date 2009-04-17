@@ -103,7 +103,7 @@ struct EllipCtx {
   dJacobi jac;
   dMesh mesh;
   dFS fs;
-  Vec x,y;
+  Vec d,x,y;
   dInt constBDeg,nominalRDeg;
 };
 
@@ -195,6 +195,7 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dFSSetFromOptions(fs);dCHK(err);
   elp->fs = fs;
 
+  err = dFSCreateDirichletVector(fs,&elp->d);dCHK(err);
   err = dFSCreateExpandedVector(fs,&elp->x);dCHK(err);
   err = VecDuplicate(elp->x,&elp->y);dCHK(err);
 
@@ -291,8 +292,8 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   dErr err;
 
   dFunctionBegin;
-  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
-  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
+  err = dFSGlobalToExpandedBegin(fs,gx,dFS_INHOMOGENEOUS,elp->x);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,gx,dFS_INHOMOGENEOUS,elp->x);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
   err = VecZeroEntries(elp->y);dCHK(err);
   err = VecGetArray(elp->y,&y);dCHK(err);
@@ -313,6 +314,20 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   }
   err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+#if 0
+  if (0) {
+    dMeshESH *sets;
+    dInt nsets;
+    err = dFSGetBoundarySets(fs,100,&nsets,&sets);dCHK(err);
+    for (dInt s=0; s<nsets; s++) {
+      err = dFSGetElements(fs,sets[s],&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+      for (dInt e=0; e<n; e++) {
+        // integrate weak forms over faces
+      }
+      err = dFSRestoreElements(fs,sets[s],&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+    }
+  }
+#endif
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   err = VecRestoreArray(elp->y,&y);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err); /* Necessary? */
@@ -335,8 +350,8 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   dFunctionBegin;
   err = MatShellGetContext(J,(void**)&elp);dCHK(err);
   fs = elp->fs;
-  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
-  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
+  err = dFSGlobalToExpandedBegin(fs,gx,dFS_HOMOGENEOUS,elp->x);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,gx,dFS_HOMOGENEOUS,elp->x);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
   err = VecZeroEntries(elp->y);dCHK(err);
   err = VecGetArray(elp->y,&y);dCHK(err);
@@ -456,8 +471,8 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
   dFunctionBegin;
   err = dMemzero(errorNorms,3*sizeof(errorNorms));dCHK(err);
   err = dMemzero(gerrorNorms,3*sizeof(gerrorNorms));dCHK(err);
-  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
-  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,elp->x);dCHK(err);
+  err = dFSGlobalToExpandedBegin(fs,gx,dFS_INHOMOGENEOUS,elp->x);dCHK(err);
+  err = dFSGlobalToExpandedEnd(fs,gx,dFS_INHOMOGENEOUS,elp->x);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);

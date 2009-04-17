@@ -224,30 +224,24 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],const dInt deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[])
+static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],dInt dUNUSED dsplit,
+                                             const dInt dUNUSED is[],const dInt dUNUSED deg[],const struct dMeshAdjacency *ma,
+                                             dInt nnz[],dInt pnnz[],dInt dnnz[])
 {
-  dInt i,j;
 
   dFunctionBegin;
-  for (i=0; i<nx; i++) {
-    j = xi[i];
-    if (0) {
-      switch (ma->topo[i]) {
-        case dTOPO_HEX:
-          for (dInt i0=1; i0<deg[3*j]-1; i0++) {
-          }
-          if (1  ) {          /* Conforming */
-            nnz[i] = pnnz[i] = 1;
-          } else {                /* Nonconforming */
-
-          }
-          break;
-        default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
-      }
-    } else {
-      for (j=xs[i]; j<xs[i+1]; j++) {
-        nnz[j] = pnnz[j] = 1;
-      }
+  for (dInt i=0; i<nx; i++) {
+    const dInt ei = xi[i];
+    switch (ma->topo[ei]) {
+      case dTOPO_HEX:
+        /* \todo Check whether adjacent entities are explicit or Dirichlet when determining the number of entries */
+        /* \todo Handle nonconforming elements */
+        for (dInt j=xs[i]; j<xs[i+1]; j++) {
+          nnz[j] = pnnz[j] = 1;
+          dnnz[j] = 1;
+        }
+        break;
+      default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
     }
   }
   dFunctionReturn(0);
@@ -296,18 +290,33 @@ static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2
   dFunctionReturn(0);
 }
 
-static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat C,Mat Cp)
+/** Chooses whether to insert the value in the element assembly matrices or in the Dirichlet assembly matrix */
+static dErr PrivateMatSetValue(Mat E,Mat Ep,Mat Ed,dInt dsplit,dInt row,dInt col,MatScalar v,InsertMode imode)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (col < dsplit) {
+    err = MatSetValue(E,row,col,v,imode);dCHK(err);
+    err = MatSetValue(Ep,row,col,v,imode);dCHK(err);
+  } else {
+    err = MatSetValue(Ed,row,col-dsplit,v,imode);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],dInt dsplit,const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat matE,Mat matEp,Mat matEd)
 {
   dInt elem,i,j,k,l,e[12],eP[12],v[8];
   dInt nrow,ncol,irow[10],icol[30];
-  dScalar interp[30]; /* FIXME: check bounds */
+  dScalar interp[30]; /* \todo implement nonconforming elements so that this array is actually used (instead of just the first entry)  */
   const dInt *f,*fP;
   const dInt *aI=ma->adjind,*aO=ma->adjoff,*aP=ma->adjperm;
   dErr err;
 
   dFunctionBegin;
   for (elem=0; elem<nx; elem++) {
-    const dInt ei = xi[elem]; /* Element index, \a deg and everything in \a ma is addressed by \a ei. */
+    const dInt ei = xi[elem]; /* Element index, \a is, \a deg and everything in \a ma is addressed by \a ei. */
     const dInt *d = deg+3*ei,d0 = d[0],d1 = d[1],d2 = d[2];
     const dInt scan[3] = {d1*d2,d2,1};
     switch (ma->topo[ei]) {
@@ -345,8 +354,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
         for (i=0; i<8; i++) { /* Set vertices, always conforming until we have h-nonconforming meshes */
           const dInt T[8][3] = {{0,0,0},{d0-1,0,0},{d0-1,d1-1,0},{0,d1-1,0},
                                 {0,0,d2-1},{d0-1,0,d2-1},{d0-1,d1-1,d2-1},{0,d1-1,d2-1}};
-          err = MatSetValue(C, xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
-          err = MatSetValue(Cp,xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
+          err = PrivateMatSetValue(matE,matEp,matEd,dsplit,xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
         }
         for (i=0; i<12; i++) { /* Set edges */
           const struct {dInt start[3],incd,inci,end;} E[12] = { /* How to traverse the interior of the edge in forward order */
@@ -363,8 +371,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
               case 1: icol[ncol++] = is[e[i]] - (j-(end-inci))/inci; break;  /* traverse the edge in reverse */
             }
             interp[0] = 1;
-            err = MatSetValues(C,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
-            err = MatSetValues(Cp,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
+            err = PrivateMatSetValue(matE,matEp,matEd,dsplit,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
           }
         }
         for (i=0; i<6; i++) { /* Faces */
@@ -385,8 +392,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
               err = dGeomPermQuadIndex(fP[i],faceDim,facejk,&faceIndex);dCHK(err);
               icol[ncol++] = is[f[i]] + faceIndex;
               interp[0] = 1;
-              err = MatSetValues(C, nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
-              err = MatSetValues(Cp,nrow,irow,ncol,icol,interp,INSERT_VALUES);dCHK(err);
+              err = PrivateMatSetValue(matE,matEp,matEd,dsplit,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
             }
           }
         }
@@ -397,8 +403,8 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
               irow[0] = xs[elem] + (j*d1+k)*d2+l;
               icol[0] = is[ei] + ((j-1)*(d1-2)+(k-1))*(d2-2)+(l-1);
               interp[0] = 1;
-              err = MatSetValues(C, 1,irow,1,icol,interp,INSERT_VALUES);dCHK(err);
-              err = MatSetValues(Cp,1,irow,1,icol,interp,INSERT_VALUES);dCHK(err);
+              if (icol[0] >= dsplit) dERROR(1,"Should not happen");
+              err = PrivateMatSetValue(matE,matEp,matEd,dsplit,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
             }
           }
         }

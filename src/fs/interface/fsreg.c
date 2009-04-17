@@ -8,13 +8,22 @@ static PetscFList FSList = 0;
 * These default operations are shared with the DM.  We are making a two-level inheritance since there may be different
 * dFS implementations.  Certainly both continuous and discontinuous Galerkin are desirable.
 *
-*/
+* Since we use VecGhost, the local and global vectors are really the same.  Since there is no way to get a global vector
+* from a local vector, the user cannot avoid seeing VecGhost.  We do have expanded vectors which are genuinely distinct,
+* but I'm very skeptical of the usefulness of identifying them with the "local vector" of a DM.
+**/
 static const struct _dFSOps defaultFSOps = { .view = dFSView,
                                              .createglobalvector = dFSCreateGlobalVector,
                                              .createlocalvector  = dFSCreateExpandedVector,
                                              .localtoglobal      = dFSExpandedToGlobal,
+                                             /* I think that these don't make sense with the current design.  In
+                                             * particular, there may be points in the expanded space which are not
+                                             * represented in the global vector.  In this configuration, an INSERT_MODE
+                                             * scatter is not sufficient because it is not surjective.
+                                             *
                                              .globaltolocalbegin = dFSGlobalToExpandedBegin,
                                              .globaltolocalend   = dFSGlobalToExpandedEnd,
+                                             */
                                              .getmatrix          = dFSGetMatrix,
                                              .destroy            = dFSDestroy,
                                              .impldestroy        = 0};
