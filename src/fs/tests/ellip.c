@@ -441,7 +441,7 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
               }
             }
           }
-          err = dFSMatSetValuesExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+          err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
         }
       }
     }

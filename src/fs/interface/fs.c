@@ -526,13 +526,13 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *J)
 extern PetscErrorCode MatGetArray_SeqAIJ(Mat A,PetscScalar *array[]);
 extern PetscErrorCode MatRestoreArray_SeqAIJ(Mat A,PetscScalar *array[]);
 
-dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const dInt idxn[],const dScalar v[],InsertMode imode)
+dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const dInt idxn[],const dScalar v[],InsertMode imode)
 {
   dInt lidxms[128],lidxns[128];
   dScalar lvs[1024],lvts[1024];
-  Mat C;
+  Mat E;
   dInt lm,ln,*lidxm = lidxms,*lidxn = lidxns;
-  dInt i,j,k,li,lj,row,col,cn,*ci,*cj;
+  dInt bs,i,j,li,lj,row,col,cn,*ci,*cj;
   dScalar *lv = lvs,*lvt = lvts,*ca;
   dTruth done;
   dErr err;
@@ -543,11 +543,12 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   dValidPointer(idxm,4);
   dValidPointer(idxn,6);
   dValidPointer(v,7);
+  bs = fs->bs;
   err = PetscLogEventBegin(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
-  C = (fs->assemblefull) ? fs->E : fs->Ep;
-  err = MatGetRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
+  err = MatMAIJGetAIJ(fs->assemblefull?fs->E:fs->Ep,&E);dCHK(err); /* Does not reference so do not destroy or return E */
+  err = MatGetRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Could not get indices");
-  err = MatGetArray_SeqAIJ(C,&ca);dCHK(err);
+  err = MatGetArray_SeqAIJ(E,&ca);dCHK(err);
   for (i=0,lm=0; i<m; i++) {
     /* Count the number of columns in constraint matrix for each row of input matrix, this will be the total number of
     * rows in result matrix */
@@ -561,14 +562,16 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   if (lm > 128) {err = dMallocA(lm,&lidxm);dCHK(err);}
   if (ln > 128) {err = dMallocA(ln,&lidxn);dCHK(err);}
   if (lm*ln > 1024) {err = dMallocA(lm*ln,&lv);dCHK(err);}
-  if (m*ln > 1024) {err = dMallocA(lm*n,&lv);dCHK(err);}
+  if (m*ln > 1024) {err = dMallocA(lm*n,&lvt);dCHK(err);}
 
   /* Expand columns into temporary matrix \a lvt */
   for (j=0,lj=0; j<n; j++) {         /* columns in input matrix */
     col = idxn[j];
-    for (k=ci[col]; k<ci[col+1]; k++) { /* become columns in temporary matrix */
-      for (i=0; i<m; i++) {       /* row */
-        lvt[i*ln+lj] = ca[k] * v[i*n+j];
+    for (dInt k=ci[col]; k<ci[col+1]; k++) { /* become columns in temporary matrix */
+      for (i=0; i<m*bs; i++) {       /* every scalar row */
+        for (dInt kk=0; kk<bs; kk++) {
+          lvt[(i*ln+lj)*bs+kk] = ca[k] * v[(i*n+j)*bs+kk];
+        }
       }
       lidxn[lj++] = cj[k];
     }
@@ -577,19 +580,21 @@ dErr dFSMatSetValuesExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const 
   /* Expand rows of temporary matrix \a lvt into \a lv */
   for (i=0,li=0; i<m; i++) {         /* rows of temporary matrix */
     row = idxm[i];
-    for (k=ci[row]; k<ci[row+1]; k++) {
-      for (j=0; j<ln; j++) {
-        lv[li*ln+j] = ca[k] * lvt[i*ln+j];
+    for (dInt k=ci[row]; k<ci[row+1]; k++) { /* become rows of new matrix */
+      for (dInt ii=0; ii<bs; ii++) {
+        for (j=0; j<ln*bs; j++) { /* each scalar column */
+          lv[(li*bs+ii)*ln*bs+j] = ca[k] * lvt[(i*bs+ii)*ln*bs+j];
+        }
       }
       lidxm[li++] = cj[k];
     }
     err = PetscLogFlops((ci[row+1]-ci[row])*ln);dCHK(err);
   }
 
-  err = MatRestoreArray_SeqAIJ(C,&ca);dCHK(err);
-  err = MatRestoreRowIJ(C,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
+  err = MatRestoreArray_SeqAIJ(E,&ca);dCHK(err);
+  err = MatRestoreRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Failed to return indices");
-  err = MatSetValuesLocal(A,lm,lidxm,ln,lidxn,lv,imode);dCHK(err);
+  err = MatSetValuesBlockedLocal(A,lm,lidxm,ln,lidxn,lv,imode);dCHK(err);
 
   if (lidxm != lidxms) {err = dFree(lidxm);dCHK(err);}
   if (lidxn != lidxns) {err = dFree(lidxn);dCHK(err);}

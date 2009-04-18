@@ -340,7 +340,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
               }
             }
           }
-          err = dFSMatSetValuesExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+          err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
         }
       }
     }
