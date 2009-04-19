@@ -182,6 +182,11 @@ dErr dFSDestroy(dFS fs)
   }
   if (fs->slice) {err = SlicedDestroy(fs->slice);dCHK(err);}
   if (fs->dslice) {err = SlicedDestroy(fs->dslice);dCHK(err);}
+  err = VecGhostRestoreLocalForm(fs->d,&fs->dl);dCHK(err);
+  err = VecDestroy(fs->d);dCHK(err);
+  err = VecDestroy(fs->gc);dCHK(err);
+  err = VecScatterDestroy(fs->ctod);dCHK(err);
+  err = VecScatterDestroy(fs->ctog);dCHK(err);
   err = MatDestroy(fs->E);dCHK(err);
   err = MatDestroy(fs->Ep);dCHK(err);
   err = MatDestroy(fs->Ed);dCHK(err);

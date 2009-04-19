@@ -144,7 +144,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetStatus(mesh,ma.ents,ma.nents,status);dCHK(err);
 
   /* Count the number of nodes in each space (owned, local, owned dirichlet, local dirichlet) */
-  n = ngh = ndirichlet = nghdirichlet;
+  n = ngh = ndirichlet = nghdirichlet = 0;
   for (int i=0; i<ma.nents; i++) {
     dIInt isdirichlet,isghostdirichlet,isexplicit,isghostexplicit;
     iMesh_isEntContained(mi,fs->ownedDirichletSet,ma.ents[i],&isdirichlet,&ierr);dICHK(mi,ierr);
