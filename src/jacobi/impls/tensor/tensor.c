@@ -770,7 +770,6 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
   dErr err;
 
   dFunctionBegin;
-  err = dPrintf(((PetscObject)jac)->comm,"dJacobiCreate_Tensor()\n");dCHK(err); /* diagnostic */
   err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
   err = dNew(struct s_Tensor,&jac->impl);dCHK(err);
   err = dNew(struct s_TensorRuleOptions,&ropt);dCHK(err);
