@@ -16,7 +16,10 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
+EXTERN PetscCookie dFSROT_COOKIE;
+
 typedef struct _p_dFS *dFS;
+typedef struct _p_dFSRotation *dFSRotation;
 
 /** User-provided constraint function.
 * @param ctx User context
@@ -42,6 +45,8 @@ typedef enum {
 
 typedef enum {dFS_HOMOGENEOUS, dFS_INHOMOGENEOUS} dFSHomogeneousMode;
 
+typedef enum {dFS_ROTATE_FORWARD, dFS_ROTATE_REVERSE} dFSRotateMode;
+
 #define dFSType char *
 
 #define dFSCONT "cont"
@@ -63,8 +68,10 @@ EXTERN dErr dFSExpandedToGlobal(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSExpandedToGlobalBegin(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSExpandedToGlobalEnd(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSExpandedToDirichlet(dFS,Vec,InsertMode,Vec);
-EXTERN dErr dFSRotateLocalVector(dFS,Vec xloc,Vec save_strong,Vec correct_strong);
-EXTERN dErr dFSUnRotateLocalVector(dFS,Vec,Vec,Vec);
+EXTERN dErr dFSClosureToGlobal(dFS,Vec,Vec,InsertMode,dFSHomogeneousMode);
+EXTERN dErr dFSGlobalToClosure(dFS,Vec,Vec,InsertMode,dFSHomogeneousMode);
+EXTERN dErr dFSGetClosureCoordinates(dFS,Vec*);
+EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
 EXTERN dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
@@ -80,7 +87,14 @@ EXTERN dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
 EXTERN dErr dFSRegisterAll(const char[]);
 EXTERN dErr dFSInitializePackage(const char[]);
 
+EXTERN dErr dFSRotationCreate(dFS,IS,dReal[],dInt[],Vec,dFSRotation*);
+EXTERN dErr dFSRotationDestroy(dFSRotation);
+EXTERN dErr dFSRotationView(dFSRotation,PetscViewer);
+EXTERN dErr dFSRotationApply(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
+EXTERN dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
 
+EXTERN dErr dFSSetRotation(dFS,dFSRotation);
+EXTERN dErr dFSGetRotation(dFS,dFSRotation*);
 
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
 * separate it out yet.  This macro is a rather dirty way to avoid a bunch of code duplication without much runtime cost.

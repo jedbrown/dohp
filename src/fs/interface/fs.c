@@ -388,6 +388,36 @@ dErr dFSExpandedToDirichlet(dFS fs,Vec x,InsertMode imode,Vec d)
   dFunctionReturn(0);
 }
 
+dErr dFSClosureToGlobal(dFS fs,Vec c,Vec g,InsertMode imode,dFSHomogeneousMode hmode)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(c,VEC_COOKIE,2);
+  dValidHeader(g,VEC_COOKIE,3);
+  err = VecScatterBegin(fs->ctog,c,g,imode,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterEnd(fs->ctog,c,g,imode,SCATTER_FORWARD);dCHK(err);
+  err = dFSRotationApply(fs->rot,g,hmode,dFS_ROTATE_FORWARD);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSGlobalToClosure(dFS fs,Vec g,Vec c,InsertMode imode,dFSHomogeneousMode dUNUSED hmode)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(c,VEC_COOKIE,3);
+  err = dFSRotationApply(fs->rot,g,hmode,dFS_ROTATE_REVERSE);dCHK(err);
+  err = VecScatterBegin(fs->ctog,g,c,imode,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterEnd(fs->ctog,g,c,imode,SCATTER_REVERSE);dCHK(err);
+  err = dFSRotationApply(fs->rot,g,dFS_INHOMOGENEOUS,dFS_ROTATE_FORWARD);dCHK(err);
+  /* \bug If the input vector did not satisfy the strongly imposed conditions before this, it will after */
+  dFunctionReturn(0);
+}
+
 dErr dFSGetElements(dFS fs,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
 {
 

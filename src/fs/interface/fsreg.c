@@ -2,6 +2,7 @@
 #include "private/fsimpl.h"
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
+PetscCookie dFSROT_COOKIE;
 static PetscFList FSList = 0;
 
 /**
@@ -120,6 +121,8 @@ dErr dFSInitializePackage(const char path[])
   if (initialized) dFunctionReturn(0);
   initialized = PETSC_TRUE;
   err = DMInitializePackage(path);dCHK(err);
+  err = PetscCookieRegister("dFS Rotation",&dFSROT_COOKIE);dCHK(err);
+
   err = PetscLogEventRegister("dQ1HexComputQuad",DM_COOKIE,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
   err = PetscLogEventRegister("dFSMatSetVExpand",DM_COOKIE,&dLOG_FSMatSetValuesExpanded);dCHK(err);
   err = dFSRegisterAll(path);dCHK(err);

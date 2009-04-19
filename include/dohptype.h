@@ -96,8 +96,8 @@ typedef unsigned char dEntStatus;
 #define dValidCharPointer(p,a) PetscValidCharPointer((p),(a))
 #define dValidIntPointer(p,a) PetscValidIntPointer((p),(a))
 #define dValidHandlePointer(p,a) dValidPointerNamedSpecific((p),void*,"void*",(a))
-#define dValidScalarPointer(p,a) dValidPointerNamedSpecific((p),dScalar,"dScalar",(a))
-#define dValidRealPointer(p,a) dValidPointerNamedSpecific((p),dReal,"dReal",(a))
+#define dValidScalarPointer(p,a) dValidPointerSpecific((p),"dScalar",(a))
+#define dValidRealPointer(p,a) dValidPointerSpecific((p),"dReal",(a))
 
 #define dStrlen(s,l) PetscStrlen((s),(l))
 static inline dErr dObjectGetComm(dObject obj,MPI_Comm *comm) { return PetscObjectGetComm(obj,comm); }

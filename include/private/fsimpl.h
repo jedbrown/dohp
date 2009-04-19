@@ -84,8 +84,24 @@ struct _p_dFS {
   Vec          gc;              /**< Global closure vector */
   Vec          d,dl;            /**< Global and local Dirichlet vectors */
   dInt         maxQ;
+  dFSRotation  rot;             /**< Rotation for local vector */
   s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];
   void        *data;
+};
+
+struct _dFSRotationOps {        /* We might not ever have specialized implementations of these */
+  dErr (*apply)(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
+  dErr (*applylocal)(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
+};
+
+struct _p_dFSRotation {
+  PETSCHEADER(struct _dFSRotationOps);
+  dInt   bs;                    /**< block size */
+  dInt   n;                     /**< number of blocks to rotate (size of \a is) */
+  IS     is;                    /**< which blocks to rotate */
+  dReal *rmat;                  /**< rotation matrices for the blocks in \a is */
+  dInt  *nstrong;               /**< number of dofs to enforce strongly, for each block is \a is */
+  Vec    strong;                /**< Values for all strongly enforced dofs */
 };
 
 PETSC_EXTERN_CXX_END
