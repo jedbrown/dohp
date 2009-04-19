@@ -94,17 +94,18 @@ struct EllipStore {
 
 typedef struct EllipCtx *Ellip;
 struct EllipCtx {
-  MPI_Comm comm;
-  struct EllipParam param;
-  struct EllipExact exact;
-  struct EllipExactCtx exactctx;
-  struct EllipStore *store;
-  dInt *storeoff;
-  dJacobi jac;
-  dMesh mesh;
-  dFS fs;
-  Vec d,x,y;
-  dInt constBDeg,nominalRDeg;
+  MPI_Comm              comm;
+  struct EllipParam     param;
+  struct EllipExact     exact;
+  struct EllipExactCtx  exactctx;
+  struct EllipStore    *store;
+  dInt                 *storeoff;
+  dJacobi               jac;
+  dMesh                 mesh;
+  dFS                   fs;
+  Vec                   d,x,y;
+  dInt                  constBDeg,nominalRDeg;
+  dTruth                errorview;
 };
 
 static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
@@ -147,6 +148,7 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic (p-Laplacian) options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elp->constBDeg,&elp->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elp->nominalRDeg,&elp->nominalRDeg,NULL);dCHK(err);
+    err = PetscOptionsTruth("-error_view","View errors","",elp->errorview,&elp->errorview,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_exponent","Exponent in p-Laplacian","",prm->exponent,&prm->exponent,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_epsilon","Regularization in p-Laplacian","",prm->epsilon,&prm->epsilon,NULL);dCHK(err);
     err = PetscOptionsTruth("-onlyproject","Actually just do a projection","",prm->onlyproject,&prm->onlyproject,NULL);dCHK(err);
@@ -490,9 +492,9 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
       gr[0] = du[i][0] - duu[0]; /* Gradient error at point */
       gr[1] = du[i][1] - duu[1];
       gr[2] = du[i][2] - duu[2];
-#if 1
-      printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e   exact %10.2e   error %10.e\n",e,i,q[i][0],q[i][1],q[i][2],u[i],uu[0],r[0]);
-#endif
+      if (elp->errorview) {
+        printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e   exact %10.2e   error %10.e\n",e,i,q[i][0],q[i][1],q[i][2],u[i],uu[0],r[0]);
+      }
       grsum = dDotScalar3(gr,gr);
       errorNorms[0] += dAbs(r[0]) * jw[i];               /* 1-norm */
       errorNorms[1] += dSqr(r[0]) * jw[i];               /* 2-norm */
