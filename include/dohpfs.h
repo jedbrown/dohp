@@ -70,8 +70,6 @@ EXTERN dErr dFSExpandedToGlobalEnd(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSExpandedToDirichlet(dFS,Vec,InsertMode,Vec);
 EXTERN dErr dFSClosureToGlobal(dFS,Vec,Vec,InsertMode,dFSHomogeneousMode);
 EXTERN dErr dFSGlobalToClosure(dFS,Vec,Vec,InsertMode,dFSHomogeneousMode);
-EXTERN dErr dFSGetClosureCoordinates(dFS,Vec*);
-EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
 EXTERN dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
@@ -95,6 +93,9 @@ EXTERN dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMo
 
 EXTERN dErr dFSSetRotation(dFS,dFSRotation);
 EXTERN dErr dFSGetRotation(dFS,dFSRotation*);
+
+EXTERN dErr dFSGetClosureCoordinates(dFS,Vec*);
+EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
 
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
 * separate it out yet.  This macro is a rather dirty way to avoid a bunch of code duplication without much runtime cost.
