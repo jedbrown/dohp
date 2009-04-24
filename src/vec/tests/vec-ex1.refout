@@ -1,0 +1,124 @@
+ghosts 4 4
+ghosts 1 1
+Empty vector
+Process [0]
+0
+0
+0
+0
+Process [1]
+0
+0
+0
+0
+Global unclosed form
+Process [0]
+1000
+1001
+1002
+1003
+Process [1]
+1100
+1101
+1102
+1103
+Global closed form
+Process [0]
+1000
+1001
+1002
+1003
+0
+0
+Process [1]
+1100
+1101
+1102
+1103
+0
+0
+Before VecGhostUpdateBegin/EndProcess [0]
+1000
+1001
+1002
+1003
+0
+0
+0
+0
+0
+0
+Process [1]
+1100
+1101
+1102
+1103
+0
+0
+0
+0
+0
+0
+After VecGhostUpdateBegin/EndProcess [0]
+1000
+1001
+1002
+1003
+0
+0
+1102
+1103
+1102
+1103
+Process [1]
+1100
+1101
+1102
+1103
+0
+0
+1002
+1003
+1002
+1003
+Global unclosed form of y
+Process [0]
+1000
+1001
+1002
+1003
+Process [1]
+1100
+1101
+1102
+1103
+Global closed form of y
+Process [0]
+1000
+1001
+1002
+1003
+0
+0
+Process [1]
+1100
+1101
+1102
+1103
+0
+0
+Global closed form of y, after copy of shifted closure
+Process [0]
+2000
+2001
+2002
+2003
+1000
+1000
+Process [1]
+2100
+2101
+2102
+2103
+1000
+1000

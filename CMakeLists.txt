@@ -61,7 +61,7 @@ macro (dohp_link_executable name source)
   target_link_libraries (${name} dohp)
 endmacro ()
 macro (dohp_add_test name np)
-  add_test ("${name}" "${Dohp_TestWithReference}" "${PETSC_MPIEXEC}" 2 "${CMAKE_CURRENT_SOURCE_DIR}/${name}.out" ${ARGN})
+  add_test ("${name}" "${Dohp_TestWithReference}" "${PETSC_MPIEXEC}" 2 "${CMAKE_CURRENT_SOURCE_DIR}/${name}.refout" ${ARGN})
 endmacro()
 set (Dohp_TestWithReference "${Dohp_SOURCE_DIR}/TestWithReference.sh")
 

@@ -29,6 +29,10 @@ list (APPEND Dohp_SRCS
   fs/mesh/impls/pack/pack.c
   fs/mesh/impls/serial/serial.c)
 
+# ADD_SUBDIRECTORY (fs/vec)
+list (APPEND Dohp_SRCS
+  vec/vecd.c)
+
 list (APPEND Dohp_SRCS
   util/util.c)
 
@@ -41,4 +45,5 @@ install (TARGETS dohp
 if (Dohp_BUILD_TESTS)
   add_subdirectory (fs/tests)
   add_subdirectory (jacobi/tests)
+  add_subdirectory (vec/tests)
 endif (Dohp_BUILD_TESTS)
