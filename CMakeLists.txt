@@ -55,6 +55,16 @@ mark_as_advanced (ARCHIVE_OUTPUT_DIRECTORY LIBRARY_OUTPUT_DIRECTORY RUNTIME_OUTP
 set (CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+# Convenience for testing
+macro (dohp_link_executable name source)
+  add_executable (${name} ${source})
+  target_link_libraries (${name} dohp)
+endmacro ()
+macro (dohp_add_test name np)
+  add_test ("${name}" "${Dohp_TestWithReference}" "${PETSC_MPIEXEC}" 2 "${CMAKE_CURRENT_SOURCE_DIR}/${name}.out" ${ARGN})
+endmacro()
+set (Dohp_TestWithReference "${Dohp_SOURCE_DIR}/TestWithReference.sh")
+
 add_subdirectory (include)
 add_subdirectory (src)
 
