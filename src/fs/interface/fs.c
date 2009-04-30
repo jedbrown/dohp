@@ -486,8 +486,8 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
-  dValidPointer(mtype,2);
-  dValidPointer(J,3);
+  dValidCharPointer(mtype,2);
+  dValidPointer(inJ,3);
   *inJ = 0;
   bs = fs->bs; n = fs->n;
   err = MatCreate(((dObject)fs)->comm,&J);dCHK(err);
