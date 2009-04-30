@@ -58,8 +58,6 @@ struct _p_dFS {
   dTruth       spacebuilt;
   dTruth       assemblefull;    /**< Use full order constraints for assembly */
   dInt         ruleStrength;
-  Sliced       slice;           /**< Lower level DM object, manages the global/local aspects with no additional structure */
-  Sliced       dslice;          /**< Manages the Dirichlet local/global Dirichlet vectors */
   dInt         bs;              /**< Block size (number of dofs per node) */
   dMeshEH     *ents;            /**< All entities in active set */
   dInt         nelem;
@@ -68,21 +66,19 @@ struct _p_dFS {
   s_dEFS      *efs;             /**< Element function space, defined for all entities */
   dInt        *vtxoff;
   dReal       (*vtx)[3];
+  dInt         n,nc,ngh;        /**< Vector sizes in blocks: owned, owned closure, ghosts */
   dMeshTag     goffsetTag;      /**< Offset of first node in global vector */
-  dMeshTag     gdoffsetTag;     /**< Offset of first node in global Dirichlet vector */
   dMeshTag     gcoffsetTag;     /**< Offset of first node in global closure vector */
   dMeshTag     loffsetTag;      /**< Offset of first node in local vector (split to include both real and Dirichlet vectors, based on dsplit) */
-  dMeshESH     ownedExplicitSet,ghostExplicitSet; /**< Set of all entities that should be represented explicitly */
-  dMeshESH     ownedDirichletSet,ghostDirichletSet; /**< Set of all entities that have full Dirichlet conditions (removed from global system) */
+  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first part, closure is first two, local is whole thing.
+  * The sets allow us to work with pieces. */
+  dMeshESH     explicitSet,dirichletSet,ghostSet;
   dMeshESH     weakFaceSet;     /**< Faces on which weak forms need to be evaluated (I'm not sure this is actually needed) */
-  VecScatter   ctod;            /**< Scatter from global closure (includes Dirichlet conditions) to local vectors with Dirichlet values */
-  VecScatter   ctog;            /**< Scatter from global closure to global vector */
   Mat          E;               /**< full-order element assembly matrix (element nodes to local numbering) */
   Mat          Ep;              /**< preconditioning element assembly matrix (element nodes to local numbering, as sparse as possible) */
-  Mat          Ed;              /**< element assembly matrix for Dirichlet nodes */
   Vec          weight;          /**< Vector in global space, used to compensate for overcounting after local to global */
-  Vec          gc;              /**< Global closure vector */
-  Vec          d,dl;            /**< Global and local Dirichlet vectors */
+  Vec          gvec;            /**< Global Vec, closure can be obtained with VecDohpGetClosure() */
+  ISLocalToGlobalMapping bmapping; /**< Block mapping, Dirichlet blocks have negative global index */
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */
   s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];

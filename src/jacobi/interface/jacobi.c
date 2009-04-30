@@ -499,15 +499,13 @@ dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScal
 * @param nx Number of entities in expanded vector
 * @param xi Index of expanded entity in full adjacency (length \c nx)
 * @param xs Offset in expanded vector of first node associated with each expanded entity (length \c nx+1)
-* @param dsplit Local offset beyond which \a is refers to the Dirichlet vector
 * @param is Starting index of interior nodes for each entity in \a ma
 * @param deg Basis degree for each entity in \a ma
 * @param ma MeshAdjacency object
 * @param nnz Number of nonzeros per row of element assembly matrix
 * @param pnnz Number of nonzeros per row of preconditioning element assembly matrix
-* @param dnnz Numbor of nonzeros per row of dirichlet element assembly matrix
 */
-dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],dInt dsplit,const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[],dInt dnnz[])
+dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[])
 {
   dErr err;
 
@@ -515,19 +513,18 @@ dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs
   dValidHeader(jac,dJACOBI_COOKIE,1);
   dValidPointer(xi,3);
   dValidPointer(xs,4);
-  dValidPointer(is,6);
-  dValidPointer(deg,7);
-  dValidPointer(ma,8);
-  dValidPointer(nnz,9);
-  dValidPointer(pnnz,10);
-  dValidPointer(dnnz,11);
-  err = (*jac->ops->GetConstraintCount)(jac,nx,xi,xs,dsplit,is,deg,ma,nnz,pnnz,dnnz);dCHK(err);
+  dValidPointer(is,5);
+  dValidPointer(deg,6);
+  dValidPointer(ma,7);
+  dValidPointer(nnz,8);
+  dValidPointer(pnnz,9);
+  err = (*jac->ops->GetConstraintCount)(jac,nx,xi,xs,is,deg,ma,nnz,pnnz);dCHK(err);
   dFunctionReturn(0);
 }
 
 /** Actually assemble the element assembly matrices, see dJacobiGetConstraintCount()
 */
-dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],dInt dsplit,const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat E,Mat Ep,Mat Ed)
+dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat E,Mat Ep)
 {
   dErr err;
 
@@ -535,12 +532,11 @@ dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],d
   dValidHeader(jac,dJACOBI_COOKIE,1);
   dValidPointer(xi,3);
   dValidPointer(xs,4);
-  dValidPointer(is,6);
-  dValidPointer(deg,7);
-  dValidPointer(ma,8);
-  dValidHeader(E,MAT_COOKIE,9);
-  dValidHeader(Ep,MAT_COOKIE,10);
-  dValidHeader(Ep,MAT_COOKIE,11);
-  err = (*jac->ops->AddConstraints)(jac,nx,xi,xs,dsplit,is,deg,ma,E,Ep,Ed);dCHK(err);
+  dValidPointer(is,5);
+  dValidPointer(deg,6);
+  dValidPointer(ma,7);
+  dValidHeader(E,MAT_COOKIE,8);
+  dValidHeader(Ep,MAT_COOKIE,9);
+  err = (*jac->ops->AddConstraints)(jac,nx,xi,xs,is,deg,ma,E,Ep);dCHK(err);
   dFunctionReturn(0);
 }

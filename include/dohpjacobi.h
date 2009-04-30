@@ -140,8 +140,8 @@ EXTERN dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],
 EXTERN dErr dJacobiPropogateDown(dJacobi,const struct dMeshAdjacency*,dInt[]);
 EXTERN dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 
-EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],dInt,const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[],dInt[]);
-EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],dInt,const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat,Mat);
+EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[]);
+EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat);
 
 PETSC_EXTERN_CXX_END
 

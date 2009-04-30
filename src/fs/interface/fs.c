@@ -1,4 +1,5 @@
 #include "private/fsimpl.h"
+#include "dohpvec.h"
 
 dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 {
@@ -18,13 +19,11 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   err = dMeshTagCreateTemp(mesh,"boundary_status",1,dDATA_INT,&fs->bstatusTag);dCHK(err);
   err = dMeshTagCreateTemp(mesh,"boundary_constraint",sizeof(struct dFSConstraintCtx),dDATA_BYTE,&fs->bdyConstraintTag);dCHK(err);
   err = dMeshTagCreateTemp(mesh,"global_offset",1,dDATA_INT,&fs->goffsetTag);dCHK(err);
-  err = dMeshTagCreateTemp(mesh,"global_dirichlet_offset",1,dDATA_INT,&fs->gdoffsetTag);dCHK(err);
   err = dMeshTagCreateTemp(mesh,"local_offset",1,dDATA_INT,&fs->loffsetTag);dCHK(err);
   err = dMeshTagCreate(mesh,"global_closure_offset",1,dDATA_INT,&fs->gcoffsetTag);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->ownedExplicitSet);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->ghostExplicitSet);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->ownedDirichletSet);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->ghostDirichletSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->explicitSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->dirichletSet);dCHK(err);
+  err = dMeshSetCreate(mesh,&fs->ghostSet);dCHK(err);
   err = dMeshSetCreate(mesh,&fs->weakFaceSet);dCHK(err);
   err = dMeshSetCreate(mesh,&fs->boundaries);dCHK(err);
   dFunctionReturn(0);
@@ -180,16 +179,10 @@ dErr dFSDestroy(dFS fs)
       default: dERROR(1,"Invalid status %d",w->status);
     }
   }
-  if (fs->slice) {err = SlicedDestroy(fs->slice);dCHK(err);}
-  if (fs->dslice) {err = SlicedDestroy(fs->dslice);dCHK(err);}
-  err = VecGhostRestoreLocalForm(fs->d,&fs->dl);dCHK(err);
-  err = VecDestroy(fs->d);dCHK(err);
-  err = VecDestroy(fs->gc);dCHK(err);
-  err = VecScatterDestroy(fs->ctod);dCHK(err);
-  err = VecScatterDestroy(fs->ctog);dCHK(err);
+  err = VecDestroy(fs->gvec);dCHK(err);
   err = MatDestroy(fs->E);dCHK(err);
   err = MatDestroy(fs->Ep);dCHK(err);
-  err = MatDestroy(fs->Ed);dCHK(err);
+  err = ISLocalToGlobalMappingDestroy(fs->bmapping);dCHK(err);
   err = dFree3(fs->rule,fs->efs,fs->off);dCHK(err);
   err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = PetscHeaderDestroy(fs);dCHK(err);
@@ -215,18 +208,20 @@ dErr dFSBuildSpace(dFS fs)
     err = (*fs->ops->buildspace)(fs);dCHK(err);
   }
 
-  /* Determine the number of elements in which each dof appears */
-  err = dFSCreateExpandedVector(fs,&x);dCHK(err);
-  err = dFSCreateGlobalVector(fs,&g);dCHK(err);
-  err = VecSet(x,1);dCHK(err);
-  err = VecZeroEntries(g);dCHK(err);
-  err = dFSExpandedToGlobal(fs,x,ADD_VALUES,g);dCHK(err);
-  err = VecGhostUpdateBegin(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
-  err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
-  err = VecDestroy(x);dCHK(err);
+  if (0) {
+    /* Determine the number of elements in which each dof appears */
+    err = dFSCreateExpandedVector(fs,&x);dCHK(err);
+    err = dFSCreateGlobalVector(fs,&g);dCHK(err);
+    err = VecSet(x,1);dCHK(err);
+    err = VecZeroEntries(g);dCHK(err);
+    err = dFSExpandedToLocal(fs,x,g,ADD_VALUES);dCHK(err);
+    err = VecGhostUpdateBegin(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
+    err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
+    err = VecDestroy(x);dCHK(err);
 
-  /* \todo Use g to set sparsity pattern */
-  err = VecDestroy(g);dCHK(err);
+    /* \todo Use g to set sparsity pattern */
+    err = VecDestroy(g);dCHK(err);
+  }
 
   fs->spacebuilt = dTRUE;
   dFunctionReturn(0);
@@ -250,142 +245,25 @@ dErr dFSCreateGlobalVector(dFS fs,Vec *g)
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(g,2);
-  err = SlicedCreateGlobalVector(fs->slice,g);dCHK(err);
+  /* \todo Can give away gvec if it is only referenced once */
+  err = VecDuplicate(fs->gvec,g);dCHK(err);
   dFunctionReturn(0);
 }
 
-dErr dFSCreateDirichletVector(dFS fs,Vec *d)
+dErr dFSExpandedToLocal(dFS fs,Vec x,Vec l,InsertMode imode)
 {
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidPointer(d,2);
-  err = SlicedCreateGlobalVector(fs->dslice,d);dCHK(err);
-  dFunctionReturn(0);
-}
-
-dErr dFSGlobalToExpandedBegin(dFS dUNUSED fs,Vec g,dFSHomogeneousMode dUNUSED hmode,Vec dUNUSED x)
-{
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(g,VEC_COOKIE,2);
-  dValidHeader(x,VEC_COOKIE,4);
-  err = VecGhostUpdateBegin(g,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
-  dFunctionReturn(0);
-}
-
-dErr dFSGlobalToExpandedEnd(dFS fs,Vec g,dFSHomogeneousMode hmode,Vec x)
-{
-  Vec lform;
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(g,VEC_COOKIE,2);
-  dValidHeader(x,VEC_COOKIE,4);
-  switch (hmode) {
-    case dFS_HOMOGENEOUS:
-      err = VecZeroEntries(x);dCHK(err);
-      break;
-    case dFS_INHOMOGENEOUS:
-      err = MatMult(fs->Ed,fs->dl,x);dCHK(err);
-      break;
-    default:
-      dERROR(1,"dFSHomogeneousMode %d not supported",hmode);
-  }
-  err = VecGhostUpdateEnd(g,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
-  err = VecGhostGetLocalForm(g,&lform);dCHK(err);
-  err = MatMultAdd(fs->E,lform,x,x);dCHK(err);
-  err = VecGhostRestoreLocalForm(g,&lform);dCHK(err);
-  dFunctionReturn(0);
-}
-
-/** Assemble expanded vector into global form.
-*
-* @param fs Function space
-* @param x  Expanded vector
-* @param imode sum into local form or overwrite it, see note below
-* @param g  Global vector (must be a VecGhost, as obtained with dFSCreateGlobalVector()), see note 2 below
-*
-* @note \a imode is treated differently here than in most of PETSc, it never runs a scatter with INSERT_VALUES since
-* there are \e always multiple inputs mapped to the same output (at least for continuous spaces).  Instead \a imode
-* determines whether to clear the local form before assembly (INSERT_VALUES) or whether to just sum into the existing
-* vector (ADD_VALUES).
-*
-* @note Not collective!  While the name indicates that it only updates the global vector, it also updates the local
-* form.  For the collective operation which sums contributions from multiple processes, see dFSExpandedToGlobalBegin().
-*
-**/
-dErr dFSExpandedToGlobal(dFS fs,Vec x,InsertMode imode,Vec g)
-{
-  Vec lform;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(x,VEC_COOKIE,2);
-  dValidHeader(g,VEC_COOKIE,4);
-  err = VecGhostGetLocalForm(g,&lform);dCHK(err);
+  dValidHeader(l,VEC_COOKIE,3);
   switch (imode) {
     case INSERT_VALUES:
-      err = MatMultTranspose(fs->E,x,lform);dCHK(err);
+      err = MatMultTranspose(fs->E,x,l);dCHK(err);
       break;
     case ADD_VALUES:
-      err = MatMultTransposeAdd(fs->E,x,lform,lform);dCHK(err);
-      break;
-    default:
-      dERROR(1,"InsertMode %d not supported",imode);
-  }
-  err = VecGhostRestoreLocalForm(g,&lform);dCHK(err);
-  dFunctionReturn(0);
-}
-
-/** Updates the global values, does \b not broadcast the global values back to the ghosts.
-*
-* Call VecGhostUpdate{Begin,End}(g,INSERT_VALUES,SCATTER_FORWARD) after this to update ghost values.
-**/
-dErr dFSExpandedToGlobalBegin(dFS fs,Vec x,InsertMode imode,Vec g)
-{
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(x,VEC_COOKIE,2);
-  dValidHeader(g,VEC_COOKIE,4);
-  err = dFSExpandedToGlobal(fs,x,imode,g);dCHK(err);
-  err = VecGhostUpdateBegin(g,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
-  dFunctionReturn(0);
-}
-
-dErr dFSExpandedToGlobalEnd(dFS dUNUSED fs,Vec dUNUSED x,InsertMode dUNUSED imode,Vec g)
-{
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(x,VEC_COOKIE,2);
-  dValidHeader(g,VEC_COOKIE,4);
-  err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
-  dFunctionReturn(0);
-}
-
-dErr dFSExpandedToDirichlet(dFS fs,Vec x,InsertMode imode,Vec d)
-{
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(d,VEC_COOKIE,2);
-  dValidHeader(x,VEC_COOKIE,4);
-  switch (imode) {
-    case INSERT_VALUES:
-      err = MatMultTranspose(fs->Ed,x,d);dCHK(err);
-      break;
-    case ADD_VALUES:
-      err = MatMultTransposeAdd(fs->Ed,x,d,d);dCHK(err);
+      err = MatMultTransposeAdd(fs->E,x,l,l);dCHK(err);
       break;
     default:
       dERROR(1,"InsertMode %d not supported",imode);
@@ -393,33 +271,87 @@ dErr dFSExpandedToDirichlet(dFS fs,Vec x,InsertMode imode,Vec d)
   dFunctionReturn(0);
 }
 
-dErr dFSClosureToGlobal(dFS fs,Vec c,Vec g,InsertMode imode,dFSHomogeneousMode hmode)
+dErr dFSLocalToExpanded(dFS fs,Vec l,Vec x,InsertMode imode)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(c,VEC_COOKIE,2);
-  dValidHeader(g,VEC_COOKIE,3);
-  err = VecScatterBegin(fs->ctog,c,g,imode,SCATTER_FORWARD);dCHK(err);
-  err = VecScatterEnd(fs->ctog,c,g,imode,SCATTER_FORWARD);dCHK(err);
-  err = dFSRotationApply(fs->rot,g,hmode,dFS_ROTATE_FORWARD);dCHK(err);
+  dValidHeader(l,VEC_COOKIE,2);
+  dValidHeader(x,VEC_COOKIE,3);
+  switch (imode) {
+    case INSERT_VALUES:
+      err = MatMult(fs->E,l,x);dCHK(err);
+      break;
+    case ADD_VALUES:
+      err = MatMultAdd(fs->E,l,x,x);dCHK(err);
+      break;
+    default:
+      dERROR(1,"InsertMode %d not supported",imode);
+  }
   dFunctionReturn(0);
 }
 
-dErr dFSGlobalToClosure(dFS fs,Vec g,Vec c,InsertMode imode,dFSHomogeneousMode dUNUSED hmode)
+dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode imode)
+{
+  dErr err;
+  Vec  gc,lf;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(x,VEC_COOKIE,3);
+  err = VecDohpGetClosure(g,&gc);dCHK(err);
+  if (hmode == dFS_HOMOGENEOUS) { /* \todo project into homogeneous space */ }
+  err = VecGhostUpdateBegin(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecGhostUpdateEnd(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
+  err = dFSLocalToExpanded(fs,lf,x,imode);dCHK(err);
+  err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
+  err = VecDohpRestoreClosure(g,&gc);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode imode)
+{
+  dErr err;
+  Vec  gc,lf;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(x,VEC_COOKIE,3);
+  err = VecDohpGetClosure(g,&gc);dCHK(err);
+  err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
+  err = dFSExpandedToLocal(fs,x,lf,INSERT_VALUES);dCHK(err);
+  err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
+  err = VecGhostUpdateBegin(gc,imode,SCATTER_REVERSE);dCHK(err);
+  err = VecGhostUpdateEnd(gc,imode,SCATTER_REVERSE);dCHK(err);
+  if (hmode == dFS_HOMOGENEOUS) { /* \todo project into homogeneous space */ }
+  err = VecDohpRestoreClosure(g,&gc);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** Rotate global vector to/from coordinates where components can be inforced strongly.
+*
+* \note We currently do not keep track of whether vectors are rotated or not.
+*
+* dFS_ROTATE_FORWARD: plain cartesian -> global
+* dFS_ROTATE_REVERSE: global -> cartesian
+*
+* dFS_HOMOGENEOUS
+*   with FORWARD, means do not recover cached values, enforce homogeneous conditions for these components
+*   with REVERSE, means to zero homogeneous part before rotation
+* dFS_INHOMOGENEOUS means do nothing special with strongly enforced part of rotated blocks
+**/
+dErr dFSRotateGlobal(dFS fs,Vec g,dFSRotateMode rmode,dFSHomogeneousMode hmode)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(g,VEC_COOKIE,2);
-  dValidHeader(c,VEC_COOKIE,3);
-  err = dFSRotationApply(fs->rot,g,hmode,dFS_ROTATE_REVERSE);dCHK(err);
-  err = VecScatterBegin(fs->ctog,g,c,imode,SCATTER_REVERSE);dCHK(err);
-  err = VecScatterEnd(fs->ctog,g,c,imode,SCATTER_REVERSE);dCHK(err);
-  err = dFSRotationApply(fs->rot,g,dFS_INHOMOGENEOUS,dFS_ROTATE_FORWARD);dCHK(err);
-  /* \bug If the input vector did not satisfy the strongly imposed conditions before this, it will after */
+  err = dFSRotationApply(fs->rot,g,rmode,hmode);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -545,14 +477,30 @@ dErr dFSRestoreWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (
   dFunctionReturn(0);
 }
 
-dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *J)
+dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
 {
-  dErr err;
+  Mat    J;
+  dInt   bs,n;
+  dTruth hassetbs;
+  dErr   err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
+  dValidPointer(mtype,2);
   dValidPointer(J,3);
-  err = SlicedGetMatrix(fs->slice,mtype,J);dCHK(err);
+  *inJ = 0;
+  bs = fs->bs; n = fs->n;
+  err = MatCreate(((dObject)fs)->comm,&J);dCHK(err);
+  err = MatSetSizes(J,bs*n,bs*n,PETSC_DETERMINE,PETSC_DETERMINE);dCHK(err);
+  err = MatSetType(J,mtype);dCHK(err);
+  err = MatSeqBAIJSetPreallocation(J,bs,27,NULL);dCHK(err);         /* \bug incorrect for unstructured meshes */
+  err = MatMPIBAIJSetPreallocation(J,bs,27,NULL,25,NULL);dCHK(err); /* \todo this wastes a lot of space in parallel */
+  err = MatSeqAIJSetPreallocation(J,bs*27,NULL);dCHK(err);
+  err = MatMPIAIJSetPreallocation(J,bs*27,NULL,bs*25,NULL);dCHK(err);
+  err = MatHasOperation(J,MATOP_SET_BLOCK_SIZE,&hassetbs);dCHK(err);
+  if (hassetbs) {err = MatSetBlockSize(J,bs);dCHK(err);}
+  err = MatSetLocalToGlobalMappingBlock(J,fs->bmapping);dCHK(err);
+  *inJ = J;
   dFunctionReturn(0);dCHK(err);
 }
 

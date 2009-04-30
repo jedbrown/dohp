@@ -1,4 +1,5 @@
 #include "private/fsimpl.h"
+#include "dohpvec.h"
 
 /** Get coordinates for every node in closure
 *
@@ -7,19 +8,22 @@
 **/
 dErr dFSGetClosureCoordinates(dFS fs,Vec *inx)
 {
-  dErr err;
-  dInt n,bs;
+  dErr          err;
+  dInt          n,bs;
   const VecType type;
-  Vec x;
+  Vec           gc,x;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(inx,2);
   *inx = 0;
+
   /* Poor man's duplicate with different block size */
-  err = VecGetLocalSize(fs->gc,&n);dCHK(err);
-  err = VecGetBlockSize(fs->gc,&bs);dCHK(err);
-  err = VecGetType(fs->gc,&type);dCHK(err);
+  err = VecDohpGetClosure(fs->gvec,&gc);dCHK(err);
+  err = VecGetLocalSize(gc,&n);dCHK(err);
+  err = VecGetBlockSize(gc,&bs);dCHK(err);
+  err = VecGetType(gc,&type);dCHK(err);
+  err = VecDohpRestoreClosure(fs->gvec,&gc);dCHK(err);
   err = VecCreate(((dObject)fs)->comm,&x);dCHK(err);
   err = VecSetSizes(x,3*n/bs,PETSC_DETERMINE);dCHK(err);
   err = VecSetBlockSize(x,3);dCHK(err);

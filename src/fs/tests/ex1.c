@@ -3,6 +3,7 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 #include "dohpfs.h"
 #include "dohp.h"
 #include "dohpmesh.h"
+#include "dohpvec.h"
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 
@@ -209,9 +210,8 @@ static dErr useFS(dFS fs)
   }
   err = VecRestoreArray(x,&xx);dCHK(err);
   err = VecSet(x,1.0);dCHK(err);
-  err = dFSExpandedToGlobal(fs,x,INSERT_VALUES,g);dCHK(err);
-  err = dFSGlobalToExpandedBegin(fs,g,INSERT_VALUES,y);dCHK(err);
-  err = dFSGlobalToExpandedEnd(fs,g,INSERT_VALUES,y);dCHK(err);
+  err = dFSExpandedToGlobal(fs,x,g,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSGlobalToExpanded(fs,g,y,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   {
     dScalar xsum,ysum,gsum;
     err = VecSum(x,&xsum);dCHK(err);
@@ -261,9 +261,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dErr err;
 
   dFunctionBegin;
-  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
-  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
-
+  err = dFSGlobalToExpanded(fs,gx,proj->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(proj->x,&x);dCHK(err);
   err = VecZeroEntries(proj->y);dCHK(err);
   err = VecGetArray(proj->y,&y);dCHK(err);
@@ -290,8 +288,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(proj->x,&x);dCHK(err);
   err = VecRestoreArray(proj->y,&y);dCHK(err);
-  err = dFSExpandedToGlobalBegin(fs,proj->y,INSERT_VALUES,gy);dCHK(err);
-  err = dFSExpandedToGlobalEnd(fs,proj->y,INSERT_VALUES,gy);dCHK(err);
+  err = dFSExpandedToGlobal(fs,proj->y,gy,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -309,8 +306,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
 
   dFunctionBegin;
   err = MatZeroEntries(*Jp);dCHK(err);
-  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
-  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+  err = dFSGlobalToExpanded(fs,gx,proj->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(proj->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
@@ -370,8 +366,7 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
   dFunctionBegin;
   err = dMemzero(residualNorms,3*sizeof(residualNorms));dCHK(err);
   err = dMemzero(gresidualNorms,3*sizeof(gresidualNorms));dCHK(err);
-  err = dFSGlobalToExpandedBegin(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
-  err = dFSGlobalToExpandedEnd(fs,gx,INSERT_VALUES,proj->x);dCHK(err);
+  err = dFSGlobalToExpanded(fs,gx,proj->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(proj->x,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);

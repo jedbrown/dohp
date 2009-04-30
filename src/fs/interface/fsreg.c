@@ -16,7 +16,6 @@ static PetscFList FSList = 0;
 static const struct _dFSOps defaultFSOps = { .view = dFSView,
                                              .createglobalvector = dFSCreateGlobalVector,
                                              .createlocalvector  = dFSCreateExpandedVector,
-                                             .localtoglobal      = dFSExpandedToGlobal,
                                              /* I think that these don't make sense with the current design.  In
                                              * particular, there may be points in the expanded space which are not
                                              * represented in the global vector.  In this configuration, an INSERT_MODE

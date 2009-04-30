@@ -1,5 +1,6 @@
 #include "cont.h"
 #include "dohpmesh.h"
+#include "dohpvec.h"
 
 static dErr dFSView_Cont(dFS dUNUSED fs,dViewer viewer)
 {
@@ -79,7 +80,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dEntTopology          *regTopo;
   dInt                  *inodes,*xnodes,*deg,*rdeg,nregions,*bstat,ents_a,ents_s,*intdata,*idx,*ghidx;
   dInt                  *xstart,xcnt,*regRDeg,*regBDeg;
-  dInt                   bs,n,ngh,ndirichlet,nghdirichlet,rstart,drstart,crstart,dsplit;
+  dInt                   bs,n,ngh,ndirichlet,nc,rstart,crstart;
   dIInt                  ierr;
   dMeshEH               *ents;
   dEntStatus            *status;
@@ -98,11 +99,17 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   ents_a = ma.nents;
   err = dMallocA4(ents_a,&ents,ents_a,&intdata,ents_a,&idx,ents_a,&ghidx);dCHK(err);
 
-  /* Partition entities in active set into explicitly represented and Dirichlet */
+  /* Partition entities in active set into owned explicit, owned Dirichlet, and ghost */
   {
-    dInt      nboundaries;
+    dInt      nboundaries,ghstart;
     dMeshESH *bdysets;
-    iMesh_addEntArrToSet(mi,ma.ents,ma.nents,fs->ownedExplicitSet,&ierr);dICHK(mi,ierr); /* Start with all represented explicitly, pretent they are all owned */
+    iMesh_addEntArrToSet(mi,ma.ents,ma.nents,fs->explicitSet,&ierr);dICHK(mi,ierr);
+    /* Move ghost ents from \a explicitSet to \a ghostSet */
+    iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+    err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
+    iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->explicitSet,&ierr);dICHK(mi,ierr);
+    iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->ghostSet,&ierr);dICHK(mi,ierr);
+    /* Move owned Dirichlet ents from \a explicitSet to \a dirichletSet */
     err = dMeshGetNumSubsets(mesh,fs->boundaries,1,&nboundaries);dCHK(err);
     if (!nboundaries) goto after_boundaries;
     err = dMallocA2(nboundaries,&bdysets,nboundaries,&bstat);dCHK(err);
@@ -110,12 +117,10 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = dMeshTagSGetData(mesh,fs->bstatusTag,bdysets,nboundaries,bstat,nboundaries,dDATA_INT);dCHK(err);
     for (int i=0; i<nboundaries; i++) {
       if (bstat[i] & dFSBSTATUS_DIRICHLET) {
-        dInt ghstart;
         iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-        iMesh_rmvEntArrFromSet(mi,ents,ents_s,fs->ownedExplicitSet,&ierr);dICHK(mi,ierr);
         err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-        iMesh_addEntArrToSet(mi,ents,ghstart,fs->ownedDirichletSet,&ierr);dICHK(mi,ierr);
-        iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->ghostDirichletSet,&ierr);
+        iMesh_rmvEntArrFromSet(mi,ents,ghstart,fs->explicitSet,&ierr);dICHK(mi,ierr);
+        iMesh_addEntArrToSet(mi,ents,ghstart,fs->dirichletSet,&ierr);dICHK(mi,ierr);
       }
       if (bstat[i] & dFSBSTATUS_WEAK) {
         iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_FACE,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
@@ -124,15 +129,6 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     }
   }
   after_boundaries:
-
-  /* Partition explicit entities into owned and ghost */
-  {
-    dInt ghstart;
-    iMesh_getEntitiesRec(mi,fs->ownedExplicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-    iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->ownedExplicitSet,&ierr);dICHK(mi,ierr);
-    iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->ghostExplicitSet,&ierr);dICHK(mi,ierr);
-  }
 
   /* Get number of nodes for all entities, and parallel status */
   err = dMallocA5(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&xnodes,ma.nents,&status);dCHK(err);
@@ -143,171 +139,118 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,xnodes);dCHK(err);
   err = dMeshGetStatus(mesh,ma.ents,ma.nents,status);dCHK(err);
 
-  /* Count the number of nodes in each space (owned, local, owned dirichlet, local dirichlet) */
-  n = ngh = ndirichlet = nghdirichlet = 0;
+  /* Count the number of nodes in each space (explicit, dirichlet, ghost) */
+  n = ndirichlet = ngh = 0;
   for (int i=0; i<ma.nents; i++) {
-    dIInt isdirichlet,isghostdirichlet,isexplicit,isghostexplicit;
-    iMesh_isEntContained(mi,fs->ownedDirichletSet,ma.ents[i],&isdirichlet,&ierr);dICHK(mi,ierr);
-    iMesh_isEntContained(mi,fs->ghostDirichletSet,ma.ents[i],&isghostdirichlet,&ierr);dICHK(mi,ierr);
-    iMesh_isEntContained(mi,fs->ownedExplicitSet,ma.ents[i],&isexplicit,&ierr);dICHK(mi,ierr);
-    iMesh_isEntContained(mi,fs->ghostExplicitSet,ma.ents[i],&isghostexplicit,&ierr);dICHK(mi,ierr);
-    if (!!isdirichlet + !!isghostdirichlet + !!isexplicit + !!isghostexplicit != 1) dERROR(1,"should not happen");
-    if      (isdirichlet)      ndirichlet   += inodes[i];
-    else if (isghostdirichlet) nghdirichlet += inodes[i];
-    else if (isexplicit)       n            += inodes[i];
-    else if (isghostexplicit)  ngh          += inodes[i];
+    dIInt isexplicit,isdirichlet,isghost;
+    iMesh_isEntContained(mi,fs->explicitSet,ma.ents[i],&isexplicit,&ierr);dICHK(mi,ierr);
+    iMesh_isEntContained(mi,fs->dirichletSet,ma.ents[i],&isdirichlet,&ierr);dICHK(mi,ierr);
+    iMesh_isEntContained(mi,fs->ghostSet,ma.ents[i],&isghost,&ierr);dICHK(mi,ierr);
+    if (!!isexplicit + !!isdirichlet + !!isghost != 1) dERROR(1,"should not happen");
+    if (isexplicit)       n          += inodes[i];
+    else if (isdirichlet) ndirichlet += inodes[i];
+    else if (isghost)     ngh        += inodes[i];
   }
   err = MPI_Scan(&n,&rstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
   rstart -= n;
-  err = MPI_Scan(&ndirichlet,&drstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
-  drstart -= n;
-  crstart = rstart + drstart;
+  nc = n + ndirichlet;
+  err = MPI_Scan(&nc,&crstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
+  crstart -= nc;
 
-  {                             /* Set global index of first node associated with every explicit entity */
-    dInt g = rstart,gh;
-    iMesh_getEntitiesRec(mi,fs->ownedExplicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+  fs->n = n;
+  fs->nc = nc;
+  fs->ngh = ngh;
+
+  /* \todo compute a low-bandwidth ordering of explicit entities here (instead of [v,e,f,r]) */
+
+  {                             /* Set offsets (global, closure, local) of first node associated with every entity */
+    dInt g=rstart,gc=crstart,l=0;
+    /* explicit */
+    iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
     err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {
-      intdata[i] = g;
-      g += inodes[idx[i]];
-    }
+    for (dInt i=0; i<ents_s; g+=inodes[idx[i++]]) intdata[i] = g; /* fill \a intdata with the global offset */
     if (g - rstart != n) dERROR(1,"Dohp Error: g does not agree with rstart");
     err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    iMesh_getEntitiesRec(mi,fs->ghostExplicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    for (dInt i=0; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    err = dMeshTagBcast(mesh,fs->goffsetTag);dCHK(err);
-    /* Check that all ghost entities were updated */
-    err = dMeshTagGetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {
-      if (intdata[i] < 0) dERROR(1,"Tag exchange did not work");
-    }
-    /* Set ghost indices of every node using \a ghidx */
-    gh = 0;
-    for (dInt i=0; i<ents_s; i++) {
-      for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
-    }
-    err = SlicedCreate(((dObject)fs)->comm,&fs->slice);dCHK(err);
-    err = SlicedSetGhosts(fs->slice,bs,n,gh,ghidx);dCHK(err);
-  }
-
-  {                             /* Set Dirichlet index of first node associated with every Dirichlet entity, mostly the same as above (horrible non-reuse) */
-    dInt gd = drstart,gh;
-    iMesh_getEntitiesRec(mi,fs->ownedDirichletSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {
-      intdata[i] = gd;
-      gd += inodes[idx[i]];
-    }
-    if (gd - drstart != ndirichlet) dERROR(1,"Dohp Error: gd does not agree with drstart");
-    err = dMeshTagSetData(mesh,fs->gdoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    iMesh_getEntitiesRec(mi,fs->ghostDirichletSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    for (dInt i=0; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->gdoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    err = dMeshTagBcast(mesh,fs->gdoffsetTag);dCHK(err);
-    /* Check that all ghost entities were updated */
-    err = dMeshTagGetData(mesh,fs->gdoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {
-      if (intdata[i] < 0) dERROR(1,"Tag exchange did not work");
-    }
-    /* Set ghost indices of every node using \a ghidx */
-    gh = 0;
-    for (dInt i=0; i<ents_s; i++) {
-      for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
-    }
-    err = SlicedCreate(((dObject)fs)->comm,&fs->dslice);dCHK(err);
-    err = SlicedSetGhosts(fs->dslice,bs,ndirichlet,gh,ghidx);dCHK(err);
-    /* Create Dirichlet local and global forms (these are homogeneous for now, the user will have to fill them) */
-    err = SlicedCreateGlobalVector(fs->dslice,&fs->d);dCHK(err);
-    err = VecGhostGetLocalForm(fs->d,&fs->dl);dCHK(err);
-  }
-
-  {                             /* Set global closure index of first node associated with every entity */
-    dMeshEH *et;
-    dInt et_a,et_s,gc;
-    iMesh_getEntitiesRec(mi,fs->ownedExplicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    et = ents + ents_s; et_a = ents_a - ents_s;
-    iMesh_getEntitiesRec(mi,fs->ownedDirichletSet,dTYPE_ALL,dTOPO_ALL,1,&et,&et_a,&et_s,&ierr);dICHK(mi,ierr);
-    ents_s += et_s;
-    gc = crstart;
-    for (dInt i=0; i<ents_s; i++) {
-      intdata[i] = gc;
-      gc += inodes[i];
-    }
-    if (gc - crstart != n + ndirichlet) dERROR(1,"Dohp Error: gc does not agree with crstart");
+    for (dInt i=0; i<ents_s; gc+=inodes[idx[i++]]) intdata[i] = gc; /* fill \a intdata with the closure offset */
+    if (gc - crstart != nc) dERROR(1,"Dohp Error: gc does not agree with crstart");
     err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    /* Create global closure vector */
-    err = VecCreateMPI(comm,(n+ndirichlet)*bs,PETSC_DETERMINE,&fs->gc);dCHK(err);
-    err = VecSetBlockSize(fs->gc,bs);dCHK(err);
+    for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
+    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+
+    /* dirichlet */
+    iMesh_getEntitiesRec(mi,fs->dirichletSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
+    for (dInt i=0; i<ents_s; i++) intdata[i] = -1; /* mark global offset invalid */
+    err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    for (dInt i=0; i<ents_s; gc+=inodes[idx[i++]]) intdata[i] = gc; /* fill \a intdata with closure offset */
+    err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
+    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+
+    /* ghost */
+    iMesh_getEntitiesRec(mi,fs->ghostSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
+    for (dInt i=0; i<ents_s; i++) intdata[i] = -1; /* mark global and closure offset as invalid */
+    err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
+    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    if (gc - crstart != n + ndirichlet) dERROR(1,"Dohp Error: closure count is incorrect");
+    if (l != n + ndirichlet + ngh) dERROR(1,"Dohp Error: local count is incorrect");
   }
 
-  {                             /* Set local index associated with every entity, global vector first, then Dirichlet */
-    /* It is crucial that entities are obtained in the same order as the local and Dirichlet (global plus ghosts) vectors are created. */
-    dInt li = 0;
-    /* owned explicit */
-    iMesh_getEntitiesRec(mi,fs->ownedExplicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {intdata[i] = li; li += inodes[idx[i]];}
-    if (li != n) dERROR(1,"Dohp Error: li does not agree with n");
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+  /* communicate global and closure offset for ghosts */
+  err = dMeshTagBcast(mesh,fs->goffsetTag);dCHK(err);
+  err = dMeshTagBcast(mesh,fs->gcoffsetTag);dCHK(err);
 
-    /* ghost explicit */
-    iMesh_getEntitiesRec(mi,fs->ghostExplicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {intdata[i] = li; li += inodes[idx[i]];}
-#if defined(dUSE_DEBUG)
-    {
-      Vec  gf,lf;
-      dInt nl;
-      err = SlicedCreateGlobalVector(fs->slice,&gf);dCHK(err);
-      err = VecGhostGetLocalForm(gf,&lf);dCHK(err);
-      err = VecGetSize(lf,&nl);dCHK(err);
-      err = VecGhostRestoreLocalForm(gf,&lf);dCHK(err);
-      err = VecDestroy(gf);dCHK(err);
-      if (nl != (n+ngh)*bs) dERROR(1,"should not happen");
-      if (li*bs != nl) dERROR(1,"Inconsistent sizes, should not happen");
-    }
-#endif
-    dsplit = li;
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-
-    /* owned Dirichlet */
-    iMesh_getEntitiesRec(mi,fs->ownedDirichletSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {intdata[i] = li; li += inodes[idx[i]];}
-    if (li-dsplit != ndirichlet) dERROR(1,"Inconsistent sizes, should not happen");
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-
-    /* ghost Dirichlet */
-    iMesh_getEntitiesRec(mi,fs->ghostDirichletSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) {intdata[i] = li; li += inodes[idx[i]];}
-    {                           /* just debugging */
-      dInt nl;
-      err = VecGetSize(fs->dl,&nl);dCHK(err);
-      if (nl != (ndirichlet+nghdirichlet)*bs) dERROR(1,"should not happen");
-      if ((li-dsplit)*bs != nl) dERROR(1,"Inconsistent sizes, should not happen");
-    }
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+  /* Retrieve ghost offsets, to create localupdate.  Note that \a ents still holds the ghost ents. */
+  err = dMeshTagGetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+  for (dInt i=0; i<ents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
+    if (intdata[i] < 0) dERROR(1,"Tag exchange did not work");
   }
 
+  /* Set ghost indices of every node using \a ghidx, create global vector.  Note that \a ents still holds ghosts. */
   {
-    IS from,to;
-    Vec vec;
-    /* Create global closure to global scatter (ctog) */
-    err = ISCreateStride(comm,n*bs,crstart*bs,1,&from);dCHK(err);
-    err = ISCreateStride(PETSC_COMM_SELF,n*bs,0,1,&to);dCHK(err);
-    err = SlicedCreateGlobalVector(fs->slice,&vec);dCHK(err);
-    err = VecScatterCreate(fs->gc,from,vec,to,&fs->ctog);dCHK(err);
-    err = ISDestroy(from);dCHK(err);
-    err = ISDestroy(to);dCHK(err);
-    err = VecDestroy(vec);dCHK(err);
-    /* Create global closure to Dirichlet scatter (ctod) */
-    err = ISCreateStride(comm,ndirichlet*bs,(crstart+n)*bs,1,&from);dCHK(err);
-    err = ISCreateStride(PETSC_COMM_SELF,ndirichlet*bs,0,1,&to);dCHK(err);
-    err = VecScatterCreate(fs->gc,from,fs->d,to,&fs->ctod);dCHK(err);
-    err = ISDestroy(from);dCHK(err);
-    err = ISDestroy(to);dCHK(err);
+    dInt gh=0;
+    for (dInt i=0; i<ents_s; i++) {
+      for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
+    }
+    if (gh != fs->ngh) dERROR(1,"Ghost count inconsistent");
+    err = VecCreateDohp(((dObject)fs)->comm,bs,n,nc,ngh,ghidx,&fs->gvec);dCHK(err);
+  }
+
+  /* Create block local to global mapping */
+  {
+    Vec     g,gc,lf;
+    dInt    i,*globals;
+    dScalar *a;
+    err = dFSCreateGlobalVector(fs,&g);dCHK(err);
+    err = VecDohpGetClosure(g,&gc);dCHK(err);
+    err = VecSet(gc,-1);dCHK(err);
+    err = VecSet(g,1);dCHK(err);
+    err = VecGhostUpdateBegin(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+    err = VecGhostUpdateEnd(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+    err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
+    err = dMallocA(nc+ngh,&globals);dCHK(err);
+    err = VecGetArray(lf,&a);dCHK(err);
+    /* \a a is a mask determining whether a value is represented in the global system (1) or not (-1) */
+    for (i=0; i<n; i++) {
+      if (a[i*bs] != 1) dERROR(1,"should not happen");
+      globals[i] = rstart+i;
+    }
+    for ( ; i<nc; i++) {
+      if (a[i*bs] != -1) dERROR(1,"should not happen");
+      globals[i] = -(rstart + i);
+    }
+    for ( ; i<nc+ngh; i++) {
+      globals[i] = signbit(a[i*bs]) * ghidx[i-nc];
+    }
+    err = VecRestoreArray(lf,&a);dCHK(err);
+    err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
+    err = VecDohpRestoreClosure(g,&gc);dCHK(err);
+    err = VecDestroy(g);dCHK(err);
+    err = ISLocalToGlobalMappingCreateNC(((dObject)fs)->comm,nc+ngh,globals,&fs->bmapping);dCHK(err);
+    /* Don't free \a globals because we used the no-copy variant, so the IS takes ownership. */
   }
 
   /**
@@ -350,57 +293,44 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   xstart[nregions] = xcnt;
 
   {
-    dInt *nnz,*pnnz,*dnnz;
-    Mat   E,Ep,Ed;
-    err = dMallocA3(xcnt,&nnz,xcnt,&pnnz,xcnt,&dnnz);dCHK(err);
+    dInt *nnz,*pnnz;
+    Mat   E,Ep;
+    err = dMallocA2(xcnt,&nnz,xcnt,&pnnz);dCHK(err);
     err = dMeshTagGetData(mesh,fs->loffsetTag,ma.ents,ma.nents,intdata,ma.nents,dDATA_INT);dCHK(err);
     /* To generate element assembly matrices, we need
     * \a idx the MeshAdjacency index of every region
     * \a xstart offset in expanded vector of first node associated with this region
-    * \a dsplit integer which splits \a istart into local and local Dirichlet pieces
     * \a istart offset in local vectors of first dof associated with each entity (not just regions)
-    *    let \c is=istart[e].  If \c is<dsplit then \c is is offset in local vector, if \c is>=dsplit
-    *    then \c is-dsplit is the offset in local Dirichlet vector.  The array \a istart is the generic buffer \a intdata
     * \a deg integer array of length \c 3*ma.nents which holds the degree of every entity in MeshAdjacency
     * \a ma MeshAdjacency (array-based connectivity)
     *
     * We will create matrices
     * \a E full order element assembly matrix
     * \a Ep preconditioning element assembly matrix (as sparse as possible)
-    * \a Ed Dirichlet element assembly matrix
     *
-    * These are preallocated using \a nnz, \a pnnz, \a dnnz respectively.
+    * These are preallocated using \a nnz and \a pnnz respectively.
     **/
-    err = dJacobiGetConstraintCount(fs->jacobi,nregions,idx,xstart,dsplit,intdata,deg,&ma,nnz,pnnz,dnnz);dCHK(err);
+    err = dJacobiGetConstraintCount(fs->jacobi,nregions,idx,xstart,intdata,deg,&ma,nnz,pnnz);dCHK(err);
 
     /* We don't solve systems with these so it will never make sense for them to use a different format */
     err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,n+ngh,1,nnz,&E);dCHK(err);
     err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,n+ngh,1,pnnz,&Ep);dCHK(err);
-    if (ndirichlet+nghdirichlet > 0) {
-      err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,ndirichlet+nghdirichlet,1,dnnz,&Ed);dCHK(err);
-    } else {
-      err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,0,0,NULL,&Ed);dCHK(err);
-    }
-    err = dFree3(nnz,pnnz,dnnz);dCHK(err);
+    err = dFree2(nnz,pnnz);dCHK(err);
 
-    err = dJacobiAddConstraints(fs->jacobi,nregions,idx,xstart,dsplit,intdata,deg,&ma,E,Ep,Ed);dCHK(err);
+    err = dJacobiAddConstraints(fs->jacobi,nregions,idx,xstart,intdata,deg,&ma,E,Ep);dCHK(err);
     err = dFree5(deg,rdeg,inodes,xnodes,status);dCHK(err);
     err = dMeshRestoreAdjacency(mesh,fs->activeSet,&fs->meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
 
     err = MatAssemblyBegin(E,MAT_FINAL_ASSEMBLY);dCHK(err);
     err = MatAssemblyBegin(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
-    err = MatAssemblyBegin(Ed,MAT_FINAL_ASSEMBLY);dCHK(err);
     err = MatAssemblyEnd(E,MAT_FINAL_ASSEMBLY);dCHK(err);
     err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
-    err = MatAssemblyEnd(Ed,MAT_FINAL_ASSEMBLY);dCHK(err);
 
     err = MatCreateMAIJ(E,bs,&fs->E);dCHK(err);
     err = MatCreateMAIJ(Ep,bs,&fs->Ep);dCHK(err);
-    err = MatCreateMAIJ(Ed,bs,&fs->Ed);dCHK(err);
 
     err = MatDestroy(E);dCHK(err);
     err = MatDestroy(Ep);dCHK(err);
-    err = MatDestroy(Ed);dCHK(err);
   }
 
   /* Get Rule and EFS for domain ents. */

@@ -61,15 +61,9 @@ EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);
 EXTERN dErr dFSCreateExpandedVector(dFS,Vec*);
 EXTERN dErr dFSCreateGlobalVector(dFS,Vec*);
-EXTERN dErr dFSCreateDirichletVector(dFS,Vec*);
-EXTERN dErr dFSGlobalToExpandedBegin(dFS,Vec,dFSHomogeneousMode,Vec);
-EXTERN dErr dFSGlobalToExpandedEnd(dFS,Vec,dFSHomogeneousMode,Vec);
-EXTERN dErr dFSExpandedToGlobal(dFS,Vec,InsertMode,Vec);
-EXTERN dErr dFSExpandedToGlobalBegin(dFS,Vec,InsertMode,Vec);
-EXTERN dErr dFSExpandedToGlobalEnd(dFS,Vec,InsertMode,Vec);
-EXTERN dErr dFSExpandedToDirichlet(dFS,Vec,InsertMode,Vec);
-EXTERN dErr dFSClosureToGlobal(dFS,Vec,Vec,InsertMode,dFSHomogeneousMode);
-EXTERN dErr dFSGlobalToClosure(dFS,Vec,Vec,InsertMode,dFSHomogeneousMode);
+EXTERN dErr dFSExpandedToLocal(dFS,Vec,Vec,InsertMode);
+EXTERN dErr dFSLocalToExpanded(dFS,Vec,Vec,InsertMode);
+EXTERN dErr dFSRotateGlobal(dFS,Vec,dFSRotateMode,dFSHomogeneousMode);
 EXTERN dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
@@ -84,6 +78,10 @@ EXTERN dErr dFSView(dFS,PetscViewer);
 EXTERN dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
 EXTERN dErr dFSRegisterAll(const char[]);
 EXTERN dErr dFSInitializePackage(const char[]);
+
+/* These are purely for convenience */
+EXTERN dErr dFSGlobalToExpanded(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
+EXTERN dErr dFSExpandedToGlobal(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
 
 EXTERN dErr dFSRotationCreate(dFS,IS,dReal[],dInt[],Vec,dFSRotation*);
 EXTERN dErr dFSRotationDestroy(dFSRotation);

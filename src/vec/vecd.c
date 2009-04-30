@@ -1,6 +1,22 @@
 #include "dohpvec.h"
 #include "../src/vec/vec/impls/mpi/pvecimpl.h" /* To have access to Vec_MPI (.localrep) and VecCreate_MPI_Private */
 
+static dErr VecStateSync_Private(Vec x,Vec y)
+{
+  dInt xstate,ystate;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(x,VEC_COOKIE,1);
+  dValidHeader(y,VEC_COOKIE,2);
+  err = PetscObjectStateQuery((dObject)x,&xstate);dCHK(err);
+  err = PetscObjectStateQuery((dObject)y,&ystate);dCHK(err);
+  err = PetscObjectSetState((dObject)x,dMaxInt(xstate,ystate));dCHK(err);
+  err = PetscObjectSetState((dObject)y,dMaxInt(xstate,ystate));dCHK(err);
+  dFunctionReturn(0);
+}
+
+
 /** Get the closed form of a Dohp vector
 *
 * @note Dohp vectors are basically just MPI vectors, the only difference is that instead of a local form, we have a
@@ -19,6 +35,7 @@ dErr VecDohpGetClosure(Vec v,Vec *c)
   vmpi = v->data;
   if (!vmpi->localrep) dERROR(1,"Vector has no closure");
   *c = vmpi->localrep;
+  err = VecStateSync_Private(v,*c);dCHK(err);
   err = PetscObjectReference((dObject)*c);dCHK(err);
   dFunctionReturn(0);
 }
@@ -29,6 +46,7 @@ dErr VecDohpRestoreClosure(Vec v,Vec *c)
 
   dFunctionBegin;
   if (*c != ((Vec_MPI*)v->data)->localrep) dERROR(1,"attempting to restore incorrect closure");
+  err = VecStateSync_Private(v,*c);dCHK(err);
   err = PetscObjectDereference((dObject)*c);dCHK(err);
   dFunctionReturn(0);
 }
@@ -42,7 +60,7 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
 
   dFunctionBegin;
   dValidHeader(x,VEC_COOKIE,1);
-  dValidPointer(y,2);
+  dValidPointer(iny,2);
   *iny = 0;
   err = VecDohpGetClosure(x,&xc);dCHK(err);
   err = VecDuplicate(xc,&yc);dCHK(err);

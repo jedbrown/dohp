@@ -224,9 +224,8 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],dInt dUNUSED dsplit,
-                                             const dInt dUNUSED is[],const dInt dUNUSED deg[],const struct dMeshAdjacency *ma,
-                                             dInt nnz[],dInt pnnz[],dInt dnnz[])
+static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],const dInt dUNUSED is[],
+                                             const dInt dUNUSED deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[])
 {
 
   dFunctionBegin;
@@ -238,7 +237,6 @@ static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const d
         /* \todo Handle nonconforming elements */
         for (dInt j=xs[i]; j<xs[i+1]; j++) {
           nnz[j] = pnnz[j] = 1;
-          dnnz[j] = 1;
         }
         break;
       default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
@@ -291,21 +289,17 @@ static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2
 }
 
 /** Chooses whether to insert the value in the element assembly matrices or in the Dirichlet assembly matrix */
-static dErr PrivateMatSetValue(Mat E,Mat Ep,Mat Ed,dInt dsplit,dInt row,dInt col,MatScalar v,InsertMode imode)
+static dErr PrivateMatSetValue(Mat E,Mat Ep,dInt row,dInt col,MatScalar v,InsertMode imode)
 {
   dErr err;
 
   dFunctionBegin;
-  if (col < dsplit) {
-    err = MatSetValue(E,row,col,v,imode);dCHK(err);
-    err = MatSetValue(Ep,row,col,v,imode);dCHK(err);
-  } else {
-    err = MatSetValue(Ed,row,col-dsplit,v,imode);dCHK(err);
-  }
+  err = MatSetValue(E,row,col,v,imode);dCHK(err);
+  err = MatSetValue(Ep,row,col,v,imode);dCHK(err);
   dFunctionReturn(0);
 }
 
-static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],dInt dsplit,const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat matE,Mat matEp,Mat matEd)
+static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat matE,Mat matEp)
 {
   dInt elem,i,j,k,l,e[12],eP[12],v[8];
   dInt nrow,ncol,irow[10],icol[30];
@@ -354,7 +348,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
         for (i=0; i<8; i++) { /* Set vertices, always conforming until we have h-nonconforming meshes */
           const dInt T[8][3] = {{0,0,0},{d0-1,0,0},{d0-1,d1-1,0},{0,d1-1,0},
                                 {0,0,d2-1},{d0-1,0,d2-1},{d0-1,d1-1,d2-1},{0,d1-1,d2-1}};
-          err = PrivateMatSetValue(matE,matEp,matEd,dsplit,xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
+          err = PrivateMatSetValue(matE,matEp,xs[elem]+(T[i][0]*d1+T[i][1])*d2+T[i][2],is[v[i]],1,INSERT_VALUES);dCHK(err);
         }
         for (i=0; i<12; i++) { /* Set edges */
           const struct {dInt start[3],incd,inci,end;} E[12] = { /* How to traverse the interior of the edge in forward order */
@@ -371,7 +365,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
               case 1: icol[ncol++] = is[e[i]] - (j-(end-inci))/inci; break;  /* traverse the edge in reverse */
             }
             interp[0] = 1;
-            err = PrivateMatSetValue(matE,matEp,matEd,dsplit,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
+            err = PrivateMatSetValue(matE,matEp,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
           }
         }
         for (i=0; i<6; i++) { /* Faces */
@@ -392,7 +386,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
               err = dGeomPermQuadIndex(fP[i],faceDim,facejk,&faceIndex);dCHK(err);
               icol[ncol++] = is[f[i]] + faceIndex;
               interp[0] = 1;
-              err = PrivateMatSetValue(matE,matEp,matEd,dsplit,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
+              err = PrivateMatSetValue(matE,matEp,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
             }
           }
         }
@@ -403,8 +397,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
               irow[0] = xs[elem] + (j*d1+k)*d2+l;
               icol[0] = is[ei] + ((j-1)*(d1-2)+(k-1))*(d2-2)+(l-1);
               interp[0] = 1;
-              if (icol[0] >= dsplit) dERROR(1,"Should not happen");
-              err = PrivateMatSetValue(matE,matEp,matEd,dsplit,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
+              err = PrivateMatSetValue(matE,matEp,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
             }
           }
         }

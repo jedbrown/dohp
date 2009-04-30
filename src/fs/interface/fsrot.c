@@ -1,4 +1,5 @@
-#include "private/fsimpl.h"
+#include <private/fsimpl.h>
+#include <dohpvec.h>
 
 /** Set rotation for certain nodes in a function space
 *
@@ -48,7 +49,7 @@ dErr dFSRotationCreate(dFS fs,IS is,dReal rmat[],dInt ns[],Vec v,dFSRotation *in
   dValidHeader(v,VEC_COOKIE,5);
   dValidPointer(inrot,6);
   *inrot = 0;
-  err = PetscHeaderCreate(fs,_p_dFSRotation,struct _dFSRotationOps,dFSROT_COOKIE,0,"dFSRotation",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
+  err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_COOKIE,0,"dFSRotation",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
 
   bs = rot->bs = fs->bs;
   err = ISGetSize(is,&n);dCHK(err);
@@ -103,7 +104,7 @@ dErr dFSRotationView(dFSRotation rot,PetscViewer viewer)
 dErr dFSRotationApply(dFSRotation rot,Vec g,dFSRotateMode rmode,dFSHomogeneousMode hmode)
 {
   dErr err;
-  Vec  lf;
+  Vec  gc,lf;
 
   dFunctionBegin;
   if (!rot) dFunctionReturn(0);
@@ -112,9 +113,11 @@ dErr dFSRotationApply(dFSRotation rot,Vec g,dFSRotateMode rmode,dFSHomogeneousMo
   if (rot->ops->apply) {
     err = rot->ops->apply(rot,g,rmode,hmode);dCHK(err);
   } else {
-    err = VecGhostGetLocalForm(g,&lf);dCHK(err);
-    err = dFSRotationApplyLocal(rot,lf,rmode,hmode);dCHK(err);
-    err = VecGhostRestoreLocalForm(g,&lf);dCHK(err);
+    err = VecDohpGetClosure(g,&gc);dCHK(err);
+    err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
+    err = dFSRotationApplyLocal(rot,lf,rmode,hmode);dCHK(err); /* \todo only rotate the global portion */
+    err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
+    err = VecDohpRestoreClosure(g,&gc);dCHK(err);
   }
   dFunctionReturn(0);
 }
