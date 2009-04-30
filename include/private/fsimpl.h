@@ -15,7 +15,8 @@ static inline dFSBStatus dFSBStatusSetStrongCount(dFSBStatus stat,dInt count) {
   return (stat & ~dFSBSTATUS_MASK) /* clear lower bits */ & count;
 }
 static inline dTruth dFSBStatusValid(dFSBStatus stat) {
-  return !((stat & dFSBSTATUS_DIRICHLET) && ((stat & dFSBSTATUS_WEAK) || dFSBStatusStrongCount(stat))); /* cannot be Dirichlet and anything else */
+  /* cannot be Dirichlet and anything else, note that (!a ^ !b) is (a LXOR b) */
+  return (!(stat & dFSBSTATUS_DIRICHLET) ^ !((stat & dFSBSTATUS_WEAK) || dFSBStatusStrongCount(stat)));
 }
 
 struct dFSConstraintCtx {
@@ -78,6 +79,8 @@ struct _p_dFS {
   Mat          Ep;              /**< preconditioning element assembly matrix (element nodes to local numbering, as sparse as possible) */
   Vec          weight;          /**< Vector in global space, used to compensate for overcounting after local to global */
   Vec          gvec;            /**< Global Vec, closure can be obtained with VecDohpGetClosure() */
+  Vec          dcache;          /**< All Dirichlet values, this is only a cache so that we can project a vector into the inhomogeneous space */
+  VecScatter   dscat;           /**< Scatter from global closure to \a dcache. */
   ISLocalToGlobalMapping bmapping; /**< Block mapping, Dirichlet blocks have negative global index */
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */

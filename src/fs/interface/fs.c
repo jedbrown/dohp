@@ -93,7 +93,7 @@ dErr dFSRegisterBoundary(dFS fs,dInt mid,dFSBStatus bstat,dFSConstraintFunction 
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
-  err = dFSBStatusValid(bstat);dCHK(err);
+  if (!dFSBStatusValid(bstat)) dERROR(1,"Boundary status %x invalid",bstat);
   if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(1,"Cannot impose strong conditions on more dofs than the block size");
   err = dMeshGetTaggedSet(fs->mesh,fs->bdyTag,&mid,&bset);dCHK(err);
   err = dMeshTagSSetData(fs->mesh,fs->bstatusTag,&bset,1,&bstat,1,dDATA_INT);dCHK(err);
@@ -180,6 +180,8 @@ dErr dFSDestroy(dFS fs)
     }
   }
   err = VecDestroy(fs->gvec);dCHK(err);
+  err = VecDestroy(fs->dcache);dCHK(err);
+  err = VecScatterDestroy(fs->dscat);dCHK(err);
   err = MatDestroy(fs->E);dCHK(err);
   err = MatDestroy(fs->Ep);dCHK(err);
   err = ISLocalToGlobalMappingDestroy(fs->bmapping);dCHK(err);
@@ -292,6 +294,26 @@ dErr dFSLocalToExpanded(dFS fs,Vec l,Vec x,InsertMode imode)
   dFunctionReturn(0);
 }
 
+/** Take the closure vector in natural (unrotated) coordinates and cache the Dirichlet part.
+*
+* The closure will be returned as is, in unrotated coordinates.  It should be rotated if it's values are to be given to
+* a solver component.  This function is used for setting boundary values when they are known analytically.
+*
+* \see dFSGetClosureCoordinates()
+**/
+dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(gc,VEC_COOKIE,2);
+  /* \todo rotate closure vector */
+  err = VecScatterBegin(fs->dscat,gc,fs->dcache,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterEnd  (fs->dscat,gc,fs->dcache,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  dFunctionReturn(0);
+}
+
 dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode imode)
 {
   dErr err;
@@ -302,7 +324,23 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
   dValidHeader(g,VEC_COOKIE,2);
   dValidHeader(x,VEC_COOKIE,3);
   err = VecDohpGetClosure(g,&gc);dCHK(err);
-  if (hmode == dFS_HOMOGENEOUS) { /* \todo project into homogeneous space */ }
+  switch (hmode) {
+    case dFS_HOMOGENEOUS: {     /* project into homogeneous space */
+      dInt     n,nc;
+      dScalar *a;
+      err = VecGetLocalSize(g,&n);dCHK(err);
+      err = VecGetLocalSize(gc,&nc);dCHK(err);
+      err = VecGetArray(gc,&a);dCHK(err);
+      err = dMemzero(a+n*fs->bs,(nc-n)*fs->bs*sizeof(a[0]));dCHK(err);
+      err = VecRestoreArray(gc,&a);dCHK(err);
+      /* \todo deal with rotations */
+    } break;
+    case dFS_INHOMOGENEOUS:
+      err = VecScatterBegin(fs->dscat,fs->dcache,gc,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+      err = VecScatterEnd  (fs->dscat,fs->dcache,gc,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+      break;
+    default: dERROR(1,"hmode %d unsupported",hmode);
+  }
   err = VecGhostUpdateBegin(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecGhostUpdateEnd(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecGhostGetLocalForm(gc,&lf);dCHK(err);

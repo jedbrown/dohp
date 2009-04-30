@@ -459,7 +459,7 @@ dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(set,4);
   *set = 0;
-  iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,value?(const char*const*)&value:NULL,1,1,&set,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
+  iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,value?(const char*const*)&value:NULL,1,0,&set,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
   dFunctionReturn(0);
 }
 

@@ -172,7 +172,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     if (g - rstart != n) dERROR(1,"Dohp Error: g does not agree with rstart");
     err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
     for (dInt i=0; i<ents_s; gc+=inodes[idx[i++]]) intdata[i] = gc; /* fill \a intdata with the closure offset */
-    if (gc - crstart != nc) dERROR(1,"Dohp Error: gc does not agree with crstart");
+    if (gc - crstart != n) dERROR(1,"Dohp Error: gc does not agree with crstart");
     err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
     for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
     err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
@@ -183,6 +183,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     for (dInt i=0; i<ents_s; i++) intdata[i] = -1; /* mark global offset invalid */
     err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
     for (dInt i=0; i<ents_s; gc+=inodes[idx[i++]]) intdata[i] = gc; /* fill \a intdata with closure offset */
+    if (gc - crstart != nc) dERROR(1,"Dohp Error: closure count is incorrect");
     err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
     for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
     err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
@@ -195,7 +196,6 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
     for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
     err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    if (gc - crstart != n + ndirichlet) dERROR(1,"Dohp Error: closure count is incorrect");
     if (l != n + ndirichlet + ngh) dERROR(1,"Dohp Error: local count is incorrect");
   }
 
@@ -251,6 +251,19 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = VecDestroy(g);dCHK(err);
     err = ISLocalToGlobalMappingCreateNC(((dObject)fs)->comm,nc+ngh,globals,&fs->bmapping);dCHK(err);
     /* Don't free \a globals because we used the no-copy variant, so the IS takes ownership. */
+  }
+
+  /* Create a cache for Dirichlet part of closure vector, this could be local but it doesn't cost anything to make it global */
+  {
+    IS  from;
+    Vec gc;
+    err = VecCreateMPI(((dObject)fs)->comm,bs*(nc-n),PETSC_DECIDE,&fs->dcache);dCHK(err);
+    err = ISCreateStride(((dObject)fs)->comm,bs*(nc-n),bs*(crstart+n),1,&from);dCHK(err);
+    err = VecDohpGetClosure(fs->gvec,&gc);dCHK(err);
+    err = VecScatterCreate(gc,from,fs->dcache,NULL,&fs->dscat);dCHK(err);
+    err = VecDohpRestoreClosure(fs->gvec,&gc);dCHK(err);
+    err = ISDestroy(from);dCHK(err);
+    /* \todo deal with rotations */
   }
 
   /**
@@ -313,8 +326,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = dJacobiGetConstraintCount(fs->jacobi,nregions,idx,xstart,intdata,deg,&ma,nnz,pnnz);dCHK(err);
 
     /* We don't solve systems with these so it will never make sense for them to use a different format */
-    err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,n+ngh,1,nnz,&E);dCHK(err);
-    err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,n+ngh,1,pnnz,&Ep);dCHK(err);
+    err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nc+ngh,1,nnz,&E);dCHK(err);
+    err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nc+ngh,1,pnnz,&Ep);dCHK(err);
     err = dFree2(nnz,pnnz);dCHK(err);
 
     err = dJacobiAddConstraints(fs->jacobi,nregions,idx,xstart,intdata,deg,&ma,E,Ep);dCHK(err);

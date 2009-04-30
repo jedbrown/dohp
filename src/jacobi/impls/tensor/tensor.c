@@ -288,14 +288,16 @@ static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2
   dFunctionReturn(0);
 }
 
-/** Chooses whether to insert the value in the element assembly matrices or in the Dirichlet assembly matrix */
+/** Insert the value in both the element assembly matrix and preconditioning assembly matrix */
 static dErr PrivateMatSetValue(Mat E,Mat Ep,dInt row,dInt col,MatScalar v,InsertMode imode)
 {
   dErr err;
 
   dFunctionBegin;
   err = MatSetValue(E,row,col,v,imode);dCHK(err);
-  err = MatSetValue(Ep,row,col,v,imode);dCHK(err);
+  if (E != Ep) {
+    err = MatSetValue(Ep,row,col,v,imode);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 

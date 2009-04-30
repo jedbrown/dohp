@@ -63,6 +63,7 @@ EXTERN dErr dFSCreateExpandedVector(dFS,Vec*);
 EXTERN dErr dFSCreateGlobalVector(dFS,Vec*);
 EXTERN dErr dFSExpandedToLocal(dFS,Vec,Vec,InsertMode);
 EXTERN dErr dFSLocalToExpanded(dFS,Vec,Vec,InsertMode);
+EXTERN dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc);
 EXTERN dErr dFSRotateGlobal(dFS,Vec,dFSRotateMode,dFSHomogeneousMode);
 EXTERN dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 EXTERN dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
