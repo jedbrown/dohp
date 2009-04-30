@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
     /* Create faces */
     c.a = c.s = 4*((m-1)*(n-1)*p + (m-1)*n*(p-1) + m*(n-1)*(p-1)); c.v = malloc(c.a*sizeof(iBase_EntityHandle));
     I = 0;
-    for (i=0; i<m-1; i++) {
+    for (i=0; i<m-1; i++) {     /* Faces with normal pointing in positive z direction */
       for (j=0; j<n-1; j++) {
         for (k=0; k<p; k++) {
           if (k==0) AddToFace(face,facecount,4,I/4);
@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
         }
       }
     }
-    for (i=0; i<m-1; i++) {
+    for (i=0; i<m-1; i++) {     /* Faces with normal pointing in negative y direction */
       for (j=0; j<n; j++) {
         for (k=0; k<p-1; k++) {
           if (j==0) AddToFace(face,facecount,0,I/4);
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
         }
       }
     }
-    for (i=0; i<m; i++) {
+    for (i=0; i<m; i++) {       /* Faces with normal pointing in positive x direction */
       for (j=0; j<n-1; j++) {
         for (k=0; k<p-1; k++) {
           if (i==0) AddToFace(face,facecount,3,I/4);
@@ -411,9 +411,10 @@ int main(int argc, char *argv[])
     MeshListFree(e); MeshListFree(s); MeshListFree(c);
   }
 
-  /* We are done with the master vertex record and ready to set up orientations. */
+  /* We are done with the master vertex record. */
   MeshListFree(v);
 
+  /* Create boundary sets, these are not related to geometry here */
   {
     dMeshESH wallset,topset,bottomset,senseSet;
     iBase_TagHandle bdyTag,senseTag;
@@ -429,12 +430,14 @@ int main(int argc, char *argv[])
     iMesh_addEntSet(mesh,facesets[5],topset,&err);dICHK(mesh,err);
     iMesh_addEntSet(mesh,facesets[4],bottomset,&err);dICHK(mesh,err);
 
+    /* Deal with SENSE on the walls */
     iMesh_createEntSet(mesh,0,&senseSet,&err);dICHK(mesh,err);
-    iMesh_addEntSet(mesh,facesets[0],senseSet,&err);dICHK(mesh,err);
+    iMesh_addEntSet(mesh,facesets[2],senseSet,&err);dICHK(mesh,err);
     iMesh_addEntSet(mesh,facesets[3],senseSet,&err);dICHK(mesh,err);
     iMesh_setEntSetIntData(mesh,senseSet,senseTag,-1,&err);dICHK(mesh,err);
     iMesh_addEntSet(mesh,senseSet,wallset,&err);dICHK(mesh,err);
 
+    /* Deal with SENSE on the bottom */
     iMesh_createEntSet(mesh,0,&senseSet,&err);dICHK(mesh,err);
     iMesh_addEntSet(mesh,facesets[4],senseSet,&err);dICHK(mesh,err);
     iMesh_setEntSetIntData(mesh,senseSet,senseTag,-1,&err);dICHK(mesh,err);
@@ -491,12 +494,32 @@ int main(int argc, char *argv[])
           iRel_setEntSetAssociation(assoc,rel,brick,facesets[i],&err);dIRCHK(assoc,err);
         }
       } else {
+        /* Set associations.  With the current Lasso implementation, these will not be saved */
         iRel_setEntSetAssociation(assoc,rel,gface[0],facesets[3],&err);dIRCHK(assoc,err);
         iRel_setEntSetAssociation(assoc,rel,gface[1],facesets[1],&err);dIRCHK(assoc,err);
         iRel_setEntSetAssociation(assoc,rel,gface[2],facesets[0],&err);dIRCHK(assoc,err);
         iRel_setEntSetAssociation(assoc,rel,gface[3],facesets[2],&err);dIRCHK(assoc,err);
         iRel_setEntSetAssociation(assoc,rel,gface[4],facesets[4],&err);dIRCHK(assoc,err);
         iRel_setEntSetAssociation(assoc,rel,gface[5],facesets[5],&err);dIRCHK(assoc,err);
+      }
+    }
+    {
+      dMeshTag meshGlobalIDTag,meshGeomDimTag,geomGlobalIDTag;
+      /* Manually set association tags, these are set so that the associations above can be inferred. */
+      iMesh_getTagHandle(mesh,"GLOBAL_ID",&meshGlobalIDTag,&err,sizeof "GLOBAL_ID");dICHK(mesh,err);
+      iMesh_getTagHandle(mesh,"GEOM_DIMENSION",&meshGeomDimTag,&err,sizeof "GEOM_DIMENSION");dICHK(mesh,err);
+      iGeom_getTagHandle(geom,"GLOBAL_ID",&geomGlobalIDTag,&err,sizeof "GLOBAL_ID");dIGCHK(geom,err);
+      for (i=0; i<6; i++) {
+        iBase_EntityHandle gface;
+        int gid,gdim;
+        iRel_getSetEntAssociation(assoc,rel,facesets[i],1,&gface,&err);dIRCHK(assoc,err);
+        iGeom_getEntType(geom,gface,&gdim,&err);dIGCHK(geom,err);
+        if (gdim != 2) dERROR(1,"Geometric dimension is %d, expected 2",gdim);
+        iGeom_getIntData(geom,gface,geomGlobalIDTag,&gid,&err);dIGCHK(geom,err);
+        iMesh_setEntSetIntData(mesh,facesets[i],meshGeomDimTag,2,&err);dICHK(mesh,err);
+        /* If the following line is disabled, Lasso will pick up the wrong relations, but at least they will still be with
+        * surfaces.  Wouldn't it be better to not find relations? */
+        iMesh_setEntSetIntData(mesh,facesets[i],meshGlobalIDTag,gid,&err);dICHK(mesh,err);
       }
     }
     iGeom_save(geom,outgeom,geom_save_options,&err,sizeof outgeom,sizeof geom_save_options);dIGCHK(geom,err);
