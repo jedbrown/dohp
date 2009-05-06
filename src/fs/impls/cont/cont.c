@@ -127,6 +127,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
         iMesh_addEntArrToSet(mi,ents,ents_s,fs->weakFaceSet,&ierr);dICHK(mi,ierr);
       }
     }
+    err = dFree2(bdysets,bstat);dCHK(err);
   }
   after_boundaries:
 

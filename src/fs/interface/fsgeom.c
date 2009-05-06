@@ -6,29 +6,58 @@
 * @param fs Function space
 * @param inx the new vector with block size 3 and the same number of blocks as the closure vector
 **/
-dErr dFSGetClosureCoordinates(dFS fs,Vec *inx)
+dErr dFSGetCoordinates(dFS fs,Vec *inx)
 {
   dErr          err;
-  dInt          n,bs;
-  const VecType type;
-  Vec           gc,x;
+  dInt          n,bs,*off,*geomoff;
+  Mat           E1,Ebs;
+  Vec           xc,xx,xc1,xx1;
+  dScalar      *count,*x;
+  dReal       (*qx)[3],(*geom)[3];
+  s_dEFS       *efs;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(inx,2);
   *inx = 0;
 
-  /* Poor man's duplicate with different block size */
-  err = VecDohpGetClosure(fs->gvec,&gc);dCHK(err);
-  err = VecGetLocalSize(gc,&n);dCHK(err);
-  err = VecGetBlockSize(gc,&bs);dCHK(err);
-  err = VecGetType(gc,&type);dCHK(err);
-  err = VecDohpRestoreClosure(fs->gvec,&gc);dCHK(err);
-  err = VecCreate(((dObject)fs)->comm,&x);dCHK(err);
-  err = VecSetSizes(x,3*n/bs,PETSC_DETERMINE);dCHK(err);
-  err = VecSetBlockSize(x,3);dCHK(err);
-  err = VecSetType(x,type);dCHK(err);
-  dERROR(1,"not implemented");
+  err = MatMAIJRedimension(fs->E,1,&E1);dCHK(err);
+  err = MatGetVecs(E1,&xc1,&xx1);dCHK(err);
+  err = VecSet(xx1,1);dCHK(err);
+  err = MatMultTranspose(E1,xx1,xc1);dCHK(err);
+  err = MatMult(E1,xc1,xx1);dCHK(err); /* xx1 now has the number of times each node occurs in the expanded vector */
+
+  err = MatMAIJRedimension(E1,3,&Ebs);dCHK(err);
+  err = MatGetVecs(Ebs,&xc,&xx);dCHK(err);
+
+  err = dFSGetElements(fs,&n,&off,NULL,&efs,&geomoff,&geom);dCHK(err);
+  bs = fs->bs;                  /* Offsets are given for whatever block size the FS was set up with, we need offsets with block sizes 1 and 3 */
+  err = dFSGetWorkspace(fs,__func__,&qx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = VecGetArray(xx1,&count);dCHK(err);
+  err = VecGetArray(xx,&x);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    const dScalar *counte = count + off[e]/bs;
+    dScalar       *xe     = x + 3*off[e]/bs;
+    dInt           three,P[3];
+    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,qx);dCHK(err);
+    if (three != 3) dERROR(1,"element dimension unexpected");
+    for (dInt i=0; i<P[0]*P[1]*P[2]; i++) {
+      for (dInt j=0; j<3; j++) xe[i*3+j] = qx[i][j] / counte[i];
+    }
+  }
+  err = dFSRestoreElements(fs,&n,&off,NULL,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&qx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = VecRestoreArray(xx1,&count);dCHK(err);
+  err = VecRestoreArray(xx,&x);dCHK(err);
+
+  err = MatMultTranspose(Ebs,xx,xc);dCHK(err);
+
+  err = VecDestroy(xx1);dCHK(err);
+  err = VecDestroy(xc1);dCHK(err);
+  err = VecDestroy(xx);dCHK(err);
+  err = MatDestroy(Ebs);dCHK(err);
+  err = MatDestroy(E1);dCHK(err);
+  *inx = xc;
   dFunctionReturn(0);
 }
 

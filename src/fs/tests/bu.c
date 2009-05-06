@@ -89,9 +89,12 @@ static dErr BUDestroy(BU bu)
 
   dFunctionBegin;
   err = dFSDestroy(bu->fs);dCHK(err);
+  err = dJacobiDestroy(bu->jac);dCHK(err);
+  err = dMeshDestroy(bu->mesh);dCHK(err);
   err = VecDestroy(bu->x);dCHK(err);
   err = VecDestroy(bu->y);dCHK(err);
   err = VecDestroy(bu->gx);dCHK(err);
+  err = dFree(bu);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -110,11 +113,11 @@ static dErr BUView(BU bu,PetscViewer viewer)
 
 static dErr BUAssemble(BU bu,Mat P)
 {
-  dErr err;
-  Vec gc;
+  dErr     err;
+  Vec      gc,coords;
   dScalar *g;
-  dViewer viewer = PETSC_VIEWER_STDOUT_WORLD;
-  dInt low,hi;
+  dViewer  viewer = PETSC_VIEWER_STDOUT_WORLD;
+  dInt     low,hi;
 
   dFunctionBegin;
   err = VecDohpGetClosure(bu->gx,&gc);dCHK(err);
@@ -133,6 +136,10 @@ static dErr BUAssemble(BU bu,Mat P)
   err = dFSGlobalToExpanded(bu->fs,bu->gx,bu->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Expanded vector projected into inhomogeneous space\n");dCHK(err);
   err = VecView(bu->x,viewer);dCHK(err);
+  err = dFSGetCoordinates(bu->fs,&coords);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"Serial coordinate vector (3 dofs per closure node)\n");dCHK(err);
+  err = VecView(coords,viewer);dCHK(err);
+  err = VecDestroy(coords);dCHK(err);
   err = MatAssemblyBegin(P,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd  (P,MAT_FINAL_ASSEMBLY);dCHK(err);
   dFunctionReturn(0);

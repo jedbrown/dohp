@@ -93,7 +93,7 @@ EXTERN dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMo
 EXTERN dErr dFSSetRotation(dFS,dFSRotation);
 EXTERN dErr dFSGetRotation(dFS,dFSRotation*);
 
-EXTERN dErr dFSGetClosureCoordinates(dFS,Vec*);
+EXTERN dErr dFSGetCoordinates(dFS,Vec*);
 EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
 
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
