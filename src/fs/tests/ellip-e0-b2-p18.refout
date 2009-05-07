@@ -1,0 +1,17 @@
+  0 SNES Function norm 3.178176880421e+00 
+    0 KSP Residual norm 3.758510964659e+00 
+    1 KSP Residual norm 9.314056362651e-16 
+  1 SNES Function norm 1.521565617543e-01 
+    0 KSP Residual norm 1.994655602452e-01 
+    1 KSP Residual norm 4.814133587197e-17 
+  2 SNES Function norm 9.282240955142e-04 
+    0 KSP Residual norm 1.160261666396e-03 
+    1 KSP Residual norm 2.523918178477e-19 
+  3 SNES Function norm 4.248606159251e-08 
+    0 KSP Residual norm 5.059845889641e-08 
+    1 KSP Residual norm 1.468450792022e-23 
+  4 SNES Function norm 2.619432448725e-16 
+Algebraic residual        |x|_1 9.21e-16  |x|_2 2.62e-16  |x|_inf 1.67e-16
+Interpolation residual    |x|_1 2.43e-01  |x|_2 6.74e-02  |x|_inf 3.37e-02
+Pointwise solution error  |x|_1 3.80e-01  |x|_2 2.13e-01  |x|_inf 3.03e-01
+Pointwise gradient error  |x|_1 8.22e+00  |x|_2 7.19e+00  |x|_inf 1.59e+01

@@ -1,15 +1,18 @@
 static const char help[] = "Solve a scalar elliptic problem, a regularized p-Laplacian using dual order hp elements.\n"
   "The model problem is\n"
-  "  \\int \\eta(u) Du . Dv - \\int f v\n = 0\n"
-  "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^((1-p)/2p)\n";
+  "  \\int_\\Omega (\\eta Dv \\cdot Du - f v) - \\int_\\Gamma v (\\eta Du \\cdot n) = 0\n"
+  "where\n"
+  "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^(p-2)\n"
+  "  (\\eta Du \\cdot n) = known OR function of u OR self (\"No condition\" outflow)\n\n";
 
 #include "dohpfs.h"
+#include "dohpvec.h"
 #include "petscsnes.h"
 
 
 struct EllipParam {
   dReal epsilon;
-  dReal exponent;
+  dReal p;
   dTruth onlyproject;
 };
 
@@ -31,17 +34,18 @@ static void EllipExact_0_Solution(const struct EllipExactCtx *ctx,const struct E
 }
 static void EllipExact_0_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dScalar f[1])
 {
-  const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],eps = prm->epsilon,n = prm->exponent;
+  const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],e = prm->epsilon,p = prm->p;
+  f[0] = pow(a,2)*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-2 + p))*cos(a*x)*exp(b*y)*sin(c*z) + pow(c,2)*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-2 + p))*cos(a*x)*exp(b*y)*sin(c*z) - pow(b,2)*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-2 + p))*cos(a*x)*exp(b*y)*sin(c*z) + b*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-3 + p))*(2 - p)*(pow(b,3)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y) + b*pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y) + b*pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y))*cos(a*x)*exp(b*y)*sin(c*z) - a*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-3 + p))*(2 - p)*(pow(a,3)*pow(sin(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) - a*pow(b,2)*pow(sin(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) - a*pow(c,2)*pow(cos(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x))*exp(b*y)*sin(a*x)*sin(c*z) + c*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-3 + p))*(2 - p)*(-pow(c,3)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) + c*pow(a,2)*pow(sin(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) + c*pow(b,2)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z))*cos(a*x)*cos(c*z)*exp(b*y);
+#if 0
   /** The following expression was generated with Maxima:
   * u : cos(a*x)+exp(b*y)+sin(c*z); ux : diff(u,x); uy : diff(u,y); uz : diff(u,z);
-  * gamma : 1/2 * (ux^2 + uy^2 + uz^2); eta : (eps^2 + gamma)^((1-n)/n);
+  * gamma : 1/2 * (ux^2 + uy^2 + uz^2); eta : (eps^2 + gamma)^(p-2);
   * optimize(diff(eta*ux,x) + diff(eta*uy,y) + diff(eta*uz,z));
   **/
-  const dReal t1 = a*a,t2 = a*x,t3=cos(t2),t4=dSqr(sin(t2)),t5=b*b,t6=c*c,t7=c*z,t8=dSqr(cos(t7)),
-    t9=0.5*(t6*t8+t5*exp(2*b*y)+t1*t4)+eps*eps,t10=1-n,t11=1/n,t12=t10*t11,t13=pow(t9,t12),t14=pow(t9,t12-1),
-    t15=sin(t7);
-  f[0] = -dSqr(c*c)*t10*t11*t8*t14*t15 - t6*t13*t15 + dSqr(b*b)*t12*t11*exp(3*b*y)*t14 - dSqr(a*a)*t12*t11*t3*t4*t14
-    + t5*exp(b*y)*t13 - t1*t3*t13;
+  const dReal t1=p-2,t2=a*x,t3=cos(t2),t4=dSqr(sin(t2)),t5=a*a,t6=b*b,t7=c*c,t8=c*z,t9=dSqr(cos(t8)),
+    t10=(t7*t9+t6*exp(2*b*y)+t5*t4)/2+dSqr(eps),t11=pow(t10,p-3),t12=pow(t10,t1),t13=sin(t8);
+  f[0] = -t7*t12*t13 - c*c*c*c*t1*t9*t11*t13 + t6*exp(b*y)*t12 - t5*t3*t12 + b*b*b*b*t1*exp(3*b*y)*t11 - a*a*a*a*t1*t3*t4*t11;
+#endif
 }
 
 static void EllipExact_1_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar u[1],dScalar du[3])
@@ -54,14 +58,19 @@ static void EllipExact_1_Solution(const struct EllipExactCtx *ctx,const struct E
 }
 static void EllipExact_1_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dScalar f[1])
 {
-  const dUNUSED dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],eps = prm->epsilon,n = prm->exponent;
+  const dUNUSED dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],e = prm->epsilon,p = prm->p;
   /** Maxima optimized
   * u : x^2 + y^2 + 1-z^2; ux : diff(u,x); uy : diff(u,y); uz : diff(u,z);
-  * gamma : 1/2 * (ux^2 + uy^2 + uz^2); eta : (eps^2 + gamma)^((1-n)/n);
+  * gamma : 1/2 * (ux^2 + uy^2 + uz^2); eta : (eps^2 + gamma)^(p-2);
   * optimize(diff(eta*ux,x) + diff(eta*uy,y) + diff(eta*uz,z));
+  *   (\%o38) \mathbf{block}\;\left(\left[ \mathrm{\%1},\linebreak[0]\mathrm{\%2},\linebreak[0]\mathrm{\%3},\linebreak[0]\mathrm{\%4},\linebreak[0]\mathrm{\%5},\linebreak[0]\mathrm{\%6} \right] ,\linebreak[0]\mathrm{\%1}:p-2,\linebreak[0]\mathrm{\%2}:x^{2},\linebreak[0]\mathrm{\%3}:y^{2},\linebreak[0]\mathrm{\%4}:z^{2},\linebreak[0]\mathrm{\%5}:\ifracn{4\*\mathrm{\%4}+4\*\mathrm{\%3}+4\*\mathrm{\%2}}{2}+\mathrm{eps}^{2},\linebreak[0]\mathrm{\%6}:\iexpt{\mathrm{\%5}}{p-3},\linebreak[0]2\*\mathrm{\%5}^{\mathrm{\%1}}-8\*\mathrm{\%1}\*\mathrm{\%4}\*\mathrm{\%6}+8\*\mathrm{\%1}\*\mathrm{\%3}\*\mathrm{\%6}+8\*\mathrm{\%1}\*\mathrm{\%2}\*\mathrm{\%6}\right)
   **/
-  const dReal t1=x*x,t2=y*y,t3=z*z,t4=2*(t1+t2+t3)+eps*eps,t5=1-n,t6=1/n,t7=t5*t6,t8=pow(t4,t7-1);
-  f[0] = 8*t5*t6*t8*(-t3+t2+t1) + 2*pow(t4,t7);
+#if 0
+  const dReal t1=p-2,t2=x*x,t3=y*y,t4=z*z,t5=2*(t4+t3+t2)+e*e,t6=pow(t5,p-3);
+  f[0] = -(2*pow(t5,t1) - 8*t1*t6*(t4+t3+t2));
+#else
+  f[0] = -8*pow(c,3)*pow(z,2)*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-3 + p))*(2 - p) + 8*pow(a,3)*pow(x,2)*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-3 + p))*(2 - p) + 8*pow(b,3)*pow(y,2)*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-3 + p))*(2 - p) - 2*a*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-2 + p)) - 2*b*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-2 + p)) + 2*c*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-2 + p));
+#endif
 }
 
 static void EllipExact_2_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar u[1],dScalar du[3])
@@ -72,19 +81,25 @@ static void EllipExact_2_Solution(const struct EllipExactCtx *ctx,const struct E
   du[1] = b;
   du[2] = c;
 }
-static void EllipExact_2_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dScalar f[1])
+
+static void EllipExact_2_Forcing(const struct EllipExactCtx dUNUSED *ctx,const struct EllipParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[1])
 {
-  const dUNUSED dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],eps = prm->epsilon,n = prm->exponent;
-  /** Maxima optimized
-  * u : x^2 + y^2 + 1-z^2; ux : diff(u,x); uy : diff(u,y); uz : diff(u,z);
-  * gamma : 1/2 * (ux^2 + uy^2 + uz^2); eta : (eps^2 + gamma)^((1-n)/n);
-  * optimize(diff(eta*ux,x) + diff(eta*uy,y) + diff(eta*uz,z));
-  **/
-  const dReal t1=x*x,t2=y*y,t3=z*z,t4=2*(t1+t2+t3)+eps*eps,t5=1-n,t6=1/n,t7=t5*t6,t8=pow(t4,t7-1);
-  f[0] = 8*t5*t6*t8*(-t3+t2+t1) + 2*pow(t4,t7);
-  f[0] = 10*x+y;                /* DEBUG */
-  f[0] = x+y;
-  //f[0] = sin(PETSC_PI*x) + sin(PETSC_PI*y);
+  f[0] = 0;
+}
+
+static void EllipExact_3_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar u[1],dScalar du[3])
+{
+  const dReal x = xyz[0],y = xyz[1],z = xyz[2],a = ctx->a,b = ctx->b,c = ctx->c;
+  u[0] = a*x*x*x + b*y*y*z + c*(1-z*z)*x;
+  du[0] = 3*a*x*x + c*(1-z*z);
+  du[1] = 2*b*y*z;
+  du[2] = b*y*y - 2*c*z*x;
+}
+
+static void EllipExact_3_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dScalar f[1])
+{
+  const dUNUSED dReal x = xyz[0],y = xyz[1],z = xyz[2],a = ctx->a,b = ctx->b,c = ctx->c,e = prm->epsilon,p = prm->p;
+  f[0] = pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-3 + p))*(2 - p)*(-2*c*x*z + b*pow(y,2))*(-2*c*x*(-2*c*x*z + b*pow(y,2)) - 2*c*z*(c*(1 - pow(z,2)) + 3*a*pow(x,2)) + 4*z*pow(b,2)*pow(y,2)) + pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-3 + p))*(2 - p)*(c*(1 - pow(z,2)) + 3*a*pow(x,2))*(-2*c*z*(-2*c*x*z + b*pow(y,2)) + 6*a*x*(c*(1 - pow(z,2)) + 3*a*pow(x,2))) + 2*b*y*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-3 + p))*(2 - p)*(2*b*y*(-2*c*x*z + b*pow(y,2)) + 4*y*pow(b,2)*pow(z,2)) - 6*a*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p)) - 2*b*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p)) + 2*c*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p));
 }
 
 struct EllipStore {
@@ -123,8 +138,8 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   elp->nominalRDeg = 0;
 
   prm = &elp->param;
-  prm->exponent = 1.0;
-  prm->epsilon  = 1.0;
+  prm->p           = 2.0;       /* p in p-Laplacian */
+  prm->epsilon     = 1.0;
   prm->onlyproject = dFALSE;
 
   *ellip = elp;
@@ -149,7 +164,7 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elp->constBDeg,&elp->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elp->nominalRDeg,&elp->nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsTruth("-error_view","View errors","",elp->errorview,&elp->errorview,NULL);dCHK(err);
-    err = PetscOptionsReal("-ellip_exponent","Exponent in p-Laplacian","",prm->exponent,&prm->exponent,NULL);dCHK(err);
+    err = PetscOptionsReal("-ellip_p","p in p-Laplacian","",prm->p,&prm->p,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_epsilon","Regularization in p-Laplacian","",prm->epsilon,&prm->epsilon,NULL);dCHK(err);
     err = PetscOptionsTruth("-onlyproject","Actually just do a projection","",prm->onlyproject,&prm->onlyproject,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
@@ -170,6 +185,10 @@ static dErr EllipSetFromOptions(Ellip elp)
     case 2:
       elp->exact.solution = EllipExact_2_Solution;
       elp->exact.forcing = EllipExact_2_Forcing;
+      break;
+    case 3:
+      elp->exact.solution = EllipExact_3_Solution;
+      elp->exact.forcing = EllipExact_3_Forcing;
       break;
     default: dERROR(1,"Exact solution %d not implemented");
   }
@@ -194,6 +213,9 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dFSSetMesh(fs,mesh,0);dCHK(err);
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
+  err = dFSRegisterBoundary(fs,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  err = dFSRegisterBoundary(fs,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  err = dFSRegisterBoundary(fs,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
   elp->fs = fs;
 
@@ -237,12 +259,11 @@ static dErr EllipDestroy(Ellip elp)
 
 static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal dUNUSED x[3],const dScalar dUNUSED u[1],const dScalar Du[3],struct EllipStore *st)
 {
-  dReal gamma,espg,power;
+  dReal gamma,espg,p=prm->p;
   gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
   espg = dSqr(prm->epsilon) + gamma;
-  power = (1-prm->exponent)/(2*prm->exponent);
-  st->eta = pow(espg,power);
-  st->deta = power * st->eta / espg;
+  st->eta = pow(espg,p-2);
+  st->deta = (p-2) * st->eta / espg;
   st->Du[0] = Du[0]; st->Du[1] = Du[1]; st->Du[2] = Du[2];
 }
 
@@ -452,13 +473,13 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   dFunctionReturn(0);
 }
 
-static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3],dReal *shift)
+static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3])
 {
   dFS fs = elp->fs;
   dInt n,*off,*geomoff;
   s_dRule *rule;
   s_dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw,newShift = 0;
+  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
   dScalar *x,*u,(*du)[3];
   dErr err;
 
@@ -478,8 +499,7 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
     for (dInt i=0; i<Q; i++) {
       dScalar uu[1],duu[3],r[1],gr[3],grsum;             /* Scalar problem */
       elp->exact.solution(&elp->exactctx,&elp->param,q[i],uu,duu);
-      r[0] = u[i] - *shift - uu[0];   /* Function error at point */
-      newShift += r[0]/Q;
+      r[0] = u[i] - uu[0];   /* Function error at point */
       gr[0] = du[i][0] - duu[0]; /* Gradient error at point */
       gr[1] = du[i][1] - duu[1];
       gr[2] = du[i][2] - duu[2];
@@ -510,7 +530,34 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   errorNorms[1] = dSqrt(errorNorms[1]);
   gerrorNorms[1] = dSqrt(gerrorNorms[1]);
-  *shift += newShift;
+  dFunctionReturn(0);
+}
+
+static dErr EllipGetSolutionVector(Ellip elp,Vec *insoln)
+{
+  dErr err;
+  Vec soln,xc,cvec;
+  dScalar *x,*coords;
+  dInt n,bs;
+
+  dFunctionBegin;
+  *insoln = 0;
+  err = dFSCreateGlobalVector(elp->fs,&soln);dCHK(err);
+  err = VecDohpGetClosure(soln,&xc);dCHK(err);
+  err = dFSGetCoordinates(elp->fs,&cvec);dCHK(err);
+  err = VecGetLocalSize(xc,&n);dCHK(err);
+  err = VecGetBlockSize(xc,&bs);dCHK(err);
+  err = VecGetArray(xc,&x);dCHK(err);
+  err = VecGetArray(cvec,&coords);dCHK(err);
+  for (dInt i=0; i<n/bs; i++) {
+    dScalar du_unused[3*bs];
+    elp->exact.solution(&elp->exactctx,&elp->param,&coords[3*i],&x[i*bs],du_unused);
+  }
+  err = VecRestoreArray(xc,&x);dCHK(err);
+  err = VecRestoreArray(cvec,&coords);dCHK(err);
+  err = VecDestroy(cvec);dCHK(err);
+  err = VecDohpRestoreClosure(soln,&xc);dCHK(err);
+  *insoln = soln;
   dFunctionReturn(0);
 }
 
@@ -521,7 +568,7 @@ int main(int argc,char *argv[])
   MPI_Comm comm;
   PetscViewer viewer;
   Mat J,Jp;
-  Vec r,x;
+  Vec r,x,soln;
   SNES snes;
   dTruth nojshell,nocheck;
   dErr err;
@@ -561,33 +608,37 @@ int main(int argc,char *argv[])
   err = SNESSetJacobian(snes,J,Jp,EllipJacobian,elp);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-10,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
-  err = VecDuplicate(r,&x);dCHK(err);
-  err = VecZeroEntries(x);dCHK(err);
   err = VecZeroEntries(r);dCHK(err);
+  err = VecDuplicate(r,&x);dCHK(err);
+  err = EllipGetSolutionVector(elp,&soln);dCHK(err);
+  {
+    Vec sc;
+    err = VecDohpGetClosure(soln,&sc);dCHK(err);
+    err = dFSInhomogeneousDirichletCommit(elp->fs,sc);dCHK(err);
+    err = VecDohpRestoreClosure(soln,&sc);dCHK(err);
+  }
+  err = VecZeroEntries(x);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err);
   if (!nocheck) {
-    dReal anorm[2],anorminf,enorm[3],gnorm[3],shift = 0;
-    err = EllipErrorNorms(elp,x,enorm,gnorm,&shift);dCHK(err);
+    dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3];
+    err = EllipErrorNorms(elp,x,enorm,gnorm);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
-    err = dPrintf(comm,"Shift %10.2e\n",shift);dCHK(err);
+    err = VecWAXPY(r,-1,soln,x);dCHK(err);
+    err = VecNorm(r,NORM_1_AND_2,inorm);dCHK(err);
+    err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
     err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
-    err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
-    err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
-    err = EllipErrorNorms(elp,x,enorm,gnorm,&shift);dCHK(err);
-    err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
-    err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
-    err = dPrintf(comm,"Shift %10.2e\n",shift);dCHK(err);
-    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
+    err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
   }
 
   err = VecDestroy(r);dCHK(err);
   err = VecDestroy(x);dCHK(err);
+  err = VecDestroy(soln);dCHK(err);
   err = SNESDestroy(snes);dCHK(err);
+  if (J != Jp) {err = MatDestroy(J);dCHK(err);}
   err = MatDestroy(Jp);dCHK(err);
-  err = MatDestroy(J);dCHK(err);
   err = EllipDestroy(elp);dCHK(err);
   err = PetscFinalize();dCHK(err);
   return 0;
