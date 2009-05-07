@@ -1,0 +1,21 @@
+vec sizes local=26130 global=26130
+L2 error for element   0 ( 2, 2, 2) with rule (11,11,11) interp  3.9e-01, derivative  3.0e+00
+L2 error for element   1 ( 3, 3, 3) with rule (11,11,11) interp  2.8e-02, derivative  4.9e-01
+L2 error for element   2 ( 4, 4, 4) with rule (11,11,11) interp  8.9e-04, derivative  2.2e-02
+L2 error for element   3 ( 5, 5, 5) with rule (11,11,11) interp  9.8e-05, derivative  4.0e-03
+L2 error for element   4 ( 6, 6, 6) with rule (11,11,11) interp  8.0e-06, derivative  4.5e-04
+L2 error for element   5 ( 7, 7, 7) with rule (11,11,11) interp  4.1e-07, derivative  3.7e-05
+L2 error for element   6 ( 8, 8, 8) with rule (11,11,11) interp  7.0e-08, derivative  7.0e-06
+L2 error for element   7 ( 9, 9, 9) with rule (11,11,11) interp  1.7e-09, derivative  2.9e-07
+L2 error for element   8 (10,10,10) with rule (11,11,11) interp  5.9e-10, derivative  8.5e-08
+L2 error for element   9 (11,11,11) with rule (11,11,11) interp  6.1e-12, derivative  1.8e-09
+L2 error for element  10 ( 2, 2, 2) with rule (12,12,12) interp  3.9e-01, derivative  3.0e+00
+L2 error for element  11 ( 3, 3, 3) with rule (12,12,12) interp  2.8e-02, derivative  4.9e-01
+L2 error for element  12 ( 4, 4, 4) with rule (12,12,12) interp  8.9e-04, derivative  2.2e-02
+L2 error for element  13 ( 5, 5, 5) with rule (12,12,12) interp  9.8e-05, derivative  4.0e-03
+L2 error for element  14 ( 6, 6, 6) with rule (12,12,12) interp  8.0e-06, derivative  4.5e-04
+L2 error for element  15 ( 7, 7, 7) with rule (12,12,12) interp  4.1e-07, derivative  3.7e-05
+L2 error for element  16 ( 8, 8, 8) with rule (12,12,12) interp  7.0e-08, derivative  7.0e-06
+L2 error for element  17 ( 9, 9, 9) with rule (12,12,12) interp  1.7e-09, derivative  2.9e-07
+L2 error for element  18 (10,10,10) with rule (12,12,12) interp  5.4e-10, derivative  8.7e-08
+L2 error for element  19 (11,11,11) with rule (12,12,12) interp  7.2e-12, derivative  2.5e-09
