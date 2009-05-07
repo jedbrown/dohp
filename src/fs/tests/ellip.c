@@ -24,6 +24,14 @@ struct EllipExact {
   void (*forcing)(const struct EllipExactCtx*,const struct EllipParam*,const dReal x[3],dScalar f[1]);
 };
 
+/* Exact solutions are generated using sympy:
+from sympy import *
+a,b,c,e,p,x,y,z = symbols('abcepxyz')
+u = cos(a*x)*exp(b*y)*sin(c*z)                                                                          # exact solution
+ux,uy,uz=diff(u,x),diff(u,y),diff(u,z);                                                                 # convenience
+gam = (ux**2+uy**2+uz**2)/2; eta = (e**2+gam)**(p-2); f = -diff(eta*ux,x)-diff(eta*uy,y)-diff(eta*uz,z) # Physics
+ccode(f)
+*/
 static void EllipExact_0_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar u[1],dScalar du[3])
 {
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
@@ -36,16 +44,6 @@ static void EllipExact_0_Forcing(const struct EllipExactCtx *ctx,const struct El
 {
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],e = prm->epsilon,p = prm->p;
   f[0] = pow(a,2)*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-2 + p))*cos(a*x)*exp(b*y)*sin(c*z) + pow(c,2)*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-2 + p))*cos(a*x)*exp(b*y)*sin(c*z) - pow(b,2)*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-2 + p))*cos(a*x)*exp(b*y)*sin(c*z) + b*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-3 + p))*(2 - p)*(pow(b,3)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y) + b*pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y) + b*pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y))*cos(a*x)*exp(b*y)*sin(c*z) - a*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-3 + p))*(2 - p)*(pow(a,3)*pow(sin(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) - a*pow(b,2)*pow(sin(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) - a*pow(c,2)*pow(cos(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x))*exp(b*y)*sin(a*x)*sin(c*z) + c*pow((pow(e,2) + pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(b,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)/2 + pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y)/2),(-3 + p))*(2 - p)*(-pow(c,3)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) + c*pow(a,2)*pow(sin(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) + c*pow(b,2)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z))*cos(a*x)*cos(c*z)*exp(b*y);
-#if 0
-  /** The following expression was generated with Maxima:
-  * u : cos(a*x)+exp(b*y)+sin(c*z); ux : diff(u,x); uy : diff(u,y); uz : diff(u,z);
-  * gamma : 1/2 * (ux^2 + uy^2 + uz^2); eta : (eps^2 + gamma)^(p-2);
-  * optimize(diff(eta*ux,x) + diff(eta*uy,y) + diff(eta*uz,z));
-  **/
-  const dReal t1=p-2,t2=a*x,t3=cos(t2),t4=dSqr(sin(t2)),t5=a*a,t6=b*b,t7=c*c,t8=c*z,t9=dSqr(cos(t8)),
-    t10=(t7*t9+t6*exp(2*b*y)+t5*t4)/2+dSqr(eps),t11=pow(t10,p-3),t12=pow(t10,t1),t13=sin(t8);
-  f[0] = -t7*t12*t13 - c*c*c*c*t1*t9*t11*t13 + t6*exp(b*y)*t12 - t5*t3*t12 + b*b*b*b*t1*exp(3*b*y)*t11 - a*a*a*a*t1*t3*t4*t11;
-#endif
 }
 
 static void EllipExact_1_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar u[1],dScalar du[3])
@@ -59,18 +57,7 @@ static void EllipExact_1_Solution(const struct EllipExactCtx *ctx,const struct E
 static void EllipExact_1_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dScalar f[1])
 {
   const dUNUSED dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],e = prm->epsilon,p = prm->p;
-  /** Maxima optimized
-  * u : x^2 + y^2 + 1-z^2; ux : diff(u,x); uy : diff(u,y); uz : diff(u,z);
-  * gamma : 1/2 * (ux^2 + uy^2 + uz^2); eta : (eps^2 + gamma)^(p-2);
-  * optimize(diff(eta*ux,x) + diff(eta*uy,y) + diff(eta*uz,z));
-  *   (\%o38) \mathbf{block}\;\left(\left[ \mathrm{\%1},\linebreak[0]\mathrm{\%2},\linebreak[0]\mathrm{\%3},\linebreak[0]\mathrm{\%4},\linebreak[0]\mathrm{\%5},\linebreak[0]\mathrm{\%6} \right] ,\linebreak[0]\mathrm{\%1}:p-2,\linebreak[0]\mathrm{\%2}:x^{2},\linebreak[0]\mathrm{\%3}:y^{2},\linebreak[0]\mathrm{\%4}:z^{2},\linebreak[0]\mathrm{\%5}:\ifracn{4\*\mathrm{\%4}+4\*\mathrm{\%3}+4\*\mathrm{\%2}}{2}+\mathrm{eps}^{2},\linebreak[0]\mathrm{\%6}:\iexpt{\mathrm{\%5}}{p-3},\linebreak[0]2\*\mathrm{\%5}^{\mathrm{\%1}}-8\*\mathrm{\%1}\*\mathrm{\%4}\*\mathrm{\%6}+8\*\mathrm{\%1}\*\mathrm{\%3}\*\mathrm{\%6}+8\*\mathrm{\%1}\*\mathrm{\%2}\*\mathrm{\%6}\right)
-  **/
-#if 0
-  const dReal t1=p-2,t2=x*x,t3=y*y,t4=z*z,t5=2*(t4+t3+t2)+e*e,t6=pow(t5,p-3);
-  f[0] = -(2*pow(t5,t1) - 8*t1*t6*(t4+t3+t2));
-#else
   f[0] = -8*pow(c,3)*pow(z,2)*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-3 + p))*(2 - p) + 8*pow(a,3)*pow(x,2)*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-3 + p))*(2 - p) + 8*pow(b,3)*pow(y,2)*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-3 + p))*(2 - p) - 2*a*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-2 + p)) - 2*b*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-2 + p)) + 2*c*pow((pow(e,2) + 2*pow(a,2)*pow(x,2) + 2*pow(b,2)*pow(y,2) + 2*pow(c,2)*pow(z,2)),(-2 + p));
-#endif
 }
 
 static void EllipExact_2_Solution(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar u[1],dScalar du[3])
@@ -81,7 +68,6 @@ static void EllipExact_2_Solution(const struct EllipExactCtx *ctx,const struct E
   du[1] = b;
   du[2] = c;
 }
-
 static void EllipExact_2_Forcing(const struct EllipExactCtx dUNUSED *ctx,const struct EllipParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[1])
 {
   f[0] = 0;
@@ -95,10 +81,9 @@ static void EllipExact_3_Solution(const struct EllipExactCtx *ctx,const struct E
   du[1] = 2*b*y*z;
   du[2] = b*y*y - 2*c*z*x;
 }
-
 static void EllipExact_3_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dScalar f[1])
 {
-  const dUNUSED dReal x = xyz[0],y = xyz[1],z = xyz[2],a = ctx->a,b = ctx->b,c = ctx->c,e = prm->epsilon,p = prm->p;
+  const dReal x = xyz[0],y = xyz[1],z = xyz[2],a = ctx->a,b = ctx->b,c = ctx->c,e = prm->epsilon,p = prm->p;
   f[0] = pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-3 + p))*(2 - p)*(-2*c*x*z + b*pow(y,2))*(-2*c*x*(-2*c*x*z + b*pow(y,2)) - 2*c*z*(c*(1 - pow(z,2)) + 3*a*pow(x,2)) + 4*z*pow(b,2)*pow(y,2)) + pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-3 + p))*(2 - p)*(c*(1 - pow(z,2)) + 3*a*pow(x,2))*(-2*c*z*(-2*c*x*z + b*pow(y,2)) + 6*a*x*(c*(1 - pow(z,2)) + 3*a*pow(x,2))) + 2*b*y*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-3 + p))*(2 - p)*(2*b*y*(-2*c*x*z + b*pow(y,2)) + 4*y*pow(b,2)*pow(z,2)) - 6*a*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p)) - 2*b*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p)) + 2*c*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p));
 }
 
