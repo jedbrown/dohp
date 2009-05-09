@@ -43,6 +43,10 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 
   err = dMemcpy(fs->ops,&defaultFSOps,sizeof defaultFSOps);dCHK(err);
   err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);
+
+  /* Defaults */
+  fs->bs = 1;
+
   *infs = fs;
   dFunctionReturn(0);
 }

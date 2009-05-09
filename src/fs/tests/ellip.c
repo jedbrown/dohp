@@ -26,7 +26,7 @@ struct EllipExact {
 
 /* Exact solutions are generated using sympy:
 from sympy import *
-a,b,c,e,p,x,y,z = symbols('abcepxyz')
+from sympy.abc import *
 u = cos(a*x)*exp(b*y)*sin(c*z)                                                                          # exact solution
 ux,uy,uz=diff(u,x),diff(u,y),diff(u,z);                                                                 # convenience
 gam = (ux**2+uy**2+uz**2)/2; eta = (e**2+gam)**(p-2); f = -diff(eta*ux,x)-diff(eta*uy,y)-diff(eta*uz,z) # Physics

@@ -376,7 +376,6 @@ dErr dFSCreate_Cont(dFS fs)
 
   dFunctionBegin;
   err = dNewLog(fs,*fsc,&fsc);dCHK(err);
-  fs->bs = 1;
   fs->data = (void*)fsc;
   fs->ops->view           = dFSView_Cont;
   fs->ops->impldestroy    = dFSDestroy_Cont;

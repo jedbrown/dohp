@@ -331,7 +331,7 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
       err = VecGetLocalSize(g,&n);dCHK(err);
       err = VecGetLocalSize(gc,&nc);dCHK(err);
       err = VecGetArray(gc,&a);dCHK(err);
-      err = dMemzero(a+n*fs->bs,(nc-n)*fs->bs*sizeof(a[0]));dCHK(err);
+      err = dMemzero(a+n,(nc-n)*sizeof(a[0]));dCHK(err);
       err = VecRestoreArray(gc,&a);dCHK(err);
       /* \todo deal with rotations */
     } break;
