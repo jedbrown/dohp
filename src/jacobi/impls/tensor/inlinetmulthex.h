@@ -107,6 +107,10 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
   const dReal (*restrict Ay)[P[1]] = (const dReal (*)[P[1]])A[1];
   const dReal (*restrict Az)[P2] = (const dReal (*)[P2])A[2];
   dErr err;
+/* #define VERBOSE_TIMING 1 */
+#ifdef VERBOSE_TIMING
+  uint32_t time0,time1,time2,time3;
+#endif
 
   dFunctionBegin;
   if (P[2] != P2 || Q[2] != Q2 || D_is_1 != D) dERROR(1,"input sizes do not agree with unrolled sizes");
@@ -124,7 +128,7 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
   }
 
 #ifdef VERBOSE_TIMING
-  uint32_t time0 = read_time(),time1,time2,time3;
+  time0 = read_time();
 #endif
 
 #if 0
@@ -199,6 +203,32 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
 #if 0
   for (dInt i=0; i<Q[0]; i++) {
     const dInt JKD = P[1]*P2*D,KD = P2*D;
+    dScalar (*restrict aa)[KD] = (dScalar(*)[4])&amem[i*JKD];
+    dScalar (*restrict bb)[KD] = (dScalar(*)[4])&bmem[(i*Q[1])*KD];
+    for (dInt l=0; l<Q[1]; l++) {
+      for (dInt j=0; j<P[1]; j++) {
+        for (dInt k=0; k<KD; k++) {
+          bb[l][k] += Ay[l][j] * aa[j][k];
+        }
+      }
+    }
+  }
+#elif 0
+  if (P[1] != 4) dERROR(1,"not supported");
+  for (dInt i=0; i<Q[0]; i++) {
+    const dInt JKD = P[1]*P2*D,KD = P2*D;
+    dScalar (*restrict aa)[KD] = (dScalar(*)[4])&amem[i*JKD];
+    dScalar (*restrict bb)[KD] = (dScalar(*)[4])&bmem[(i*Q[1])*KD];
+    for (dInt l=0; l<Q[1]; l++) { /* \a k is unrolled down, \a j is unrolled across */
+      bb[l][0] = Ay[l][0]*aa[0][0] + Ay[l][1]*aa[1][0] + Ay[l][2]*aa[2][0] + Ay[l][3]*aa[3][0];
+      bb[l][1] = Ay[l][0]*aa[0][1] + Ay[l][1]*aa[1][1] + Ay[l][2]*aa[2][1] + Ay[l][3]*aa[3][1];
+      bb[l][2] = Ay[l][0]*aa[0][2] + Ay[l][1]*aa[1][2] + Ay[l][2]*aa[2][2] + Ay[l][3]*aa[3][2];
+      bb[l][3] = Ay[l][0]*aa[0][3] + Ay[l][1]*aa[1][3] + Ay[l][2]*aa[2][3] + Ay[l][3]*aa[3][3];
+    }
+  }
+#elif 0
+  for (dInt i=0; i<Q[0]; i++) {
+    const dInt JKD = P[1]*P2*D,KD = P2*D;
     dScalar *restrict aa = &amem[i*JKD];
     for (dInt l=0; l<Q[1]; l++) {
       dScalar *restrict bb = &bmem[(i*Q[1]+l)*KD];
@@ -234,15 +264,14 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
       }
     }
   }
-#else
+#elif 0
   for (dInt i=0; i<Q[0]; i++) {
     const dInt JKD = P[1]*P2*D,KD = P2*D;
     dScalar *restrict aa = &amem[i*JKD];
     for (dInt l=0; l<Q[1]; l+=2) {
       dScalar *restrict bb0 = &bmem[(i*Q[1]+l)*KD],*restrict bb1 = &bmem[(i*Q[1]+l+1)*KD];
       //if ((size_t)bb0 & 0xf || (size_t)bb1 & 0xf) dERROR(1,"bmem is unaligned");
-      __m128d // bb00,bb02,bb10,bb12;
-        bb00 = _mm_load_pd(bb0),bb02=bb00,bb10=bb00,bb12=bb00;
+      __m128d bb00 = _mm_setzero_pd(),bb02=bb00,bb10=bb00,bb12=bb00;
       for (dInt j=0; j<P[1]; j+=2) {
         const dScalar *restrict aaa0 = &aa[j*KD],*restrict aaa1 = &aa[(j+1)*KD];
         //if ((size_t)aaa0 & 0xf || (size_t)aaa1 & 0xf) dERROR(1,"aa is unaligned");
@@ -258,6 +287,24 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
       _mm_store_pd(bb0+2,bb02);
       _mm_store_pd(bb1,bb10);
       _mm_store_pd(bb1+2,bb12);
+    }
+  }
+#else
+  if (P[1] != P2) dERROR(1,"not supported");
+  for (dInt i=0; i<Q[0]; i++) {
+    const dInt JKD = P[1]*P2*D,KD = P2*D;
+    dScalar (*restrict aa)[KD] = (dScalar(*)[KD])&amem[i*JKD];
+    dScalar (*restrict bb)[KD] = (dScalar(*)[KD])&bmem[(i*Q[1])*KD];
+    __m128d
+      aa00 = _mm_load_pd(&aa[0][0]),aa02 = _mm_load_pd(&aa[0][2]),aa10 = _mm_load_pd(&aa[1][0]),aa12 = _mm_load_pd(&aa[1][2]),
+      aa20 = _mm_load_pd(&aa[2][0]),aa22 = _mm_load_pd(&aa[2][2]),aa30 = _mm_load_pd(&aa[3][0]),aa32 = _mm_load_pd(&aa[3][2]);
+    for (dInt l=0; l<Q[1]; l++) {
+      __m128d ayl0p = _mm_loaddup_pd(&Ay[l][0]),ayl1p = _mm_loaddup_pd(&Ay[l][1]),ayl2p = _mm_loaddup_pd(&Ay[l][2]),ayl3p = _mm_loaddup_pd(&Ay[l][3]);
+      __m128d t0,t2;
+      t0 = _mm_add_pd(_mm_add_pd(_mm_mul_pd(ayl0p,aa00),_mm_mul_pd(ayl1p,aa10)),  _mm_add_pd(_mm_mul_pd(ayl2p,aa20),_mm_mul_pd(ayl3p,aa30)));
+      t2 = _mm_add_pd(_mm_add_pd(_mm_mul_pd(ayl0p,aa02),_mm_mul_pd(ayl1p,aa12)),  _mm_add_pd(_mm_mul_pd(ayl2p,aa22),_mm_mul_pd(ayl3p,aa32)));
+      _mm_store_pd(&bb[l][0],t0);
+      _mm_store_pd(&bb[l][2],t2);
     }
   }
 #endif
