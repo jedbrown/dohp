@@ -9,9 +9,7 @@ name="$4"
 shift 4
 
 tmpout="${name}.tmp"
-echo PWD: $PWD
-echo TMPOUT: $tmpout
-echo REFOUT: $refout
+echo :: "${mpiexec}" -n ${mpi_np} "./${name}" "$@" || exit 1
 "${mpiexec}" -n ${mpi_np} "./${name}" "$@" > "${tmpout}" || exit 1
 diff -u ${refout} ${tmpout} || exit 1
 rm "${tmpout}"
