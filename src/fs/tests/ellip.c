@@ -9,6 +9,7 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Lap
 #include "dohpvec.h"
 #include "petscsnes.h"
 
+PetscLogEvent LOG_EllipShellMatMult;
 
 struct EllipParam {
   dReal epsilon;
@@ -352,6 +353,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   dErr err;
 
   dFunctionBegin;
+  err = PetscLogEventBegin(LOG_EllipShellMatMult,J,0,0,0);dCHK(err);
   err = MatShellGetContext(J,(void**)&elp);dCHK(err);
   fs = elp->fs;
   err = dFSGlobalToExpanded(fs,gx,elp->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
@@ -378,6 +380,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   err = VecRestoreArray(elp->y,&y);dCHK(err);
   err = dFSExpandedToGlobal(fs,elp->y,gy,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = PetscLogEventEnd(LOG_EllipShellMatMult,J,0,0,0);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -401,12 +404,16 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
+    const dReal *tmscale[3],*tlscale[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    err = dEFSGetTensorNodes(&efs[e],NULL,NULL,NULL,tmscale,tlscale);dCHK(err);
     if (three != 3) dERROR(1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
         for (dInt k=0; k<P[2]-1; k++) {
           dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
+          dQ1SCALE_DECLARE(tmscale,mscale,i,j,k);
+          dQ1SCALE_DECLARE(tlscale,lscale,i,j,k);
           const dScalar (*uc)[1] = (const dScalar(*)[1])x+off[e]; /* function values, indexed at subelement corners \c uc[c[#]][0] */
           const dReal (*qx)[3],*jw,(*basis)[8],(*deriv)[8][3];
           dInt qn;
@@ -430,14 +437,10 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
                 const dReal *u = &basis[lq][lp],*Du = deriv[lq][lp];
                 dReal v[1],Dv[3];
                 EllipPointwiseJacobian(&elp->param,&st,jw[lq],u,Du,v,Dv);
-#if 1
                 K[ltest][lp] += //basis[lq][ltest] * v[0]
-                  + deriv[lq][ltest][0] * Dv[0]
-                  + deriv[lq][ltest][1] * Dv[1]
-                  + deriv[lq][ltest][2] * Dv[2];
-#else
-                K[ltest][lp] += basis[lq][ltest] * jw[lq] * basis[lq][lp];
-#endif
+                  lscale[ltest]*lscale[lp]*(+ deriv[lq][ltest][0] * Dv[0]
+                                            + deriv[lq][ltest][1] * Dv[1]
+                                            + deriv[lq][ltest][2] * Dv[2]);
               }
             }
           }
@@ -454,7 +457,7 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
-  *structure = DIFFERENT_NONZERO_PATTERN;
+  *structure = SAME_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
 
@@ -561,6 +564,8 @@ int main(int argc,char *argv[])
   err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
+
+  err = PetscLogEventRegister("EllipShellMult",MAT_COOKIE,&LOG_EllipShellMatMult);dCHK(err);
 
   err = EllipCreate(comm,&elp);dCHK(err);
   err = EllipSetFromOptions(elp);dCHK(err);

@@ -133,7 +133,7 @@ EXTERN dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[r
 
 EXTERN dErr dEFSView(dEFS efs,PetscViewer viewer);
 EXTERN dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
-EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**);
+EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**,const dReal**,const dReal**);
 EXTERN dErr dEFSGetGlobalCoordinates(dEFS,const dReal vtx[restrict][3],dInt*,dInt[3],dReal(*)[3]);
 EXTERN dErr dEFSGetRule(dEFS efs,dRule *rule);
 EXTERN dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);

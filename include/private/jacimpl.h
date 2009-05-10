@@ -29,7 +29,7 @@ struct _dRuleOps {
 struct _dEFSOps {
   dErr (*view)(dEFS,PetscViewer);
   dErr (*getSizes)(dEFS,dInt*,dInt*,dInt*); /**< topological dimension, number of interior nodes, total number of nodes */
-  dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**);
+  dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**,const dReal**,const dReal**);
   dErr (*apply)(dEFS,const dReal[],dInt,const dScalar[],dScalar[],dApplyMode,InsertMode);
   dErr (*getGlobalCoordinates)(dEFS,const dReal(*)[3],dInt*,dInt[],dReal(*)[3]);
   /**< dofs/node, work length, work, modal values, nodal values */

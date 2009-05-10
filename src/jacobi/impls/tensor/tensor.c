@@ -11,6 +11,7 @@
 
 #include "tensor.h"
 #include "inlinepoly.h"
+#include "optimalscale.h"
 #include "dohpgeom.h"
 #include "dohpmesh.h"           /* for iMesh_TopologyName */
 
@@ -33,6 +34,21 @@ static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out);
 static dErr TensorJacobiHasBasis(dJacobi,dInt,dInt,dBool*);
 
 static dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char name[],dViewer viewer);
+
+static dErr dJacobiSetFromOptions_Tensor(dJacobi jac)
+{
+  Tensor this = jac->impl;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscOptionsHead("Tensor options");dCHK(err);
+  {
+    err = PetscOptionsTruth("-djac_tensor_mass_scale","Use optimal scaling for Q1 mass matrices","Jacobi",this->usemscale,&this->usemscale,NULL);dCHK(err);
+    err = PetscOptionsTruth("-djac_tensor_laplace_scale","Use optimal scaling for Q1 Laplacian matrices","Jacobi",this->uselscale,&this->uselscale,NULL);dCHK(err);
+  }
+  err = PetscOptionsTail();dCHK(err);
+  dFunctionReturn(0);
+}
 
 /**
 * Prepare the dJacobi context to return dRule and dEFS objects (with dJacobiGetRule and dJacobiGetEFS).
@@ -71,6 +87,8 @@ static dErr dJacobiSetUp_Tensor(dJacobi jac)
         continue;
       }
       err = TensorBasisCreate(this->basisBuilder,rule,j,&this->basis[i*N+j]);dCHK(err);
+      if (!this->usemscale) this->basis[i*N+j]->mscale = optimal_ones;
+      if (!this->uselscale) this->basis[i*N+j]->lscale = optimal_ones;
     }
   }
   err = dJacobiRuleOpsSetUp_Tensor(jac);dCHK(err);
@@ -666,6 +684,27 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
       b->derivTranspose[j*Q+i] = b->deriv[i*P+j];
     }
   }
+  switch (P) {
+#define _C(p) case p: b->mscale = optimal_mscale_ ## p; b->lscale = optimal_lscale_ ## p; break
+    _C(2);
+    _C(3);
+    _C(4);
+    _C(5);
+    _C(6);
+    _C(7);
+    _C(8);
+    _C(9);
+    _C(10);
+    _C(11);
+    _C(12);
+    _C(13);
+    _C(14);
+#undef _C
+    default:
+      b->mscale = optimal_ones;
+      b->lscale = optimal_ones;
+      dERROR(1,"optimal scaling not available for this order, this should just be a PetscInfo warning");
+  }
   *basis = b;
   dFunctionReturn(0);
 }
@@ -750,7 +789,7 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
 {
   static const struct _dJacobiOps myops = {
     .SetUp              = dJacobiSetUp_Tensor,
-    .SetFromOptions     = 0,
+    .SetFromOptions     = dJacobiSetFromOptions_Tensor,
     .Destroy            = dJacobiDestroy_Tensor,
     .View               = dJacobiView_Tensor,
     .PropogateDown      = dJacobiPropogateDown_Tensor,
@@ -762,22 +801,28 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
   };
   TensorRuleOptions ropt;
   TensorBasisOptions bopt;
+  Tensor tensor;
   dErr err;
 
   dFunctionBegin;
   err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
-  err = dNew(struct s_Tensor,&jac->impl);dCHK(err);
+  err = dNew(struct s_Tensor,&tensor);dCHK(err);
   err = dNew(struct s_TensorRuleOptions,&ropt);dCHK(err);
   err = dNew(struct s_TensorBasisOptions,&bopt);dCHK(err);
+
+  tensor->usemscale = dFALSE;
+  tensor->uselscale = dFALSE;
 
   ropt->alpha  = 0.0;
   ropt->beta   = 0.0;
   ropt->family = GAUSS;
-  ((Tensor)jac->impl)->ruleOpts = ropt;
+  tensor->ruleOpts = ropt;
 
   bopt->alpha  = 0.0;
   bopt->beta   = 0.0;
   bopt->family = GAUSS_LOBATTO;
-  ((Tensor)jac->impl)->basisOpts = bopt;
+  tensor->basisOpts = bopt;
+
+  jac->impl = tensor;
   dFunctionReturn(0);
 }

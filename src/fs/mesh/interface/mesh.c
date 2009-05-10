@@ -534,7 +534,8 @@ dErr dMeshGetEntsOff(dMesh mesh,dMeshESH set,dInt toff[],dMeshEH **inents)
   dFunctionBegin;
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(toff,3);
-  dValidPointer(ents,4);
+  dValidPointer(inents,4);
+  *inents = 0;
   err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&n);dCHK(err);
   err = dMallocA(n,&ents);dCHK(err);
   toff[0] = 0;

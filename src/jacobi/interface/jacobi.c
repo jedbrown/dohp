@@ -447,13 +447,21 @@ dErr dEFSGetSizes(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
   dFunctionReturn(0);
 }
 
-dErr dEFSGetTensorNodes(dEFS efs,dInt *dim,dInt *tsize,dReal *nodes[])
+/** Get node locations as tensor product
+*
+* @param[in] dim[out] dimension of tensor product
+* @param[in,out] tsize Array of length 3, on return, holds each size in each direction of tensor product
+* @param[in,out] nodes Array of length 3, on return, holds pointers to node locations in each direction of tensor product
+* @param[in,out] mscale Array of length 3 or NULL, on return if not NULL, holds scaling that can be applied within tensor product to improve conditioning of sparse mass matrix
+* @param[in,out] lscale Array of length 3 or NULL, on return if not NULL, holds scaling that can be applied within tensor product to improve conditioning of sparse Laplacian matrix
+**/
+dErr dEFSGetTensorNodes(dEFS efs,dInt *dim,dInt *tsize,dReal *nodes[],const dReal *mscale[],const dReal *lscale[])
 {
   dErr err;
 
   dFunctionBegin;
   dValidPointer(efs,1);
-  err = (*efs->ops->getTensorNodes)(efs,dim,tsize,nodes);
+  err = (*efs->ops->getTensorNodes)(efs,dim,tsize,nodes,mscale,lscale);
   dFunctionReturn(0);
 }
 

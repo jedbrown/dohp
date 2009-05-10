@@ -16,7 +16,7 @@ _F(dEFSGetSizes_Tensor_Line);
 _F(dEFSGetSizes_Tensor_Quad);
 _F(dEFSGetSizes_Tensor_Hex);
 #undef _F
-#define _F(f) static dErr f(dEFS,dInt*,dInt*,dReal**restrict) /* dEFSGetTensorNodes */
+#define _F(f) static dErr f(dEFS,dInt*,dInt*,dReal**,const dReal**,const dReal**) /* dEFSGetTensorNodes */
 _F(dEFSGetTensorNodes_Tensor_Line);
 _F(dEFSGetTensorNodes_Tensor_Quad);
 _F(dEFSGetTensorNodes_Tensor_Hex);
@@ -195,7 +195,7 @@ static dErr dEFSGetSizes_Tensor_Hex(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetTensorNodes_Tensor_Line(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+static dErr dEFSGetTensorNodes_Tensor_Line(dEFS efs,dInt *dim,dInt tsize[],dReal *x[],const dReal *mscale[],const dReal *lscale[])
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
@@ -211,10 +211,20 @@ static dErr dEFSGetTensorNodes_Tensor_Line(dEFS efs,dInt *dim,dInt tsize[restric
     x[1] = NULL;
     x[2] = NULL;
   }
+  if (mscale) {
+    mscale[0] = b[0]->mscale;
+    mscale[1] = NULL;
+    mscale[2] = NULL;
+  }
+  if (lscale) {
+    lscale[0] = b[0]->lscale;
+    lscale[1] = NULL;
+    lscale[2] = NULL;
+  }
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS efs,dInt *dim,dInt tsize[],dReal *x[],const dReal *mscale[],const dReal *lscale[])
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
@@ -230,10 +240,20 @@ static dErr dEFSGetTensorNodes_Tensor_Quad(dEFS efs,dInt *dim,dInt tsize[restric
     x[1] = b[1]->node;
     x[2] = NULL;
   }
+  if (mscale) {
+    mscale[0] = b[0]->mscale;
+    mscale[1] = b[1]->mscale;
+    mscale[2] = NULL;
+  }
+  if (lscale) {
+    lscale[0] = b[0]->lscale;
+    lscale[1] = b[1]->lscale;
+    lscale[2] = NULL;
+  }
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[restrict],dReal *x[restrict])
+static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[],dReal *x[],const dReal *mscale[],const dReal *lscale[])
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
 
@@ -248,6 +268,16 @@ static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[restrict
     x[0] = b[0]->node;
     x[1] = b[1]->node;
     x[2] = b[2]->node;
+  }
+  if (mscale) {
+    mscale[0] = b[0]->mscale;
+    mscale[1] = b[1]->mscale;
+    mscale[2] = b[2]->lscale;
+  }
+  if (lscale) {
+    lscale[0] = b[0]->lscale;
+    lscale[1] = b[1]->lscale;
+    lscale[2] = b[2]->lscale;
   }
   dFunctionReturn(0);
 }

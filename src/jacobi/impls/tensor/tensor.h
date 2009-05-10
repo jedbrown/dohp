@@ -64,6 +64,7 @@ struct s_TensorBasis {
   dInt  P,Q;
   dReal *interp,*deriv,*node;
   dReal *interpTranspose,*derivTranspose;
+  const dReal *mscale,*lscale;        /**< Used to produce optimal scaling of sparse mass and Laplacian matrices */
 };
 
 typedef struct s_TensorBasisOptions *TensorBasisOptions;
@@ -103,6 +104,7 @@ struct s_Tensor {
                                   * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
   dInt M;                       /**< number of rules */
   dInt N;                       /**< basis size limit */
+  dTruth usemscale,uselscale;
   /* dBufferList data; */
   struct _dRuleOps *ruleOpsLine,*ruleOpsQuad,*ruleOpsHex;
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;

@@ -137,6 +137,16 @@ EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
                                          {(nx)[(c)[6]][0],(nx)[(c)[6]][1],(nx)[(c)[6]][2]}, \
                                          {(nx)[(c)[7]][0],(nx)[(c)[7]][1],(nx)[(c)[7]][2]}}
 
+#define dQ1SCALE_DECLARE(tscale,scale,i,j,k)                            \
+  const dReal dUNUSED (scale)[8] = {(tscale)[0][(i)+0]*(tscale)[1][(j)+0]*(tscale)[2][(k)+0], \
+                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+0]*(tscale)[2][(k)+0], \
+                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+1]*(tscale)[2][(k)+0], \
+                                    (tscale)[0][(i)+0]*(tscale)[1][(j)+1]*(tscale)[2][(k)+0], \
+                                    (tscale)[0][(i)+0]*(tscale)[1][(j)+0]*(tscale)[2][(k)+1], \
+                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+0]*(tscale)[2][(k)+1], \
+                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+1]*(tscale)[2][(k)+1], \
+                                    (tscale)[0][(i)+0]*(tscale)[1][(j)+1]*(tscale)[2][(k)+1]}
+
 EXTERN dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**qx)[3],const dReal **jw,const dReal **basis,const dReal **deriv);
 
 
