@@ -52,7 +52,7 @@ struct s_TensorRule {
   dReal *weight,*coord;            /**< weights and nodal coordinates */
 };
 
-typedef dErr (*TensorMultFunction)(dInt,const dInt*,const dInt*,const dReal**,const dScalar*,dScalar*restrict,InsertMode);
+typedef dErr (*TensorMultFunction)(dInt,const dInt[3],const dInt[3],const dReal*[],const dScalar*,dScalar[restrict],InsertMode);
 
 typedef struct s_TensorBasis *TensorBasis;
 /**
@@ -60,7 +60,8 @@ typedef struct s_TensorBasis *TensorBasis;
 *
 */
 struct s_TensorBasis {
-  TensorMultFunction mult;
+  TensorMultFunction multhex[3];
+  //dErr (*(multhex[3]))(dInt,const dInt[3],const dInt[3],const dReal*[],const dScalar*,dScalar[restrict],InsertMode);
   dInt  P,Q;
   dReal *interp,*deriv,*node;
   dReal *interpTranspose,*derivTranspose;
@@ -105,6 +106,7 @@ struct s_Tensor {
   dInt M;                       /**< number of rules */
   dInt N;                       /**< basis size limit */
   dTruth usemscale,uselscale;
+  dTruth nounroll;
   /* dBufferList data; */
   struct _dRuleOps *ruleOpsLine,*ruleOpsQuad,*ruleOpsHex;
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;

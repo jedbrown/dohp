@@ -11,4 +11,5 @@ dohp_add_test (fs-mf-op-proj-1  1 fs-ex1 -const_BDeg 7 -snes_mf_operator -ksp_co
 dohp_add_test (bu-0 1 bu -dmesh_in "${Dohp_DATA_DIR}/dblock211.h5m")
 
 dohp_add_test (ellip-e0-b2-p18 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor -ksp_monitor -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 2 -ellip_p 1.8)
-dohp_add_test (ellip-e0-b4-p18 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor -ksp_monitor -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 4 -ellip_p 1.8)
+dohp_add_test (ellip-e0-b4-p18 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor -ksp_monitor -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 4 -ellip_p 1.8 -djac_tensor_no_unroll)
+dohp_add_test (ellip-e0-b4-p17-sse 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor -ksp_monitor -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 4 -ellip_p 1.7)

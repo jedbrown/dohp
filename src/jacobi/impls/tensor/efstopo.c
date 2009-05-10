@@ -44,11 +44,6 @@ _F(dEFSScatterFacet_Tensor_Hex);
 # undef _F
 #endif
 
-#define _F(f) static dErr f(dInt D,const dInt P[],const dInt Q[],dReal *A[],const dScalar f[],dScalar g[restrict],InsertMode imode)
-_F(TensorMult_Line);
-_F(TensorMult_Quad);
-_F(TensorMult_Hex);
-#undef _F
 #define _F(f) static dErr f(dRule_Tensor*,const dReal[],dInt,const dScalar[],dScalar[],InsertMode)
 _F(dRuleMappingApply_Tensor_Line);
 _F(dRuleMappingApply_Tensor_Quad);
@@ -57,6 +52,21 @@ _F(dRuleMappingApply_Tensor_Quad);
 
 static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
 static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
+
+#define _F(f) static dErr f(dInt D,const dInt P[],const dInt Q[],const dReal *A[],const dScalar f[],dScalar g[restrict],InsertMode imode)
+_F(TensorMult_Line);
+_F(TensorMult_Quad);
+#undef _F
+
+static inline dErr TensorMult_Hex(const TensorBasis b[],dInt D,const dInt P[],const dInt Q[],const dReal *A[],const dScalar f[],dScalar g[restrict],InsertMode imode)
+{
+#if defined(dUSE_DEBUG)
+  if (D > 3) dERROR(1,"D > 3 not supported");
+  if (!b[2]->multhex[D-1]) dERROR(1,"No multhex member, EFS was not set up correctly");
+#endif
+  return b[2]->multhex[D-1](D,P,Q,A,f,g,imode);
+}
+
 
 /**
 * Set up the EFS ops table for each topology.  This is the only exported function in this file.
@@ -67,25 +77,25 @@ static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dI
 */
 dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
 {
-  static const struct _dEFSOps efsOpsLine = { .view = dEFSView_Tensor_Line,
-                                              .getSizes = dEFSGetSizes_Tensor_Line,
-                                              .getTensorNodes = dEFSGetTensorNodes_Tensor_Line,
-                                              .apply = dEFSApply_Tensor_Line,
-                                              .scatterInt = 0,
-                                              .scatterFacet = 0 };
-  static const struct _dEFSOps efsOpsQuad = { .view = dEFSView_Tensor_Quad,
-                                              .getSizes = dEFSGetSizes_Tensor_Quad,
-                                              .getTensorNodes = dEFSGetTensorNodes_Tensor_Quad,
-                                              .apply = dEFSApply_Tensor_Quad,
-                                              .scatterInt = 0,
-                                              .scatterFacet = 0 };
-  static const struct _dEFSOps efsOpsHex  = { .view = dEFSView_Tensor_Hex,
-                                              .getSizes = dEFSGetSizes_Tensor_Hex,
-                                              .getTensorNodes = dEFSGetTensorNodes_Tensor_Hex,
-                                              .apply = dEFSApply_Tensor_Hex,
-                                              .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex,
-                                              .scatterInt = 0,
-                                              .scatterFacet = 0 };
+  static const struct _dEFSOps efsOpsLine = { .view                 = dEFSView_Tensor_Line,
+                                              .getSizes             = dEFSGetSizes_Tensor_Line,
+                                              .getTensorNodes       = dEFSGetTensorNodes_Tensor_Line,
+                                              .apply                = dEFSApply_Tensor_Line,
+                                              .scatterInt           = 0,
+                                              .scatterFacet         = 0 };
+  static const struct _dEFSOps efsOpsQuad = { .view                 = dEFSView_Tensor_Quad,
+                                              .getSizes             = dEFSGetSizes_Tensor_Quad,
+                                              .getTensorNodes       = dEFSGetTensorNodes_Tensor_Quad,
+                                              .apply                = dEFSApply_Tensor_Quad,
+                                              .scatterInt           = 0,
+                                              .scatterFacet         = 0 };
+  static const struct _dEFSOps efsOpsHex = { .view                 = dEFSView_Tensor_Hex,
+                                             .getSizes             = dEFSGetSizes_Tensor_Hex,
+                                             .getTensorNodes       = dEFSGetTensorNodes_Tensor_Hex,
+                                             .apply                = dEFSApply_Tensor_Hex,
+                                             .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex,
+                                             .scatterInt           = 0,
+                                             .scatterFacet         = 0 };
   Tensor this = (Tensor)jac->impl;
   dErr err;
 
@@ -285,7 +295,7 @@ static dErr dEFSGetTensorNodes_Tensor_Hex(dEFS efs,dInt *dim,dInt tsize[],dReal 
 static dErr dEFSApply_Tensor_Line(dEFS efs,const dReal mapdata[],dInt D,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
-  dReal *A[1];
+  const dReal *A[1];
   dInt P[1],Q[1];
   dErr err;
 
@@ -321,7 +331,7 @@ static dErr dEFSApply_Tensor_Line(dEFS efs,const dReal mapdata[],dInt D,const dS
 static dErr dEFSApply_Tensor_Quad(dEFS efs,const dReal mapdata[],dInt D,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
-  dReal *A[2];
+  const dReal *A[2];
   dInt P[2],Q[2];
   dErr err;
 
@@ -359,7 +369,7 @@ static dErr dEFSApply_Tensor_Quad(dEFS efs,const dReal mapdata[],dInt D,const dS
 static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,const dScalar in[],dScalar out[],dApplyMode amode,InsertMode imode)
 {
   TensorBasis *b = ((dEFS_Tensor*)efs)->basis;
-  dReal *A[3];
+  const dReal *A[3];
   dInt P[3],Q[3];
   dErr err;
 
@@ -373,22 +383,22 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
       A[0] = b[0]->interp;
       A[1] = b[1]->interp;
       A[2] = b[2]->interp;
-      err = TensorMult_Hex(D,P,Q,A,in,out,imode);dCHK(err);
+      err = TensorMult_Hex(b,D,P,Q,A,in,out,imode);dCHK(err);
       break;
     case dAPPLY_INTERP_TRANSPOSE:
       A[0] = b[0]->interpTranspose;
       A[1] = b[1]->interpTranspose;
       A[2] = b[2]->interpTranspose;
-      err = TensorMult_Hex(D,Q,P,A,in,out,imode);dCHK(err);
+      err = TensorMult_Hex(b,D,Q,P,A,in,out,imode);dCHK(err);
       break;
     case dAPPLY_GRAD: {
       dScalar df[3][Q[0]*Q[1]*Q[2]*D];
       A[0] = b[0]->deriv; A[1] = b[1]->interp; A[2] = b[2]->interp;
-      err = TensorMult_Hex(D,P,Q,A,in,df[0],INSERT_VALUES);dCHK(err);
+      err = TensorMult_Hex(b,D,P,Q,A,in,df[0],INSERT_VALUES);dCHK(err);
       A[0] = b[0]->interp; A[1] = b[1]->deriv; A[2] = b[2]->interp;
-      err = TensorMult_Hex(D,P,Q,A,in,df[1],INSERT_VALUES);dCHK(err);
+      err = TensorMult_Hex(b,D,P,Q,A,in,df[1],INSERT_VALUES);dCHK(err);
       A[0] = b[0]->interp; A[1] = b[1]->interp; A[2] = b[2]->deriv;
-      err = TensorMult_Hex(D,P,Q,A,in,df[2],INSERT_VALUES);dCHK(err);
+      err = TensorMult_Hex(b,D,P,Q,A,in,df[2],INSERT_VALUES);dCHK(err);
       //err = dRuleMappingApply_Tensor_Hex((dRule_Tensor*)efs->rule,jinv,D,&df[0][0],out,imode);dCHK(err);
       err = TensorRuleMapping(Q[0]*Q[1]*Q[2],jinv,D,&df[0][0],out,imode);dCHK(err);
     } break;
@@ -401,11 +411,11 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
         default: dERROR(1,"InsertMode %d invalid or unimplemented",imode);
       }
       A[0] = b[0]->derivTranspose; A[1] = b[1]->interpTranspose; A[2] = b[2]->interpTranspose;
-      err = TensorMult_Hex(D,Q,P,A,df[0],out,ADD_VALUES);dCHK(err);
+      err = TensorMult_Hex(b,D,Q,P,A,df[0],out,ADD_VALUES);dCHK(err);
       A[0] = b[0]->interpTranspose; A[1] = b[1]->derivTranspose; A[2] = b[2]->interpTranspose;
-      err = TensorMult_Hex(D,Q,P,A,df[1],out,ADD_VALUES);dCHK(err);
+      err = TensorMult_Hex(b,D,Q,P,A,df[1],out,ADD_VALUES);dCHK(err);
       A[0] = b[0]->interpTranspose; A[1] = b[1]->interpTranspose; A[2] = b[2]->derivTranspose;
-      err = TensorMult_Hex(D,Q,P,A,df[2],out,ADD_VALUES);dCHK(err);
+      err = TensorMult_Hex(b,D,Q,P,A,df[2],out,ADD_VALUES);dCHK(err);
     } break;
     default:
       dERROR(1,"invalid/unimplemented dApplyMode %d specified",amode);
@@ -441,7 +451,7 @@ static dErr dEFSGetGlobalCoordinates_Tensor_Hex(dEFS efs,const dReal (*x)[3],dIn
   dFunctionReturn(0);
 }
 
-static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],dReal *A[1],const dScalar f[],dScalar g[restrict],InsertMode imode)
+static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],const dReal *A[1],const dScalar f[],dScalar g[restrict],InsertMode imode)
 {
   dInt i,l,d;
   dErr err;
@@ -467,7 +477,7 @@ static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],dReal *A[1],c
   dFunctionReturn(0);
 }
 
-static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dReal *A[2],const dScalar f[],dScalar g[restrict],InsertMode imode)
+static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],const dReal *A[2],const dScalar f[],dScalar g[restrict],InsertMode imode)
 {
   dScalar a[Q[0]*P[1]*D];
   dInt i,j,l,d;
@@ -505,103 +515,6 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],dReal *A[2],c
   }
   dFunctionReturn(0);
 }
-
-/**
-* The core computational kernel.  Performs a tensor product operation with the matrices A[0..2].
-*
-* @param[in] D number of degrees of freedom
-* @param[in] P array of length 3, dimensions of input block
-* @param[in] Q array of length 3, dimensions of output block
-* @param[in] A array of pointers, length 3, transformation matrix in each direction, shape(A[i])=(Q[i],P[i]), i=0,1,2
-* @param[in] f input vector with size corresponding to \in
-* @param[in,out] g output vector with size corresponding to \out
-* @param[in] imode ADD_VALUES or INSERT_VALUES
-*
-* @return err
-*/
-static dErr TensorMult_Hex(dInt D,const dInt P[3],const dInt Q[3],dReal *A[3],const dScalar in[],dScalar out[restrict],InsertMode imode)
-{
-  dScalar amem[Q[0]*P[1]*P[2]*D],bmem[Q[0]*Q[1]*P[2]*D];
-  const dReal (*restrict Ax)[P[0]] = (const dReal (*)[P[0]])A[0];
-  const dReal (*restrict Ay)[P[1]] = (const dReal (*)[P[1]])A[1];
-  const dReal (*restrict Az)[P[2]] = (const dReal (*)[P[2]])A[2];
-  dErr err;
-
-  dFunctionBegin;
-  err = dMemzero(amem,sizeof(amem));dCHK(err);
-  err = dMemzero(bmem,sizeof(bmem));dCHK(err);
-  switch (imode) {
-    case INSERT_VALUES:
-      err = dMemzero(out,Q[0]*Q[1]*Q[2]*D*sizeof(out[0]));dCHK(err);
-      break;
-    case ADD_VALUES:
-      break;
-    default:
-      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
-  }
-
-  for (dInt l=0; l<Q[0]; l++) {
-    const dInt JKD = P[1]*P[2]*D;
-    const dScalar *restrict Axl = Ax[l];
-    dScalar *restrict aa = &amem[l*JKD];
-    for (dInt i=0; i<P[0]; i++) {
-      const dScalar *restrict ff = &in[i*JKD];
-      const dReal aax = Axl[i];
-      for (dInt jkd=0; jkd<JKD; jkd++) {
-        aa[jkd] += aax * ff[jkd];
-      }
-    }
-  }
-  for (dInt i=0; i<Q[0]; i++) {
-    const dInt JKD = P[1]*P[2]*D,KD = P[2]*D;
-    dScalar *restrict aa = &amem[i*JKD];
-    for (dInt l=0; l<Q[1]; l++) {
-      dScalar *restrict bb = &bmem[(i*Q[1]+l)*KD];
-      const dReal *restrict Ayl = Ay[l];
-      for (dInt j=0; j<P[1]; j++) {
-        const dScalar *restrict aaa = &aa[j*KD];
-        const dReal aay = Ayl[j];
-        for (dInt kd=0; kd<KD; kd++) {
-          bb[kd] += aay * aaa[kd];
-        }
-      }
-    }
-  }
-  switch (D) {
-    case 1:
-      for (dInt ij=0; ij<Q[0]*Q[1]; ij++) {
-        const dScalar *restrict bb = &bmem[ij*P[2]];
-        dScalar *restrict cc = &out[ij*Q[2]];
-        for (dInt l=0; l<Q[2]; l++) {
-          const dScalar *restrict aaz = Az[l];
-          dScalar s = 0;
-          for (dInt k=0; k<P[2]; k++) {
-            s += aaz[k] * bb[k];
-          }
-          cc[l] += s;
-        }
-      }
-      break;
-    default:
-      for (dInt ij=0; ij<Q[0]*Q[1]; ij++) {
-        const dScalar *restrict bb = &bmem[ij*P[2]*D];
-        for (dInt l=0; l<Q[2]; l++) {
-          dScalar *restrict cc = &out[(ij*Q[2]+l)*D];
-          const dScalar *restrict aa = Az[l];
-          dInt kd = 0;
-          for (dInt k=0; k<P[2]; k++) {
-            const dScalar aaz = aa[k];
-            for (dInt d=0; d<D; d++,kd++) {
-              cc[d] += aaz * bb[kd];
-            }
-          }
-        }
-      }
-  }
-  PetscLogFlops((Q[0]*P[0]*P[1]*P[2] + Q[0]*Q[1]*P[1]*P[2] + Q[0]*Q[1]*Q[2]*P[2])*D*2);
-  dFunctionReturn(0);
-}
-
 
 static dErr TensorRuleNoMapping(dInt Q,dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode)
 {

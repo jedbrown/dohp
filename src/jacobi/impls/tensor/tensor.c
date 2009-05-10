@@ -14,6 +14,7 @@
 #include "optimalscale.h"
 #include "dohpgeom.h"
 #include "dohpmesh.h"           /* for iMesh_TopologyName */
+#include "inlinetmulthex.h"     /* Unrolled variants of TensorMult_Hex_ */
 
 static dErr TensorBuilderCreate(void*,TensorBuilder*);
 static dErr TensorBuilderDestroy(TensorBuilder);
@@ -45,6 +46,7 @@ static dErr dJacobiSetFromOptions_Tensor(dJacobi jac)
   {
     err = PetscOptionsTruth("-djac_tensor_mass_scale","Use optimal scaling for Q1 mass matrices","Jacobi",this->usemscale,&this->usemscale,NULL);dCHK(err);
     err = PetscOptionsTruth("-djac_tensor_laplace_scale","Use optimal scaling for Q1 Laplacian matrices","Jacobi",this->uselscale,&this->uselscale,NULL);dCHK(err);
+    err = PetscOptionsTruth("-djac_tensor_no_unroll","Do not use unrolled versions of tensor operations","Jacobi",this->nounroll,&this->nounroll,NULL);dCHK(err);
   }
   err = PetscOptionsTail();dCHK(err);
   dFunctionReturn(0);
@@ -89,6 +91,11 @@ static dErr dJacobiSetUp_Tensor(dJacobi jac)
       err = TensorBasisCreate(this->basisBuilder,rule,j,&this->basis[i*N+j]);dCHK(err);
       if (!this->usemscale) this->basis[i*N+j]->mscale = optimal_ones;
       if (!this->uselscale) this->basis[i*N+j]->lscale = optimal_ones;
+      if (this->nounroll) {
+        this->basis[i*N+j]->multhex[0] = &TensorMult_Hex_nounroll;
+        this->basis[i*N+j]->multhex[1] = &TensorMult_Hex_nounroll;
+        this->basis[i*N+j]->multhex[2] = &TensorMult_Hex_nounroll;
+      }
     }
   }
   err = dJacobiRuleOpsSetUp_Tensor(jac);dCHK(err);
@@ -655,7 +662,7 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
     b->interp[0] = 1.0;
     b->deriv[0] = 0.0;
     b->node[0] = 0.0;
-    dFunctionReturn(0);
+    goto matrices_computed;
   } else {
     const dReal alpha=opt->alpha,beta=opt->beta;
     dReal *cDeriv = work;        /* collocation derivative at Gauss-Lobatto points */
@@ -684,6 +691,8 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
       b->derivTranspose[j*Q+i] = b->deriv[i*P+j];
     }
   }
+
+  matrices_computed:
   switch (P) {
 #define _C(p) case p: b->mscale = optimal_mscale_ ## p; b->lscale = optimal_lscale_ ## p; break
     _C(2);
@@ -704,6 +713,14 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
       b->mscale = optimal_ones;
       b->lscale = optimal_ones;
       dERROR(1,"optimal scaling not available for this order, this should just be a PetscInfo warning");
+  }
+  {
+    b->multhex[0] = &TensorMult_Hex_nounroll;
+    b->multhex[1] = &TensorMult_Hex_nounroll;
+    b->multhex[2] = &TensorMult_Hex_nounroll;
+    if (P == 4 && Q == 4) {
+      b->multhex[0] = &TensorMult_Hex_P4_Q4_D1;
+    }
   }
   *basis = b;
   dFunctionReturn(0);

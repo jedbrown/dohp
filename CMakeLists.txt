@@ -18,7 +18,7 @@ option (Dohp_BUILD_SANDBOX "Build programs in sandbox"         ON)
 option (PEDANTIC_WARNINGS  "Compile with pedantic warnings"    ON)
 option (BUILD_SHARED_LIBS  "Build shared Dohp libraries"       ON)
 
-list (APPEND CMAKE_C_FLAGS -std=c99)
+add_definitions (-std=c99)
 
 if (Dohp_BUILD_TESTS)
   enable_testing ()
