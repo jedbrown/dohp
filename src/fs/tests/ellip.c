@@ -551,6 +551,7 @@ static dErr EllipGetSolutionVector(Ellip elp,Vec *insoln)
 
 int main(int argc,char *argv[])
 {
+  char mtype[256] = MATAIJ;
   Ellip elp;
   dFS fs;
   MPI_Comm comm;
@@ -572,7 +573,8 @@ int main(int argc,char *argv[])
   fs = elp->fs;
 
   err = dFSCreateGlobalVector(fs,&r);dCHK(err);
-  err = dFSGetMatrix(fs,MATSEQAIJ,&Jp);dCHK(err);
+  err = PetscOptionsGetString(NULL,"-q1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
+  err = dFSGetMatrix(fs,mtype,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
   err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
 

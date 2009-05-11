@@ -10,6 +10,7 @@ static const char help[] = "Solve nonlinear elasticity using dual order hp eleme
 #include "dohpvec.h"
 #include "petscsnes.h"
 
+static PetscLogEvent LOG_ElastShellMult;
 
 struct ElastParam {
   dReal lambda,mu,gamma;
@@ -26,6 +27,7 @@ struct ElastExact {
 /* Exact solutions are generated using sympy:
 from sympy import *
 from sympy.abc import *
+xyz = [x,y,z]
 u0 = cos(a*x) * exp(b*y) * sin(c*z); u1 = sin(a*x) * tanh(b*y) * cosh(c*z); u2 = exp(a*x) * sinh(b*y) * log(1+(c*z)**2); u = [u0,u1,u2]
 du = [[diff(v,x),diff(v,y),diff(v,z)] for v in u]
 s = [ [l*(du[0][0]+du[1][1]+du[2][2])*(i==j) + mu*(du[i][j] + du[j][i]) + gamma*np.sum([du[k][i]*du[k][j] for k in range(3)]) for j in range(3)] for i in range(3) ]
@@ -38,7 +40,6 @@ static void ElastExact_0_Solution(const struct ElastExactCtx *ctx,const struct E
   u[0] = cos(a*x) * exp(b*y) * sin(c*z);
   u[1] = sin(a*x) * tanh(b*y) * cosh(c*z);
   u[2] = exp(a*x) * sinh(b*y) * log(1+dSqr(c*z));
-  /* \todo Below is wrong! */
   du[0][0] = -a*exp(b*y)*sin(a*x)*sin(c*z);
   du[0][1] = b*cos(a*x)*exp(b*y)*sin(c*z);
   du[0][2] = c*cos(a*x)*cos(c*z)*exp(b*y);
@@ -56,6 +57,32 @@ static void ElastExact_0_Forcing(const struct ElastExactCtx *ctx,const struct El
   f[1] = -gamma*(-4*pow(b,3)*pow((1 - pow(tanh(b*y),2)),2)*pow(cosh(c*z),2)*pow(sin(a*x),2)*tanh(b*y) + 2*pow(b,3)*pow(log(1 + pow(c,2)*pow(z,2)),2)*cosh(b*y)*exp(2*a*x)*sinh(b*y) + 2*pow(b,3)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)) - gamma*(b*pow(a,2)*pow(cos(a*x),2)*pow(cosh(c*z),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) - b*pow(a,2)*pow(cosh(c*z),2)*pow(sin(a*x),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) + 2*b*pow(a,2)*pow(log(1 + pow(c,2)*pow(z,2)),2)*cosh(b*y)*exp(2*a*x)*sinh(b*y) + b*pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y) - b*pow(a,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)) - gamma*(b*pow(c,2)*pow(cosh(c*z),2)*pow(sin(a*x),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) + b*pow(c,2)*pow(sin(a*x),2)*pow(sinh(c*z),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) + 2*b*pow(c,2)*cosh(b*y)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y)/(1 + pow(c,2)*pow(z,2)) + 4*b*pow(c,4)*pow(z,2)*cosh(b*y)*exp(2*a*x)*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2) - 4*b*pow(c,4)*pow(z,2)*cosh(b*y)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2) + b*pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y) - b*pow(c,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)) - l*(-a*b*exp(b*y)*sin(a*x)*sin(c*z) - 2*pow(b,2)*(1 - pow(tanh(b*y),2))*cosh(c*z)*sin(a*x)*tanh(b*y) + 2*b*z*pow(c,2)*cosh(b*y)*exp(a*x)/(1 + pow(c,2)*pow(z,2))) - mu*(pow(c,2)*cosh(c*z)*sin(a*x)*tanh(b*y) + 2*b*z*pow(c,2)*cosh(b*y)*exp(a*x)/(1 + pow(c,2)*pow(z,2))) - mu*(-pow(a,2)*cosh(c*z)*sin(a*x)*tanh(b*y) - a*b*exp(b*y)*sin(a*x)*sin(c*z)) + 4*mu*pow(b,2)*(1 - pow(tanh(b*y),2))*cosh(c*z)*sin(a*x)*tanh(b*y);
   f[2] = -gamma*(-2*pow(c,3)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) + 2*pow(c,3)*pow(sin(a*x),2)*pow(tanh(b*y),2)*cosh(c*z)*sinh(c*z) - 16*pow(c,6)*pow(z,3)*pow(sinh(b*y),2)*exp(2*a*x)/pow((1 + pow(c,2)*pow(z,2)),3) + 8*z*pow(c,4)*pow(sinh(b*y),2)*exp(2*a*x)/pow((1 + pow(c,2)*pow(z,2)),2)) - gamma*(c*pow(a,2)*pow(cos(a*x),2)*pow(tanh(b*y),2)*cosh(c*z)*sinh(c*z) + c*pow(a,2)*pow(sin(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) - c*pow(a,2)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) - c*pow(a,2)*pow(sin(a*x),2)*pow(tanh(b*y),2)*cosh(c*z)*sinh(c*z) + 4*z*pow(a,2)*pow(c,2)*pow(sinh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/(1 + pow(c,2)*pow(z,2))) - gamma*(c*pow(b,2)*pow((1 - pow(tanh(b*y),2)),2)*pow(sin(a*x),2)*cosh(c*z)*sinh(c*z) + 2*c*pow(b,2)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) - 2*c*pow(b,2)*pow(sin(a*x),2)*pow(tanh(b*y),2)*(1 - pow(tanh(b*y),2))*cosh(c*z)*sinh(c*z) + 2*z*pow(b,2)*pow(c,2)*pow(cosh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/(1 + pow(c,2)*pow(z,2)) + 2*z*pow(b,2)*pow(c,2)*pow(sinh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/(1 + pow(c,2)*pow(z,2))) - l*(2*pow(c,2)*exp(a*x)*sinh(b*y)/(1 + pow(c,2)*pow(z,2)) + b*c*(1 - pow(tanh(b*y),2))*sin(a*x)*sinh(c*z) - a*c*cos(c*z)*exp(b*y)*sin(a*x) - 4*pow(c,4)*pow(z,2)*exp(a*x)*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2)) - mu*(pow(a,2)*exp(a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y) - a*c*cos(c*z)*exp(b*y)*sin(a*x)) - mu*(pow(b,2)*exp(a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y) + b*c*(1 - pow(tanh(b*y),2))*sin(a*x)*sinh(c*z)) - 4*mu*pow(c,2)*exp(a*x)*sinh(b*y)/(1 + pow(c,2)*pow(z,2)) + 8*mu*pow(c,4)*pow(z,2)*exp(a*x)*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2);
 }
+
+static void ElastExact_1_Solution(const struct ElastExactCtx *ctx,const struct ElastParam dUNUSED *prm,const dReal xyz[3],dScalar u[3],dScalar du_flat[9])
+{
+  const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
+  dScalar (*du)[3] = (dScalar(*)[3])du_flat;
+  u[0] = a*x;
+  u[1] = b*y;
+  u[2] = c*z;
+  du[0][0] = a;
+  du[0][1] = 0;
+  du[0][2] = 0;
+  du[1][0] = 0;
+  du[1][1] = b;
+  du[1][2] = 0;
+  du[2][0] = 0;
+  du[2][1] = 0;
+  du[2][2] = c;
+}
+static void ElastExact_1_Forcing(const struct ElastExactCtx dUNUSED *ctx,const struct ElastParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[3])
+{
+  //const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],l = prm->lambda,mu = prm->mu,gamma = prm->gamma;
+  f[0] = 0;
+  f[1] = 0;
+  f[2] = 0;
+}
+
 
 struct ElastStore {
   dReal Du[3][3];
@@ -127,6 +154,10 @@ static dErr ElastSetFromOptions(Elast elt)
     case 0:
       elt->exact.solution = ElastExact_0_Solution;
       elt->exact.forcing = ElastExact_0_Forcing;
+      break;
+    case 1:
+      elt->exact.solution = ElastExact_1_Solution;
+      elt->exact.forcing = ElastExact_1_Forcing;
       break;
     default: dERROR(1,"Exact solution %d not implemented");
   }
@@ -306,6 +337,7 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
   dErr err;
 
   dFunctionBegin;
+  err = PetscLogEventBegin(LOG_ElastShellMult,J,gx,gy,0);dCHK(err);
   err = MatShellGetContext(J,(void**)&elt);dCHK(err);
   fs = elt->fs;
   err = dFSGlobalToExpanded(fs,gx,elt->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
@@ -332,6 +364,7 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
   err = VecRestoreArray(elt->x,&x);dCHK(err);
   err = VecRestoreArray(elt->y,&y);dCHK(err);
   err = dFSExpandedToGlobal(fs,elt->y,gy,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = PetscLogEventEnd(LOG_ElastShellMult,J,gx,gy,0);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -414,7 +447,7 @@ static dErr ElastJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
-  *structure = DIFFERENT_NONZERO_PATTERN;
+  *structure = SAME_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
 
@@ -451,7 +484,8 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
         grsum += dSqr(gr[j]);
       }
       if (elt->errorview) {
-        printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e   exact %10.2e   error %10.e\n",e,i,q[i][0],q[i][1],q[i][2],u[i][0],uu[0],rsum);
+        printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e %10.2e %10.2e   exact %10.2e %10.2e %10.2e   error %10.e\n",
+               e,i,q[i][0],q[i][1],q[i][2],u[i][0],u[i][1],u[i][2],uu[0],uu[1],uu[2],rsum);
       }
       errorNorms[0] += (dAbs(r[0]) + dAbs(r[1]) + dAbs(r[2])) * jw[i];                   /* 1-norm */
       errorNorms[1] += grsum * jw[i];                                                    /* 2-norm */
@@ -493,11 +527,17 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
   err = dFSGetCoordinates(elt->fs,&cvec);dCHK(err);
   err = VecGetLocalSize(xc,&n);dCHK(err);
   err = VecGetBlockSize(xc,&bs);dCHK(err);
+  {
+    dInt nc;
+    err = VecGetLocalSize(cvec,&nc);dCHK(err);
+    if (nc*bs != n*3) dERROR(1,"Coordinate vector has inconsistent size");
+  }
   err = VecGetArray(xc,&x);dCHK(err);
   err = VecGetArray(cvec,&coords);dCHK(err);
   for (dInt i=0; i<n/bs; i++) {
     dScalar du_unused[3*bs];
     elt->exact.solution(&elt->exactctx,&elt->param,&coords[3*i],&x[i*bs],du_unused);
+    /* printf("Node %3d: coords %+8f %+8f %+8f   exact %+8f %+8f %+8f\n",i,coords[3*i],coords[3*i+1],coords[3*i+2],x[3*i],x[3*i+1],x[3*i+2]); */
   }
   err = VecRestoreArray(xc,&x);dCHK(err);
   err = VecRestoreArray(cvec,&coords);dCHK(err);
@@ -509,6 +549,7 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
 
 int main(int argc,char *argv[])
 {
+  char mtype[256] = MATBAIJ;
   Elast elt;
   dFS fs;
   MPI_Comm comm;
@@ -522,13 +563,15 @@ int main(int argc,char *argv[])
   err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
+  err = PetscLogEventRegister("ElastShellMult",MAT_COOKIE,&LOG_ElastShellMult);dCHK(err);
 
   err = ElastCreate(comm,&elt);dCHK(err);
   err = ElastSetFromOptions(elt);dCHK(err);
   fs = elt->fs;
 
   err = dFSCreateGlobalVector(fs,&r);dCHK(err);
-  err = dFSGetMatrix(fs,MATSEQBAIJ,&Jp);dCHK(err);
+  err = PetscOptionsGetString(NULL,"-q1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
+  err = dFSGetMatrix(fs,mtype,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
   err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
 
