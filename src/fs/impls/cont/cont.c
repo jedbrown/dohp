@@ -162,12 +162,71 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   fs->nc = nc;
   fs->ngh = ngh;
 
-  /* \todo compute a low-bandwidth ordering of explicit entities here (instead of [v,e,f,r]) */
+  iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+
+  /* compute a low-bandwidth ordering of explicit entities here (instead of [v,e,f,r]) */
+  {                             /* The result of this block is that \a ents will be reordered */
+    dScalar   weights[256];
+    Mat       madj;
+    dTruth    flg;
+    dInt     *nnz,*ordering,ordering_a;
+    const dInt *newindices;
+    dIInt     adj_a = 0,adj_s,*adjoff=NULL,adjoff_a=0,adjoff_s;
+    IS        rperm,cperm;
+    dMeshEH  *adj   = NULL;
+    dMeshTag  orderTag;
+
+    /* Get owned entities and adjacencies */
+    iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+    iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_ALL,&adj,&adj_a,&adj_s,&adjoff,&adjoff_a,&adjoff_s,&ierr);dICHK(mi,ierr);
+    if (adj_s < ents_s) dERROR(1,"peculiar mesh");
+    ordering_a = adj_s;
+    err = dMallocA2(ordering_a,&ordering,ents_s,&nnz);dCHK(err); /* enough space for index on all adjacencies */
+    err = dMeshTagCreateTemp(mesh,"ordering",1,dDATA_INT,&orderTag);dCHK(err);
+    /* Set default data on all ents, these entries will be discarded from matrix */
+    for (dInt i=0; i<ma.nents; i++) intdata[i] = -1;
+    err = dMeshTagSetData(fs->mesh,orderTag,ma.ents,ma.nents,intdata,ma.nents,dDATA_INT);dCHK(err);
+    for (dInt i=0; i<ents_s; i++) intdata[i] = i; /* Define a reference ordering on primary entities */
+    err = dMeshTagSetData(fs->mesh,orderTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err); /* values in \a intdata are not important after here */
+    err = dMeshTagGetData(mesh,orderTag,adj,adj_s,ordering,ordering_a,dDATA_INT);dCHK(err);
+    err = dMeshTagDestroy(mesh,orderTag);dCHK(err);
+
+    for (dInt i=0; i<ents_s; i++) {
+      dInt cnt = 0;
+      for (dInt j=adjoff[i]; j<adjoff[i+1]; j++) cnt += (ordering[j] >= 0);
+      nnz[i] = cnt;
+    }
+    /* Create matrix for number of owned entities */
+    err = MatCreateSeqAIJ(comm,ents_s,ents_s,0,nnz,&madj);dCHK(err);
+    for (dInt i=0; i<256; i++) weights[i] = 1.0; /* Maybe we should use the topology */
+    for (dInt i=0; i<ents_s; i++) {
+      err = MatSetValues(madj,1,&i,adjoff[i+1]-adjoff[i],ordering+adjoff[i],weights,INSERT_VALUES);dCHK(err);
+    }
+    err = dFree2(ordering,nnz);dCHK(err);
+    free(adjoff); adjoff = NULL; adjoff_a = 0; /* iMesh allocated this memory */
+    err = MatAssemblyBegin(madj,MAT_FINAL_ASSEMBLY);dCHK(err);
+    err = MatAssemblyEnd  (madj,MAT_FINAL_ASSEMBLY);dCHK(err);
+
+    /* Compute reordering */
+    err = MatGetOrdering(madj,fs->orderingtype,&rperm,&cperm);dCHK(err);
+    err = MatDestroy(madj);dCHK(err);
+    err = ISEqual(rperm,cperm,&flg);dCHK(err);
+    if (!flg) dERROR(1,"Cannot use ordering");
+    err = ISGetIndices(rperm,&newindices);dCHK(err);
+
+    /* Reuse \a adj as a buffer to apply permutation */
+    for (dInt i=0; i<ents_s; i++) adj[i] = ents[i];
+    for (dInt i=0; i<ents_s; i++) ents[i] = adj[newindices[i]];
+
+    err = ISRestoreIndices(rperm,&newindices);dCHK(err);
+    err = ISDestroy(rperm);dCHK(err);
+    err = ISDestroy(cperm);dCHK(err);
+    free(adj); adj = NULL; adj_a = 0; /* iMesh allocated this memory */
+  }
 
   {                             /* Set offsets (global, closure, local) of first node associated with every entity */
     dInt g=rstart,gc=crstart,l=0;
     /* explicit */
-    iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
     err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
     for (dInt i=0; i<ents_s; g+=inodes[idx[i++]]) intdata[i] = g; /* fill \a intdata with the global offset */
     if (g - rstart != n) dERROR(1,"Dohp Error: g does not agree with rstart");

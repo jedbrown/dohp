@@ -42,7 +42,9 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
   err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,DM_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
 
   err = dMemcpy(fs->ops,&defaultFSOps,sizeof defaultFSOps);dCHK(err);
-  err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);
+  err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);dCHK(err);
+  /* RCM is a good default ordering because it improves the performance of smoothers and incomplete factorization */
+  err = dStrcpyS(fs->orderingtype,sizeof fs->orderingtype,MATORDERING_RCM);dCHK(err);
 
   /* Defaults */
   fs->bs = 1;
@@ -88,6 +90,7 @@ dErr dFSSetFromOptions(dFS fs)
     err = dFSSetType(fs,deft);dCHK(err);
   }
   err = PetscOptionsInt("-dfs_rule_strength","Choose rules that are stronger than necessary","dFSRuleStrength",fs->ruleStrength,&fs->ruleStrength,NULL);dCHK(err);
+  err = PetscOptionsList("-dfs_ordering_type","Function Space ordering, usually to reduce bandwidth","dFSBuildSpace",MatOrderingList,fs->orderingtype,fs->orderingtype,256,NULL);dCHK(err);
   if (fs->ops->setfromoptions) {
     err = (*fs->ops->setfromoptions)(fs);dCHK(err);
   }

@@ -85,6 +85,7 @@ struct _p_dFS {
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */
   s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];
+  char         orderingtype[256];
   void        *data;
 };
 
