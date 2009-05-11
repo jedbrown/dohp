@@ -9,7 +9,7 @@
 dErr dFSGetCoordinates(dFS fs,Vec *inx)
 {
   dErr          err;
-  dInt          n,bs,*off,*geomoff;
+  dInt          n,*off,*geomoff;
   Mat           E1,Ebs;
   Vec           xc,xx,xc1,xx1;
   dScalar      *count,*x;
@@ -31,13 +31,13 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
   err = MatGetVecs(Ebs,&xc,&xx);dCHK(err);
 
   err = dFSGetElements(fs,&n,&off,NULL,&efs,&geomoff,&geom);dCHK(err);
-  bs = fs->bs;                  /* Offsets are given for whatever block size the FS was set up with, we need offsets with block sizes 1 and 3 */
   err = dFSGetWorkspace(fs,__func__,&qx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   err = VecGetArray(xx1,&count);dCHK(err);
   err = VecGetArray(xx,&x);dCHK(err);
   for (dInt e=0; e<n; e++) {
-    const dScalar *counte = count + off[e]/bs;
-    dScalar       *xe     = x + 3*off[e]/bs;
+    /* Offsets are given in terms of blocks */
+    const dScalar *counte = count + off[e];
+    dScalar       *xe     = x + 3*off[e];
     dInt           three,P[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,qx);dCHK(err);
     if (three != 3) dERROR(1,"element dimension unexpected");
@@ -72,7 +72,7 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
 * @note It is important to get geometry associated with boundary sets because it will frequently be projected against
 * the boundary.
 **/
-dErr dFSGetGeometryVector(dFS fs,Vec *ingeom)
+dErr dFSGetGeometryVector(dFS dUNUSED fs,Vec *ingeom)
 {
 
   dFunctionBegin;
