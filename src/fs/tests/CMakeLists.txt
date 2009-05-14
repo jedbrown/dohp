@@ -13,4 +13,5 @@ dohp_add_test (bu-0 1 bu -dmesh_in "${Dohp_DATA_DIR}/dblock211.h5m" -dfs_orderin
 dohp_add_test (ellip-e0-b2-p18 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor -ksp_monitor -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 2 -ellip_p 1.8 -dfs_ordering_type natural)
 dohp_add_test (ellip-e0-b4-p18 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor -ksp_monitor -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 4 -ellip_p 1.8 -djac_tensor_no_unroll -dfs_ordering_type natural)
 dohp_add_test (ellip-e0-b4-p17-sse 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor -ksp_monitor -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 4 -ellip_p 1.7 -dfs_ordering_type natural)
+dohp_add_test (ellip-morph 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -morph 1 -twist 0.4 -ksp_monitor_short -snes_max_it 1 -ksp_rtol 1e-8 -ksp_type cg -pc_type lu)
 dohp_add_test (elast-e0-b4-g01 1 elast -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -ksp_monitor_short -pc_type ilu -exact_a 0.98 -exact_b 1.01 -exact_c 1.01 -exact 0 -const_bdeg 4 -elast_gamma 0.1)

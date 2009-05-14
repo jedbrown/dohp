@@ -132,8 +132,18 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   dFunctionReturn(0);
 }
 
+static void Morph(void *ctx,double *coords)
+{
+  dReal morph = ((dReal*)ctx)[0],twist = ((dReal*)ctx)[1];
+  double x = coords[0],y = coords[1],z = coords[2];
+  coords[0] =  cos(twist*z)*x + sin(twist*z)*y;
+  coords[1] = -sin(twist*z)*x + cos(twist*z)*y;
+  coords[2] = -1 + (z + 1) * (1 + morph * (dSqr(x + 1) + dSqr(y + 1)));
+}
+
 static dErr EllipSetFromOptions(Ellip elp)
 {
+  char mesh_out_name[256];
   struct EllipParam *prm = &elp->param;
   struct EllipExactCtx *exc = &elp->exactctx;
   dMesh mesh;
@@ -141,11 +151,13 @@ static dErr EllipSetFromOptions(Ellip elp)
   dJacobi jac;
   dMeshESH domain;
   dMeshTag rtag,dtag;
+  dTruth mesh_out;
+  dReal morph,twist;
   dInt exact;
   dErr err;
 
   dFunctionBegin;
-  exact = 0; exc->a = exc->b = exc->c = 1;
+  exact = 0; morph = twist = 0.0; mesh_out = dFALSE; exc->a = exc->b = exc->c = 1;
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic (p-Laplacian) options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elp->constBDeg,&elp->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elp->nominalRDeg,&elp->nominalRDeg,NULL);dCHK(err);
@@ -157,6 +169,9 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
+    err = PetscOptionsReal("-morph","Deform the mesh by this factor","",morph,&morph,NULL);dCHK(err);
+    err = PetscOptionsReal("-twist","Twist the mesh by this factor","",twist,&twist,NULL);dCHK(err);
+    err = PetscOptionsString("-mesh_out","Write the (morphed) mesh with this name","",mesh_out_name,mesh_out_name,sizeof mesh_out_name,&mesh_out);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
 
   switch (exact) {
@@ -183,6 +198,10 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);dCHK(err);
+  {
+    dReal ctx[2] = {morph,twist};
+    err = dMeshMorph(mesh,&Morph,ctx);dCHK(err);
+  }
   elp->mesh = mesh;
   domain = 0;                   /* Root set in MOAB */
 
@@ -222,6 +241,13 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = dMallocA(elp->storeoff[n],&elp->store);dCHK(err);
     err = dMemzero(elp->store,elp->storeoff[n]*sizeof(elp->store[0]));dCHK(err);
     err = dFSRestoreElements(fs,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
+  }
+
+  if (mesh_out) {
+    iMesh_Instance mi;
+    dIInt          ierr;
+    err = dMeshGetInstance(mesh,&mi);dCHK(err);
+    iMesh_save(mi,domain,mesh_out_name,"",&ierr,sizeof mesh_out_name,0);dICHK(mi,ierr);
   }
 
   dFunctionReturn(0);

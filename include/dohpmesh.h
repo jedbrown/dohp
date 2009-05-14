@@ -139,6 +139,7 @@ EXTERN dErr dMeshRestoreAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
 EXTERN dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
 EXTERN dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
 EXTERN dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
+EXTERN dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 
 PETSC_EXTERN_CXX_END
 #endif

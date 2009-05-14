@@ -1221,3 +1221,24 @@ dErr dMeshPartitionOnOwnership(dMesh mesh,dMeshEH ents[],dInt n,dInt *ghstart)
   err = dFree2(status,pents);dCHK(err);
   dFunctionReturn(0);
 }
+
+dErr dMeshMorph(dMesh mesh,void (*morph)(void*,double*),void *ctx)
+{
+  iMesh_Instance mi;
+  dMeshEH       *ents=0;
+  double        *coords=0;
+  dIInt          ierr,ents_a=0,ents_s,coords_a=0,coords_s;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidCharPointer(morph,2);   /* It's actually a function pointer */
+  dValidPointer(ctx,3);
+  mi = mesh->mi;
+  iMesh_getEntities(mi,mesh->root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+  iMesh_getVtxArrCoords(mi,ents,ents_s,iBase_INTERLEAVED,&coords,&coords_a,&coords_s,&ierr);dICHK(mi,ierr);
+  for (dInt i=0; i<coords_s; i+=3) morph(ctx,coords+i);
+  iMesh_setVtxArrCoords(mi,ents,ents_s,iBase_INTERLEAVED,coords,coords_s,&ierr);dICHK(mi,ierr);
+  free(ents);
+  free(coords);
+  dFunctionReturn(0);
+}
