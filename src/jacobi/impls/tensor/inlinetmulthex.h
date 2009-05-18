@@ -376,7 +376,7 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
 
 #ifdef VERBOSE_TIMING
   time3 = read_time();
-  printf("%s cycle counts %10u %10u %10u\n",__func__,time1-time0,time2-time1,time3-time2);
+  printf("%s cycle counts %10ld %10ld %10ld\n",__func__,(long)(time1-time0),(long)(time2-time1),(long)(time3-time2));
 #endif
 
   PetscLogFlops((Q[0]*P[0]*P[1]*P2 + Q[0]*Q[1]*P[1]*P2 + Q[0]*Q[1]*Q2*P2)*D*2);
