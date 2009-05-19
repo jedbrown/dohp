@@ -52,12 +52,12 @@ static void StokesExact_0_Solution(const struct StokesExactCtx *ctx,const struct
   dp[1]     = 0;
   dp[2]     = 0;
 }
-static void StokesExact_0_Forcing(const struct StokesExactCtx *ctx,const struct StokesRheology dUNUSED *rheo,const dReal xyz[3],dScalar fu[],dScalar *fp)
+static void StokesExact_0_Forcing(const struct StokesExactCtx *ctx,const struct StokesRheology *rheo,const dReal xyz[3],dScalar fu[],dScalar *fp)
 {
   const dReal dUNUSED a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
   /* \todo this is incorrect */
-  fu[0] = -2*y+1;
-  fu[1] = 2*x+1;
+  fu[0] = -rheo->A*y+1;
+  fu[1] = rheo->A*x+1;
   fu[2] = 0;
   *fp   = 0;
 }
@@ -159,7 +159,7 @@ static dErr StokesSetFromOptions(Stokes stk)
 
   err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_rule_degree",stk->nominalRDeg,&rtag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_efs_velocity_degree",stk->constBDeg,&dtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_efs_pressure_degree",stk->constBDeg-1,&dptag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_efs_pressure_degree",stk->constBDeg-2,&dptag);dCHK(err);
 
   err = dFSCreate(stk->comm,&fsu);dCHK(err);
   err = dFSSetBlockSize(fsu,3);dCHK(err);
@@ -670,6 +670,12 @@ int main(int argc,char *argv[])
   //err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
   err = StokesGetSolutionVector(stk,&soln);dCHK(err);
+  {
+    dReal nrm;
+    err = SNESComputeFunction(snes,soln,r);dCHK(err);
+    err = VecNorm(r,NORM_2,&nrm);dCHK(err);
+    err = PetscPrintf(comm,"Norm of discrete residual for exact solution %g\n",nrm);dCHK(err);
+  }
   {                             /* Set null space */
     KSP ksp;
     MatNullSpace matnull;
@@ -677,9 +683,9 @@ int main(int argc,char *argv[])
     dTruth isnull;
     Vec U,F;
     err = VecZeroEntries(r);dCHK(err);
-    err = VecSet(stk->xp,1);dCHK(err);
-    err = VecScatterBegin(stk->extractPressure,stk->xp,r,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
-    err = VecScatterEnd  (stk->extractPressure,stk->xp,r,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecSet(stk->gpressure,1);dCHK(err);
+    err = VecScatterBegin(stk->extractPressure,stk->gpressure,r,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterEnd  (stk->extractPressure,stk->gpressure,r,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
     err = VecNormalize(r,PETSC_NULL);dCHK(err);
     err = MatNullSpaceCreate(comm,dFALSE,1,&r,&matnull);dCHK(err);
     err = SNESGetKSP(snes,&ksp);dCHK(err);
