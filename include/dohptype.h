@@ -113,6 +113,10 @@ static inline dReal dSqrt(dReal a) { return sqrt(a); }
 static inline dScalar dDotScalar3(const dScalar a[3],const dScalar b[3]) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
 static inline dScalar dColonSymScalar3(const dScalar a[6],const dScalar b[6])
 { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + 2*a[3]*b[3] + 2*a[4]*b[4] + 2*a[5]*b[5]; }
+static inline void dTensorSymCompress3(const dScalar Du[9],dScalar Dv[6])
+{Dv[0] = Du[0]; Dv[1] = Du[4]; Dv[2] = Du[8]; Dv[3] = (Du[1]+Du[3])/2; Dv[4] = (Du[2]+Du[6]); Dv[5] = (Du[5]+Du[7])/2;}
+static inline void dTensorSymUncompress3(const dScalar Du[6],dScalar Dv[9])
+{Dv[0] = Du[0]; Dv[4] = Du[1]; Dv[8] = Du[2]; Dv[1] = Dv[3] = Du[3]; Dv[2] = Dv[6] = Du[4]; Dv[5] = Dv[7] = Du[5];}
 
 #define dGamma(a) tgamma(a) /* This is defined in math.h as of C99. */
 
