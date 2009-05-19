@@ -3,6 +3,7 @@ dohp_link_executable (ellip ellip.c)
 # dohp_link_executable (cellip cellip.c)
 dohp_link_executable (bu bu.c)
 dohp_link_executable (elast elast.c)
+dohp_link_executable (stokes stokes.c)
 
 dohp_add_test (fs-mf-projection 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 6 -snes_monitor -ksp_converged_reason -dfs_ordering_type natural)
 dohp_add_test (fs-mf-op-proj-0  1 fs-ex1 -snes_mf_operator -ksp_type minres -pc_type jacobi -const_BDeg 10 -snes_monitor -ksp_converged_reason -ksp_rtol 1e-10 -frequency 5,4,3 -require_ptwise 2e-6,3e-6,2.3e-5 -require_grad 7e-7,3e-6,2e-4 -dfs_ordering_type natural)

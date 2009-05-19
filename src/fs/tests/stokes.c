@@ -1,0 +1,728 @@
+static const char help[] = "Solve non-Newtonian Stokes problem using dual order hp elements.\n"
+  "The model problem is\n"
+  "  -div(eta Du) + grad(p) = f\n"
+  "                  div(u) = g\n"
+  "where\n"
+  "  D is the symmetric gradient operator\n"
+  "  eta(gamma) = A (eps^2 + gamma)^{p-2}\n"
+  "  gamma = Du : Du/2\n"
+  "The weak form is\n"
+  "  int_Omega eta Dv:Du - p div(v) - q div(u) - f_u.v - f_p.q = 0\n"
+  "with Jacobian\n"
+  "  int_Omega eta Dv:Du + eta' (Dv:Dw)(Dw:Du) - p div(v) - q div(u) = 0\n"
+  "The problem is linear for p=2, an incompressible for g=0\n\n";
+
+#include "dohpfs.h"
+#include "dohpvec.h"
+#include "petscsnes.h"
+
+static PetscLogEvent LOG_StokesShellMult;
+
+struct StokesRheology {
+  dReal A,eps,p;
+};
+
+struct StokesExactCtx {
+  dReal a,b,c;
+};
+struct StokesExact {
+  void (*solution)(const struct StokesExactCtx*,const struct StokesRheology*,const dReal x[3],dScalar u[],dScalar *p,dScalar du[],dScalar dp[]);
+  void (*forcing)(const struct StokesExactCtx*,const struct StokesRheology*,const dReal x[3],dScalar fu[],dScalar *fp);
+};
+
+static void StokesExact_0_Solution(const struct StokesExactCtx *ctx,const struct StokesRheology dUNUSED *rheo,const dReal xyz[3],
+                                   dScalar u[],dScalar p[],dScalar du[],dScalar dp[])
+{
+  const dReal dUNUSED a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
+  u[0] = x*x*y;
+  u[1] = -x*y*y;
+  u[2] = 0;
+  *p   = x + y - 1.0;
+  /* \todo this is incorrect */
+  du[0*3+0] = 0;
+  du[0*3+1] = 0;
+  du[0*3+2] = 0;
+  du[1*3+0] = 0;
+  du[1*3+1] = 0;
+  du[1*3+2] = 0;
+  du[2*3+0] = 0;
+  du[2*3+1] = 0;
+  du[2*3+2] = 0;
+  dp[0]     = 0;
+  dp[1]     = 0;
+  dp[2]     = 0;
+}
+static void StokesExact_0_Forcing(const struct StokesExactCtx *ctx,const struct StokesRheology dUNUSED *rheo,const dReal xyz[3],dScalar fu[],dScalar *fp)
+{
+  const dReal dUNUSED a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
+  /* \todo this is incorrect */
+  fu[0] = -2*y+1;
+  fu[1] = 2*x+1;
+  fu[2] = 0;
+  *fp   = 0;
+}
+
+struct StokesStore {
+  dReal eta,deta;
+  dReal Du[6];
+};
+
+typedef struct StokesCtx *Stokes;
+struct StokesCtx {
+  MPI_Comm               comm;
+  struct StokesRheology  rheo;
+  struct StokesExact     exact;
+  struct StokesExactCtx  exactctx;
+  struct StokesStore    *store;
+  dInt                  *storeoff;
+  dJacobi                jac;
+  dMesh                  mesh;
+  dFS                    fsu,fsp;
+  Vec                    xu,xp,yu,yp;
+  Vec                    gvelocity,gpressure,gpacked;
+  VecScatter             extractVelocity,extractPressure;
+  dInt                   constBDeg,nominalRDeg;
+  dTruth                 errorview;
+  /* Physics-based preconditioner */
+  Mat Pu;                       /* preconditioner for velocity block */
+  Mat Pp;                       /* preconditioner for pressure block, auxilliary system */
+  Mat Au,Ap,B;                  /* shell operators operators */
+};
+
+static dErr StokesCreate(MPI_Comm comm,Stokes *stokes)
+{
+  Stokes stk;
+  dErr err;
+
+  dFunctionBegin;
+  *stokes = 0;
+  err = dNew(struct StokesCtx,&stk);dCHK(err);
+  stk->comm = comm;
+
+  stk->constBDeg   = 4;
+  stk->nominalRDeg = 0;
+  stk->rheo.A      = 1;
+  stk->rheo.eps    = 1;
+  stk->rheo.p      = 2;
+  *stokes = stk;
+  dFunctionReturn(0);
+}
+
+static dErr StokesSetFromOptions(Stokes stk)
+{
+  struct StokesRheology *rheo = &stk->rheo;
+  struct StokesExactCtx *exc = &stk->exactctx;
+  dMesh mesh;
+  dFS fsu,fsp;
+  dJacobi jac;
+  dMeshESH domain;
+  dMeshTag rtag,dtag,dptag;
+  dInt exact;
+  dErr err;
+
+  dFunctionBegin;
+  exact = 0; exc->a = exc->b = exc->c = 1;
+  err = PetscOptionsBegin(stk->comm,NULL,"Stokesicity options",__FILE__);dCHK(err); {
+    err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",stk->constBDeg,&stk->constBDeg,NULL);dCHK(err);
+    stk->nominalRDeg = stk->constBDeg; /* The cheapest option, usually a good default */
+    err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",stk->nominalRDeg,&stk->nominalRDeg,NULL);dCHK(err);
+    err = PetscOptionsTruth("-error_view","View errors","",stk->errorview,&stk->errorview,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_A","Rate factor (rheology)","",rheo->A,&rheo->A,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_eps","Regularization (rheology)","",rheo->eps,&rheo->eps,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_p","Power p=1+1/n where n is Glen exponent","",rheo->p,&rheo->p,NULL);dCHK(err);
+    err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
+  } err = PetscOptionsEnd();dCHK(err);
+
+  switch (exact) {
+    case 0:
+      stk->exact.solution = StokesExact_0_Solution;
+      stk->exact.forcing = StokesExact_0_Forcing;
+      break;
+    default: dERROR(1,"Exact solution %d not implemented");
+  }
+
+  err = dMeshCreate(stk->comm,&mesh);dCHK(err);
+  err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
+  err = dMeshSetFromOptions(mesh);dCHK(err);
+  err = dMeshLoad(mesh);dCHK(err);dCHK(err);
+  stk->mesh = mesh;
+  err = dMeshGetRoot(mesh,&domain);dCHK(err);
+
+  err = dJacobiCreate(stk->comm,&jac);dCHK(err);
+  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
+  err = dJacobiSetFromOptions(jac);dCHK(err);
+  err = dJacobiSetUp(jac);dCHK(err);
+  stk->jac = jac;
+
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_rule_degree",stk->nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_efs_velocity_degree",stk->constBDeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_efs_pressure_degree",stk->constBDeg-1,&dptag);dCHK(err);
+
+  err = dFSCreate(stk->comm,&fsu);dCHK(err);
+  err = dFSSetBlockSize(fsu,3);dCHK(err);
+  err = dFSSetMesh(fsu,mesh,domain);dCHK(err);
+  err = dFSSetRuleTag(fsu,jac,rtag);dCHK(err);
+  err = dFSSetDegree(fsu,jac,dtag);dCHK(err);
+  err = dFSRegisterBoundary(fsu,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  err = dFSRegisterBoundary(fsu,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  err = dFSRegisterBoundary(fsu,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  err = PetscObjectSetOptionsPrefix((dObject)fsu,"u");dCHK(err);
+  err = dFSSetFromOptions(fsu);dCHK(err);
+  stk->fsu = fsu;
+
+  err = dFSCreate(stk->comm,&fsp);dCHK(err);
+  err = dFSSetMesh(fsp,mesh,domain);dCHK(err);
+  err = dFSSetRuleTag(fsp,jac,rtag);dCHK(err);
+  err = dFSSetDegree(fsp,jac,dptag);dCHK(err);
+  err = PetscObjectSetOptionsPrefix((dObject)fsp,"p");dCHK(err);
+  /* No boundaries, the pressure space has Neumann conditions when Dirichlet velocity conditions are applied */
+  err = dFSSetFromOptions(fsp);dCHK(err);
+  stk->fsp = fsp;
+
+  err = dFSCreateExpandedVector(fsu,&stk->xu);dCHK(err);
+  err = VecDuplicate(stk->xu,&stk->yu);dCHK(err);
+
+  err = dFSCreateExpandedVector(fsp,&stk->xp);dCHK(err);
+  err = VecDuplicate(stk->xp,&stk->yp);dCHK(err);
+
+  {                             /* Allocate space for stored values */
+    dInt n,np;
+    s_dRule *rule,*rulep;
+    err = dFSGetElements(fsu,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
+    err = dFSGetElements(fsp,&np,NULL,&rulep,NULL,NULL,NULL);dCHK(err);
+    if (n != np) dERROR(1,"pressure and velocity spaces have different number of elements");
+    err = dMallocA(n+1,&stk->storeoff);dCHK(err);
+    stk->storeoff[0] = 0;
+    for (dInt i=0; i<n; i++) {
+      dInt q,qp;
+      err = dRuleGetSize(&rule[i],NULL,&q);dCHK(err);
+      err = dRuleGetSize(&rulep[i],NULL,&qp);dCHK(err);
+      if (q != qp) dERROR(1,"pressure and velocity spaces have different number of quadrature points on element %d",i);
+      stk->storeoff[i+1] = stk->storeoff[i] + q;
+    }
+    err = dMallocA(stk->storeoff[n],&stk->store);dCHK(err);
+    err = dMemzero(stk->store,stk->storeoff[n]*sizeof(stk->store[0]));dCHK(err);
+    err = dFSRestoreElements(fsu,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
+    err = dFSRestoreElements(fsp,&np,NULL,&rulep,NULL,NULL,NULL);dCHK(err);
+  }
+
+  {
+    dInt un,pn,rstart;
+    IS   ublock,pblock;
+    err = dFSCreateGlobalVector(stk->fsu,&stk->gvelocity);dCHK(err);
+    err = dFSCreateGlobalVector(stk->fsp,&stk->gpressure);dCHK(err);
+    err = VecGetLocalSize(stk->gvelocity,&un);dCHK(err);
+    err = VecGetLocalSize(stk->gpressure,&pn);dCHK(err);
+    err = VecCreateMPI(stk->comm,un+pn,PETSC_DETERMINE,&stk->gpacked);dCHK(err);
+    err = VecGetOwnershipRange(stk->gpacked,&rstart,NULL);dCHK(err);
+    err = ISCreateStride(stk->comm,un,rstart,1,&ublock);dCHK(err);
+    err = ISCreateStride(stk->comm,pn,rstart+un,1,&pblock);dCHK(err);
+    err = VecScatterCreate(stk->gpacked,ublock,stk->gvelocity,NULL,&stk->extractVelocity);dCHK(err);
+    err = VecScatterCreate(stk->gpacked,pblock,stk->gpressure,NULL,&stk->extractPressure);dCHK(err);
+    err = ISDestroy(ublock);dCHK(err);
+    err = ISDestroy(pblock);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr StokesDestroy(Stokes stk)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dFSDestroy(stk->fsu);dCHK(err);
+  err = dFSDestroy(stk->fsp);dCHK(err);
+  err = dJacobiDestroy(stk->jac);dCHK(err);
+  err = dMeshDestroy(stk->mesh);dCHK(err);
+  err = dFree(stk->storeoff);dCHK(err);
+  err = dFree(stk->store);dCHK(err);
+#define _D(v)  do {if (v) {err = VecDestroy(v);dCHK(err);}} while (0)
+  _D(stk->xu);
+  _D(stk->yu);
+  _D(stk->xp);
+  _D(stk->yp);
+  _D(stk->gvelocity);
+  _D(stk->gpressure);
+  _D(stk->gpacked);
+#undef _D
+  err = VecScatterDestroy(stk->extractVelocity);dCHK(err);
+  err = VecScatterDestroy(stk->extractPressure);dCHK(err);
+  err = dFree(stk);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static inline void StokesPointwiseComputeStore(struct StokesRheology dUNUSED *rheo,const dReal dUNUSED x[3],const dScalar Du[],struct StokesStore *st)
+{
+  dScalar gamma_reg = dSqr(rheo->eps) + dColonSymScalar3(Du,Du);
+  st->eta = rheo->A * pow(gamma_reg,rheo->p-2);
+  st->deta = (rheo->p-2) * st->eta / gamma_reg;
+  for (dInt i=0; i<6; i++) st->Du[i] = Du[i];
+}
+
+static inline void StokesPointwiseFunction(struct StokesRheology *rheo,struct StokesExact *exact,struct StokesExactCtx *exactctx,
+                                           const dReal x[3],dReal weight,const dScalar Du[6],dScalar p,
+                                           struct StokesStore *st,dScalar v[3],dScalar *q,dScalar Dv[9])
+{
+  dScalar fu[3],fp;
+  StokesPointwiseComputeStore(rheo,x,Du,st);
+  exact->forcing(exactctx,rheo,x,fu,&fp);
+  for (dInt i=0; i<3; i++) v[0] = -weight * fu[i]; /* Coefficient of \a v in weak form, only appears in forcing term */
+  *q   = -weight * (Du[0]+Du[1]+Du[2] + fp);       /* -q tr(Du) - forcing, note tr(Du) = div(u) */
+  for (dInt i=0; i<3; i++) Dv[i] = weight * (st->eta * Du[i] - p); /* eta Dv:Du - p tr(Dv) */
+  for (dInt i=3; i<6; i++) Dv[i] = weight * st->eta * Du[i];       /* eta Dv:Du */
+}
+
+static inline void StokesPointwiseJacobian(struct StokesRheology dUNUSED *rheo,const struct StokesStore *restrict st,dReal weight,
+                                           const dScalar Du[restrict static 6],dScalar p,
+                                           dScalar Dv[restrict static 6],dScalar *restrict q)
+{
+                                /* Coefficients in weak form of Jacobian */
+  const dScalar deta_colon = st->deta*dColonSymScalar3(st->Du,Du);                          /* eta' Dw:Du */
+  for (dInt i=0; i<3; i++) Dv[i] = weight * (st->eta * Du[i] + deta_colon * st->Du[i] - p); /* eta Dv:Du + eta' (Dv:Dw)(Dw:Du) - p tr(Dv) */
+  for (dInt i=3; i<6; i++) Dv[i] = weight * (st->eta * Du[i] + deta_colon * st->Du[i]);     /* eta Dv:Du + eta' (Dv:Dw)(Dw:Du) */
+  *q = -weight*(Du[0]+Du[1]+Du[2]);                                                         /* -q tr(Du) */
+}
+
+static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
+{
+  dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
+  Stokes   stk = ctx;
+  dFS      fsu = stk->fsu,fsp = stk->fsp;
+  Vec      gxu,gxp;
+  dInt     n,np,*off,*offp,*geomoff;
+  s_dRule *rule,*rulep;
+  s_dEFS  *efs,*efsp;
+  dScalar *xu,*xp,*yu,*yp,*restrict vv,*restrict du,*restrict dv,*restrict pp,*restrict qq;
+  dErr    err;
+
+  dFunctionBegin;
+  gxu = stk->gvelocity; gxp = stk->gpressure; /* Our work vectors */
+  err = VecScatterBegin(stk->extractVelocity,gx,gxu,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterEnd  (stk->extractVelocity,gx,gxu,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterBegin(stk->extractPressure,gx,gxp,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterEnd  (stk->extractPressure,gx,gxp,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  /* dFS_INHOMOGENEOUS projects into inhomogeneous space (strongly enforcing boundary conditions) */
+  err = dFSGlobalToExpanded(fsu,gxu,stk->xu,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err); /* velocity */
+  err = dFSGlobalToExpanded(fsp,gxp,stk->xp,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err); /* pressure */
+  err = VecZeroEntries(stk->yu);dCHK(err);                                              /* Clear expanded output vectors */
+  err = VecZeroEntries(stk->yp);dCHK(err);
+  err = VecGetArray(stk->xu,&xu);dCHK(err);
+  err = VecGetArray(stk->xp,&xp);dCHK(err);
+  err = VecGetArray(stk->yu,&yu);dCHK(err);
+  err = VecGetArray(stk->yp,&yp);dCHK(err);
+  err = dFSGetElements(fsu,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err); /* \note \a off is in terms of \e nodes, not \e dofs */
+  err = dFSGetElements(fsp,&np,&offp,&rulep,&efsp,NULL,NULL);dCHK(err);
+  if (n != np) dERROR(1,"number of elements in velocity and pressure spaces do not agree");
+  err = dFSGetWorkspace(fsu,__func__,&q,&jinv,&jw,NULL,&vv,&du,&dv);dCHK(err);
+  err = dFSGetWorkspace(fsp,__func__,NULL,NULL,NULL,&pp,&qq,NULL,NULL);dCHK(err); /* workspace for test and trial functions */
+  for (dInt e=0; e<n; e++) {
+    dInt Q;
+    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
+    {
+      dInt Qp;
+      err = dRuleGetSize(&rulep[e],0,&Qp);dCHK(err);
+      if (Q != Qp) dERROR(1,"rule sizes on element %d do not agree",e);dCHK(err);
+    }
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,xu+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err); /* velocity gradients */
+    err = dEFSApply(&efsp[e],(const dReal*)jinv,1,xp+offp[e],pp,dAPPLY_INTERP,INSERT_VALUES);dCHK(err); /* pressure values */
+    for (dInt i=0; i<Q; i++) {
+      struct StokesStore *restrict st = &stk->store[stk->storeoff[e]+i];
+      dScalar Du[6],Dv[6];
+      dTensorSymCompress3(&du[i*9],Du);
+      StokesPointwiseFunction(&stk->rheo,&stk->exact,&stk->exactctx,q[i],jw[i],Du,pp[i],st,&vv[i*3],&qq[i],Dv);
+      dTensorSymUncompress3(Dv,&dv[i*9]);
+    }
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,vv,yu+3*off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,yu+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efsp[e],(const dReal*)jinv,1,qq,yp+offp[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+  }
+  err = dFSRestoreWorkspace(fsu,__func__,&q,&jinv,&jw,NULL,&vv,&du,&dv);dCHK(err);
+  err = dFSRestoreWorkspace(fsp,__func__,NULL,NULL,NULL,&pp,&qq,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fsu,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSRestoreElements(fsp,&np,&offp,&rulep,&efsp,NULL,NULL);dCHK(err);
+  err = VecRestoreArray(stk->xu,&xu);dCHK(err);
+  err = VecRestoreArray(stk->xp,&xp);dCHK(err);
+  err = VecRestoreArray(stk->yu,&yu);dCHK(err);
+  err = VecRestoreArray(stk->yp,&yp);dCHK(err);
+  {
+    err = VecZeroEntries(gxu);dCHK(err);
+    err = VecZeroEntries(gxp);dCHK(err);
+    err = dFSExpandedToGlobal(fsu,stk->yu,gxu,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(fsp,stk->yp,gxp,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+    err = VecZeroEntries(gy);dCHK(err);
+    err = VecScatterBegin(stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterEnd  (stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterBegin(stk->extractPressure,gxp,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterEnd  (stk->extractPressure,gxp,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+#if defined(ENABLE_PRECONDITIONING)
+static dErr StokesShellMatMult_All(Mat J,Vec gx,Vec gy)
+{
+  Stokes stk;
+  dFS fs;
+  dInt n,*off,*geomoff;
+  s_dRule *rule;
+  s_dEFS *efs;
+  dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
+  dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscLogEventBegin(LOG_StokesShellMult,J,gx,gy,0);dCHK(err);
+  err = MatShellGetContext(J,(void**)&stk);dCHK(err);
+  /* Find out which block we have by comparing sizes */
+  fs = stk->fs;
+  err = dFSGlobalToExpanded(fs,gx,stk->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecGetArray(stk->x,&x);dCHK(err);
+  err = VecZeroEntries(stk->y);dCHK(err);
+  err = VecGetArray(stk->y,&y);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    dInt Q;
+    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      struct StokesStore *restrict st = &stk->store[stk->storeoff[e]+i];
+      StokesPointwiseJacobian(&stk->rheo,st,jw[i],&u[i*3],&du[i*9],&v[i*3],&dv[i*9]);
+    }
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
+  }
+  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(stk->x,&x);dCHK(err);
+  err = VecRestoreArray(stk->y,&y);dCHK(err);
+  err = dFSExpandedToGlobal(fs,stk->y,gy,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = PetscLogEventEnd(LOG_StokesShellMult,J,gx,gy,0);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+{
+  Stokes stk = ctx;
+  s_dRule *rule;
+  s_dEFS *efs;
+  dReal (*nx)[3];
+  dScalar *x;
+  dFS fs = stk->fs;
+  dInt n,*off,*geomoff;
+  dReal (*geom)[3];
+  dErr err;
+
+  dFunctionBegin;
+  err = MatZeroEntries(*Jp);dCHK(err);
+  err = dFSGlobalToExpanded(fs,gx,stk->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecGetArray(stk->x,&x);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
+  for (dInt e=0; e<n; e++) {
+    dInt three,P[3];
+    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
+      for (dInt j=0; j<P[1]-1; j++) {
+        for (dInt k=0; k<P[2]-1; k++) {
+          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
+          const dScalar (*uc)[3] = (const dScalar(*)[3])x+off[e]; /* function values, indexed at subelement corners \c uc[c[#]][0] */
+          const dReal (*qx)[3],*jw,(*basis)[8],(*deriv)[8][3];
+          dInt qn;
+          dScalar K[8*3][8*3];
+          err = dMemzero(K,sizeof(K));dCHK(err);
+          err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,(const dReal**)&basis,(const dReal**)&deriv);dCHK(err);
+          for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
+            struct StokesStore st;
+            { /* Set up store */
+              dReal st_u[3] = {0,0,0},st_Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
+              for (dInt lp=0; lp<8; lp++) { /* Evaluate function values and gradients at this quadrature point */
+                for (dInt f=0; f<3; f++) {  /* for each field */
+                  st_u[f] += basis[lq][lp] * uc[c[lp]][f];
+                  st_Du[f][0] += deriv[lq][lp][0] * uc[c[lp]][f];
+                  st_Du[f][1] += deriv[lq][lp][1] * uc[c[lp]][f];
+                  st_Du[f][2] += deriv[lq][lp][2] * uc[c[lp]][f];
+                }
+              }
+              StokesPointwiseComputeStore(&stk->rheo,qx[lq],st_u,&st_Du[0][0],&st);
+            }
+            for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
+              for (dInt lp=0; lp<8; lp++) {                     /* Loop over trial basis functions (corners) */
+                for (dInt fp=0; fp<3; fp++) {                   /* Each field component of trial function */
+                  dReal u[3] = {0,0,0},Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}},v[3],Dv[3][3];
+                  u[fp] = basis[lq][lp]; /* Trial function for only this field component */
+                  Du[fp][0] = deriv[lq][lp][0];
+                  Du[fp][1] = deriv[lq][lp][1];
+                  Du[fp][2] = deriv[lq][lp][2];
+                  /* Get the coefficients of test functions for each field component */
+                  StokesPointwiseJacobian(&stk->rheo,&st,jw[lq],u,&Du[0][0],v,&Dv[0][0]);
+                  for (dInt ftest=0; ftest<3; ftest++) { /* Insert contribution from each test function field component */
+                    K[ltest*3+ftest][lp*3+fp] += //basis[lq][ltest] * v[0]
+                      + deriv[lq][ltest][0] * Dv[ftest][0]
+                      + deriv[lq][ltest][1] * Dv[ftest][1]
+                      + deriv[lq][ltest][2] * Dv[ftest][2];
+                  }
+                }
+              }
+            }
+          }
+          err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+        }
+      }
+    }
+  }
+  err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(stk->x,&x);dCHK(err);
+
+  err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  *structure = SAME_NONZERO_PATTERN;
+  dFunctionReturn(0);
+}
+
+static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3])
+{
+  dFS fs = stk->fs;
+  dInt n,*off,*geomoff;
+  s_dRule *rule;
+  s_dEFS *efs;
+  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
+  dScalar *x,(*u)[3],(*du)[9];
+  dErr err;
+
+  dFunctionBegin;
+  err = dMemzero(errorNorms,3*sizeof(errorNorms));dCHK(err);
+  err = dMemzero(gerrorNorms,3*sizeof(gerrorNorms));dCHK(err);
+  err = dFSGlobalToExpanded(fs,gx,stk->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecGetArray(stk->x,&x);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,(dReal**)&u,NULL,(dReal**)&du,NULL);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    dInt Q;
+    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],&u[0][0],dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],&du[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      dScalar uu[3],duu[9],r[3],gr[3],rsum=0,grsum=0;
+      stk->exact.solution(&stk->exactctx,&stk->rheo,q[i],uu,duu);
+      for (dInt j=0; j<3; j++) {
+        r[j] = u[i][j] - uu[j]; /* Function error at point */
+        rsum += dSqr(r[j]);
+        gr[j] = dSqrt(dSqr(du[i][j*3+0]-duu[j*3+0]) + dSqr(du[i][j*3+1]-duu[j*3+1]) + dSqr(du[i][j*3+2]-duu[j*3+2])); /* Gradient error at point */
+        grsum += dSqr(gr[j]);
+      }
+      if (stk->errorview) {
+        printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e %10.2e %10.2e   exact %10.2e %10.2e %10.2e   error %10.e\n",
+               e,i,q[i][0],q[i][1],q[i][2],u[i][0],u[i][1],u[i][2],uu[0],uu[1],uu[2],rsum);
+      }
+      errorNorms[0] += (dAbs(r[0]) + dAbs(r[1]) + dAbs(r[2])) * jw[i];                   /* 1-norm */
+      errorNorms[1] += grsum * jw[i];                                                    /* 2-norm */
+      errorNorms[2] = dMax(errorNorms[2],dMax(dAbs(r[0]),dMax(dAbs(r[1]),dAbs(r[2])))); /* Sup-norm */
+      gerrorNorms[0] += (dAbs(gr[0]) + dAbs(gr[1]) + dAbs(gr[2])) * jw[i];
+      gerrorNorms[1] += grsum * jw[i];
+      gerrorNorms[2] = dMax(gerrorNorms[2],dMax(dAbs(gr[0]),dMax(dAbs(gr[1]),dAbs(gr[2]))));
+#if 0
+      printf("pointwise stats %8g %8g %8g %8g\n",jw[i],r[0],dSqr(r[0]),errorNorms[1]);
+      printf("pointwise grads %8g %8g %8g (%8g)\n",gr[0],gr[1],gr[2],grsum);
+# if 0
+      printf("jinv[%2d][%3d]   %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f\n",e,i,
+             jinv[i][0][0],jinv[i][0][1],jinv[i][0][2],
+             jinv[i][1][0],jinv[i][1][1],jinv[i][1][2],
+             jinv[i][2][0],jinv[i][2][1],jinv[i][2][2]);
+# endif
+#endif
+    }
+  }
+  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,(dReal**)&u,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(stk->x,&x);dCHK(err);
+  errorNorms[1] = dSqrt(errorNorms[1]);
+  gerrorNorms[1] = dSqrt(gerrorNorms[1]);
+  dFunctionReturn(0);
+}
+#endif /* defined(ENABLE_PRECONDITIONING) */
+
+static dErr StokesGetSolutionField_All(Stokes stk,dFS fs,dTruth isvel,Vec *insoln)
+{
+  Vec      sol,xc,cvec;
+  dScalar *x,*coords;
+  dInt     n,bs;
+  dErr     err;
+
+  dFunctionBegin;
+  *insoln = 0;
+  err = dFSCreateGlobalVector(fs,&sol);dCHK(err);
+  err = VecDohpGetClosure(sol,&xc);dCHK(err);
+  err = dFSGetCoordinates(fs,&cvec);dCHK(err);
+  err = VecGetLocalSize(xc,&n);dCHK(err);
+  err = VecGetBlockSize(xc,&bs);dCHK(err);
+  {
+    dInt nc;
+    err = VecGetLocalSize(cvec,&nc);dCHK(err);
+    if (nc*bs != n*3) dERROR(1,"Coordinate vector has inconsistent size");
+  }
+  err = VecGetArray(xc,&x);dCHK(err);
+  err = VecGetArray(cvec,&coords);dCHK(err);
+  for (dInt i=0; i<n/bs; i++) {
+    dScalar u_unused[3],p_unused[1],du_unused[3*3],dp_unused[3];
+    /* if \a isvel then \a x is the velocity field, otherwise it is the pressure field */
+    stk->exact.solution(&stk->exactctx,&stk->rheo,&coords[3*i],isvel ? &x[i*bs] : u_unused,isvel ? p_unused : &x[i*bs],du_unused,dp_unused);
+    /* printf("Node %3d: coords %+8f %+8f %+8f   exact %+8f %+8f %+8f\n",i,coords[3*i],coords[3*i+1],coords[3*i+2],x[3*i],x[3*i+1],x[3*i+2]); */
+  }
+  err = VecRestoreArray(xc,&x);dCHK(err);
+  err = VecRestoreArray(cvec,&coords);dCHK(err);
+  err = VecDestroy(cvec);dCHK(err);
+  err = dFSInhomogeneousDirichletCommit(fs,xc);dCHK(err);
+  err = VecDohpRestoreClosure(sol,&xc);dCHK(err);
+  *insoln = sol;
+  dFunctionReturn(0);
+}
+
+/** Creates a solution vector, commits the closure to each FS, returns packed solution vector */
+static dErr StokesGetSolutionVector(Stokes stk,Vec *insoln)
+{
+  dErr err;
+  Vec solu,solp,spacked;
+
+  dFunctionBegin;
+  *insoln = 0;
+  err = StokesGetSolutionField_All(stk,stk->fsu,dTRUE,&solu);dCHK(err);
+  err = StokesGetSolutionField_All(stk,stk->fsp,dFALSE,&solp);dCHK(err);
+  err = VecDuplicate(stk->gpacked,&spacked);dCHK(err);
+  err = VecScatterBegin(stk->extractVelocity,solu,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterEnd  (stk->extractVelocity,solu,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterBegin(stk->extractPressure,solp,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterEnd  (stk->extractPressure,solp,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  err = VecDestroy(solu);dCHK(err);
+  err = VecDestroy(solp);dCHK(err);
+  *insoln = spacked;
+  dFunctionReturn(0);
+}
+
+int main(int argc,char *argv[])
+{
+  char mtype[256] = MATBAIJ;
+  Stokes stk;
+  MPI_Comm comm;
+  PetscViewer viewer;
+  Mat J,Jp;
+  Vec r,x,soln;
+  SNES snes;
+  dTruth nojshell,nocheck;
+  dErr err;
+
+  err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
+  comm = PETSC_COMM_WORLD;
+  viewer = PETSC_VIEWER_STDOUT_WORLD;
+  err = PetscLogEventRegister("StokesShellMult",MAT_COOKIE,&LOG_StokesShellMult);dCHK(err);
+
+  err = StokesCreate(comm,&stk);dCHK(err);
+  err = StokesSetFromOptions(stk);dCHK(err);
+
+  err = VecDuplicate(stk->gpacked,&r);dCHK(err);
+
+  err = PetscOptionsGetString(NULL,"-q1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
+  if (0) {
+    err = dFSGetMatrix(stk->fsu,mtype,&Jp);dCHK(err);
+    err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
+    err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
+  }
+
+  err = PetscOptionsBegin(stk->comm,NULL,"Stokes solver options",__FILE__);dCHK(err); {
+    err = PetscOptionsName("-nojshell","Do not use shell Jacobian","",&nojshell);dCHK(err);
+    err = PetscOptionsName("-nocheck_error","Do not compute errors","",&nocheck);dCHK(err);
+  } err = PetscOptionsEnd();dCHK(err);
+  if (nojshell) {
+    /* Use the preconditioning matrix in place of the Jacobin.  This will NOT converge unless the elements are actually
+    * Q1 (bdeg=2).  This option is nullified by -snes_mf_operator which will still only use the assembled Jacobian for
+    * preconditioning. */
+    J = Jp;
+  } else {
+    dInt m;
+    err = VecGetLocalSize(r,&m);dCHK(err);
+    err = MatCreateShell(comm,m,m,PETSC_DETERMINE,PETSC_DETERMINE,stk,&J);dCHK(err);
+    err = MatSetOptionsPrefix(J,"j");dCHK(err);
+    //err = MatShellSetOperation(J,MATOP_MULT,(void(*)(void))StokesShellMatMult);dCHK(err);
+    err = MatCreate(comm,&Jp);dCHK(err);
+    err = MatSetSizes(Jp,m,m,PETSC_DETERMINE,PETSC_DETERMINE);dCHK(err);
+    err = MatSetOptionsPrefix(Jp,"jp");dCHK(err);
+    err = MatSetFromOptions(Jp);dCHK(err);
+    for (dInt i=0; i<m; i++) {
+      err = MatSetValue(Jp,i,i,0,INSERT_VALUES);dCHK(err);
+    }
+    err = MatAssemblyBegin(Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+    err = MatAssemblyEnd(Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  }
+  err = SNESCreate(comm,&snes);dCHK(err);
+  err = SNESSetFunction(snes,r,StokesFunction,stk);dCHK(err);
+  err = SNESSetJacobian(snes,Jp,Jp,SNESDefaultComputeJacobian,stk);dCHK(err);
+  //err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
+  err = SNESSetFromOptions(snes);dCHK(err);
+  {                             /* Set null space */
+    KSP ksp;
+    MatNullSpace matnull;
+    Mat mffd;
+    dTruth isnull;
+    Vec U,F;
+    err = VecZeroEntries(r);dCHK(err);
+    err = VecSet(stk->xp,1);dCHK(err);
+    err = VecScatterBegin(stk->extractPressure,stk->xp,r,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterEnd  (stk->extractPressure,stk->xp,r,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecNormalize(r,PETSC_NULL);dCHK(err);
+    err = MatNullSpaceCreate(comm,dFALSE,1,&r,&matnull);dCHK(err);
+    err = SNESGetKSP(snes,&ksp);dCHK(err);
+    err = KSPSetNullSpace(ksp,matnull);dCHK(err);
+    err = MatCreateSNESMF(snes,&mffd);dCHK(err);
+    err = MatSetFromOptions(mffd);dCHK(err);
+    err = VecDuplicate(r,&U);dCHK(err);
+    err = VecDuplicate(r,&F);dCHK(err);
+    err = MatMFFDSetBase(mffd,U,F);dCHK(err);
+    err = MatNullSpaceTest(matnull,mffd,&isnull);dCHK(err);
+    if (!isnull) dERROR(1,"Vector is not in the null space of the operator");dCHK(err);
+    err = MatDestroy(mffd);dCHK(err);
+    err = VecDestroy(U);dCHK(err);
+    err = VecDestroy(F);dCHK(err);
+    err = MatNullSpaceDestroy(matnull);dCHK(err);
+  }
+  err = VecZeroEntries(r);dCHK(err);
+  err = VecDuplicate(r,&x);dCHK(err);
+  err = StokesGetSolutionVector(stk,&soln);dCHK(err);
+  err = VecZeroEntries(x);dCHK(err);
+  err = SNESSolve(snes,NULL,x);dCHK(err);
+#if 0
+  if (!nocheck) {
+    dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3];
+    err = StokesErrorNorms(stk,x,enorm,gnorm);dCHK(err);
+    err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
+    err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
+    err = VecWAXPY(r,-1,soln,x);dCHK(err);
+    err = VecNorm(r,NORM_1_AND_2,inorm);dCHK(err);
+    err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
+    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
+    err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
+    err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
+    err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
+  }
+#endif
+
+  err = VecDestroy(r);dCHK(err);
+  err = VecDestroy(x);dCHK(err);
+  err = VecDestroy(soln);dCHK(err);
+  err = SNESDestroy(snes);dCHK(err);
+  if (J != Jp) {err = MatDestroy(J);dCHK(err);}
+  err = MatDestroy(Jp);dCHK(err);
+  err = StokesDestroy(stk);dCHK(err);
+  err = PetscFinalize();dCHK(err);
+  return 0;
+}
