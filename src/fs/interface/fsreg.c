@@ -126,6 +126,7 @@ dErr dFSInitializePackage(const char path[])
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
   initialized = PETSC_TRUE;
+  err = MatInitializePackage(path);dCHK(err);
   err = DMInitializePackage(path);dCHK(err);
   err = PetscCookieRegister("dFS Rotation",&dFSROT_COOKIE);dCHK(err);
 
