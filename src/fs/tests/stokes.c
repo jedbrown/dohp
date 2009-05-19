@@ -269,7 +269,7 @@ static inline void StokesPointwiseFunction(struct StokesRheology *rheo,struct St
   dScalar fu[3],fp;
   StokesPointwiseComputeStore(rheo,x,Du,st);
   exact->forcing(exactctx,rheo,x,fu,&fp);
-  for (dInt i=0; i<3; i++) v[0] = -weight * fu[i]; /* Coefficient of \a v in weak form, only appears in forcing term */
+  for (dInt i=0; i<3; i++) v[i] = -weight * fu[i]; /* Coefficient of \a v in weak form, only appears in forcing term */
   *q   = -weight * (Du[0]+Du[1]+Du[2] + fp);       /* -q tr(Du) - forcing, note tr(Du) = div(u) */
   for (dInt i=0; i<3; i++) Dv[i] = weight * (st->eta * Du[i] - p); /* eta Dv:Du - p tr(Dv) */
   for (dInt i=3; i<6; i++) Dv[i] = weight * st->eta * Du[i];       /* eta Dv:Du */
@@ -669,6 +669,7 @@ int main(int argc,char *argv[])
   err = SNESSetJacobian(snes,Jp,Jp,SNESDefaultComputeJacobian,stk);dCHK(err);
   //err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
+  err = StokesGetSolutionVector(stk,&soln);dCHK(err);
   {                             /* Set null space */
     KSP ksp;
     MatNullSpace matnull;
@@ -683,10 +684,14 @@ int main(int argc,char *argv[])
     err = MatNullSpaceCreate(comm,dFALSE,1,&r,&matnull);dCHK(err);
     err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPSetNullSpace(ksp,matnull);dCHK(err);
+    err = MatNullSpaceRemove(matnull,soln,NULL);dCHK(err);
+    /* The following is a real test of whether the null space is correct */
     err = MatCreateSNESMF(snes,&mffd);dCHK(err);
     err = MatSetFromOptions(mffd);dCHK(err);
     err = VecDuplicate(r,&U);dCHK(err);
     err = VecDuplicate(r,&F);dCHK(err);
+    err = VecSet(U,1);dCHK(err);
+    err = SNESComputeFunction(snes,U,F);dCHK(err);
     err = MatMFFDSetBase(mffd,U,F);dCHK(err);
     err = MatNullSpaceTest(matnull,mffd,&isnull);dCHK(err);
     if (!isnull) dERROR(1,"Vector is not in the null space of the operator");dCHK(err);
@@ -695,15 +700,20 @@ int main(int argc,char *argv[])
     err = VecDestroy(F);dCHK(err);
     err = MatNullSpaceDestroy(matnull);dCHK(err);
   }
-  err = VecZeroEntries(r);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
-  err = StokesGetSolutionVector(stk,&soln);dCHK(err);
+  err = VecZeroEntries(r);dCHK(err);
   err = VecZeroEntries(x);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err);
-#if 0
+  {
+    MatNullSpace matnull;
+    KSP ksp;
+    err = SNESGetKSP(snes,&ksp);dCHK(err);
+    err = KSPGetNullSpace(ksp,&matnull);dCHK(err); /* does not reference */
+    err = MatNullSpaceRemove(matnull,x,NULL);dCHK(err);
+  }
   if (!nocheck) {
-    dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3];
-    err = StokesErrorNorms(stk,x,enorm,gnorm);dCHK(err);
+    dReal anorm[2],anorminf,inorm[3];//,enorm[3],gnorm[3];
+    //err = StokesErrorNorms(stk,x,enorm,gnorm);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
     err = VecWAXPY(r,-1,soln,x);dCHK(err);
@@ -711,10 +721,9 @@ int main(int argc,char *argv[])
     err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
     err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
-    err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
-    err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
+    //err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
+    //err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
   }
-#endif
 
   err = VecDestroy(r);dCHK(err);
   err = VecDestroy(x);dCHK(err);
