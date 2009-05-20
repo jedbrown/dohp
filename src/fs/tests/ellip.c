@@ -328,7 +328,6 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   dFunctionBegin;
   err = dFSGlobalToExpanded(fs,gx,elp->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
-  err = VecZeroEntries(elp->y);dCHK(err);
   err = VecGetArray(elp->y,&y);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
@@ -342,7 +341,7 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
       struct EllipStore *restrict st = &elp->store[elp->storeoff[e]+i];
       EllipPointwiseFunction(&elp->param,&elp->exact,&elp->exactctx,q[i],jw[i],&u[i],&du[i*3],st,&v[i],&dv[i*3]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
   err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
@@ -384,7 +383,6 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   fs = elp->fs;
   err = dFSGlobalToExpanded(fs,gx,elp->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
-  err = VecZeroEntries(elp->y);dCHK(err);
   err = VecGetArray(elp->y,&y);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
@@ -398,7 +396,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
       struct EllipStore *restrict st = &elp->store[elp->storeoff[e]+i];
       EllipPointwiseJacobian(&elp->param,st,jw[i],&u[i],&du[i*3],&v[i],&dv[i*3]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,dv,y+off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
   err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);

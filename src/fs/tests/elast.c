@@ -300,7 +300,6 @@ static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   dFunctionBegin;
   err = dFSGlobalToExpanded(fs,gx,elt->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(elt->x,&x);dCHK(err);
-  err = VecZeroEntries(elt->y);dCHK(err);
   err = VecGetArray(elt->y,&y);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err); /* \note \a off is in terms of \e nodes, not \e dofs */
   err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
@@ -314,7 +313,7 @@ static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
       struct ElastStore *restrict st = &elt->store[elt->storeoff[e]+i];
       ElastPointwiseFunction(&elt->param,&elt->exact,&elt->exactctx,q[i],jw[i],&u[i*3],&du[i*9],st,&v[i*3],&dv[i*9]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
   err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
@@ -342,7 +341,6 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
   fs = elt->fs;
   err = dFSGlobalToExpanded(fs,gx,elt->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(elt->x,&x);dCHK(err);
-  err = VecZeroEntries(elt->y);dCHK(err);
   err = VecGetArray(elt->y,&y);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
@@ -356,7 +354,7 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
       struct ElastStore *restrict st = &elt->store[elt->storeoff[e]+i];
       ElastPointwiseJacobian(&elt->param,st,jw[i],&u[i*3],&du[i*9],&v[i*3],&dv[i*9]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
   err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
