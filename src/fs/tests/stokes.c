@@ -88,7 +88,7 @@ struct StokesCtx {
   Vec                    gvelocity,gvelocity_extra,gpressure,gpressure_extra,gpacked;
   VecScatter             extractVelocity,extractPressure;
   dInt                   constBDeg,nominalRDeg;
-  dTruth                 errorview;
+  dTruth                 errorview,saddle_A_explicit;
   /* Physics-based preconditioner */
   Mat Pu;                       /* preconditioner for velocity block */
   Mat Pp;                       /* preconditioner for pressure block, auxilliary system */
@@ -165,6 +165,7 @@ static dErr StokesSetFromOptions(Stokes stk)
     stk->nominalRDeg = stk->constBDeg; /* The cheapest option, usually a good default */
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",stk->nominalRDeg,&stk->nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsTruth("-error_view","View errors","",stk->errorview,&stk->errorview,NULL);dCHK(err);
+    err = PetscOptionsTruth("-saddle_A_explicit","Compute the A operator explicitly","",stk->saddle_A_explicit,&stk->saddle_A_explicit,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_A","Rate factor (rheology)","",rheo->A,&rheo->A,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_eps","Regularization (rheology)","",rheo->eps,&rheo->eps,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_p","Power p=1+1/n where n is Glen exponent","",rheo->p,&rheo->p,NULL);dCHK(err);
@@ -321,7 +322,7 @@ static dErr StokesDestroy(Stokes stk)
   dFunctionReturn(0);
 }
 
-static inline void StokesPointwiseComputeStore(struct StokesRheology dUNUSED *rheo,const dReal dUNUSED x[3],const dScalar Du[],struct StokesStore *st)
+static inline void StokesPointwiseComputeStore(struct StokesRheology *rheo,const dReal dUNUSED x[3],const dScalar Du[],struct StokesStore *st)
 {
   dScalar gamma_reg = dSqr(rheo->eps) + dColonSymScalar3(Du,Du);
   st->eta = rheo->A * pow(gamma_reg,rheo->p-2);
@@ -648,23 +649,23 @@ static dErr dUNUSED StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,Inser
   dFunctionReturn(0);
 }
 
-#if defined(ENABLE_PRECONDITIONING)
-static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+static dErr StokesJacobianAssemble_Velocity(Stokes stk,Vec gx)
 {
-  Stokes stk = ctx;
   s_dRule *rule;
   s_dEFS *efs;
   dReal (*nx)[3];
   dScalar *x;
-  dFS fs = stk->fs;
+  dFS fs = stk->fsu;
   dInt n,*off,*geomoff;
   dReal (*geom)[3];
   dErr err;
 
   dFunctionBegin;
-  err = MatZeroEntries(*Jp);dCHK(err);
-  err = dFSGlobalToExpanded(fs,gx,stk->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(stk->x,&x);dCHK(err);
+  err = MatZeroEntries(stk->Pu);dCHK(err);
+  err = VecScatterBegin(stk->extractVelocity,gx,stk->gvelocity,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterEnd  (stk->extractVelocity,gx,stk->gvelocity,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = dFSGlobalToExpanded(fs,stk->gvelocity,stk->xu,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecGetArray(stk->xu,&x);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
   for (dInt e=0; e<n; e++) {
@@ -684,27 +685,27 @@ static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure 
           for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
             struct StokesStore st;
             { /* Set up store */
-              dReal st_u[3] = {0,0,0},st_Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
+              dReal st_Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
               for (dInt lp=0; lp<8; lp++) { /* Evaluate function values and gradients at this quadrature point */
                 for (dInt f=0; f<3; f++) {  /* for each field */
-                  st_u[f] += basis[lq][lp] * uc[c[lp]][f];
                   st_Du[f][0] += deriv[lq][lp][0] * uc[c[lp]][f];
                   st_Du[f][1] += deriv[lq][lp][1] * uc[c[lp]][f];
                   st_Du[f][2] += deriv[lq][lp][2] * uc[c[lp]][f];
                 }
               }
-              StokesPointwiseComputeStore(&stk->rheo,qx[lq],st_u,&st_Du[0][0],&st);
+              StokesPointwiseComputeStore(&stk->rheo,qx[lq],&st_Du[0][0],&st);
             }
             for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
               for (dInt lp=0; lp<8; lp++) {                     /* Loop over trial basis functions (corners) */
                 for (dInt fp=0; fp<3; fp++) {                   /* Each field component of trial function */
-                  dReal u[3] = {0,0,0},Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}},v[3],Dv[3][3];
-                  u[fp] = basis[lq][lp]; /* Trial function for only this field component */
-                  Du[fp][0] = deriv[lq][lp][0];
+                  dScalar Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}},Dv[3][3],Dusym[6],Dvsym[6],q_unused;
+                  Du[fp][0] = deriv[lq][lp][0]; /* Trial function for only this field component */
                   Du[fp][1] = deriv[lq][lp][1];
                   Du[fp][2] = deriv[lq][lp][2];
                   /* Get the coefficients of test functions for each field component */
-                  StokesPointwiseJacobian(&stk->rheo,&st,jw[lq],u,&Du[0][0],v,&Dv[0][0]);
+                  dTensorSymCompress3(&Du[0][0],Dusym);
+                  StokesPointwiseJacobian(&st,jw[lq],Dusym,0,Dvsym,&q_unused);
+                  dTensorSymUncompress3(Dvsym,&Dv[0][0]);
                   for (dInt ftest=0; ftest<3; ftest++) { /* Insert contribution from each test function field component */
                     K[ltest*3+ftest][lp*3+fp] += //basis[lq][ltest] * v[0]
                       + deriv[lq][ltest][0] * Dv[ftest][0]
@@ -715,14 +716,30 @@ static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure 
               }
             }
           }
-          err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+          err = dFSMatSetValuesBlockedExpanded(fs,stk->Pu,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
         }
       }
     }
   }
   err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(stk->x,&x);dCHK(err);
+  err = VecRestoreArray(stk->xu,&x);dCHK(err);
+
+  err = MatAssemblyBegin(stk->Pu,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(stk->Pu,MAT_FINAL_ASSEMBLY);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+{
+  Stokes stk = ctx;
+  dErr err;
+
+  dFunctionBegin;
+  if (!stk->saddle_A_explicit) {
+    err = StokesJacobianAssemble_Velocity(stk,gx);dCHK(err);
+  }
+  //err = StokesJacobianAssemble_Pressure(stk,gx);dCHK(err);
 
   /* These are both shell matrices, we call this so SNES knows the matrices have changed */
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -733,6 +750,7 @@ static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure 
   dFunctionReturn(0);
 }
 
+#if defined(ENABLE_PRECONDITIONING)
 static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3])
 {
   dFS fs = stk->fs;
@@ -810,7 +828,7 @@ static dErr StokesPCSetUp(void *ctx)
     err = KSPSetOptionsPrefix(stk->kspA,"saddle_A_");dCHK(err);
     err = KSPSetFromOptions(stk->kspA);dCHK(err);
   }
-  if (1) {
+  if (stk->saddle_A_explicit) {
     if (stk->Pu) {err = MatDestroy(stk->Pu);dCHK(err);}
     err = MatComputeExplicitOperator(stk->Au,&stk->Pu);dCHK(err);
   }
@@ -964,10 +982,10 @@ int main(int argc,char *argv[])
   err = VecDuplicate(stk->gpacked,&r);dCHK(err);
 
   err = PetscOptionsGetString(NULL,"-q1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
-  if (0) {
-    err = dFSGetMatrix(stk->fsu,mtype,&Jp);dCHK(err);
-    err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
-    err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
+  if (1) {
+    err = dFSGetMatrix(stk->fsu,mtype,&stk->Pu);dCHK(err);
+    err = MatSetOptionsPrefix(stk->Pu,"q1");dCHK(err);
+    err = MatSeqAIJSetPreallocation(stk->Pu,27,NULL);dCHK(err);
   }
 
   err = PetscOptionsBegin(stk->comm,NULL,"Stokes solver options",__FILE__);dCHK(err); {
@@ -997,7 +1015,7 @@ int main(int argc,char *argv[])
   }
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,r,StokesFunction,stk);dCHK(err);
-  switch (2) {
+  switch (3) {
     case 1:
       err = SNESSetJacobian(snes,J,Jp,SNESDefaultComputeJacobian,stk);dCHK(err); break;
     case 2: {
@@ -1010,7 +1028,8 @@ int main(int argc,char *argv[])
       err = SNESSetJacobian(snes,J,Jp,SNESDefaultComputeJacobianColor,fdcolor);dCHK(err);
     } break;
     case 3:
-      //err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
+      err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
+      break;
     default: dERROR(1,"Not supported");
   }
   {
