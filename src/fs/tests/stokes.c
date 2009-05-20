@@ -264,7 +264,7 @@ static inline void StokesPointwiseComputeStore(struct StokesRheology dUNUSED *rh
 
 static inline void StokesPointwiseFunction(struct StokesRheology *rheo,struct StokesExact *exact,struct StokesExactCtx *exactctx,
                                            const dReal x[3],dReal weight,const dScalar Du[6],dScalar p,
-                                           struct StokesStore *st,dScalar v[3],dScalar *q,dScalar Dv[9])
+                                           struct StokesStore *st,dScalar v[3],dScalar Dv[6],dScalar *q)
 {
   dScalar fu[3],fp;
   StokesPointwiseComputeStore(rheo,x,Du,st);
@@ -275,7 +275,7 @@ static inline void StokesPointwiseFunction(struct StokesRheology *rheo,struct St
   for (dInt i=3; i<6; i++) Dv[i] = weight * st->eta * Du[i];       /* eta Dv:Du */
 }
 
-static inline void StokesPointwiseJacobian(struct StokesRheology dUNUSED *rheo,const struct StokesStore *restrict st,dReal weight,
+static inline void StokesPointwiseJacobian(const struct StokesStore *restrict st,dReal weight,
                                            const dScalar Du[restrict static 6],dScalar p,
                                            dScalar Dv[restrict static 6],dScalar *restrict q)
 {
@@ -284,6 +284,23 @@ static inline void StokesPointwiseJacobian(struct StokesRheology dUNUSED *rheo,c
   for (dInt i=0; i<3; i++) Dv[i] = weight * (st->eta * Du[i] + deta_colon * st->Du[i] - p); /* eta Dv:Du + eta' (Dv:Dw)(Dw:Du) - p tr(Dv) */
   for (dInt i=3; i<6; i++) Dv[i] = weight * (st->eta * Du[i] + deta_colon * st->Du[i]);     /* eta Dv:Du + eta' (Dv:Dw)(Dw:Du) */
   *q = -weight*(Du[0]+Du[1]+Du[2]);                                                         /* -q tr(Du) */
+}
+
+static inline void StokesPointwiseJacobian_A(const struct StokesStore *restrict st,dReal weight,const dScalar Du[restrict static 6],dScalar Dv[restrict static 6])
+{
+  const dScalar deta_colon = st->deta*dColonSymScalar3(st->Du,Du);
+  for (dInt i=0; i<6; i++) Dv[i] = weight * (st->eta*Du[i] + deta_colon*st->Du[i]);
+}
+
+static inline void StokesPointwiseJacobian_B(dReal weight,const dScalar Du[restrict static 6],dScalar *restrict q)
+{
+  *q = -weight*(Du[0]+Du[1]+Du[2]);
+}
+
+static inline void StokesPointwiseJacobian_Bt(dReal weight,dScalar p,dScalar Dv[restrict static 6])
+{
+  for (dInt i=0; i<3; i++) Dv[i] = -weight*p;
+  for (dInt i=3; i<6; i++) Dv[i] = 0;
 }
 
 static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
@@ -307,8 +324,6 @@ static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   /* dFS_INHOMOGENEOUS projects into inhomogeneous space (strongly enforcing boundary conditions) */
   err = dFSGlobalToExpanded(fsu,gxu,stk->xu,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err); /* velocity */
   err = dFSGlobalToExpanded(fsp,gxp,stk->xp,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err); /* pressure */
-  err = VecZeroEntries(stk->yu);dCHK(err);                                              /* Clear expanded output vectors */
-  err = VecZeroEntries(stk->yp);dCHK(err);
   err = VecGetArray(stk->xu,&xu);dCHK(err);
   err = VecGetArray(stk->xp,&xp);dCHK(err);
   err = VecGetArray(stk->yu,&yu);dCHK(err);
@@ -333,12 +348,12 @@ static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
       struct StokesStore *restrict st = &stk->store[stk->storeoff[e]+i];
       dScalar Du[6],Dv[6];
       dTensorSymCompress3(&du[i*9],Du);
-      StokesPointwiseFunction(&stk->rheo,&stk->exact,&stk->exactctx,q[i],jw[i],Du,pp[i],st,&vv[i*3],&qq[i],Dv);
+      StokesPointwiseFunction(&stk->rheo,&stk->exact,&stk->exactctx,q[i],jw[i],Du,pp[i],st,&vv[i*3],Dv,&qq[i]);
       dTensorSymUncompress3(Dv,&dv[i*9]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,vv,yu+3*off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,vv,yu+3*off[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,yu+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
-    err = dEFSApply(&efsp[e],(const dReal*)jinv,1,qq,yp+offp[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efsp[e],(const dReal*)jinv,1,qq,yp+offp[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
   }
   err = dFSRestoreWorkspace(fsu,__func__,&q,&jinv,&jw,NULL,&vv,&du,&dv);dCHK(err);
   err = dFSRestoreWorkspace(fsp,__func__,NULL,NULL,NULL,&pp,&qq,NULL,NULL);dCHK(err);
@@ -353,7 +368,6 @@ static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
     err = VecZeroEntries(gxp);dCHK(err);
     err = dFSExpandedToGlobal(fsu,stk->yu,gxu,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
     err = dFSExpandedToGlobal(fsp,stk->yp,gxp,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
-    err = VecZeroEntries(gy);dCHK(err);
     err = VecScatterBegin(stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
     err = VecScatterEnd  (stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
     err = VecScatterBegin(stk->extractPressure,gxp,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
@@ -362,51 +376,172 @@ static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   dFunctionReturn(0);
 }
 
-#if defined(ENABLE_PRECONDITIONING)
-static dErr StokesShellMatMult_All(Mat J,Vec gx,Vec gy)
+static dErr StokesShellMatMult_J(Mat J,Vec gx,Vec gy)
 {
-  Stokes stk;
-  dFS fs;
-  dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
   dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
-  dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
-  dErr err;
+  Stokes   stk;
+  dFS      fsu,fsp;
+  Vec      gxu,gxp;
+  dInt     n,np,*off,*offp,*geomoff;
+  s_dRule *rule,*rulep;
+  s_dEFS  *efs,*efsp;
+  dScalar *xu,*xp,*yu,*yp,*restrict vv,*restrict du,*restrict dv,*restrict pp,*restrict qq;
+  dErr    err;
 
   dFunctionBegin;
   err = PetscLogEventBegin(LOG_StokesShellMult,J,gx,gy,0);dCHK(err);
   err = MatShellGetContext(J,(void**)&stk);dCHK(err);
-  /* Find out which block we have by comparing sizes */
-  fs = stk->fs;
-  err = dFSGlobalToExpanded(fs,gx,stk->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(stk->x,&x);dCHK(err);
-  err = VecZeroEntries(stk->y);dCHK(err);
-  err = VecGetArray(stk->y,&y);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
+  fsu = stk->fsu; fsp = stk->fsp;
+  gxu = stk->gvelocity; gxp = stk->gpressure; /* Our work vectors */
+  err = VecScatterBegin(stk->extractVelocity,gx,gxu,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterEnd  (stk->extractVelocity,gx,gxu,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterBegin(stk->extractPressure,gx,gxp,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  err = VecScatterEnd  (stk->extractPressure,gx,gxp,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+  /* dFS_HOMOGENEOUS projects into homogeneous space (because Dirichlet conditions are enforced strongly) */
+  err = dFSGlobalToExpanded(fsu,gxu,stk->xu,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err); /* velocity */
+  err = dFSGlobalToExpanded(fsp,gxp,stk->xp,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err); /* pressure */
+  err = VecGetArray(stk->xu,&xu);dCHK(err);
+  err = VecGetArray(stk->xp,&xp);dCHK(err);
+  err = VecGetArray(stk->yu,&yu);dCHK(err);
+  err = VecGetArray(stk->yp,&yp);dCHK(err);
+  err = dFSGetElements(fsu,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err); /* \note \a off is in terms of \e nodes, not \e dofs */
+  err = dFSGetElements(fsp,&np,&offp,&rulep,&efsp,NULL,NULL);dCHK(err);
+  if (n != np) dERROR(1,"number of elements in velocity and pressure spaces do not agree");
+  err = dFSGetWorkspace(fsu,__func__,&q,&jinv,&jw,NULL,&vv,&du,&dv);dCHK(err);
+  err = dFSGetWorkspace(fsp,__func__,NULL,NULL,NULL,&pp,&qq,NULL,NULL);dCHK(err); /* workspace for test and trial functions */
   for (dInt e=0; e<n; e++) {
     dInt Q;
     err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
     err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    {
+      dInt Qp;
+      err = dRuleGetSize(&rulep[e],0,&Qp);dCHK(err);
+      if (Q != Qp) dERROR(1,"rule sizes on element %d do not agree",e);dCHK(err);
+    }
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,xu+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err); /* velocity gradients */
+    err = dEFSApply(&efsp[e],(const dReal*)jinv,1,xp+offp[e],pp,dAPPLY_INTERP,INSERT_VALUES);dCHK(err); /* pressure values */
     for (dInt i=0; i<Q; i++) {
       struct StokesStore *restrict st = &stk->store[stk->storeoff[e]+i];
-      StokesPointwiseJacobian(&stk->rheo,st,jw[i],&u[i*3],&du[i*9],&v[i*3],&dv[i*9]);
+      dScalar Du[6],Dv[6];
+      dTensorSymCompress3(&du[i*9],Du);
+      StokesPointwiseJacobian(st,jw[i],Du,pp[i],Dv,&qq[i]);
+      dTensorSymUncompress3(Dv,&dv[i*9]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,yu+3*off[e],dAPPLY_GRAD_TRANSPOSE,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(&efsp[e],(const dReal*)jinv,1,qq,yp+offp[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(stk->x,&x);dCHK(err);
-  err = VecRestoreArray(stk->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,stk->y,gy,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSRestoreWorkspace(fsu,__func__,&q,&jinv,&jw,NULL,&vv,&du,&dv);dCHK(err);
+  err = dFSRestoreWorkspace(fsp,__func__,NULL,NULL,NULL,&pp,&qq,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fsu,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSRestoreElements(fsp,&np,&offp,&rulep,&efsp,NULL,NULL);dCHK(err);
+  err = VecRestoreArray(stk->xu,&xu);dCHK(err);
+  err = VecRestoreArray(stk->xp,&xp);dCHK(err);
+  err = VecRestoreArray(stk->yu,&yu);dCHK(err);
+  err = VecRestoreArray(stk->yp,&yp);dCHK(err);
+  {
+    err = VecZeroEntries(gxu);dCHK(err);
+    err = VecZeroEntries(gxp);dCHK(err);
+    err = dFSExpandedToGlobal(fsu,stk->yu,gxu,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(fsp,stk->yp,gxp,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+    err = VecScatterBegin(stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterEnd  (stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterBegin(stk->extractPressure,gxp,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterEnd  (stk->extractPressure,gxp,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  }
   err = PetscLogEventEnd(LOG_StokesShellMult,J,gx,gy,0);dCHK(err);
   dFunctionReturn(0);
 }
 
+typedef enum {STOKES_MULT_A,STOKES_MULT_Bt,STOKES_MULT_B} StokesMultMode;
+
+static dErr dUNUSED StokesShellMatMult_All(Mat A,Vec gx,Vec gy)
+{
+  Stokes stk;
+  dFS fsx,fsy,fslarger;
+  dInt n,*off,*offy,*geomoff;
+  s_dRule *rule;
+  s_dEFS *efs,*efsy;
+  Vec X,Y;
+  dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
+  dScalar *x,*y,*restrict uu,*restrict vv,*restrict du,*restrict dv;
+  StokesMultMode mmode;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscLogEventBegin(LOG_StokesShellMult,A,gx,gy,0);dCHK(err);
+  err = MatShellGetContext(A,(void**)&stk);dCHK(err);
+  {  /* Find out which block we have by comparing sizes */
+    dInt nu,np,nx,ny;
+    err = VecGetSize(stk->gvelocity,&nu);dCHK(err);
+    err = VecGetSize(stk->gpressure,&np);dCHK(err);
+    err = VecGetSize(gx,&nx);dCHK(err);
+    err = VecGetSize(gy,&ny);dCHK(err);
+    if (nx==nu && ny==nu) mmode = STOKES_MULT_A;
+    else if (nx==np && ny==nu) mmode = STOKES_MULT_Bt;
+    else if (nx==nu && ny==np) mmode = STOKES_MULT_B;
+    else dERROR(1,"Sizes do not match, unknown mult operation");
+  }
+  switch (mmode) {
+    case STOKES_MULT_A:  fsx = fsy = stk->fsu; X = stk->xu; Y = stk->yu; break;
+    case STOKES_MULT_Bt: fsx = stk->fsp; fsy = stk->fsu; X = stk->xp; Y = stk->yu; break;
+    case STOKES_MULT_B:  fsx = stk->fsu; fsy = stk->fsp; X = stk->xu; Y = stk->yp; break;
+    default: dERROR(1,"should not happen");
+  }
+  err = dFSGlobalToExpanded(fsx,gx,X,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecGetArray(X,&x);dCHK(err);
+  err = VecGetArray(Y,&y);dCHK(err);
+  err = dFSGetElements(fsx,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetElements(fsy,NULL,&offy,NULL,&efsy,NULL,NULL);dCHK(err);
+  fslarger = off[n]>offy[n] ? fsx : fsy;
+  err = dFSGetWorkspace(fslarger,__func__,&q,&jinv,&jw,&uu,&vv,&du,&dv);dCHK(err);
+  for (dInt e=0; e<n; e++) {
+    dInt Q;
+    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
+    switch (mmode) {
+      case STOKES_MULT_A:
+        err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+        for (dInt i=0; i<Q; i++) {
+          struct StokesStore *restrict st = &stk->store[stk->storeoff[e]+i];
+          dScalar Du[6],Dv[6];
+          dTensorSymCompress3(&du[i*9],Du);
+          StokesPointwiseJacobian_A(st,jw[i],Du,Dv);
+          dTensorSymUncompress3(Dv,&dv[i*9]);
+        }
+        err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*off[e],dAPPLY_GRAD_TRANSPOSE,INSERT_VALUES);dCHK(err);
+        break;
+      case STOKES_MULT_Bt:
+        err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],uu,dAPPLY_INTERP,INSERT_VALUES);dCHK(err); /* pressure values */
+        for (dInt i=0; i<Q; i++) {
+          dScalar Dv[6];
+          StokesPointwiseJacobian_Bt(jw[i],uu[i],Dv);
+          dTensorSymUncompress3(Dv,&dv[i*9]);
+        }
+        err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*offy[e],dAPPLY_GRAD_TRANSPOSE,INSERT_VALUES);dCHK(err);
+        break;
+      case STOKES_MULT_B:
+        err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+        for (dInt i=0; i<Q; i++) {
+          dScalar Du[6];
+          dTensorSymCompress3(&du[i*9],Du);
+          StokesPointwiseJacobian_B(jw[i],Du,&vv[i]); /* vv is pressure test function */
+        }
+        err = dEFSApply(&efsy[e],(const dReal*)jinv,1,vv,y+offy[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
+        break;
+    }
+  }
+  err = dFSRestoreWorkspace(fslarger,__func__,&q,&jinv,&jw,&uu,&vv,&du,&dv);dCHK(err);
+  err = dFSRestoreElements(fsx,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSRestoreElements(fsy,NULL,&offy,NULL,&efsy,NULL,NULL);dCHK(err);
+  err = VecRestoreArray(X,&x);dCHK(err);
+  err = VecRestoreArray(Y,&y);dCHK(err);
+  err = VecZeroEntries(Y);dCHK(err);
+  err = dFSExpandedToGlobal(fsy,Y,gy,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = PetscLogEventEnd(LOG_StokesShellMult,A,gx,gy,0);dCHK(err);
+  dFunctionReturn(0);
+}
+
+#if defined(ENABLE_PRECONDITIONING)
 static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
   Stokes stk = ctx;
@@ -617,9 +752,10 @@ int main(int argc,char *argv[])
   MPI_Comm comm;
   PetscViewer viewer;
   Mat J,Jp;
+  MatFDColoring fdcolor = 0;
   Vec r,x,soln;
   SNES snes;
-  dTruth nojshell,nocheck;
+  dTruth nocheck;
   dErr err;
 
   err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -640,20 +776,14 @@ int main(int argc,char *argv[])
   }
 
   err = PetscOptionsBegin(stk->comm,NULL,"Stokes solver options",__FILE__);dCHK(err); {
-    err = PetscOptionsName("-nojshell","Do not use shell Jacobian","",&nojshell);dCHK(err);
     err = PetscOptionsName("-nocheck_error","Do not compute errors","",&nocheck);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
-  if (nojshell) {
-    /* Use the preconditioning matrix in place of the Jacobin.  This will NOT converge unless the elements are actually
-    * Q1 (bdeg=2).  This option is nullified by -snes_mf_operator which will still only use the assembled Jacobian for
-    * preconditioning. */
-    J = Jp;
-  } else {
+  {
     dInt m;
     err = VecGetLocalSize(r,&m);dCHK(err);
     err = MatCreateShell(comm,m,m,PETSC_DETERMINE,PETSC_DETERMINE,stk,&J);dCHK(err);
     err = MatSetOptionsPrefix(J,"j");dCHK(err);
-    //err = MatShellSetOperation(J,MATOP_MULT,(void(*)(void))StokesShellMatMult);dCHK(err);
+    err = MatShellSetOperation(J,MATOP_MULT,(void(*)(void))StokesShellMatMult_J);dCHK(err);
     err = MatCreate(comm,&Jp);dCHK(err);
     err = MatSetSizes(Jp,m,m,PETSC_DETERMINE,PETSC_DETERMINE);dCHK(err);
     err = MatSetOptionsPrefix(Jp,"jp");dCHK(err);
@@ -666,8 +796,22 @@ int main(int argc,char *argv[])
   }
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,r,StokesFunction,stk);dCHK(err);
-  err = SNESSetJacobian(snes,Jp,Jp,SNESDefaultComputeJacobian,stk);dCHK(err);
-  //err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
+  switch (2) {
+    case 1:
+      err = SNESSetJacobian(snes,J,Jp,SNESDefaultComputeJacobian,stk);dCHK(err); break;
+    case 2: {
+      ISColoring iscolor;
+      err = MatGetColoring(Jp,MATCOLORING_ID,&iscolor);dCHK(err);
+      err = MatFDColoringCreate(Jp,iscolor,&fdcolor);dCHK(err);
+      err = ISColoringDestroy(iscolor);dCHK(err);
+      err = MatFDColoringSetFunction(fdcolor,(PetscErrorCode(*)(void))StokesFunction,stk);dCHK(err);
+      err = MatFDColoringSetFromOptions(fdcolor);dCHK(err);
+      err = SNESSetJacobian(snes,J,Jp,SNESDefaultComputeJacobianColor,fdcolor);dCHK(err);
+    } break;
+    case 3:
+      //err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
+    default: dERROR(1,"Not supported");
+  }
   err = SNESSetFromOptions(snes);dCHK(err);
   err = StokesGetSolutionVector(stk,&soln);dCHK(err);
   {
@@ -696,12 +840,17 @@ int main(int argc,char *argv[])
     err = MatSetFromOptions(mffd);dCHK(err);
     err = VecDuplicate(r,&U);dCHK(err);
     err = VecDuplicate(r,&F);dCHK(err);
-    err = VecSet(U,1);dCHK(err);
+    err = VecSet(U,0);dCHK(err);
     err = SNESComputeFunction(snes,U,F);dCHK(err);
     err = MatMFFDSetBase(mffd,U,F);dCHK(err);
     err = MatNullSpaceTest(matnull,mffd,&isnull);dCHK(err);
-    if (!isnull) dERROR(1,"Vector is not in the null space of the operator");dCHK(err);
     err = MatDestroy(mffd);dCHK(err);
+    if (!isnull) dERROR(1,"Vector is not in the null space of the MFFD operator");dCHK(err);
+    err = MatNullSpaceTest(matnull,J,&isnull);dCHK(err);
+    err = MatMult(J,r,F);dCHK(err);
+    if (!isnull) dERROR(1,"Vector is not in the null space of J");dCHK(err);
+    err = MatNullSpaceTest(matnull,Jp,&isnull);dCHK(err);
+    if (!isnull) dERROR(1,"Vector is not in the null space of Jp");dCHK(err);
     err = VecDestroy(U);dCHK(err);
     err = VecDestroy(F);dCHK(err);
     err = MatNullSpaceDestroy(matnull);dCHK(err);
@@ -735,6 +884,7 @@ int main(int argc,char *argv[])
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(soln);dCHK(err);
   err = SNESDestroy(snes);dCHK(err);
+  if (fdcolor) {err = MatFDColoringDestroy(fdcolor);dCHK(err);}
   if (J != Jp) {err = MatDestroy(J);dCHK(err);}
   err = MatDestroy(Jp);dCHK(err);
   err = StokesDestroy(stk);dCHK(err);
