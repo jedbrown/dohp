@@ -362,7 +362,7 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
 #endif
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   err = VecRestoreArray(elp->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,elp->y,gy,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs,elp->y,gy,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -403,7 +403,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   err = VecRestoreArray(elp->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,elp->y,gy,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs,elp->y,gy,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = PetscLogEventEnd(LOG_EllipShellMatMult,J,0,0,0);dCHK(err);
   dFunctionReturn(0);
 }

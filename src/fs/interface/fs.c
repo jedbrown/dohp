@@ -350,6 +350,10 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
   dFunctionReturn(0);
 }
 
+/** Utility function to move from expanded -> local -> closure -> global
+* @param hmode Project resulting vector into this space (only matters for rotated coords because other Dirichlet conditions are in closure)
+* @param imode This refers to the expanded->local operation, it does \e not refer to the ghost update which is \e always ADD_VALUES
+**/
 dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode imode)
 {
   dErr err;
@@ -361,11 +365,20 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode 
   dValidHeader(x,VEC_COOKIE,3);
   err = VecDohpGetClosure(g,&gc);dCHK(err);
   err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
-  err = dFSExpandedToLocal(fs,x,lf,INSERT_VALUES);dCHK(err);
+  if (imode == ADD_VALUES) {    /* If we want to add, we have to kill off the ghost values otherwise they will be assembled twice */
+    dInt     gstart,end;
+    dScalar *a;
+    err = VecGetLocalSize(gc,&gstart);dCHK(err);
+    err = VecGetLocalSize(lf,&end);dCHK(err);
+    err = VecGetArray(lf,&a);dCHK(err);
+    err = dMemzero(a+gstart,(end-gstart)*sizeof(*a));dCHK(err);
+    err = VecRestoreArray(lf,&a);dCHK(err);
+  } else if (imode != INSERT_VALUES) dERROR(1,"unsupported imode");
+  err = dFSExpandedToLocal(fs,x,lf,imode);dCHK(err);
   err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
-  err = VecGhostUpdateBegin(gc,imode,SCATTER_REVERSE);dCHK(err);
-  err = VecGhostUpdateEnd(gc,imode,SCATTER_REVERSE);dCHK(err);
-  if (hmode == dFS_HOMOGENEOUS) { /* \todo project into homogeneous space */ }
+  err = VecGhostUpdateBegin(gc,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
+  err = VecGhostUpdateEnd(gc,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
+  if (hmode == dFS_HOMOGENEOUS) { /* \todo project into homogeneous space (for rotated coords) */ }
   err = VecDohpRestoreClosure(g,&gc);dCHK(err);
   dFunctionReturn(0);
 }

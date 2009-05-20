@@ -210,7 +210,7 @@ static dErr useFS(dFS fs)
   }
   err = VecRestoreArray(x,&xx);dCHK(err);
   err = VecSet(x,1.0);dCHK(err);
-  err = dFSExpandedToGlobal(fs,x,g,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs,x,g,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = dFSGlobalToExpanded(fs,g,y,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   {
     dScalar xsum,ysum,gsum;
@@ -288,7 +288,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(proj->x,&x);dCHK(err);
   err = VecRestoreArray(proj->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,proj->y,gy,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs,proj->y,gy,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   dFunctionReturn(0);
 }
 

@@ -320,7 +320,7 @@ static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elt->x,&x);dCHK(err);
   err = VecRestoreArray(elt->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,elt->y,gy,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs,elt->y,gy,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -361,7 +361,7 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elt->x,&x);dCHK(err);
   err = VecRestoreArray(elt->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,elt->y,gy,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs,elt->y,gy,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = PetscLogEventEnd(LOG_ElastShellMult,J,gx,gy,0);dCHK(err);
   dFunctionReturn(0);
 }

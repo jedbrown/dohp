@@ -366,8 +366,8 @@ static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   {
     err = VecZeroEntries(gxu);dCHK(err);
     err = VecZeroEntries(gxp);dCHK(err);
-    err = dFSExpandedToGlobal(fsu,stk->yu,gxu,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
-    err = dFSExpandedToGlobal(fsp,stk->yp,gxp,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(fsu,stk->yu,gxu,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(fsp,stk->yp,gxp,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
     err = VecScatterBegin(stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
     err = VecScatterEnd  (stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
     err = VecScatterBegin(stk->extractPressure,gxp,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
@@ -441,8 +441,8 @@ static dErr StokesShellMatMult_J(Mat J,Vec gx,Vec gy)
   {
     err = VecZeroEntries(gxu);dCHK(err);
     err = VecZeroEntries(gxp);dCHK(err);
-    err = dFSExpandedToGlobal(fsu,stk->yu,gxu,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
-    err = dFSExpandedToGlobal(fsp,stk->yp,gxp,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(fsu,stk->yu,gxu,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(fsp,stk->yp,gxp,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
     err = VecScatterBegin(stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
     err = VecScatterEnd  (stk->extractVelocity,gxu,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
     err = VecScatterBegin(stk->extractPressure,gxp,gy,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
