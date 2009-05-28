@@ -430,7 +430,7 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
     dInt three,P[3];
     const dReal *tmscale[3],*tlscale[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    err = dEFSGetTensorNodes(&efs[e],NULL,NULL,NULL,tmscale,tlscale);dCHK(err);
+    err = dEFSGetTensorNodes(&efs[e],NULL,NULL,NULL,NULL,tmscale,tlscale);dCHK(err);
     if (three != 3) dERROR(1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {

@@ -653,7 +653,7 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
   if (!opt) dERROR(1,"TensorRuleOptions not set.");
   if (opt->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %d not supported",opt->family);
   err = dNew(struct s_TensorBasis,&b);dCHK(err);
-  err = dMallocA5(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node);dCHK(err);
+  err = dMallocA6(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node,P,&b->weight);dCHK(err);
   err = TensorBuilderGetArray(build,2*P*Q,&work);dCHK(err); /* We're not using this now */
   b->Q = Q;
   b->P = P;
@@ -669,10 +669,10 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
     dReal *cDerivT = work + P*Q; /* useless matrix spewed out of Dglj() */
     dReal *interp = b->interp;
     dReal *node = b->node;
-    node[0] = -1.0; node[P-1] = 1.0;
-    jacobz(P-2,node+1,alpha+1.0,beta+1.0);        /* Gauss-Lobatto nodes */
+    dReal *weight = b->weight;
+    zwglj(node,weight,P,alpha,beta);               /* Gauss-Lobatto nodes */
     Imglj(interp,node,rule->coord,P,Q,alpha,beta); /* interpolation matrix */
-    Dglj(cDeriv,cDerivT,node,P,alpha,beta);       /* collocation derivative matrix */
+    Dglj(cDeriv,cDerivT,node,P,alpha,beta);        /* collocation derivative matrix */
     for (dInt i=0; i<Q; i++) {
       for (dInt j=0; j<P; j++) {
         dReal z = 0;
@@ -732,7 +732,7 @@ static dErr TensorBasisDestroy(TensorBasis basis)
 
   dFunctionBegin;
   if (!basis) dFunctionReturn(0);
-  err = dFree5(basis->interp,basis->deriv,basis->interpTranspose,basis->derivTranspose,basis->node);dCHK(err);
+  err = dFree6(basis->interp,basis->deriv,basis->interpTranspose,basis->derivTranspose,basis->node,basis->weight);dCHK(err);
   err = dFree(basis);dCHK(err);
   dFunctionReturn(0);
 }

@@ -133,7 +133,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
   err = VecGetArray(u,&f);dCHK(err);
   ind = 0;
   for (dInt i=0; i<N; i++) {
-    err = dEFSGetTensorNodes(&efs[i],&dim,P,x,NULL,NULL);dCHK(err);
+    err = dEFSGetTensorNodes(&efs[i],&dim,P,x,NULL,NULL,NULL);dCHK(err);
     for (dInt j=0; j<P[0]; j++) {
       for (dInt k=0; k<P[1]; k++) {
         for (dInt l=0; l<P[2]; l++) {
@@ -209,7 +209,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     }
     {
       dInt D;
-      err = dEFSGetTensorNodes(&efs[i],&D,P,NULL,NULL,NULL);dCHK(err);
+      err = dEFSGetTensorNodes(&efs[i],&D,P,NULL,NULL,NULL,NULL);dCHK(err);
       err = dPrintf(PETSC_COMM_WORLD,"L2 error for element %3d (%2d,%2d,%2d) with rule (%2d,%2d,%2d) interp %8.1e, derivative %8.1e\n",i,P[0],P[1],P[2],Q[0],Q[1],Q[2],z,dz);dCHK(err);
     }
     ind += dim*size;

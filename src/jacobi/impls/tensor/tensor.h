@@ -65,7 +65,8 @@ struct s_TensorBasis {
   dInt  P,Q;
   dReal *interp,*deriv,*node;
   dReal *interpTranspose,*derivTranspose;
-  const dReal *mscale,*lscale;        /**< Used to produce optimal scaling of sparse mass and Laplacian matrices */
+  dReal *weight;                /**< Weight for quadrature rule at interpolation nodes */
+  const dReal *mscale,*lscale;  /**< Used to produce optimal scaling of sparse mass and Laplacian matrices */
 };
 
 typedef struct s_TensorBasisOptions *TensorBasisOptions;
