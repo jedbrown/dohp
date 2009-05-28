@@ -164,6 +164,7 @@ dErr dFSDestroy(dFS fs)
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
+  if (--((PetscObject)fs)->refct > 0) dFunctionReturn(0);
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
   }
@@ -528,6 +529,19 @@ dErr dFSRestoreWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (
   dFunctionReturn(0);
 }
 
+static dErr MatGetVecs_DohpFS(Mat A,Vec *x,Vec *y)
+{
+  dFS fs;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscObjectQuery((dObject)A,"DohpFS",(dObject*)&fs);dCHK(err);
+  if (!fs) dERROR(1,"Mat has no composed FS");
+  if (x) {err = dFSCreateGlobalVector(fs,x);dCHK(err);}
+  if (y) {err = dFSCreateGlobalVector(fs,y);dCHK(err);}
+  dFunctionReturn(0);
+}
+
 dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
 {
   Mat    J;
@@ -551,6 +565,11 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
   err = MatHasOperation(J,MATOP_SET_BLOCK_SIZE,&hassetbs);dCHK(err);
   if (hassetbs) {err = MatSetBlockSize(J,bs);dCHK(err);}
   err = MatSetLocalToGlobalMappingBlock(J,fs->bmapping);dCHK(err);
+
+  /* We want the resulting matrices to be usable with matrix-free operations based on this FS */
+  err = PetscObjectCompose((dObject)J,"DohpFS",(dObject)fs);dCHK(err);
+  err = MatShellSetOperation(J,MATOP_GET_VECS,(void(*)(void))MatGetVecs_DohpFS);dCHK(err);
+
   *inJ = J;
   dFunctionReturn(0);dCHK(err);
 }
