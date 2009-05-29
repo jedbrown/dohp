@@ -186,6 +186,7 @@ dErr dFSDestroy(dFS fs)
   err = MatDestroy(fs->E);dCHK(err);
   err = MatDestroy(fs->Ep);dCHK(err);
   err = ISLocalToGlobalMappingDestroy(fs->bmapping);dCHK(err);
+  err = ISLocalToGlobalMappingDestroy(fs->mapping);dCHK(err);
   err = dFree3(fs->rule,fs->efs,fs->off);dCHK(err);
   err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = PetscHeaderDestroy(fs);dCHK(err);
@@ -560,11 +561,17 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
   err = MatSetType(J,mtype);dCHK(err);
   err = MatSeqBAIJSetPreallocation(J,bs,27,NULL);dCHK(err);         /* \bug incorrect for unstructured meshes */
   err = MatMPIBAIJSetPreallocation(J,bs,27,NULL,25,NULL);dCHK(err); /* \todo this wastes a lot of space in parallel */
-  err = MatSeqAIJSetPreallocation(J,bs*27,NULL);dCHK(err);
-  err = MatMPIAIJSetPreallocation(J,bs*27,NULL,bs*25,NULL);dCHK(err);
+  if (fs->assemblereduced) {
+    err = MatSeqAIJSetPreallocation(J,27,NULL);dCHK(err);
+    err = MatMPIAIJSetPreallocation(J,27,NULL,25,NULL);dCHK(err);
+  } else {
+    err = MatSeqAIJSetPreallocation(J,bs*27,NULL);dCHK(err);
+    err = MatMPIAIJSetPreallocation(J,bs*27,NULL,bs*25,NULL);dCHK(err);
+  }
   err = MatHasOperation(J,MATOP_SET_BLOCK_SIZE,&hassetbs);dCHK(err);
   if (hassetbs) {err = MatSetBlockSize(J,bs);dCHK(err);}
   err = MatSetLocalToGlobalMappingBlock(J,fs->bmapping);dCHK(err);
+  err = MatSetLocalToGlobalMapping(J,fs->mapping);dCHK(err);
 
   /* We want the resulting matrices to be usable with matrix-free operations based on this FS */
   err = PetscObjectCompose((dObject)J,"DohpFS",(dObject)fs);dCHK(err);
@@ -647,7 +654,22 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   err = MatRestoreArray_SeqAIJ(E,&ca);dCHK(err);
   err = MatRestoreRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(1,"Failed to return indices");
-  err = MatSetValuesBlockedLocal(A,lm,lidxm,ln,lidxn,lv,imode);dCHK(err);
+  if (fs->assemblereduced) {
+    dInt brow[lm],bcol[ln];
+    dScalar bval[lm*ln];
+    for (dInt k=0; k<bs; k++) {
+      for (i=0; i<lm; i++) {
+        for (j=0; j<ln; j++) {
+          bval[i*ln+j] = lv[(i*bs+k)*ln*bs+(j*bs+k)];
+        }
+      }
+      for (i=0; i<lm; i++) brow[i] = lidxm[i]*bs+k;
+      for (j=0; j<ln; j++) bcol[j] = lidxn[j]*bs+k;
+      err = MatSetValuesLocal(A,lm,brow,ln,bcol,bval,imode);dCHK(err);
+    }
+  } else {
+    err = MatSetValuesBlockedLocal(A,lm,lidxm,ln,lidxn,lv,imode);dCHK(err);
+  }
 
   if (lidxm != lidxms) {err = dFree(lidxm);dCHK(err);}
   if (lidxn != lidxns) {err = dFree(lidxn);dCHK(err);}

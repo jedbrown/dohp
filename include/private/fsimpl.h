@@ -58,6 +58,7 @@ struct _p_dFS {
   dMeshTag     bdyConstraintTag; /**< User-defined context for enforcing boundary constraints */
   dTruth       spacebuilt;
   dTruth       assemblefull;    /**< Use full order constraints for assembly */
+  dTruth       assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
   dInt         ruleStrength;
   dInt         bs;              /**< Block size (number of dofs per node) */
   dMeshEH     *ents;            /**< All entities in active set */
@@ -82,6 +83,7 @@ struct _p_dFS {
   Vec          dcache;          /**< All Dirichlet values, this is only a cache so that we can project a vector into the inhomogeneous space */
   VecScatter   dscat;           /**< Scatter from global closure to \a dcache. */
   ISLocalToGlobalMapping bmapping; /**< Block mapping, Dirichlet blocks have negative global index */
+  ISLocalToGlobalMapping mapping;  /**< Scalar mapping, mapping[i] = bmapping[i/bs]*bs+i%bs; */
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */
   s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];

@@ -311,6 +311,13 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = VecDestroy(g);dCHK(err);
     err = ISLocalToGlobalMappingCreateNC(((dObject)fs)->comm,nc+ngh,globals,&fs->bmapping);dCHK(err);
     /* Don't free \a globals because we used the no-copy variant, so the IS takes ownership. */
+    {
+      dInt *sglobals;        /* Scalar globals */
+      err = dMallocA((nc+ngh)*bs,&sglobals);dCHK(err);
+      for (i=0; i<(nc+ngh)*bs; i++) sglobals[i] = globals[i/bs]*bs + i%bs;
+      err = ISLocalToGlobalMappingCreateNC(((dObject)fs)->comm,(nc+ngh)*bs,sglobals,&fs->mapping);dCHK(err);
+      /* Don't free \a sglobals because we used the no-copy variant, so the IS takes ownership. */
+    }
   }
 
   /* Create a cache for Dirichlet part of closure vector, this could be local but it doesn't cost anything to make it global */
