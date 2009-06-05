@@ -140,11 +140,19 @@ dErr dFSView(dFS fs,dViewer viewer)
       err = PetscViewerASCIIPrintf(viewer,"number of vertices=%d edges=%d faces=%d regions=%d\n",nents[0],nents[1],nents[2],nents[3]);dCHK(err);
     }
     {                           /* print aggregate sizes */
-      PetscMPIInt gm[2],lm[2];
+      dInt lm[4],gm[4];
       err = MatGetSize(fs->E,&lm[0],&lm[1]);dCHK(err);
-      err = MPI_Reduce(lm,gm,2,MPI_INT,MPI_SUM,0,((dObject)fs)->comm);dCHK(err);
-      err = PetscViewerASCIIPrintf(viewer,"on rank 0, %d/%d element dofs constrained against %d/%d local dofs\n",
-                                   lm[0],gm[0],lm[1],gm[1]);dCHK(err);
+      if (lm[0]%fs->bs || lm[1]%fs->bs) dERROR(1,"Constraint matrix not a multiple of block size, should not happen");
+      lm[0] /= fs->bs;
+      lm[1] /= fs->bs;
+      if (lm[1] != fs->nc) dERROR(1,"Inconsistent number of closure nodes");
+      lm[2] = fs->n;
+      lm[3] = fs->ngh;
+      err = MPI_Reduce(lm,gm,4,MPIU_INT,MPI_SUM,0,((dObject)fs)->comm);dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer,"On rank 0: %d/%d expanded nodes constrained against %d+%d / %d+%d real nodes, %d / %d closure\n",
+                                   lm[0],gm[0], lm[2],lm[3], gm[2],gm[3], lm[1],gm[1]);dCHK(err);
+      err = PetscViewerASCIIPrintf(viewer,"Block size %d: global dofs %d, ghost dofs %d, closure dofs %d\n",
+                                   fs->bs,fs->bs*gm[2],fs->bs*gm[3],fs->bs*gm[1]);dCHK(err);
     }
     if (fs->ops->view) {
       err = (*fs->ops->view)(fs,viewer);dCHK(err);
