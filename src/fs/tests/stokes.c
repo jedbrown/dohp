@@ -1132,21 +1132,23 @@ static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[static 3],dReal 
 }
 #endif /* defined(ENABLE_PRECONDITIONING) */
 
-static dErr PCSetUp_Stokes(void *ctx)
+static dErr PCSetUp_Stokes(PC pc)
 {
-  PC_Stokes *pcs = ctx;
-  Stokes stk = pcs->stk;
+  PC_Stokes       *pcs;
+  Stokes           stk;
   Mat_StokesOuter *msfull,*msq1;
-  PC pc;
-  dErr err;
+  dErr             err;
 
   dFunctionBegin;
+  err = PCShellGetContext(pc,(void**)&pcs);dCHK(err);
+  stk = pcs->stk;
   err = MatShellGetContext(pcs->J,(void**)&msfull);dCHK(err);
   err = MatShellGetContext(pcs->Jp,(void**)&msq1);dCHK(err);
   if (!pcs->kspA) {
+    PC pcA;
     err = KSPCreate(stk->comm,&pcs->kspA);dCHK(err);
-    err = KSPGetPC(pcs->kspA,&pc);dCHK(err);
-    err = PCSetType(pc,PCNONE);dCHK(err);
+    err = KSPGetPC(pcs->kspA,&pcA);dCHK(err);
+    err = PCSetType(pcA,PCNONE);dCHK(err);
     err = KSPSetOptionsPrefix(pcs->kspA,"saddle_A_");dCHK(err);
     err = KSPSetFromOptions(pcs->kspA);dCHK(err);
   }
@@ -1161,9 +1163,10 @@ static dErr PCSetUp_Stokes(void *ctx)
   }
   if (!pcs->kspS) {
     MatNullSpace matnull;
+    PC           pcS;
     err = KSPCreate(stk->comm,&pcs->kspS);dCHK(err);
-    err = KSPGetPC(pcs->kspS,&pc);dCHK(err);
-    err = PCSetType(pc,PCNONE);dCHK(err);
+    err = KSPGetPC(pcs->kspS,&pcS);dCHK(err);
+    err = PCSetType(pcS,PCNONE);dCHK(err);
     err = KSPSetOptionsPrefix(pcs->kspS,"saddle_S_");dCHK(err);
     err = KSPSetFromOptions(pcs->kspS);dCHK(err);
     /* constant pressure is in the null space of S */
@@ -1175,15 +1178,17 @@ static dErr PCSetUp_Stokes(void *ctx)
   dFunctionReturn(0);
 }
 
-static dErr PCApply_Stokes(void *ctx,Vec x,Vec y)
+static dErr PCApply_Stokes(PC pc,Vec x,Vec y)
 {
-  PC_Stokes *pcs = ctx;
+  PC_Stokes       *pcs;
   Mat_StokesOuter *msfull;
-  Stokes stk = pcs->stk;
-  Vec xu,xp,yu,yp;
-  dErr err;
+  Stokes           stk;
+  Vec              xu,xp,yu,yp;
+  dErr             err;
 
   dFunctionBegin;
+  err = PCShellGetContext(pc,(void**)&pcs);dCHK(err);
+  stk = pcs->stk;
   xu = stk->gvelocity;
   xp = stk->gpressure;
   yu = stk->gvelocity_extra;
@@ -1204,12 +1209,13 @@ static dErr PCApply_Stokes(void *ctx,Vec x,Vec y)
   dFunctionReturn(0);
 }
 
-static dErr PCDestroy_Stokes(void *ctx)
+static dErr PCDestroy_Stokes(PC pc)
 {
-  PC_Stokes *pcs = ctx;
+  PC_Stokes *pcs;
   dErr err;
 
   dFunctionBegin;
+  err = PCShellGetContext(pc,(void**)&pcs);dCHK(err);
   if (pcs->S)  {err = MatDestroy(pcs->S);dCHK(err);}
   if (pcs->kspA) {err = KSPDestroy(pcs->kspA);dCHK(err);}
   if (pcs->kspS) {err = KSPDestroy(pcs->kspS);dCHK(err);}
@@ -1485,6 +1491,7 @@ int main(int argc,char *argv[])
     err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPSetNullSpace(ksp,matnull);dCHK(err);
     err = MatNullSpaceRemove(matnull,soln,NULL);dCHK(err);
+    err = MatNullSpaceDestroy(matnull);dCHK(err);
   }
   if (check_null) {
     err = CheckNullSpace(snes,r,compute_explicit);dCHK(err);
