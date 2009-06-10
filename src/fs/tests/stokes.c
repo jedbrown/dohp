@@ -62,6 +62,42 @@ static void StokesExact_0_Forcing(const struct StokesExactCtx *ctx,const struct 
   *fp   = 0;
 }
 
+static void StokesExact_1_Solution(const struct StokesExactCtx *ctx,const struct StokesRheology dUNUSED *rheo,const dReal xyz[3],
+                                   dScalar u[],dScalar p[],dScalar du[],dScalar dp[])
+{
+  const dReal dUNUSED a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
+  u[0] = +sin(0.5*PETSC_PI*x) * cos(0.5*PETSC_PI*y);
+  u[1] = -cos(0.5*PETSC_PI*x) * sin(0.5*PETSC_PI*y);
+  u[2] = 0;
+  *p = 0.25 * (cos(PETSC_PI*x) + cos(PETSC_PI*y)) + 10*(x+y);
+  /* \todo this is incorrect */
+  du[0*3+0] = 0;
+  du[0*3+1] = 0;
+  du[0*3+2] = 0;
+  du[1*3+0] = 0;
+  du[1*3+1] = 0;
+  du[1*3+2] = 0;
+  du[2*3+0] = 0;
+  du[2*3+1] = 0;
+  du[2*3+2] = 0;
+  dp[0]     = 0;
+  dp[1]     = 0;
+  dp[2]     = 0;
+}
+static void StokesExact_1_Forcing(const struct StokesExactCtx *ctx,const struct StokesRheology dUNUSED *rheo,const dReal xyz[3],dScalar fu[],dScalar *fp)
+{
+  const dReal dUNUSED a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
+  const dReal
+    eta = 1,
+    u = +sin(0.5*PETSC_PI*x) * cos(0.5*PETSC_PI*y),
+    v = -cos(0.5*PETSC_PI*x) * sin(0.5*PETSC_PI*y);
+  fu[0]   = dSqr(0.5 * PETSC_PI) * eta * u - 0.25 * PETSC_PI * sin(PETSC_PI * x) + 10;
+  fu[1]   = dSqr(0.5 * PETSC_PI) * eta * v - 0.25 * PETSC_PI * sin(PETSC_PI * y) + 10;
+  fu[2] = 0;
+  *fp = 0;
+}
+
+
 struct StokesStore {
   dReal eta,deta;
   dReal Du[6];
@@ -115,7 +151,7 @@ struct _p_Stokes {
   IS                     ublock,pblock;
   VecScatter             extractVelocity,extractPressure;
   dInt                   constBDeg,pressureCodim,nominalRDeg;
-  dTruth                 errorview,saddle_A_explicit,cardinalMass;
+  dTruth                 errorview,saddle_A_explicit,cardinalMass,neumann300;
   char                   mattype_A[256],mattype_D[256];
 };
 
@@ -201,12 +237,17 @@ static dErr StokesSetFromOptions(Stokes stk)
     err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
     err = PetscOptionsList("-stokes_A_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_A,stk->mattype_A,sizeof(stk->mattype_A),NULL);dCHK(err);
     err = PetscOptionsList("-stokes_D_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_D,stk->mattype_D,sizeof(stk->mattype_D),NULL);dCHK(err);
+    err = PetscOptionsTruth("-neumann300","Use boundary set 300 as Neumann conditions","",stk->neumann300,&stk->neumann300,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
 
   switch (exact) {
     case 0:
       stk->exact.solution = StokesExact_0_Solution;
       stk->exact.forcing = StokesExact_0_Forcing;
+      break;
+    case 1:
+      stk->exact.solution = StokesExact_1_Solution;
+      stk->exact.forcing = StokesExact_1_Forcing;
       break;
     default: dERROR(1,"Exact solution %d not implemented");
   }
@@ -235,7 +276,9 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dFSSetDegree(fsu,jac,dtag);dCHK(err);
   err = dFSRegisterBoundary(fsu,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   err = dFSRegisterBoundary(fsu,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-  err = dFSRegisterBoundary(fsu,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  if (!stk->neumann300) {
+    err = dFSRegisterBoundary(fsu,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  }
   err = PetscObjectSetOptionsPrefix((dObject)fsu,"u");dCHK(err);
   err = dFSSetFromOptions(fsu);dCHK(err);
   stk->fsu = fsu;
@@ -403,6 +446,20 @@ static dErr StokesGetMatrices(Stokes stk,dTruth use_jblock,Mat *J,Mat *Jp)
   err = dFSGetMatrix(stk->fsp,stk->mattype_D,&sms->D);dCHK(err);
   err = MatSetOptionsPrefix(sms->A,"stokes_A_");dCHK(err);
   err = MatSetOptionsPrefix(sms->D,"stokes_D_");dCHK(err);
+
+  {                             /* Allocate for the pressure Poisson, used by PCLSC */
+    Mat L;
+    Vec Mdiag;
+    err = dFSGetMatrix(stk->fsp,stk->mattype_D,&L);dCHK(err);
+    err = MatSetOptionsPrefix(L,"stokes_L_");dCHK(err);
+    err = MatSetFromOptions(L);dCHK(err);
+    err = PetscObjectCompose((dObject)sms->D,"LSC_L",(dObject)L);dCHK(err);
+    err = PetscObjectCompose((dObject)sms->D,"LSC_Lp",(dObject)L);dCHK(err);
+    err = MatDestroy(L);dCHK(err); /* don't keep a reference */
+    err = VecDuplicate(stk->gvelocity,&Mdiag);dCHK(err);
+    err = PetscObjectCompose((dObject)sms->D,"LSC_M_diag",(dObject)Mdiag);
+    err = VecDestroy(Mdiag);dCHK(err); /* don't keep a reference */
+  }
 
   /* This chunk is not normally needed.  We set it just so that MatMult can be implemented, mainly for debugging purposes */
   err = MatShellSetOperation(*Jp,MATOP_MULT,(void(*)(void))MatMult_StokesOuter_block);dCHK(err);
@@ -790,13 +847,13 @@ static dErr dUNUSED StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,Inser
   dFunctionReturn(0);
 }
 
-static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Jp,Vec gx)
+static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Jp,Vec Mdiag,Vec gx)
 {
   Mat_StokesOuter *sms;
   s_dRule *rule;
   s_dEFS *efs;
   dReal (*nx)[3];
-  dScalar *x;
+  dScalar *x,*mdiag;
   dFS fs = stk->fsu;
   dInt n,*off,*geomoff;
   dReal (*geom)[3];
@@ -809,11 +866,14 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Jp,Vec gx)
   err = VecScatterEnd  (stk->extractVelocity,gx,stk->gvelocity,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   err = dFSGlobalToExpanded(fs,stk->gvelocity,stk->xu,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(stk->xu,&x);dCHK(err);
+  err = VecGetArray(stk->yu,&mdiag);dCHK(err);
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
+    dReal *nweight[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    err = dEFSGetTensorNodes(&efs[e],NULL,NULL,NULL,nweight,NULL,NULL);dCHK(err);
     if (three != 3) dERROR(1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
@@ -860,6 +920,16 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Jp,Vec gx)
             }
           }
           err = dFSMatSetValuesBlockedExpanded(fs,sms->A,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+          for (dInt f=0; f<3; f++) {
+            mdiag[rowcol[0]*3+f] = nweight[0][i+0]*nweight[1][j+0]*nweight[2][k+0];
+            mdiag[rowcol[1]*3+f] = nweight[0][i+1]*nweight[1][j+0]*nweight[2][k+0];
+            mdiag[rowcol[2]*3+f] = nweight[0][i+1]*nweight[1][j+1]*nweight[2][k+0];
+            mdiag[rowcol[3]*3+f] = nweight[0][i+0]*nweight[1][j+1]*nweight[2][k+0];
+            mdiag[rowcol[4]*3+f] = nweight[0][i+0]*nweight[1][j+0]*nweight[2][k+1];
+            mdiag[rowcol[5]*3+f] = nweight[0][i+1]*nweight[1][j+0]*nweight[2][k+1];
+            mdiag[rowcol[6]*3+f] = nweight[0][i+1]*nweight[1][j+1]*nweight[2][k+1];
+            mdiag[rowcol[7]*3+f] = nweight[0][i+0]*nweight[1][j+1]*nweight[2][k+1];
+          }
         }
       }
     }
@@ -867,27 +937,30 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Jp,Vec gx)
   err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(stk->xu,&x);dCHK(err);
+  err = VecRestoreArray(stk->yu,&mdiag);dCHK(err);
+
+  /* This scatter really should be INSERT_VALUES, duplicates should be identical. */
+  err = dFSExpandedToGlobal(fs,stk->yu,Mdiag,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
 
   err = MatAssemblyBegin(sms->A,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(sms->A,MAT_FINAL_ASSEMBLY);dCHK(err);
   dFunctionReturn(0);
 }
 
-static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat Jp,Vec gx)
+static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat D,Mat Daux,Vec gx)
 {
-  Mat_StokesOuter *sms;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*nx)[3];
-  dScalar *x;
-  dFS fsu = stk->fsu,fsp = stk->fsp;
-  dInt n,*off,*geomoff;
-  dReal (*geom)[3];
-  dErr err;
+  s_dRule         *rule;
+  s_dEFS          *efs;
+  dReal            (*nx)[3];
+  dScalar         *x;
+  dFS              fsu = stk->fsu,fsp = stk->fsp;
+  dInt             n,*off,*geomoff;
+  dReal            (*geom)[3];
+  dErr             err;
 
   dFunctionBegin;
-  err = MatShellGetContext(Jp,(void**)&sms);dCHK(err);
-  err = MatZeroEntries(sms->D);dCHK(err);
+  err = MatZeroEntries(D);dCHK(err);
+  if (Daux) {err = MatZeroEntries(Daux);dCHK(err);}
   /* It might seem weird to be getting velocity in the pressure assembly.  The reason is that this preconditioner
   * (indeed the entire problem) is always linear in pressure.  It \e might be nonlinear in velocity. */
   err = VecScatterBegin(stk->extractVelocity,gx,stk->gvelocity,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
@@ -910,7 +983,8 @@ static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat Jp,Vec gx)
           for (dInt k=0; k<P[2]; k++) {
             dInt rowcol = off[e] + (i*P[1]+j)*P[2]+k;
             dScalar v = weight[0][i]*weight[1][j]*weight[2][k];
-            err = dFSMatSetValuesBlockedExpanded(fsp,sms->D,1,&rowcol,1,&rowcol,&v,INSERT_VALUES);dCHK(err);
+            /* Should be scaled by local Jacobian, doesn't matter due to uniform mesh */
+            err = dFSMatSetValuesBlockedExpanded(fsp,D,1,&rowcol,1,&rowcol,&v,INSERT_VALUES);dCHK(err);
           }
         }
       }
@@ -924,8 +998,9 @@ static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat Jp,Vec gx)
           dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
           const dReal (*qx)[3],*jw,(*basis)[8],(*deriv)[8][3];
           dInt qn;
-          dScalar K[8][8];
+          dScalar K[8][8],Ka[8][8];
           err = dMemzero(K,sizeof(K));dCHK(err);
+          err = dMemzero(Ka,sizeof(Ka));dCHK(err);
           err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,(const dReal**)&basis,(const dReal**)&deriv);dCHK(err);
           for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
             for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
@@ -938,10 +1013,15 @@ static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat Jp,Vec gx)
                   + deriv[lq][ltest][0] * jw[lq] * 0 * dp[0]
                   + deriv[lq][ltest][1] * jw[lq] * 0 * dp[1]
                   + deriv[lq][ltest][2] * jw[lq] * 0 * dp[2];
+                Ka[ltest][lp] += /* Auxiliary pressure-Poisson */
+                  + deriv[lq][ltest][0] * jw[lq] * dp[0]
+                  + deriv[lq][ltest][1] * jw[lq] * dp[1]
+                  + deriv[lq][ltest][2] * jw[lq] * dp[2];
               }
             }
           }
-          err = dFSMatSetValuesBlockedExpanded(fsp,sms->D,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+          err = dFSMatSetValuesBlockedExpanded(fsp,D,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+          if (Daux) {err = dFSMatSetValuesBlockedExpanded(fsp,Daux,8,rowcol,8,rowcol,&Ka[0][0],ADD_VALUES);dCHK(err);}
         }
       }
     }
@@ -950,33 +1030,34 @@ static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat Jp,Vec gx)
   err = dFSRestoreElements(fsp,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(stk->xu,&x);dCHK(err);
 
-  err = MatAssemblyBegin(sms->D,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyEnd(sms->D,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyBegin(D,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd  (D,MAT_FINAL_ASSEMBLY);dCHK(err);
+  if (Daux) {
+    err = MatAssemblyBegin(Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
+    err = MatAssemblyEnd  (Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
 
-static dErr StokesJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
   Stokes stk = ctx;
-  KSP ksp;
-  PC pc;
-  void (*f)(void);
+  Mat_StokesOuter *sms;
   dErr err;
 
   dFunctionBegin;
+  err = MatShellGetContext(*Jp,(void**)&sms);dCHK(err);
   if (!stk->saddle_A_explicit) {
-    err = StokesJacobianAssemble_Velocity(stk,*Jp,gx);dCHK(err);
+    Vec Mdiag;
+    err = PetscObjectQuery((dObject)sms->D,"LSC_M_diag",(dObject*)&Mdiag);dCHK(err);
+    err = StokesJacobianAssemble_Velocity(stk,*Jp,Mdiag,gx);dCHK(err);
   }
-  err = StokesJacobianAssemble_Pressure(stk,*Jp,gx);dCHK(err);
-  err = SNESGetKSP(snes,&ksp);dCHK(err);
-  err = KSPGetPC(ksp,&pc);dCHK(err);
-  err = PetscObjectQueryFunction((PetscObject)pc,"PCFieldSplitSchurPrecondition_C",&f);dCHK(err);
-#if 0
-  if (f) {
-    err = PCFieldSplitSchurPrecondition( );dCHK(err);
+  {
+    Mat S=sms->D,Saux;
+    err = PetscObjectQuery((dObject)S,"LSC_L",(dObject*)&Saux);dCHK(err);
+    err = StokesJacobianAssemble_Pressure(stk,S,Saux,gx);dCHK(err);
   }
-#endif
 
   /* These are both shell matrices, we call this so SNES knows the matrices have changed */
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -1211,6 +1292,99 @@ static dErr StokesGetNullSpace(Stokes stk,MatNullSpace *matnull)
 }
 
 
+static dErr CheckNullSpace(SNES snes,Vec residual,dTruth compute_explicit)
+{
+  Mat          mffd,J,Jp;
+  dTruth       isnull;
+  Vec          U,F;
+  MatStructure mstruct;
+  MatNullSpace matnull;
+  KSP          ksp;
+  dErr         err;
+
+  dFunctionBegin;
+  err = SNESGetKSP(snes,&ksp);dCHK(err);
+  err = KSPGetNullSpace(ksp,&matnull);dCHK(err);
+  err = MatCreateSNESMF(snes,&mffd);dCHK(err);
+  err = MatSetFromOptions(mffd);dCHK(err);
+  {
+    err = VecDuplicate(residual,&U);dCHK(err);
+    err = VecDuplicate(residual,&F);dCHK(err);
+  }
+  err = SNESGetJacobian(snes,&J,&Jp,NULL,NULL);dCHK(err);
+  err = VecSet(U,0);dCHK(err);
+  err = SNESComputeFunction(snes,U,F);dCHK(err); /* Need base for MFFD */
+  err = MatMFFDSetBase(mffd,U,F);dCHK(err);
+  err = MatNullSpaceTest(matnull,mffd,&isnull);dCHK(err);
+  if (!isnull) dERROR(1,"Vector is not in the null space of the MFFD operator");dCHK(err);
+  err = MatNullSpaceTest(matnull,J,&isnull);dCHK(err);
+  if (!isnull) dERROR(1,"Vector is not in the null space of J");dCHK(err);
+  err = SNESComputeJacobian(snes,U,&J,&Jp,&mstruct);dCHK(err); /* To assemble blocks of Jp */
+  err = MatNullSpaceTest(matnull,Jp,&isnull);dCHK(err);
+  if (!isnull) dERROR(1,"Vector is not in the null space of Jp");dCHK(err);
+  err = MatNullSpaceDestroy(matnull);dCHK(err);
+  err = MatDestroy(mffd);dCHK(err);
+  if (compute_explicit) {
+    Mat expmat,expmat_fd;
+    dInt m,n;
+    dTruth contour = dFALSE;
+    err = MatGetLocalSize(J,&m,&n);dCHK(err);
+    err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
+    err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
+    err = SNESDefaultComputeJacobian(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
+    err = MatSetOptionsPrefix(expmat,"explicit_");dCHK(err);
+    err = MatSetOptionsPrefix(expmat_fd,"explicit_fd_");dCHK(err);
+    err = MatSetFromOptions(expmat);dCHK(err);
+    err = MatSetFromOptions(expmat_fd);dCHK(err);
+
+    err = PetscOptionsGetTruth(NULL,"-mat_view_contour",&contour,NULL);dCHK(err);
+    if (contour) {err = PetscViewerPushFormat(PETSC_VIEWER_DRAW_WORLD,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);}
+    {
+      dTruth flg = dFALSE;
+      err = PetscOptionsGetTruth(NULL,"-explicit_mat_view",&flg,NULL);dCHK(err);
+      if (flg) {
+        err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using mat-free implementation of J\n");dCHK(err);
+        err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+      }
+      flg = dFALSE;
+      err = PetscOptionsGetTruth(NULL,"-explicit_mat_view_draw",&flg,NULL);dCHK(err);
+      if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+    }
+
+    {
+      dTruth flg = dFALSE;
+      err = PetscOptionsGetTruth(NULL,"-explicit_fd_mat_view",&flg,NULL);dCHK(err);
+      if (flg) {
+        err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using FD\n");dCHK(err);
+        err = MatView(expmat_fd,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+      }
+      flg = dFALSE;
+      err = PetscOptionsGetTruth(NULL,"-explicit_fd_mat_view_draw",&flg,NULL);dCHK(err);
+      if (flg) {err = MatView(expmat_fd,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+    }
+
+    err = MatAXPY(expmat,-1,expmat_fd,SAME_NONZERO_PATTERN);dCHK(err);
+    {
+      dTruth flg = dFALSE;
+      err = PetscOptionsGetTruth(NULL,"-explicit_diff_mat_view",&flg,NULL);dCHK(err);
+      if (flg) {
+        err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Difference between mat-free implementation of J and FD\n");dCHK(err);
+        err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+      }
+      flg = dFALSE;
+      err = PetscOptionsGetTruth(NULL,"-explicit_diff_mat_view_draw",&flg,NULL);dCHK(err);
+      if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+    }
+    if (contour) {err = PetscViewerPopFormat(PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+    err = MatDestroy(expmat);dCHK(err);
+    err = MatDestroy(expmat_fd);dCHK(err);
+  }
+  err = VecDestroy(U);dCHK(err);
+  err = VecDestroy(F);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
 int main(int argc,char *argv[])
 {
   Stokes stk;
@@ -1220,7 +1394,7 @@ int main(int argc,char *argv[])
   MatFDColoring fdcolor = 0;
   Vec r,x,soln;
   SNES snes;
-  dTruth nocheck,compute_explicit,use_jblock;
+  dTruth nocheck,check_null,compute_explicit,use_jblock;
   dErr err;
 
   err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -1236,8 +1410,11 @@ int main(int argc,char *argv[])
 
   err = PetscOptionsBegin(stk->comm,NULL,"Stokes solver options",__FILE__);dCHK(err); {
     err = PetscOptionsName("-nocheck_error","Do not compute errors","",&nocheck);dCHK(err);
-    err = PetscOptionsName("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",&compute_explicit);dCHK(err);
     err = PetscOptionsName("-use_jblock","Use blocks to apply Jacobian instead of unified (more efficient) version","",&use_jblock);dCHK(err);
+    err = PetscOptionsName("-check_null","Check that constant pressure really is in the null space","",&check_null);dCHK(err);
+    if (check_null) {
+      err = PetscOptionsName("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",&compute_explicit);dCHK(err);
+    }
   } err = PetscOptionsEnd();dCHK(err);
   err = StokesGetMatrices(stk,use_jblock,&J,&Jp);dCHK(err);
   err = SNESCreate(comm,&snes);dCHK(err);
@@ -1301,92 +1478,16 @@ int main(int argc,char *argv[])
     err = VecDestroy(b);dCHK(err);
   }
 
-  {                             /* Set null space */
+  if (!stk->neumann300) {                             /* Set null space */
     KSP ksp;
     MatNullSpace matnull;
-    Mat mffd;
-    dTruth isnull;
-    Vec U,F;
-    MatStructure mstruct;
     err = StokesGetNullSpace(stk,&matnull);dCHK(err);
     err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPSetNullSpace(ksp,matnull);dCHK(err);
     err = MatNullSpaceRemove(matnull,soln,NULL);dCHK(err);
-    /* The following is a real test of whether the null space is correct */
-    err = MatCreateSNESMF(snes,&mffd);dCHK(err);
-    err = MatSetFromOptions(mffd);dCHK(err);
-    err = VecDuplicate(r,&U);dCHK(err);
-    err = VecDuplicate(r,&F);dCHK(err);
-    err = VecSet(U,0);dCHK(err);
-    err = SNESComputeFunction(snes,U,F);dCHK(err); /* Need base for MFFD */
-    err = MatMFFDSetBase(mffd,U,F);dCHK(err);
-    err = MatNullSpaceTest(matnull,mffd,&isnull);dCHK(err);
-    if (!isnull) dERROR(1,"Vector is not in the null space of the MFFD operator");dCHK(err);
-    err = MatNullSpaceTest(matnull,J,&isnull);dCHK(err);
-    err = MatMult(J,r,F);dCHK(err);
-    if (!isnull) dERROR(1,"Vector is not in the null space of J");dCHK(err);
-    err = SNESComputeJacobian(snes,U,&J,&Jp,&mstruct);dCHK(err); /* To assemble blocks of Jp */
-    err = MatNullSpaceTest(matnull,Jp,&isnull);dCHK(err);
-    if (!isnull) dERROR(1,"Vector is not in the null space of Jp");dCHK(err);
-    err = MatNullSpaceDestroy(matnull);dCHK(err);
-    err = MatDestroy(mffd);dCHK(err);
-    if (compute_explicit) {
-      Mat expmat,expmat_fd;
-      dInt m,n;
-      dTruth contour = dFALSE;
-      err = MatGetLocalSize(J,&m,&n);dCHK(err);
-      err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
-      err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
-      err = SNESDefaultComputeJacobian(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
-      err = MatSetOptionsPrefix(expmat,"explicit_");dCHK(err);
-      err = MatSetOptionsPrefix(expmat_fd,"explicit_fd_");dCHK(err);
-      err = MatSetFromOptions(expmat);dCHK(err);
-      err = MatSetFromOptions(expmat_fd);dCHK(err);
-
-      err = PetscOptionsGetTruth(NULL,"-mat_view_contour",&contour,NULL);dCHK(err);
-      if (contour) {err = PetscViewerPushFormat(PETSC_VIEWER_DRAW_WORLD,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);}
-      {
-        dTruth flg = dFALSE;
-        err = PetscOptionsGetTruth(NULL,"-explicit_mat_view",&flg,NULL);dCHK(err);
-        if (flg) {
-          err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using mat-free implementation of J\n");dCHK(err);
-          err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-        }
-        flg = dFALSE;
-        err = PetscOptionsGetTruth(NULL,"-explicit_mat_view_draw",&flg,NULL);dCHK(err);
-        if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-      }
-
-      {
-        dTruth flg = dFALSE;
-        err = PetscOptionsGetTruth(NULL,"-explicit_fd_mat_view",&flg,NULL);dCHK(err);
-        if (flg) {
-          err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using FD\n");dCHK(err);
-          err = MatView(expmat_fd,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-        }
-        flg = dFALSE;
-        err = PetscOptionsGetTruth(NULL,"-explicit_fd_mat_view_draw",&flg,NULL);dCHK(err);
-        if (flg) {err = MatView(expmat_fd,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-      }
-
-      err = MatAXPY(expmat,-1,expmat_fd,SAME_NONZERO_PATTERN);dCHK(err);
-      {
-        dTruth flg = dFALSE;
-        err = PetscOptionsGetTruth(NULL,"-explicit_diff_mat_view",&flg,NULL);dCHK(err);
-        if (flg) {
-          err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Difference between mat-free implementation of J and FD\n");dCHK(err);
-          err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-        }
-        flg = dFALSE;
-        err = PetscOptionsGetTruth(NULL,"-explicit_diff_mat_view_draw",&flg,NULL);dCHK(err);
-        if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-      }
-      if (contour) {err = PetscViewerPopFormat(PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-      err = MatDestroy(expmat);dCHK(err);
-      err = MatDestroy(expmat_fd);dCHK(err);
-    }
-    err = VecDestroy(U);dCHK(err);
-    err = VecDestroy(F);dCHK(err);
+  }
+  if (check_null) {
+    err = CheckNullSpace(snes,r,compute_explicit);dCHK(err);
   }
   err = VecZeroEntries(r);dCHK(err);
   err = VecZeroEntries(x);dCHK(err);
