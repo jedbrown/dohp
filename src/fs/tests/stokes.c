@@ -939,7 +939,7 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Jp,Vec Mdiag,Vec gx)
   err = VecRestoreArray(stk->xu,&x);dCHK(err);
   err = VecRestoreArray(stk->yu,&mdiag);dCHK(err);
 
-  /* This scatter really should be INSERT_VALUES, duplicates should be identical. */
+  /* \bug in parallel: We need the ghost update to be INSERT_VALUES, duplicates should be identical. */
   err = dFSExpandedToGlobal(fs,stk->yu,Mdiag,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
 
   err = MatAssemblyBegin(sms->A,MAT_FINAL_ASSEMBLY);dCHK(err);

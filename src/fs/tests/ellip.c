@@ -11,6 +11,15 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Lap
 
 PetscLogEvent LOG_EllipShellMatMult;
 
+typedef struct EllipCtx *Ellip;
+
+typedef struct {
+  Ellip elp;
+  Vec Mdiag,work0,work1;
+  Mat Mq1;
+  KSP ksp;
+} PC_Ellip;
+
 struct EllipParam {
   dReal epsilon;
   dReal p;
@@ -94,7 +103,6 @@ struct EllipStore {
   dReal Du[3];
 };
 
-typedef struct EllipCtx *Ellip;
 struct EllipCtx {
   MPI_Comm              comm;
   struct EllipParam     param;
@@ -166,7 +174,7 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsTruth("-error_view","View errors","",elp->errorview,&elp->errorview,NULL);dCHK(err);
     err = PetscOptionsTruth("-eta_monitor","Monitor nonlinearity","",elp->eta_monitor,&elp->eta_monitor,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_p","p in p-Laplacian","",prm->p,&prm->p,NULL);dCHK(err);
-    err = PetscOptionsReal("-ellip_epsilon","Regularization in p-Laplacian","",prm->epsilon,&prm->epsilon,NULL);dCHK(err);
+    err = PetscOptionsReal("-ellip_eps","Regularization in p-Laplacian","",prm->epsilon,&prm->epsilon,NULL);dCHK(err);
     err = PetscOptionsTruth("-onlyproject","Actually just do a projection","",prm->onlyproject,&prm->onlyproject,NULL);dCHK(err);
     err = PetscOptionsTruth("-bdy100","Only use boundary 100","",prm->bdy100,&prm->bdy100,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
@@ -432,20 +440,29 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
 
 static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
-  Ellip elp = ctx;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*nx)[3];
-  dScalar *x;
-  dFS fs = elp->fs;
-  dInt n,*off,*geomoff;
-  dReal (*geom)[3];
-  dErr err;
+  Ellip     elp = ctx;
+  s_dRule  *rule;
+  s_dEFS   *efs;
+  dReal    (*nx)[3];
+  dScalar  *x,*mdiag;
+  dFS       fs  = elp->fs;
+  dInt      n,*off,*geomoff;
+  dReal     (*geom)[3];
+  KSP       ksp;
+  PC        pc;
+  PC_Ellip *pce;
+  dErr      err;
 
   dFunctionBegin;
+  err = SNESGetKSP(snes,&ksp);dCHK(err);
+  err = KSPGetPC(ksp,&pc);dCHK(err);
+  err = PCShellGetContext(pc,(void**)&pce);dCHK(err);
   err = MatZeroEntries(*Jp);dCHK(err);
   err = dFSGlobalToExpanded(fs,gx,elp->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = VecGetArray(elp->x,&x);dCHK(err);
+  if (pce) {
+    err = VecGetArray(elp->y,&mdiag);dCHK(err);
+  }
   err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
   for (dInt e=0; e<n; e++) {
@@ -468,8 +485,9 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
           const dScalar (*uc)[1] = (const dScalar(*)[1])x+off[e]; /* function values, indexed at subelement corners \c uc[c[#]][0] */
           const dReal (*qx)[3],*jw,(*basis)[8],(*deriv)[8][3];
           dInt qn;
-          dScalar K[8][8];
+          dScalar K[8][8],Kmass[8][8];
           err = dMemzero(K,sizeof(K));dCHK(err);
+          err = dMemzero(Kmass,sizeof(Kmass));dCHK(err);
           err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,(const dReal**)&basis,(const dReal**)&deriv);dCHK(err);
           for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
 #define LINEAR 0
@@ -509,12 +527,27 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
                   (+ deriv[lq][ltest][0] * Dv[0]
                    + deriv[lq][ltest][1] * Dv[1]
                    + deriv[lq][ltest][2] * Dv[2]);
+                Kmass[ltest][lp] += basis[lq][ltest] * jw[lq] * basis[lq][lp];
 #  endif
               }
             }
 #endif /* LINEAR */
           }
           err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+          if (pce) {            /* Set values in Q_1 mass matrix */
+            err = dFSMatSetValuesBlockedExpanded(fs,pce->Mq1,8,rowcol,8,rowcol,&Kmass[0][0],ADD_VALUES);dCHK(err);
+          }
+        }
+      }
+    }
+    if (pce) {
+      dReal *nweight[3];
+      err = dEFSGetTensorNodes(&efs[e],NULL,NULL,NULL,nweight,NULL,NULL);dCHK(err);
+      for (dInt i=0; i<P[0]; i++) {
+        for (dInt j=0; j<P[1]; j++) {
+          for (dInt k=0; k<P[2]; k++) {
+            mdiag[off[e]+(i*P[1]+j)*P[2]+k] = nweight[0][i]*nweight[1][j]*nweight[2][k];
+          }
         }
       }
     }
@@ -522,6 +555,13 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
   err = VecRestoreArray(elp->x,&x);dCHK(err);
+  if (pce) {
+    err = VecRestoreArray(elp->y,&mdiag);dCHK(err);
+    /* \bug in parallel: We need the ghost update to be INSERT_VALUES, duplicates should be identical. */
+    err = dFSExpandedToGlobal(fs,elp->y,pce->Mdiag,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+    err = MatAssemblyBegin(pce->Mq1,MAT_FINAL_ASSEMBLY);dCHK(err);
+    err = MatAssemblyEnd  (pce->Mq1,MAT_FINAL_ASSEMBLY);dCHK(err);
+  }
 
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -619,6 +659,66 @@ static dErr EllipGetSolutionVector(Ellip elp,Vec *insoln)
   dFunctionReturn(0);
 }
 
+static dErr PCApply_Ellip(PC pc,Vec x,Vec y)
+{
+  dErr err;
+  PC_Ellip *pce;
+
+  dFunctionBegin;
+  err = PCShellGetContext(pc,(void**)&pce);dCHK(err);
+  if (1) {
+    err = VecPointwiseDivide(pce->work0,x,pce->Mdiag);dCHK(err);
+  } else {
+    err = VecCopy(x,pce->work0);dCHK(err);
+  }
+  if (1) {
+    err = MatMult(pce->Mq1,pce->work0,pce->work1);dCHK(err);
+  } else {
+    err = VecCopy(pce->work0,pce->work1);dCHK(err);
+  }
+  err = KSPSolve(pce->ksp,pce->work1,y);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr PCSetUp_Ellip(PC pc)
+{
+  dErr      err;
+  PC_Ellip *pce;
+  Mat       pmat;
+  MatStructure mstruct;
+
+  dFunctionBegin;
+  err = PCShellGetContext(pc,(void**)&pce);dCHK(err);
+  if (!pce->Mdiag) dERROR(1,"Mdiag has not been set");
+  if (!pce->Mq1) dERROR(1,"Mq1 has not been set");
+  if (!pce->work0) {err = VecDuplicate(pce->Mdiag,&pce->work0);dCHK(err);}
+  if (!pce->work1) {err = VecDuplicate(pce->Mdiag,&pce->work1);dCHK(err);}
+  if (!pce->ksp) {
+    err = KSPCreate(pce->elp->comm,&pce->ksp);dCHK(err);
+    err = KSPSetOptionsPrefix(pce->ksp,"ellip_");dCHK(err);
+    err = KSPSetFromOptions(pce->ksp);dCHK(err);
+  }
+  err = PCGetOperators(pc,NULL,&pmat,&mstruct);dCHK(err);
+  err = KSPSetOperators(pce->ksp,pmat,pmat,mstruct);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr PCDestroy_Ellip(PC pc)
+{
+  dErr err;
+  PC_Ellip *pce;
+
+  dFunctionBegin;
+  err = PCShellGetContext(pc,(void**)&pce);dCHK(err);
+  err = VecDestroy(pce->Mdiag);dCHK(err);
+  err = VecDestroy(pce->work0);dCHK(err);
+  err = VecDestroy(pce->work1);dCHK(err);
+  err = MatDestroy(pce->Mq1);dCHK(err);
+  err = KSPDestroy(pce->ksp);dCHK(err);
+  err = dFree(pce);dCHK(err);
+  dFunctionReturn(0);
+}
+
 int main(int argc,char *argv[])
 {
   char mtype[256] = MATAIJ;
@@ -646,7 +746,7 @@ int main(int argc,char *argv[])
   err = PetscOptionsGetString(NULL,"-q1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
   err = dFSGetMatrix(fs,mtype,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
-  err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
+  err = MatSetFromOptions(Jp);dCHK(err);
 
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic solver options",__FILE__);dCHK(err); {
     err = PetscOptionsName("-nojshell","Do not use shell Jacobian","",&nojshell);dCHK(err);
@@ -670,6 +770,13 @@ int main(int argc,char *argv[])
   err = SNESSetFunction(snes,r,EllipFunction,elp);dCHK(err);
   err = SNESSetJacobian(snes,J,Jp,EllipJacobian,elp);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-10,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
+  {                             /* Set default PC */
+    KSP ksp;
+    PC pc;
+    err = SNESGetKSP(snes,&ksp);dCHK(err);
+    err = KSPGetPC(ksp,&pc);dCHK(err);
+    err = PCSetType(pc,PCSHELL);dCHK(err);
+  }
   err = SNESSetFromOptions(snes);dCHK(err);
   err = VecZeroEntries(r);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
@@ -679,6 +786,28 @@ int main(int argc,char *argv[])
     err = VecDohpGetClosure(soln,&sc);dCHK(err);
     err = dFSInhomogeneousDirichletCommit(elp->fs,sc);dCHK(err);
     err = VecDohpRestoreClosure(soln,&sc);dCHK(err);
+  }
+  {
+    KSP ksp;
+    PC pc;
+    dTruth isshell;
+    err = SNESGetKSP(snes,&ksp);dCHK(err);
+    err = KSPGetPC(ksp,&pc);dCHK(err);
+    err = PetscTypeCompare((dObject)pc,PCSHELL,&isshell);dCHK(err);
+    if (isshell) {
+      PC_Ellip *pce;
+      err = dNew(PC_Ellip,&pce);dCHK(err);
+      pce->elp = elp;
+      err = PetscOptionsGetString(NULL,"-mq1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
+      err = dFSGetMatrix(fs,mtype,&pce->Mq1);dCHK(err);
+      err = MatSetOptionsPrefix(pce->Mq1,"mq1");dCHK(err);
+      err = MatSetFromOptions(pce->Mq1);dCHK(err);
+      err = VecDuplicate(x,&pce->Mdiag);dCHK(err);
+      err = PCShellSetContext(pc,pce);dCHK(err);
+      err = PCShellSetApply(pc,PCApply_Ellip);dCHK(err);
+      err = PCShellSetSetUp(pc,PCSetUp_Ellip);dCHK(err);
+      err = PCShellSetDestroy(pc,PCDestroy_Ellip);dCHK(err);
+    }
   }
   err = VecZeroEntries(x);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err);
