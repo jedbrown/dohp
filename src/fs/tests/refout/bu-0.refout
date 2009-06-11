@@ -4,7 +4,8 @@ Boundary Unit test object (BU)
     type: cont
     General information about the mesh topology.
     number of vertices=12 edges=20 faces=11 regions=2
-    on rank 0, 54/54 element dofs constrained against 45/45 local dofs
+    On rank 0: 54/54 expanded nodes constrained against 9+0 / 9+0 real nodes, 45 / 45 closure
+    Block size 1: global dofs 9, ghost dofs 0, closure dofs 45
     Continuous Galerkin function space
 Global closure vector, should be a sequence starting with 1000
 Process [0]
