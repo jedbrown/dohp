@@ -1,6 +1,6 @@
-static const char help[] = "Solve a scalar elliptic problem, a regularized p-Laplacian using dual order hp elements.\n"
+static const char help[] = "Solve a scalar elliptic problem, a regularized p-Bratu using dual order hp elements.\n"
   "The model problem is\n"
-  "  \\int_\\Omega (\\eta Dv \\cdot Du - f v) - \\int_\\Gamma v (\\eta Du \\cdot n) = 0\n"
+  "  \\int_\\Omega (\\eta Dv \\cdot Du - \\lambda e^u - f v) - \\int_\\Gamma v (\\eta Du \\cdot n) = 0\n"
   "where\n"
   "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^(p-2)\n"
   "  (\\eta Du \\cdot n) = known OR function of u OR self (\"No condition\" outflow)\n\n";
@@ -23,6 +23,7 @@ typedef struct {
 struct EllipParam {
   dReal epsilon;
   dReal p;
+  dReal lambda;
   dTruth onlyproject;
   dTruth bdy100;
 };
@@ -99,8 +100,9 @@ static void EllipExact_3_Forcing(const struct EllipExactCtx *ctx,const struct El
 }
 
 struct EllipStore {
-  dReal eta,deta;
-  dReal Du[3];
+  dReal eta;
+  dReal sqrt_mdeta_Du[3];
+  dReal lambda_exp_u;
 };
 
 struct EllipCtx {
@@ -136,6 +138,7 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   prm = &elp->param;
   prm->p           = 2.0;       /* p in p-Laplacian */
   prm->epsilon     = 1.0;
+  prm->lambda      = 0.0;       /* Bratu nonlinearity */
   prm->onlyproject = dFALSE;
 
   *ellip = elp;
@@ -175,6 +178,7 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsTruth("-eta_monitor","Monitor nonlinearity","",elp->eta_monitor,&elp->eta_monitor,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_p","p in p-Laplacian","",prm->p,&prm->p,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_eps","Regularization in p-Laplacian","",prm->epsilon,&prm->epsilon,NULL);dCHK(err);
+    err = PetscOptionsReal("-ellip_lam","Strength of Bratu nonlinearity","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsTruth("-onlyproject","Actually just do a projection","",prm->onlyproject,&prm->onlyproject,NULL);dCHK(err);
     err = PetscOptionsTruth("-bdy100","Only use boundary 100","",prm->bdy100,&prm->bdy100,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
@@ -285,12 +289,13 @@ static dErr EllipDestroy(Ellip elp)
 
 static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal dUNUSED x[3],const dScalar dUNUSED u[1],const dScalar Du[3],struct EllipStore *st)
 {
-  dReal gamma,espg,p=prm->p;
+  dReal gamma,espg,p=prm->p,sqrt_mdeta;
   gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
   espg = dSqr(prm->epsilon) + gamma;
   st->eta = pow(espg,(p-2)/2);
-  st->deta = ((p-2)/2) * st->eta / espg;
-  st->Du[0] = Du[0]; st->Du[1] = Du[1]; st->Du[2] = Du[2];
+  sqrt_mdeta = sqrt(-((p-2)/2) * st->eta / espg);
+  for (dInt i=0; i<3; i++) st->sqrt_mdeta_Du[i] = sqrt_mdeta*Du[i];
+  st->lambda_exp_u = prm->lambda * exp(u[0]);
 }
 
 static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExact *exact,struct EllipExactCtx *exactctx,
@@ -305,26 +310,25 @@ static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExa
     v[0] += weight * u[0];
     Dv[0] = Dv[1] = Dv[2] = 0;
   } else {
+    v[0] += -weight * st->lambda_exp_u;
     for (dInt i=0; i<3; i++) {
       Dv[i] = weight * st->eta * Du[i]; /* Coefficient of Dv in weak form */
-  }
+    }
   }
 }
 
 static inline void EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const struct EllipStore *restrict st,dReal weight,
-                                          const dScalar dUNUSED u[restrict static 1],const dScalar Du[restrict static 3],
+                                          const dScalar u[restrict static 1],const dScalar Du[restrict static 3],
                                           dScalar v[restrict static 1],dScalar Dv[restrict static 3])
 {
-  const dScalar dot = dDotScalar3(st->Du,Du);
-  const dReal etaw = st->eta*weight,dotdetaw = dot*st->deta*weight;
+  const dScalar dotw = dDotScalar3(st->sqrt_mdeta_Du,Du)*weight;
+  const dReal etaw = st->eta*weight;
   if (prm->onlyproject) {
     v[0] = weight * u[0];
     Dv[0] = Dv[1] = Dv[2] = 0;
   } else {
-    v[0] = 0;
-    Dv[0] = etaw*Du[0] + dotdetaw*st->Du[0];
-    Dv[1] = etaw*Du[1] + dotdetaw*st->Du[1];
-    Dv[2] = etaw*Du[2] + dotdetaw*st->Du[2];
+    v[0] = -weight * st->lambda_exp_u * u[0];
+    for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] - dotw*st->sqrt_mdeta_Du[i];
   }
 }
 
@@ -363,20 +367,6 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   }
   err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-#if 0
-  if (0) {
-    dMeshESH *sets;
-    dInt nsets;
-    err = dFSGetBoundarySets(fs,100,&nsets,&sets);dCHK(err);
-    for (dInt s=0; s<nsets; s++) {
-      err = dFSGetElements(fs,sets[s],&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-      for (dInt e=0; e<n; e++) {
-        // integrate weak forms over faces
-      }
-      err = dFSRestoreElements(fs,sets[s],&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-    }
-  }
-#endif
   err = VecRestoreArray(elp->x,&x);dCHK(err);
   err = VecRestoreArray(elp->y,&y);dCHK(err);
   err = dFSExpandedToGlobal(fs,elp->y,gy,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
@@ -518,12 +508,12 @@ static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
                 dReal v[1],Dv[3];
                 EllipPointwiseJacobian(&elp->param,&st,jw[lq],u,Du,v,Dv);
 #  if Q1SCALE
-                K[ltest][lp] += //basis[lq][ltest] * v[0]
+                K[ltest][lp] += basis[lq][ltest] * v[0] +
                   lscale[ltest]*lscale[lp]*(+ deriv[lq][ltest][0] * Dv[0]
                                             + deriv[lq][ltest][1] * Dv[1]
                                             + deriv[lq][ltest][2] * Dv[2]);
 #  else
-                K[ltest][lp] += //basis[lq][ltest] * v[0]
+                K[ltest][lp] += basis[lq][ltest] * v[0] +
                   (+ deriv[lq][ltest][0] * Dv[0]
                    + deriv[lq][ltest][1] * Dv[1]
                    + deriv[lq][ltest][2] * Dv[2]);
