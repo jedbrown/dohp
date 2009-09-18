@@ -35,7 +35,6 @@ typedef struct {
 
 struct _dFSOps {
   DMOPS(dFS)
-  dErr (*setfromoptions)(dFS);
   dErr (*impldestroy)(dFS);
   dErr (*buildspace)(dFS);
 };
