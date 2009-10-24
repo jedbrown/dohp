@@ -5,7 +5,9 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
-extern dErr dFSCreate_Cont(dFS);
+EXTERN dErr dFSCreate_Cont(dFS);
+EXTERN dErr dFSView_Cont_DHM(dFS,dViewer);
+
 
 typedef struct {
   dTruth usecmatrix;

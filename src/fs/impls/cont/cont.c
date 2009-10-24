@@ -1,16 +1,20 @@
 #include "cont.h"
-#include "dohpmesh.h"
-#include "dohpvec.h"
+#include <dohpmesh.h>
+#include <dohpvec.h>
+#include <dohpviewer.h>
 
-static dErr dFSView_Cont(dFS dUNUSED fs,dViewer viewer)
+static dErr dFSView_Cont(dFS fs,dViewer viewer)
 {
-  dBool ascii;
+  dBool ascii,dhm;
   dErr err;
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&dhm);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"Continuous Galerkin function space\n");dCHK(err);
+  } else if (dhm) {
+    err = dFSView_Cont_DHM(fs,viewer);dCHK(err);
   }
   dFunctionReturn(0);
 }

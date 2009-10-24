@@ -20,7 +20,8 @@ list (APPEND Dohp_SRCS
   fs/interface/fsrot.c
   fs/interface/fsgeom.c
   fs/interface/q1.c
-  fs/impls/cont/cont.c)
+  fs/impls/cont/cont.c
+  fs/impls/cont/contviewdhm.c)
 
 # ADD_SUBDIRECTORY (fs/mesh)
 list (APPEND Dohp_SRCS
@@ -32,6 +33,11 @@ list (APPEND Dohp_SRCS
 # ADD_SUBDIRECTORY (fs/vec)
 list (APPEND Dohp_SRCS
   vec/vecd.c)
+
+# ADD_SUBDIRECTORY (viewer)
+list (APPEND Dohp_SRCS
+  viewer/dhm.c
+  viewer/dviewer.c)
 
 list (APPEND Dohp_SRCS
   util/util.c)
