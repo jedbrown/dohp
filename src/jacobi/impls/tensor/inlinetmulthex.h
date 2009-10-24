@@ -1,5 +1,7 @@
-#include <pmmintrin.h>
-#include "private/microbench.h"
+#if !defined _INLINETMULTHEX_H
+#define _INLINETMULTHEX_H
+
+#include "dohptype.h"
 
 /**
 * The core computational kernel.  Performs a tensor product operation with the matrices A[0..2].
@@ -96,6 +98,12 @@ static dErr TensorMult_Hex_nounroll(dInt D,const dInt P[3],const dInt Q[3],const
   PetscLogFlops((Q[0]*P[0]*P[1]*P[2] + Q[0]*Q[1]*P[1]*P[2] + Q[0]*Q[1]*Q[2]*P[2])*D*2);
   dFunctionReturn(0);
 }
+
+
+#if defined __SSE3__
+#include <pmmintrin.h>
+#include "private/microbench.h"
+
 
 #define D 1
 #define P2 4
@@ -382,3 +390,6 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
   PetscLogFlops((Q[0]*P[0]*P[1]*P2 + Q[0]*Q[1]*P[1]*P2 + Q[0]*Q[1]*Q2*P2)*D*2);
   dFunctionReturn(0);
 }
+
+#endif
+#endif

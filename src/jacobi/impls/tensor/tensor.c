@@ -718,9 +718,11 @@ static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,T
     b->multhex[0] = &TensorMult_Hex_nounroll;
     b->multhex[1] = &TensorMult_Hex_nounroll;
     b->multhex[2] = &TensorMult_Hex_nounroll;
+#if defined __SSE3__
     if (P == 4 && Q == 4) {
       b->multhex[0] = &TensorMult_Hex_P4_Q4_D1;
     }
+#endif
   }
   *basis = b;
   dFunctionReturn(0);
