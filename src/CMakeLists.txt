@@ -47,3 +47,8 @@ if (Dohp_BUILD_TESTS)
   add_subdirectory (vec/tests)
   add_subdirectory (fs/tests)
 endif (Dohp_BUILD_TESTS)
+
+if (Dohp_BUILD_TOOLS)
+  add_subdirectory (tools)
+endif (Dohp_BUILD_TOOLS)
+

@@ -14,7 +14,8 @@ add_definitions (${PETSC_DEFINITIONS})
 
 option (dUSE_DEBUG         "Compile Dohp with extra debugging" ON)
 option (Dohp_BUILD_TESTS   "Build tests"                       ON)
-option (Dohp_BUILD_SANDBOX "Build programs in sandbox"         ON)
+option (Dohp_BUILD_TOOLS   "Build tools"                       ON)
+option (Dohp_BUILD_SANDBOX "Build programs in sandbox"         OFF)
 option (PEDANTIC_WARNINGS  "Compile with pedantic warnings"    ON)
 option (BUILD_SHARED_LIBS  "Build shared Dohp libraries"       ON)
 
