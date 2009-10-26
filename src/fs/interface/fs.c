@@ -1,5 +1,5 @@
-#include "private/fsimpl.h"
-#include "dohpvec.h"
+#include <dohpfsimpl.h>
+#include <dohpvec.h>
 
 dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 {
@@ -59,10 +59,34 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
 **/
 dErr dFSSetBlockSize(dFS fs,dInt bs)
 {
+  dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
+  for (dInt i=0; i<fs->bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
+  err = dFree(fs->fieldname);dCHK(err);
+  err = dCallocA(bs,&fs->fieldname);dCHK(err);
   fs->bs = bs;
+  dFunctionReturn(0);
+}
+
+/** Set the name of a field managed by the function space.
+*
+* @param fs function space
+* @param fn field number
+* @param fname field name
+*
+* @note You must call dFSsetBlockSize() before this if you have multiple fields.
+*/
+dErr dFSSetFieldName(dFS fs,dInt fn,const char *fname)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  if (fn < 0 || fs->bs <= fn) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
+  if (fs->fieldname[fn]) {err = dFree(fs->fieldname[fn]);dCHK(err);}
+  err = PetscStrallocpy(fname,&fs->fieldname[fn]);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -188,6 +212,8 @@ dErr dFSDestroy(dFS fs)
       default: dERROR(1,"Invalid status %d",w->status);
     }
   }
+  for (dInt i=0; i<fs->bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
+  err = dFree(fs->fieldname);dCHK(err);
   err = VecDestroy(fs->gvec);dCHK(err);
   err = VecDestroy(fs->dcache);dCHK(err);
   err = VecScatterDestroy(fs->dscat);dCHK(err);

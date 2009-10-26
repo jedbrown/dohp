@@ -1,8 +1,8 @@
-#ifndef _FSIMPL_H
-#define _FSIMPL_H
+#ifndef _DOHPFSIMPL_H
+#define _DOHPFSIMPL_H
 
 #include "dohpfs.h"
-#include "private/dmimpl.h"
+#include <private/dmimpl.h>
 
 PETSC_EXTERN_CXX_BEGIN
 
@@ -87,6 +87,7 @@ struct _p_dFS {
   dFSRotation  rot;             /**< Rotation for local vector */
   s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];
   char         orderingtype[256];
+  char       **fieldname;
   void        *data;
 };
 

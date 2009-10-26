@@ -1,9 +1,9 @@
 static const char help[] = "Test the construction of dFS objects and anisotropic propogation.\n";
 
-#include "dohpfs.h"
-#include "dohp.h"
-#include "dohpmesh.h"
-#include "dohpvec.h"
+#include <petscsnes.h>
+#include <dohpfs.h>
+#include <dohpmesh.h>
+#include <dohpvec.h>
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 

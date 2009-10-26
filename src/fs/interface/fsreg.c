@@ -1,5 +1,5 @@
 #include <MBTagConventions.hpp>
-#include "private/fsimpl.h"
+#include <dohpfsimpl.h>
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 PetscCookie dFSROT_COOKIE;
@@ -48,6 +48,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 
   /* Defaults */
   fs->bs = 1;
+  err = dCallocA(1,&fs->fieldname);dCHK(err);
 
   *infs = fs;
   dFunctionReturn(0);

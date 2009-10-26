@@ -56,6 +56,7 @@ EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetBlockSize(dFS,dInt);
+EXTERN dErr dFSSetFieldName(dFS,dInt,const char*);
 EXTERN dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
 EXTERN dErr dFSSetFromOptions(dFS);
 EXTERN dErr dFSSetType(dFS,const dFSType);

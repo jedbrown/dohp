@@ -6,8 +6,8 @@ static const char help[] = "Create a hexahedral mesh of a block domain with full
 
 #include <iGeom.h>
 #include <iRel.h>
-#include "private/dohpimpl.h"
-#include "dohpgeom.h"
+#include <dohpmesh.h>
+#include <dohpgeom.h>
 
 #define CHK(err) if (err) { printf("iMesh error at %s:%d\n", __FILE__, __LINE__); exit(1); }
 #define ERR(str) { printf("error at %s:%d ",__FILE__,__LINE__); exit(2); }

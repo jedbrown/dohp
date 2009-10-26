@@ -1,11 +1,11 @@
 #ifndef _DOHPMESH_H
 #define _DOHPMESH_H
 
-#include "petsc.h"
+#include <petsc.h>
 #include <stdlib.h>
 #include <string.h>
-#include "dohptype.h"
-#include "dohpjacobi.h"
+#include <dohptype.h>
+#include <dohpjacobi.h>
 
 PETSC_EXTERN_CXX_BEGIN
 

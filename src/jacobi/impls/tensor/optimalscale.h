@@ -18,7 +18,7 @@
 #if !defined(_OPTIMALSCALE_H)
 #define _OPTIMALSCALE_H
 
-#include "dohptype.h"
+#include <dohptype.h>
 
 static const dReal optimal_ones[] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
 

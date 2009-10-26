@@ -1,10 +1,8 @@
 #ifndef _TENSOR_H
 #define _TENSOR_H
 
-#include "petscsys.h"
-#include "dohpjacobi.h"
-// #include "private/dohpimpl.h"
-#include "private/jacimpl.h"
+#include <petscsys.h>
+#include <dohpjacimpl.h>
 
 PETSC_EXTERN_CXX_BEGIN
 

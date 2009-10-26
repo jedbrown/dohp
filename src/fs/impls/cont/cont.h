@@ -1,7 +1,7 @@
 #ifndef _CONT_H
 #define _CONT_H
 
-#include "private/fsimpl.h"
+#include <dohpfsimpl.h>
 
 PETSC_EXTERN_CXX_BEGIN
 

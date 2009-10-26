@@ -1,6 +1,6 @@
 /* Implementation of Gauss quadrature with affine coordinate mapping. */
 
-#include "private/dohpimpl.h"
+#include <dohpquotientimpl.h>
 
 typedef struct {
   dReal *nodes;

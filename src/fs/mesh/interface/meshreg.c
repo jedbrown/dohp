@@ -1,4 +1,4 @@
-#include "private/dmeshimpl.h"
+#include <dohpmeshimpl.h>
 
 PetscCookie dMESH_COOKIE;
 static PetscFList MeshList = 0;

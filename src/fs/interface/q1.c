@@ -1,6 +1,6 @@
-#include "dohpfs.h"
-#include "dohpgeom.h"
-#include "private/fsimpl.h"     /* Only for dLOG_Q1HexComputeQuadrature!  Otherwise this is stand-alone. */
+#include <dohpfs.h>
+#include <dohpgeom.h>
+#include <dohpfsimpl.h>     /* Only for dLOG_Q1HexComputeQuadrature!  Otherwise this is stand-alone. */
 
 /** Compute basis functions and quadrature weights for Q1 element
 *

@@ -1,4 +1,4 @@
-#include <private/fsimpl.h>
+#include <dohpfsimpl.h>
 #include <dohpvec.h>
 
 /** Set rotation for certain nodes in a function space

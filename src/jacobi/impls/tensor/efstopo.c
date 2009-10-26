@@ -1,6 +1,6 @@
 #include "tensor.h"
-#include "dohpmesh.h"
-#include "dohpgeom.h"
+#include <dohpmesh.h>
+#include <dohpgeom.h>
 
 static dErr dEFSView_Tensor_Private(const char *,dRule,dInt,TensorBasis*,PetscViewer);
 #ifdef _F

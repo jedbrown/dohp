@@ -1,7 +1,6 @@
 static const char help[] = "Test the construction of dFS objects.\n";
 
-#include "dohpfs.h"
-#include "dohp.h"
+#include <dohpfs.h>
 
 static dErr createIsotropicIntTag(iMesh_Instance mi,dMeshESH set,dEntType type,dEntTopology topo,int n,const int v[],const char name[],dMeshTag *intag)
 {

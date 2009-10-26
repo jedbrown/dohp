@@ -8,9 +8,8 @@
 *
 */
 
-#include "petsc.h"
-#include "dohpjacobi.h"
-#include "private/jacimpl.h"
+#include <petsc.h>
+#include <dohpjacimpl.h>
 
 PetscCookie dJACOBI_COOKIE;
 PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;

@@ -1,4 +1,4 @@
-#include "private/dmeshimpl.h"
+#include <dohpmeshimpl.h>
 
 dErr dMeshCreate_Serial(dMesh mesh); /* The only exported function */
 

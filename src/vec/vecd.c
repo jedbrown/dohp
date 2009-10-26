@@ -1,4 +1,4 @@
-#include "dohpvec.h"
+#include <dohpvec.h>
 #include "../src/vec/vec/impls/mpi/pvecimpl.h" /* To have access to Vec_MPI (.localrep) and VecCreate_MPI_Private */
 
 static dErr VecStateSync_Private(Vec x,Vec y)

@@ -5,8 +5,8 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Bra
   "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^(p-2)\n"
   "  (\\eta Du \\cdot n) = known OR function of u OR self (\"No condition\" outflow)\n\n";
 
-#include "dohpfs.h"
-#include "dohpvec.h"
+#include <dohpfs.h>
+#include <dohpvec.h>
 #include "petscsnes.h"
 
 PetscLogEvent LOG_EllipShellMatMult;

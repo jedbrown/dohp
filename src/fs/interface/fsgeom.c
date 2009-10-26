@@ -1,5 +1,5 @@
-#include "private/fsimpl.h"
-#include "dohpvec.h"
+#include <dohpfsimpl.h>
+#include <dohpvec.h>
 
 /** Get coordinates for every node in closure
 *

@@ -1,4 +1,4 @@
-#include "dohpgeom.h"
+#include <dohpgeom.h>
 #include "tensor.h"
 
 static dErr dRuleView_Tensor_Private(const char*,dInt,TensorRule*,PetscViewer);

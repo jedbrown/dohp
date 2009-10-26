@@ -1,7 +1,7 @@
 #if !defined _INLINETMULTHEX_H
 #define _INLINETMULTHEX_H
 
-#include "dohptype.h"
+#include <dohptype.h>
 
 /**
 * The core computational kernel.  Performs a tensor product operation with the matrices A[0..2].
@@ -102,7 +102,7 @@ static dErr TensorMult_Hex_nounroll(dInt D,const dInt P[3],const dInt Q[3],const
 
 #if defined __SSE3__
 #include <pmmintrin.h>
-#include "private/microbench.h"
+#include <dohpmicrobench.h>
 
 
 #define D 1

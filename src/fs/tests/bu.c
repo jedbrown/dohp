@@ -1,7 +1,7 @@
 static const char help[] = "Unit test for boundary condition manipulation\n\n";
 
-#include "dohpfs.h"
-#include "dohpvec.h"
+#include <dohpfs.h>
+#include <dohpvec.h>
 
 typedef struct BUnitCtx *BU;
 struct BUnitCtx {

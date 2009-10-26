@@ -1,7 +1,7 @@
 static const char help[] = "Test the construction of dQuotient objects.\n";
 
-#include "dohp.h"
-#include "dohpjacobi.h"
+#include <dohp.h>
+#include <dohpjacobi.h>
 
 #undef __FUNCT__
 #define __FUNCT__ "main"

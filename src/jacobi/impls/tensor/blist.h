@@ -12,7 +12,7 @@
 #ifndef _BLIST_H
 #define _BLIST_H
 
-#include "dohptype.h"
+#include <dohptype.h>
 
 typedef struct m_dBufferList *dBufferList;
 struct m_dBufferList {

@@ -12,8 +12,8 @@
 #include "tensor.h"
 #include "inlinepoly.h"
 #include "optimalscale.h"
-#include "dohpgeom.h"
-#include "dohpmesh.h"           /* for iMesh_TopologyName */
+#include <dohpgeom.h>
+#include <dohpmesh.h>           /* for iMesh_TopologyName */
 #include "inlinetmulthex.h"     /* Unrolled variants of TensorMult_Hex_ */
 
 static dErr TensorBuilderCreate(void*,TensorBuilder*);

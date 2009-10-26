@@ -9,9 +9,6 @@ find_package (ITAPS COMPONENTS MESH GEOM REL)
 
 #find_package (Doxygen)
 
-include_directories (${PETSC_INCLUDES} ${ITAPS_INCLUDES})
-add_definitions (${PETSC_DEFINITIONS})
-
 option (dUSE_DEBUG         "Compile Dohp with extra debugging" ON)
 option (Dohp_BUILD_TESTS   "Build tests"                       ON)
 option (Dohp_BUILD_TOOLS   "Build tools"                       ON)
@@ -44,7 +41,9 @@ add_custom_target (etags
   etags `find include src sandbox -name *.[ch]`
   WORKING_DIRECTORY ${Dohp_SOURCE_DIR})
 
-include_directories (${Dohp_SOURCE_DIR}/include ${Dohp_BINARY_DIR}/include)
+# Essential: include our directories first otherwise we can get internal headers from some installed path
+include_directories ("${Dohp_SOURCE_DIR}/include" "${Dohp_BINARY_DIR}/include" ${PETSC_INCLUDES} ${ITAPS_INCLUDES})
+add_definitions (${PETSC_DEFINITIONS})
 
 set (Dohp_DEPENDENT_LIBRARIES "${ITAPS_REL_LIBRARIES}" "${ITAPS_MESH_LIBRARIES}" "${ITAPS_GEOM_LIBRARIES}" "${PETSC_LIBRARIES}")
 set (Dohp_LIBRARIES dohp ${Dohp_DEPENDENT_LIBRARIES})
