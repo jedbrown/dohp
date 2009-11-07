@@ -602,8 +602,7 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
     err = MatSeqAIJSetPreallocation(J,bs*27,NULL);dCHK(err);
     err = MatMPIAIJSetPreallocation(J,bs*27,NULL,bs*25,NULL);dCHK(err);
   }
-  err = MatHasOperation(J,MATOP_SET_BLOCK_SIZE,&hassetbs);dCHK(err);
-  if (hassetbs) {err = MatSetBlockSize(J,bs);dCHK(err);}
+  err = MatSetBlockSize(J,bs);dCHK(err);
   err = MatSetLocalToGlobalMappingBlock(J,fs->bmapping);dCHK(err);
   err = MatSetLocalToGlobalMapping(J,fs->mapping);dCHK(err);
 
