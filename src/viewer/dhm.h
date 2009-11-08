@@ -24,18 +24,30 @@
 *
 */
 
+#if !defined _DHM_H
+#define _DHM_H
 
 #include <hdf5.h>
 
 #define dHCHK(herr) dCHK((dErr)herr)
 
+#include <private/viewerimpl.h>
 #include <dohpviewer.h>
 #include <dohpfs.h>
+
+/* for the in-memory representation */
+#define dH5T_REAL H5T_NATIVE_DOUBLE /* dReal */
+#define dH5T_INT  H5T_NATIVE_INT    /* dInt */
 
 typedef struct {
   char          *filename;
   PetscFileMode  btype;
-  hid_t          file_id;
+  hid_t          file,dohproot;
+  hid_t          meshroot,fsroot,steproot;
   dReal          time;
   dFS            fs;            /* Most writes are with respect to a FS, once written we set to 0 */
 } dViewer_DHM;
+
+extern dErr dViewerDHMSetUp(dViewer);
+
+#endif

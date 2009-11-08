@@ -5,9 +5,11 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Bra
   "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^(p-2)\n"
   "  (\\eta Du \\cdot n) = known OR function of u OR self (\"No condition\" outflow)\n\n";
 
+#include <dohp.h>
 #include <dohpfs.h>
 #include <dohpvec.h>
-#include "petscsnes.h"
+#include <dohpviewer.h>
+#include <petscsnes.h>
 
 PetscLogEvent LOG_EllipShellMatMult;
 
@@ -156,7 +158,7 @@ static void Morph(void *ctx,double *coords)
 
 static dErr EllipSetFromOptions(Ellip elp)
 {
-  char mesh_out_name[256];
+  char mesh_out_name[256] = "ellip.h5m";
   struct EllipParam *prm = &elp->param;
   struct EllipExactCtx *exc = &elp->exactctx;
   dMesh mesh;
@@ -715,16 +717,14 @@ int main(int argc,char *argv[])
   Ellip elp;
   dFS fs;
   MPI_Comm comm;
-  PetscViewer viewer;
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dTruth nojshell,nocheck;
+  dTruth nojshell,nocheck,viewdhm;
   dErr err;
 
-  err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
+  err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
-  viewer = PETSC_VIEWER_STDOUT_WORLD;
 
   err = PetscLogEventRegister("EllipShellMult",MAT_COOKIE,&LOG_EllipShellMatMult);dCHK(err);
 
@@ -741,6 +741,7 @@ int main(int argc,char *argv[])
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic solver options",__FILE__);dCHK(err); {
     err = PetscOptionsName("-nojshell","Do not use shell Jacobian","",&nojshell);dCHK(err);
     err = PetscOptionsName("-nocheck_error","Do not compute errors","",&nocheck);dCHK(err);
+    err = PetscOptionsName("-viewdhm","View to a file using DHM","",&viewdhm);dCHK(err);
     //err = PetscOptionsInt("-cont","Number of steps in continuation","",&cont,
   } err = PetscOptionsEnd();dCHK(err);
   if (nojshell) {
@@ -815,6 +816,18 @@ int main(int argc,char *argv[])
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
   }
 
+  if (viewdhm) {
+    dViewer viewer;
+    err = PetscViewerCreate(comm,&viewer);dCHK(err);
+    err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
+    err = PetscViewerFileSetName(viewer,"ellip.dhm");dCHK(err);
+    err = PetscViewerFileSetMode(viewer,FILE_MODE_WRITE);dCHK(err);
+    err = dViewerDHMSetFS(viewer,fs);dCHK(err);
+    err = dViewerDHMSetTime(viewer,0.1);dCHK(err);
+    err = dFSView(fs,viewer);dCHK(err);
+    err = PetscViewerDestroy(viewer);dCHK(err);
+  }
+
   err = VecDestroy(r);dCHK(err);
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(soln);dCHK(err);
@@ -822,6 +835,6 @@ int main(int argc,char *argv[])
   if (J != Jp) {err = MatDestroy(J);dCHK(err);}
   err = MatDestroy(Jp);dCHK(err);
   err = EllipDestroy(elp);dCHK(err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   return 0;
 }

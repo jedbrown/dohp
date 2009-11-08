@@ -23,7 +23,6 @@ dErr dViewerDHMSetFS(dViewer viewer,dFS fs)
   dFunctionReturn(0);
 }
 
-
 dErr dViewerDHMSetTime(dViewer viewer,dReal time)
 {
   dErr err,(*r)(dViewer,dReal);

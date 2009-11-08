@@ -1,6 +1,7 @@
 # Should only be included when Dohp_BUILD_SANDBOX
 
 set (Dohp_SANDBOX_EXECS
+  mbcntest
   )
 
 foreach (EXE ${Dohp_SANDBOX_EXECS})

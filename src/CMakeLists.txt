@@ -40,7 +40,9 @@ list (APPEND Dohp_SRCS
   viewer/dviewer.c)
 
 list (APPEND Dohp_SRCS
-  util/util.c)
+  util/util.c
+  util/dohpinit.c
+  )
 
 add_library (dohp ${Dohp_SRCS})
 target_link_libraries (dohp ${Dohp_DEPENDENT_LIBRARIES})

@@ -1,17 +1,15 @@
 #include "dhm.h"
-#include <../src/sys/viewer/viewerimpl.h>
 
 PetscErrorCode PetscViewerCreate_DHM(PetscViewer);
 
-static dErr DHMSetUp(PetscViewer viewer)
+dErr dViewerDHMSetUp(PetscViewer viewer)
 {
   dViewer_DHM *dhm = viewer->data;
-  dErr         err;
   herr_t       herr;
   hid_t        plist_id,fid;
 
   dFunctionBegin;
-  if (dhm->file_id) dFunctionReturn(0);
+  if (dhm->file) dFunctionReturn(0);
   /* Set attributes for opening the file */
   plist_id = H5Pcreate(H5P_FILE_ACCESS);
   herr = H5Pset_fapl_mpio(plist_id,((PetscObject)viewer)->comm,MPI_INFO_NULL);dHCHK(herr);
@@ -32,10 +30,16 @@ static dErr DHMSetUp(PetscViewer viewer)
     default:
       dERROR(PETSC_ERR_ORDER,"Must call PetscViewerFileSetMode() before PetscViewerFileSetName()");
   }
-  dhm->file_id = fid;
+  dhm->file = fid;
   herr = H5Pclose(plist_id);dHCHK(herr);
 
-  /* \todo set up the groups */
+  if (dhm->btype == FILE_MODE_READ) dFunctionReturn(0);
+
+  /* set up the groups */
+  dhm->dohproot = H5Gcreate(dhm->file,"dohp",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);     if (dhm->dohproot < 0) dERROR(PETSC_ERR_ORDER,"H5Gcreate");
+  dhm->meshroot = H5Gcreate(dhm->dohproot,"mesh",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT); if (dhm->meshroot < 0) dERROR(PETSC_ERR_ORDER,"H5Gcreate");
+  dhm->fsroot   = H5Gcreate(dhm->dohproot,"fs",  H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT); if (dhm->fsroot   < 0) dERROR(PETSC_ERR_ORDER,"H5Gcreate");
+  dhm->steproot = H5Gcreate(dhm->dohproot,"step",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT); if (dhm->steproot < 0) dERROR(PETSC_ERR_ORDER,"H5Gcreate");
   dFunctionReturn(0);
 }
 
@@ -47,8 +51,12 @@ static dErr PetscViewerDestroy_DHM(PetscViewer v)
 
   dFunctionBegin;
   err = dFree(dhm->filename);dCHK(err);
-  if (dhm->file_id) {herr = H5Fclose(dhm->file_id);dHCHK(herr);}
-  if (dhm->fs)      {err = dFSDestroy(dhm->fs);dCHK(err);}
+  if (dhm->meshroot) {herr = H5Gclose(dhm->meshroot); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");}
+  if (dhm->fsroot)   {herr = H5Gclose(dhm->fsroot);   if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");}
+  if (dhm->steproot) {herr = H5Gclose(dhm->steproot); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");}
+  if (dhm->dohproot) {herr = H5Gclose(dhm->dohproot); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");}
+  if (dhm->file)     {herr = H5Fclose(dhm->file);     if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Fclose");}
+  if (dhm->fs) {err = dFSDestroy(dhm->fs);dCHK(err);}
   err = dFree(dhm);dCHK(err);
   dFunctionReturn(0);
 }
