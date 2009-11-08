@@ -71,7 +71,7 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
   * I will be sufficiently involved to notice changes here. Famous last words. */
   err = VecCreate(((dObject)x)->comm,&y);dCHK(err);
 
-  err = PetscMapDestroy(y->map);dCHK(err);
+  err = PetscLayoutDestroy(y->map);dCHK(err);
   y->map = x->map;
   y->map->refcnt++;
 
