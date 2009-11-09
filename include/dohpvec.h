@@ -1,7 +1,7 @@
 #ifndef _DOHPVEC_H
 #define _DOHPVEC_H
 
-#include "petscvec.h"
+#include <petscvec.h>
 #include "dohptype.h"
 
 PETSC_EXTERN_CXX_BEGIN
