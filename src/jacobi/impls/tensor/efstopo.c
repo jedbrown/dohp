@@ -58,7 +58,7 @@ _F(TensorMult_Line);
 _F(TensorMult_Quad);
 #undef _F
 
-static inline dErr TensorMult_Hex(const TensorBasis b[],dInt D,const dInt P[],const dInt Q[],const dReal *A[],const dScalar f[],dScalar g[restrict],InsertMode imode)
+static dErr TensorMult_Hex(const TensorBasis b[],dInt D,const dInt P[],const dInt Q[],const dReal *A[],const dScalar f[],dScalar g[restrict],InsertMode imode)
 {
 #if defined(dUSE_DEBUG)
   if (D > 3) dERROR(1,"D > 3 not supported");
