@@ -8,8 +8,8 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
-EXTERN dErr dViewerDHMSetFS(PetscViewer,dFS);
 EXTERN dErr dViewerDHMSetTime(PetscViewer,dReal);
+EXTERN dErr dViewerDHMSetTimeUnits(PetscViewer,const char*,dReal);
 EXTERN dErr dViewerRegisterAll(const char*);
 
 PETSC_EXTERN_CXX_END

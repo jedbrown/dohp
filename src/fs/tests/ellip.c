@@ -267,7 +267,7 @@ static dErr EllipSetFromOptions(Ellip elp)
     iMesh_Instance mi;
     dIInt          ierr;
     err = dMeshGetInstance(mesh,&mi);dCHK(err);
-    iMesh_save(mi,domain,mesh_out_name,"",&ierr,sizeof mesh_out_name,0);dICHK(mi,ierr);
+    iMesh_save(mi,domain,mesh_out_name,"",&ierr,(int)strlen(mesh_out_name),0);dICHK(mi,ierr);
   }
 
   dFunctionReturn(0);
@@ -587,7 +587,8 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
     err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],&du[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      dScalar uu[1],duu[3],r[1],gr[3],grsum;             /* Scalar problem */
+      dScalar uu[1],duu[3],r[1],gr[3];             /* Scalar problem */
+      dReal grsum;
       elp->exact.solution(&elp->exactctx,&elp->param,q[i],uu,duu);
       r[0] = u[i] - uu[0];   /* Function error at point */
       gr[0] = du[i][0] - duu[0]; /* Gradient error at point */
@@ -596,7 +597,7 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
       if (elp->errorview) {
         printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e   exact %10.2e   error %10.e\n",e,i,q[i][0],q[i][1],q[i][2],u[i],uu[0],r[0]);
       }
-      grsum = dDotScalar3(gr,gr);
+      grsum = dAbs(dDotScalar3(gr,gr));
       errorNorms[0] += dAbs(r[0]) * jw[i];               /* 1-norm */
       errorNorms[1] += dSqr(r[0]) * jw[i];               /* 2-norm */
       errorNorms[2] = dMax(errorNorms[2],dAbs(r[0])); /* Sup-norm */
@@ -822,9 +823,9 @@ int main(int argc,char *argv[])
     err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
     err = PetscViewerFileSetName(viewer,"ellip.dhm");dCHK(err);
     err = PetscViewerFileSetMode(viewer,FILE_MODE_WRITE);dCHK(err);
-    err = dViewerDHMSetFS(viewer,fs);dCHK(err);
+    err = dViewerDHMSetTimeUnits(viewer,"hour",PETSC_PI*1e7/3600);dCHK(err);
     err = dViewerDHMSetTime(viewer,0.1);dCHK(err);
-    err = dFSView(fs,viewer);dCHK(err);
+    err = VecView(x,viewer);dCHK(err);
     err = PetscViewerDestroy(viewer);dCHK(err);
   }
 

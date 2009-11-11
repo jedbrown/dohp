@@ -11,18 +11,6 @@ dErr dViewerRegisterAll(const char *path)
   dFunctionReturn(0);
 }
 
-dErr dViewerDHMSetFS(dViewer viewer,dFS fs)
-{
-  dErr err,(*r)(dViewer,dFS);
-
-  dFunctionBegin;
-  err = PetscObjectQueryFunction((PetscObject)viewer,"dViewerDHMSetFS_C",(void(**)(void))&r);dCHK(err);
-  if (r) {
-    err = (*r)(viewer,fs);dCHK(err);
-  }
-  dFunctionReturn(0);
-}
-
 dErr dViewerDHMSetTime(dViewer viewer,dReal time)
 {
   dErr err,(*r)(dViewer,dReal);
@@ -31,6 +19,18 @@ dErr dViewerDHMSetTime(dViewer viewer,dReal time)
   err = PetscObjectQueryFunction((PetscObject)viewer,"dViewerDHMSetTime_C",(void(**)(void))&r);dCHK(err);
   if (r) {
     err = (*r)(viewer,time);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+dErr dViewerDHMSetTimeUnits(dViewer viewer,const char *units,dReal scale)
+{
+  dErr err,(*r)(dViewer,const char*,dReal);
+
+  dFunctionBegin;
+  err = PetscObjectQueryFunction((PetscObject)viewer,"dViewerDHMSetTimeUnits_C",(void(**)(void))&r);dCHK(err);
+  if (r) {
+    err = (*r)(viewer,units,scale);dCHK(err);
   }
   dFunctionReturn(0);
 }

@@ -29,25 +29,33 @@
 
 #include <hdf5.h>
 
-#define dHCHK(herr) dCHK((dErr)herr)
+#define dH5CHK(hret,func) if (hret < 0) dERROR(PETSC_ERR_LIB, #func)
 
 #include <private/viewerimpl.h>
 #include <dohpviewer.h>
 #include <dohpfs.h>
 
 /* for the in-memory representation */
-#define dH5T_REAL H5T_NATIVE_DOUBLE /* dReal */
-#define dH5T_INT  H5T_NATIVE_INT    /* dInt */
+#define dH5T_REAL   H5T_NATIVE_DOUBLE /* dReal */
+#define dH5T_SCALAR H5T_NATIVE_DOUBLE /* dScalar */
+#define dH5T_INT    H5T_NATIVE_INT    /* dInt */
 
 typedef struct {
   char          *filename;
   PetscFileMode  btype;
   hid_t          file,dohproot;
-  hid_t          meshroot,fsroot,steproot;
+  hid_t          meshroot,fsroot,steproot,typeroot,curstep;
   dReal          time;
-  dFS            fs;            /* Most writes are with respect to a FS, once written we set to 0 */
+  char          *timeunits;
+  dReal          timescale;
+  dInt           stepnumber;
+  hid_t          h5t_mstring,h5t_fstring,h5s_scalar;
 } dViewer_DHM;
 
 extern dErr dViewerDHMSetUp(dViewer);
+extern dErr dViewerDHMGetStringTypes(PetscViewer,hid_t *fstring,hid_t *mstring,hid_t *sspace);
+extern dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step);
+extern dErr dViewerDHMAttributeStringWrite(PetscViewer viewer,hid_t grp,const char *attname,const char *str);
+extern dErr dViewerDHMWriteDimensions(PetscViewer viewer,hid_t grp,const char *name,const char *units,dReal scale);
 
 #endif

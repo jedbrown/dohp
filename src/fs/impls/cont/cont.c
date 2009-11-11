@@ -281,6 +281,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     }
     if (gh != fs->ngh) dERROR(1,"Ghost count inconsistent");
     err = VecCreateDohp(((dObject)fs)->comm,bs,n,nc,ngh,ghidx,&fs->gvec);dCHK(err);
+    err = PetscObjectCompose((PetscObject)fs->gvec,"dFS",(PetscObject)fs);dCHK(err);
+    err = VecSetOperation(fs->gvec,VECOP_VIEW,(void(*)(void))VecView_Dohp_FSCont);dCHK(err);
   }
 
   /* Create block local to global mapping */

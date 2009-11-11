@@ -104,15 +104,6 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
   dFunctionReturn(0);
 }
 
-#if 0
-static dErr VecDestroy_Dohp(Vec x)
-{
-  dErr err;
-
-  dFunctionBegin;
-  err = PetscObjectChangeTypeName((dObject)x,VECMPI);
-#endif
-
 dErr VecCreateDohp(MPI_Comm comm,dInt bs,dInt n,dInt nc,dInt nghosts,const dInt ghosts[],Vec *v)
 {
   Vec_MPI *vmpi;

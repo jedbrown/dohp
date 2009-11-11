@@ -581,7 +581,6 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
 {
   Mat    J;
   dInt   bs,n;
-  dTruth hassetbs;
   dErr   err;
 
   dFunctionBegin;
