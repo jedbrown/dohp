@@ -126,12 +126,40 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
   /* Units, \todo not yet stored in the FS so we write defaults here */
   err = dViewerDHMWriteDimensions(viewer,fsgrp,"velocity","m s-1",exp(1));dCHK(err);
 
+  {
+    dht_FS     fs5;
+    dht_Field *field5;
+    hid_t      h5t_fs;
+    dInt       i;
+
+    err = dViewerDHMGetFSType(viewer,&h5t_fs);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->degreetag,&fs5.degree);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->gcoffsetTag,&fs5.global_offset);dCHK(err);
+    err = PetscStrallocpy("mock_partition",&fs5.partition);dCHK(err);
+    fs5.fields.len = fs->bs;
+    err = dMallocA(fs5.fields.len,&field5);dCHK(err);
+    for (i=0; i<fs->bs; i++) {
+      field5[i].name = fs->fieldname[i];
+      field5[i].units.dimensions = (char*)"m s-1"; /* we only use it as \c const */
+      field5[i].units.scale = exp(1);
+    }
+    fs5.fields.p = field5;
+    att = H5Acreate(fsgrp,"FS_attribute",h5t_fs,dhm->h5s_scalar,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(att,H5Acreate);
+    herr = H5Awrite(att,h5t_fs,&fs5);dH5CHK(herr,H5Awrite);
+    herr = H5Aclose(att);dH5CHK(herr,H5Aclose);
+    err = dFree(field5);dCHK(err);
+    err = dFree(fs5.partition);dCHK(err);
+    err = dFree(fs5.global_offset);dCHK(err);
+    err = dFree(fs5.degree);dCHK(err);
+  }
+
   herr = H5Gclose(fsgrp); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");
   dFunctionReturn(0);
 }
 
 static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
 {
+  dViewer_DHM *dhm = viewer->data;
   dFS      fs;
   hid_t    fslink,xlink,fspace,mspace,dset,plist;
   hsize_t  gdim[2],offset[2],count[2];
@@ -179,6 +207,23 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
     namelen = H5Iget_name(fslink,fsname,sizeof fsname);dH5CHK(namelen,H5Iget_name);
     if (!namelen) dERROR(PETSC_ERR_LIB,"Could not get FS path");
     herr = H5Lcreate_soft(fsname,xlink,"fs",H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Lcreate_soft);
+    {
+      dht_Vec vecatt[1];
+      hsize_t dims[1] = {1};
+      hid_t space,attr,vectype;
+
+      err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
+      /* Initialize data vecatt[0] */
+      herr = H5Rcreate(&vecatt[0].fs,dhm->file,fsname,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
+      vecatt[0].time = dhm->time;
+      err = PetscObjectStateQuery((PetscObject)viewer,&vecatt[0].state);dCHK(err);
+      /* Write attribute */
+      space = H5Screate_simple(1,dims,NULL);dH5CHK(space,H5Screate_simple);
+      attr = H5Acreate(dset,"meta",vectype,space,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(attr,H5Acreate);
+      herr = H5Awrite(attr,vectype,vecatt);dH5CHK(herr,H5Awrite);
+      herr = H5Aclose(attr);dH5CHK(herr,H5Aclose);
+      herr = H5Sclose(space);dH5CHK(herr,H5Aclose);
+    }
   }
 
   herr = H5Dclose(dset);dH5CHK(herr,H5Dclose);

@@ -49,7 +49,7 @@ typedef struct {
   char          *timeunits;
   dReal          timescale;
   dInt           stepnumber;
-  hid_t          h5t_mstring,h5t_fstring,h5s_scalar;
+  hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec;
 } dViewer_DHM;
 
 extern dErr dViewerDHMSetUp(dViewer);
@@ -57,5 +57,31 @@ extern dErr dViewerDHMGetStringTypes(PetscViewer,hid_t *fstring,hid_t *mstring,h
 extern dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step);
 extern dErr dViewerDHMAttributeStringWrite(PetscViewer viewer,hid_t grp,const char *attname,const char *str);
 extern dErr dViewerDHMWriteDimensions(PetscViewer viewer,hid_t grp,const char *name,const char *units,dReal scale);
+extern dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *type);
+extern dErr dViewerDHMGetVecType(PetscViewer viewer,hid_t *type);
+
+/* Compound structures for HDF5 attributes */
+typedef struct {
+  char    *dimensions;
+  dScalar  scale;
+} dht_Units;
+
+typedef struct {
+  char      *name;
+  dht_Units  units;
+} dht_Field;
+
+typedef struct {
+  char  *degree;
+  char  *global_offset;
+  char  *partition;
+  hvl_t  fields;
+} dht_FS;
+
+typedef struct {
+  hobj_ref_t fs;
+  dReal      time;
+  dInt       state;
+} dht_Vec;
 
 #endif

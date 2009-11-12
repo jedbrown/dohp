@@ -9,7 +9,7 @@ dErr dViewerDHMGetStringTypes(PetscViewer viewer,hid_t *fstring,hid_t *mstring,h
 
   dFunctionBegin;
   if (dhm->h5t_fstring < 0) {
-    dhm->h5t_fstring = H5Tcopy(H5T_FORTRAN_S1);dH5CHK(dhm->h5t_fstring,H5Tcopy);
+    dhm->h5t_fstring = H5Tcopy(H5T_C_S1);dH5CHK(dhm->h5t_fstring,H5Tcopy);
     herr = H5Tset_size(dhm->h5t_fstring,H5T_VARIABLE);dH5CHK(herr,H5Tset_size);
     herr = H5Tcommit(dhm->typeroot,"string",dhm->h5t_fstring,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit);
   }
@@ -55,6 +55,66 @@ dErr dViewerDHMWriteDimensions(PetscViewer viewer,hid_t grp,const char *name,con
   dFunctionReturn(0);
 }
 
+dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *intype)
+{
+  dViewer_DHM *dhm = viewer->data;
+  dErr err;
+
+  dFunctionBegin;
+  if (dhm->h5t_fs < 0) {
+    hid_t strtype,fstype,unittype,fieldtype,fieldstype;
+    herr_t herr;
+
+    err = dViewerDHMGetStringTypes(viewer,&strtype,NULL,NULL);dCHK(err);
+    unittype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Units));dH5CHK(unittype,H5Tcreate);
+    herr = H5Tinsert(unittype,"dimensions",offsetof(dht_Units,dimensions),strtype);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(unittype,"scale",offsetof(dht_Units,scale),dH5T_SCALAR);dH5CHK(herr,H5Tinsert);
+
+    herr = H5Tcommit(dhm->typeroot,"Units_type",unittype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit); /* skip this? */
+
+    fieldtype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Field));dH5CHK(fieldtype,H5Tcreate);
+    herr = H5Tinsert(fieldtype,"name",offsetof(dht_Field,name),strtype);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fieldtype,"units",offsetof(dht_Field,units),unittype);dH5CHK(herr,H5Tinsert);
+
+    herr = H5Tcommit(dhm->typeroot,"Field_type",fieldtype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit); /* skip this? */
+
+    fieldstype = H5Tvlen_create(fieldtype);dH5CHK(fieldstype,H5Tvlen_create);
+
+    fstype = H5Tcreate(H5T_COMPOUND,sizeof(dht_FS));dH5CHK(fstype,H5Tcreate);
+    herr = H5Tinsert(fstype,"degree",offsetof(dht_FS,degree),strtype);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"global_offset",offsetof(dht_FS,global_offset),strtype);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"partition",offsetof(dht_FS,partition),strtype);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"fields",offsetof(dht_FS,fields),fieldstype);dH5CHK(herr,H5Tinsert);
+
+    herr = H5Tcommit(dhm->typeroot,"FS_type",fstype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit);
+    herr = H5Tclose(fieldstype);dH5CHK(herr,H5Tclose);
+    herr = H5Tclose(fieldtype);dH5CHK(herr,H5Tclose);
+    herr = H5Tclose(unittype);dH5CHK(herr,H5Tclose);
+    dhm->h5t_fs = fstype;
+  }
+  *intype = dhm->h5t_fs;
+  dFunctionReturn(0);
+}
+
+dErr dViewerDHMGetVecType(PetscViewer viewer,hid_t *intype)
+{
+  dViewer_DHM *dhm = viewer->data;
+
+  dFunctionBegin;
+  if (dhm->h5t_vec < 0) {
+    hid_t vectype;
+    herr_t herr;
+    vectype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Vec));dH5CHK(vectype,H5Tcreate);
+    herr = H5Tinsert(vectype,"FS",offsetof(dht_Vec,fs),H5T_STD_REF_OBJ);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(vectype,"Time",offsetof(dht_Vec,time),dH5T_REAL);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(vectype,"State",offsetof(dht_Vec,state),dH5T_INT);dH5CHK(herr,H5Tinsert);
+    herr = H5Tcommit(dhm->typeroot,"Vec_type",vectype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tinsert);
+    dhm->h5t_vec = vectype;
+  }
+  *intype = dhm->h5t_vec;
+  dFunctionReturn(0);
+}
+
 dErr dViewerDHMSetUp(PetscViewer viewer)
 {
   dViewer_DHM *dhm = viewer->data;
@@ -63,7 +123,7 @@ dErr dViewerDHMSetUp(PetscViewer viewer)
   dErr         err;
 
   dFunctionBegin;
-  if (dhm->file > 0) dFunctionReturn(0);
+  if (dhm->file >= 0) dFunctionReturn(0);
   /* Set attributes for opening the file */
   plist_id = H5Pcreate(H5P_FILE_ACCESS);
   herr = H5Pset_fapl_mpio(plist_id,((PetscObject)viewer)->comm,MPI_INFO_NULL);dH5CHK(herr,H5Pset_fapl_mpio);
@@ -110,16 +170,18 @@ static dErr PetscViewerDestroy_DHM(PetscViewer v)
 
   dFunctionBegin;
   err = dFree(dhm->filename);dCHK(err);
-  if (dhm->h5t_fstring > 0) {herr = H5Tclose(dhm->h5t_fstring);dH5CHK(herr,H5Tclose);}
-  if (dhm->h5t_mstring > 0) {herr = H5Tclose(dhm->h5t_mstring);dH5CHK(herr,H5Tclose);}
-  if (dhm->h5s_scalar  > 0) {herr = H5Sclose(dhm->h5s_scalar);dH5CHK(herr,H5Sclose);}
-  if (dhm->curstep     > 0) {herr = H5Gclose(dhm->curstep);dH5CHK(herr,H5Gclose);}
-  if (dhm->meshroot    > 0) {herr = H5Gclose(dhm->meshroot);dH5CHK(herr,H5Gclose);}
-  if (dhm->fsroot      > 0) {herr = H5Gclose(dhm->fsroot);dH5CHK(herr,H5Gclose);}
-  if (dhm->steproot    > 0) {herr = H5Gclose(dhm->steproot);dH5CHK(herr,H5Gclose);}
-  if (dhm->typeroot    > 0) {herr = H5Gclose(dhm->typeroot);dH5CHK(herr,H5Gclose);}
-  if (dhm->dohproot    > 0) {herr = H5Gclose(dhm->dohproot);dH5CHK(herr,H5Gclose);}
-  if (dhm->file        > 0) {herr = H5Fclose(dhm->file);dH5CHK(herr,H5Fclose);}
+  if (dhm->h5t_vec     >= 0) {herr = H5Tclose(dhm->h5t_vec);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5t_fs      >= 0) {herr = H5Tclose(dhm->h5t_fs);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5t_fstring >= 0) {herr = H5Tclose(dhm->h5t_fstring);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5t_mstring >= 0) {herr = H5Tclose(dhm->h5t_mstring);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5s_scalar  >= 0) {herr = H5Sclose(dhm->h5s_scalar);dH5CHK(herr,H5Sclose);}
+  if (dhm->curstep     >= 0) {herr = H5Gclose(dhm->curstep);dH5CHK(herr,H5Gclose);}
+  if (dhm->meshroot    >= 0) {herr = H5Gclose(dhm->meshroot);dH5CHK(herr,H5Gclose);}
+  if (dhm->fsroot      >= 0) {herr = H5Gclose(dhm->fsroot);dH5CHK(herr,H5Gclose);}
+  if (dhm->steproot    >= 0) {herr = H5Gclose(dhm->steproot);dH5CHK(herr,H5Gclose);}
+  if (dhm->typeroot    >= 0) {herr = H5Gclose(dhm->typeroot);dH5CHK(herr,H5Gclose);}
+  if (dhm->dohproot    >= 0) {herr = H5Gclose(dhm->dohproot);dH5CHK(herr,H5Gclose);}
+  if (dhm->file        >= 0) {herr = H5Fclose(dhm->file);dH5CHK(herr,H5Fclose);}
   err = dFree(dhm);dCHK(err);
   dFunctionReturn(0);
 }
@@ -216,6 +278,8 @@ PetscErrorCode PetscViewerCreate_DHM(PetscViewer v)
   dhm->curstep     = -1;
   dhm->h5t_fstring = -1;
   dhm->h5t_mstring = -1;
+  dhm->h5t_vec     = -1;
+  dhm->h5t_fs      = -1;
   dhm->h5s_scalar  = -1;
 
   err = PetscObjectComposeFunctionDynamic((PetscObject)v,"PetscViewerFileSetName_C","PetscViewerFileSetName_DHM",
