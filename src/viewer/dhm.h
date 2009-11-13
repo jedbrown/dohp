@@ -72,16 +72,19 @@ typedef struct {
 } dht_Field;
 
 typedef struct {
-  char  *degree;
-  char  *global_offset;
-  char  *partition;
-  hvl_t  fields;
+  char       *degree;
+  char       *global_offset;
+  char       *partition;
+  hobj_ref_t  mesh;
+  dReal       time;
+  dInt        internal_state;
+  hvl_t       fields;
 } dht_FS;
 
 typedef struct {
-  hobj_ref_t fs;
-  dReal      time;
-  dInt       state;
+  hdset_reg_ref_t fs;
+  dReal           time;
+  dInt            state;
 } dht_Vec;
 
 #endif

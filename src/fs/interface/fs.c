@@ -1,6 +1,8 @@
 #include <dohpfsimpl.h>
 #include <dohpvec.h>
 
+EXTERN dErr VecView_Dohp_FSCont(Vec,PetscViewer);
+
 dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 {
   dMesh qmesh;
@@ -283,8 +285,11 @@ dErr dFSCreateGlobalVector(dFS fs,Vec *g)
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidPointer(g,2);
-  /* \todo Can give away gvec if it is only referenced once */
+  /* \todo Could give away gvec if it is only referenced once, but this make handling the composition below very
+  * tricky */
   err = VecDuplicate(fs->gvec,g);dCHK(err);
+  err = PetscObjectCompose((PetscObject)*g,"dFS",(PetscObject)fs);dCHK(err);
+  err = VecSetOperation(*g,VECOP_VIEW,(void(*)(void))VecView_Dohp_FSCont);dCHK(err);
   dFunctionReturn(0);
 }
 

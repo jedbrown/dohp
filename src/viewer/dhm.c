@@ -84,6 +84,9 @@ dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *intype)
     herr = H5Tinsert(fstype,"degree",offsetof(dht_FS,degree),strtype);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"global_offset",offsetof(dht_FS,global_offset),strtype);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"partition",offsetof(dht_FS,partition),strtype);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"mesh",offsetof(dht_FS,mesh),H5T_STD_REF_OBJ);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"time",offsetof(dht_FS,time),dH5T_REAL);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"internal_state",offsetof(dht_FS,internal_state),dH5T_INT);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"fields",offsetof(dht_FS,fields),fieldstype);dH5CHK(herr,H5Tinsert);
 
     herr = H5Tcommit(dhm->typeroot,"FS_type",fstype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit);
@@ -105,7 +108,7 @@ dErr dViewerDHMGetVecType(PetscViewer viewer,hid_t *intype)
     hid_t vectype;
     herr_t herr;
     vectype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Vec));dH5CHK(vectype,H5Tcreate);
-    herr = H5Tinsert(vectype,"FS",offsetof(dht_Vec,fs),H5T_STD_REF_OBJ);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(vectype,"FS",offsetof(dht_Vec,fs),H5T_STD_REF_DSETREG);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(vectype,"Time",offsetof(dht_Vec,time),dH5T_REAL);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(vectype,"State",offsetof(dht_Vec,state),dH5T_INT);dH5CHK(herr,H5Tinsert);
     herr = H5Tcommit(dhm->typeroot,"Vec_type",vectype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tinsert);
@@ -126,7 +129,9 @@ dErr dViewerDHMSetUp(PetscViewer viewer)
   if (dhm->file >= 0) dFunctionReturn(0);
   /* Set attributes for opening the file */
   plist_id = H5Pcreate(H5P_FILE_ACCESS);
+#if defined dUSE_PARALLEL_HDF5  /* Writing variable-length date unsupported in HDF-1.8.3 */
   herr = H5Pset_fapl_mpio(plist_id,((PetscObject)viewer)->comm,MPI_INFO_NULL);dH5CHK(herr,H5Pset_fapl_mpio);
+#endif
   /* Create or open the file collectively */
   switch (dhm->btype) {
     case FILE_MODE_READ:
@@ -170,6 +175,7 @@ static dErr PetscViewerDestroy_DHM(PetscViewer v)
 
   dFunctionBegin;
   err = dFree(dhm->filename);dCHK(err);
+  err = dFree(dhm->timeunits);dCHK(err);
   if (dhm->h5t_vec     >= 0) {herr = H5Tclose(dhm->h5t_vec);dH5CHK(herr,H5Tclose);}
   if (dhm->h5t_fs      >= 0) {herr = H5Tclose(dhm->h5t_fs);dH5CHK(herr,H5Tclose);}
   if (dhm->h5t_fstring >= 0) {herr = H5Tclose(dhm->h5t_fstring);dH5CHK(herr,H5Tclose);}

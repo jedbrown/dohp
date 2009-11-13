@@ -10,6 +10,7 @@ find_package (ITAPS COMPONENTS MESH GEOM REL)
 #find_package (Doxygen)
 
 option (dUSE_DEBUG         "Compile Dohp with extra debugging" ON)
+option (dUSE_PARALLEL_HDF5 "Write HDF5 files in parallel"      OFF)
 option (Dohp_BUILD_TESTS   "Build tests"                       ON)
 option (Dohp_BUILD_TOOLS   "Build tools"                       ON)
 option (Dohp_BUILD_SANDBOX "Build programs in sandbox"         OFF)

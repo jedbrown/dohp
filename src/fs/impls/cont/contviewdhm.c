@@ -3,46 +3,48 @@
 #include "cont.h"
 #include "../../../viewer/dhm.h"
 
-static dErr WriteTagNameAsAttribute(PetscViewer viewer,hid_t grp,const char *attname,dMesh mesh,dMeshTag tag)
-{
-  dErr err;
-  char *tagname;
-
-  dFunctionBegin;
-  err = dMeshGetTagName(mesh,tag,&tagname);dCHK(err);
-  err = dViewerDHMAttributeStringWrite(viewer,grp,attname,tagname);dCHK(err);
-  err = dFree(tagname);dCHK(err);
-  dFunctionReturn(0);
-}
-
-static dErr dFSGetDHMLink(dFS fs,dViewer viewer,hid_t *link)
+/** Get data set and space to write the next element for this FS
+* \note caller is responsible for closing both
+**/
+static dErr dFSGetDHMLink(dFS fs,dViewer viewer,hid_t *indset,hid_t *inspace)
 {
   dViewer_DHM *dhm = viewer->data;
-  char         fstatestr[16];
   const char  *fsname;
-  dInt         fsstate;
   htri_t       hflg;
-  hid_t        fsgrp;
+  hsize_t dims[1] = {1},maxdims[1] = {H5S_UNLIMITED};
+  hid_t        dset,space,h5t_fs;
   herr_t       herr;
   dErr         err;
 
   dFunctionBegin;
   err = PetscObjectGetName((dObject)fs,&fsname);dCHK(err);
-  err = PetscObjectStateQuery((dObject)fs,&fsstate);dCHK(err);
-  hflg = H5Lexists(dhm->fsroot,fsname,H5P_DEFAULT); if (hflg < 0) dERROR(PETSC_ERR_LIB,"H5Lexists");
+  hflg = H5Lexists(dhm->fsroot,fsname,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
   if (!hflg) {
-    fsgrp = H5Gcreate(dhm->fsroot,fsname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT); if (fsgrp < 0) dERROR(PETSC_ERR_LIB,"H5Gcreate");
+    hsize_t chunk[1] = {1};
+    hid_t dcpl;
+    space = H5Screate_simple(1,dims,maxdims);dH5CHK(space,H5Screate_simple);
+    err = dViewerDHMGetFSType(viewer,&h5t_fs);dCHK(err);
+    dcpl = H5Pcreate(H5P_DATASET_CREATE);dH5CHK(dcpl,H5Pcreate);
+    herr = H5Pset_chunk(dcpl,1,chunk);dH5CHK(herr,H5Pset_chunk);
+    dset = H5Dcreate(dhm->fsroot,fsname,h5t_fs,space,H5P_DEFAULT,dcpl,H5P_DEFAULT);dH5CHK(dset,H5Dcreate);
+    herr = H5Pclose(dcpl);dH5CHK(herr,H5Pclose);
   } else {
-    fsgrp = H5Gopen(dhm->fsroot,fsname,H5P_DEFAULT); if (fsgrp < 0) dERROR(PETSC_ERR_LIB,"H5Gopen");
+    dset = H5Dopen(dhm->fsroot,fsname,H5P_DEFAULT);dH5CHK(dset,H5Dopen);
+    space = H5Dget_space(dset);dH5CHK(space,H5Dget_space);
+    herr = H5Sget_simple_extent_dims(space,dims,NULL);dH5CHK(herr,H5Sget_simple_extent_dims);
+#if 0                           /* Handle case where it has not already been written in this state */
+    herr = H5Sclose(space);dH5CHK(herr,H5Sclose);
+    /* Extend by one */
+    dims[0]++;
+    herr = H5Dset_extent(dset,dims);dH5CHK(herr,H5Dset_extent);
+    /* Select the last entry */
+    dims[0]--;
+#endif
+    space = H5Dget_space(dset);dH5CHK(space,H5Dget_space);
+    herr = H5Sselect_elements(space,H5S_SELECT_SET,1,dims);dH5CHK(herr,H5Sselect_elements);
   }
-  err = PetscSNPrintf(fstatestr,sizeof fstatestr,"%03d",fsstate);dCHK(err);
-  hflg = H5Lexists(fsgrp,fstatestr,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
-  if (!hflg) {
-    *link = H5Gcreate(fsgrp,fstatestr,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(*link,H5Gcreate);
-  } else {
-    *link = H5Gopen(fsgrp,fstatestr,H5P_DEFAULT);dH5CHK(*link,H5Gopen);
-  }
-  herr = H5Gclose(fsgrp);dH5CHK(herr,H5Gclose);
+  *indset = dset;
+  *inspace = space;
   dFunctionReturn(0);
 }
 
@@ -81,7 +83,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
   dInt meshstate;
   herr_t herr;
   htri_t hflg;
-  hid_t fsgrp,meshgrp,att,dspace;
+  hid_t meshgrp;
   dErr err;
   dIInt ierr;
 
@@ -90,52 +92,36 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
   /* Check if current mesh has been written */
   err = PetscObjectGetName((dObject)fs->mesh,&meshname);dCHK(err);
   err = PetscObjectStateQuery((dObject)fs->mesh,&meshstate);dCHK(err);
-  hflg = H5Lexists(dhm->meshroot,meshname,H5P_DEFAULT); if (hflg < 0) dERROR(PETSC_ERR_LIB,"H5Lexists");
+  hflg = H5Lexists(dhm->meshroot,meshname,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
   if (!hflg) {
     meshgrp = H5Gcreate(dhm->meshroot,meshname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(meshgrp,H5Gcreate);
   } else {
     meshgrp = H5Gopen(dhm->meshroot,meshname,H5P_DEFAULT);dH5CHK(meshgrp,H5Gopen);
   }
   err = PetscSNPrintf(mstatestr,sizeof mstatestr,"%03d",meshstate);dCHK(err);
-  hflg = H5Lexists(meshgrp,mstatestr,H5P_DEFAULT); if (hflg < 0) dERROR(PETSC_ERR_LIB,"H5Lexists");
+  hflg = H5Lexists(meshgrp,mstatestr,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
   if (!hflg) {                  /* Save mesh to external file and create link to it */
     char imeshpath[dNAME_LEN];
     iMesh_Instance mi;
     err = PetscSNPrintf(imeshpath,sizeof imeshpath,"imesh-%s-%03d.h5m",meshname,meshstate);dCHK(err);
     err = dMeshGetInstance(fs->mesh,&mi);dCHK(err);
     iMesh_save(mi,0,imeshpath,"",&ierr,(int)strlen(imeshpath),0);dICHK(mi,ierr);
-    herr = H5Lcreate_external(imeshpath,"tstt",meshgrp,mstatestr,H5P_DEFAULT,H5P_DEFAULT);
-    if (hflg < 0) dERROR(PETSC_ERR_LIB,"H5Lcreate_external");
+    herr = H5Lcreate_external(imeshpath,"tstt",meshgrp,mstatestr,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(hflg,H5Lcreate_external);
   }
-  herr = H5Gclose(meshgrp); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");
-  /* Create group to hold this FS */
-  err = dFSGetDHMLink(fs,viewer,&fsgrp);dCHK(err);
-
-  /* write timestamp */
-  dspace = H5Screate(H5S_SCALAR); if (dspace < 0) dERROR(PETSC_ERR_LIB,"H5Screate");
-  att = H5Acreate(fsgrp,"time",dH5T_REAL,dspace,H5P_DEFAULT,H5P_DEFAULT); if (att < 0) dERROR(PETSC_ERR_LIB,"H5Acreate");
-  herr = H5Awrite(att,dH5T_REAL,&dhm->time);if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Awrite");
-  herr = H5Aclose(att);                     if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Aclose");
-  herr = H5Sclose(dspace);                  if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Sclose");
-
-  /* \todo We need a way to identify the active set in MOAB's file if the FS was only defined on a subset. */
-
-  /* Write names of some mesh tags */
-  err = WriteTagNameAsAttribute(viewer,fsgrp,"global_offset",fs->mesh,fs->gcoffsetTag);dCHK(err); /* The "closure" */
-  err = WriteTagNameAsAttribute(viewer,fsgrp,"degree",fs->mesh,fs->degreetag);dCHK(err);
-  /* Units, \todo not yet stored in the FS so we write defaults here */
-  err = dViewerDHMWriteDimensions(viewer,fsgrp,"velocity","m s-1",exp(1));dCHK(err);
 
   {
     dht_FS     fs5;
     dht_Field *field5;
-    hid_t      h5t_fs;
+    hid_t      h5t_fs,fsdset,fsspace;
     dInt       i;
 
     err = dViewerDHMGetFSType(viewer,&h5t_fs);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->degreetag,&fs5.degree);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->gcoffsetTag,&fs5.global_offset);dCHK(err);
     err = PetscStrallocpy("mock_partition",&fs5.partition);dCHK(err);
+    herr = H5Rcreate(&fs5.mesh,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
+    fs5.time = dhm->time;
+    err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);
     fs5.fields.len = fs->bs;
     err = dMallocA(fs5.fields.len,&field5);dCHK(err);
     for (i=0; i<fs->bs; i++) {
@@ -144,16 +130,19 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
       field5[i].units.scale = exp(1);
     }
     fs5.fields.p = field5;
-    att = H5Acreate(fsgrp,"FS_attribute",h5t_fs,dhm->h5s_scalar,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(att,H5Acreate);
-    herr = H5Awrite(att,h5t_fs,&fs5);dH5CHK(herr,H5Awrite);
-    herr = H5Aclose(att);dH5CHK(herr,H5Aclose);
+    err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err); /* Get location to write this FS */
+    herr = H5Dwrite(fsdset,h5t_fs,H5S_ALL,H5S_ALL,H5P_DEFAULT,&fs5);dH5CHK(herr,H5Dwrite);
     err = dFree(field5);dCHK(err);
     err = dFree(fs5.partition);dCHK(err);
     err = dFree(fs5.global_offset);dCHK(err);
     err = dFree(fs5.degree);dCHK(err);
+    herr = H5Dclose(fsdset);dH5CHK(herr,H5Dclose);
+    herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   }
 
-  herr = H5Gclose(fsgrp); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");
+  /* \todo We need a way to identify the active set in MOAB's file if the FS was only defined on a subset. */
+
+  herr = H5Gclose(meshgrp);dH5CHK(herr,H5Gclose);
   dFunctionReturn(0);
 }
 
@@ -161,7 +150,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
 {
   dViewer_DHM *dhm = viewer->data;
   dFS      fs;
-  hid_t    fslink,xlink,fspace,mspace,dset,plist;
+  hid_t    fsdset,fsspace,xlink,fspace,mspace,dset,plist;
   hsize_t  gdim[2],offset[2],count[2];
   herr_t   herr;
   dInt     m,low,high,bs;
@@ -171,7 +160,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   err = dViewerDHMSetUp(viewer);dCHK(err);
   err = PetscObjectQuery((PetscObject)X,"dFS",(PetscObject*)&fs);dCHK(err);
   if (!fs) dERROR(PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
-  err = dFSGetDHMLink(fs,viewer,&fslink);dCHK(err);
+  err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err);
   err = dVecGetDHMLink(X,viewer,&xlink);dCHK(err);
   err = dFSView_Cont_DHM(fs,viewer);dCHK(err);
   err = VecGetSize(X,&m);dCHK(err);
@@ -189,7 +178,9 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   mspace = H5Screate_simple(2,count,NULL);dH5CHK(mspace,H5Screate_simple);
 
   plist = H5Pcreate(H5P_DATASET_XFER);dH5CHK(plist,H5Pcreate);
+#if defined dUSE_PARALLEL_HDF5
   herr = H5Pset_dxpl_mpio(plist,H5FD_MPIO_COLLECTIVE);dH5CHK(herr,H5Pset_dxpl_mpio);
+#endif
 
   {
     Vec Xclosure;
@@ -204,9 +195,8 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   {
     char fsname[256];
     ssize_t namelen;
-    namelen = H5Iget_name(fslink,fsname,sizeof fsname);dH5CHK(namelen,H5Iget_name);
+    namelen = H5Iget_name(fsdset,fsname,sizeof fsname);dH5CHK(namelen,H5Iget_name);
     if (!namelen) dERROR(PETSC_ERR_LIB,"Could not get FS path");
-    herr = H5Lcreate_soft(fsname,xlink,"fs",H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Lcreate_soft);
     {
       dht_Vec vecatt[1];
       hsize_t dims[1] = {1};
@@ -214,7 +204,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
 
       err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
       /* Initialize data vecatt[0] */
-      herr = H5Rcreate(&vecatt[0].fs,dhm->file,fsname,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
+      herr = H5Rcreate(&vecatt[0].fs,dhm->file,fsname,H5R_DATASET_REGION,fsspace);dH5CHK(herr,H5Rcreate);
       vecatt[0].time = dhm->time;
       err = PetscObjectStateQuery((PetscObject)viewer,&vecatt[0].state);dCHK(err);
       /* Write attribute */
@@ -231,7 +221,8 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   herr = H5Sclose(fspace);dH5CHK(herr,H5Sclose);
   herr = H5Sclose(mspace);dH5CHK(herr,H5Sclose);
   herr = H5Gclose(xlink);dH5CHK(herr,H5Gclose);
-  herr = H5Gclose(fslink);dH5CHK(herr,H5Gclose);
+  herr = H5Dclose(fsdset);dH5CHK(herr,H5Dclose);
+  herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   dFunctionReturn(0);
 }
 
