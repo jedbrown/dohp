@@ -3,6 +3,9 @@
 #include "cont.h"
 #include "../../../viewer/dhm.h"
 
+EXTERN dErr dFSView_Cont_DHM(dFS,dViewer);
+EXTERN dErr VecView_Dohp_FSCont(Vec,dViewer);
+
 /** Get data set and space to write the next element for this FS
 * \note caller is responsible for closing both
 **/
@@ -45,32 +48,6 @@ static dErr dFSGetDHMLink(dFS fs,dViewer viewer,hid_t *indset,hid_t *inspace)
   }
   *indset = dset;
   *inspace = space;
-  dFunctionReturn(0);
-}
-
-static dErr dVecGetDHMLink(Vec x,dViewer viewer,hid_t *link)
-{
-  char         xstatestr[16];
-  const char  *xname;
-  dInt         xstate;
-  htri_t       hflg;
-  hid_t        xgrp,curstep;
-  herr_t       herr;
-  dErr         err;
-
-  dFunctionBegin;
-  err = PetscObjectGetName((dObject)x,&xname);dCHK(err);
-  err = PetscObjectStateQuery((dObject)x,&xstate);dCHK(err);
-  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
-  hflg = H5Lexists(curstep,xname,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
-  if (!hflg) {
-    xgrp = H5Gcreate(curstep,xname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(xgrp,H5Gcreate);
-  } else {
-    xgrp = H5Gopen(curstep,xname,H5P_DEFAULT);dH5CHK(xgrp,H5Gopen);
-  }
-  err = PetscSNPrintf(xstatestr,sizeof xstatestr,"%03d",xstate);dCHK(err);
-  *link = H5Gcreate(xgrp,xstatestr,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(*link,H5Gcreate);
-  herr = H5Gclose(xgrp);dH5CHK(herr,H5Gclose);
   dFunctionReturn(0);
 }
 
@@ -149,23 +126,28 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
 static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
 {
   dViewer_DHM *dhm = viewer->data;
-  dFS      fs;
-  hid_t    fsdset,fsspace,xlink,fspace,mspace,dset,plist;
-  hsize_t  gdim[2],offset[2],count[2];
-  herr_t   herr;
-  dInt     m,low,high,bs;
-  dErr     err;
+  const char  *xname;
+  dFS          fs;
+  Vec          Xclosure;
+  dScalar     *x;
+  hid_t        fsdset,fsspace,curstep,dset,fspace,mspace,plist;
+  hsize_t      gdim[2],offset[2],count[2];
+  herr_t       herr;
+  dInt         m,low,high,bs;
+  dErr         err;
 
   dFunctionBegin;
   err = dViewerDHMSetUp(viewer);dCHK(err);
+  err = PetscObjectGetName((PetscObject)X,&xname);dCHK(err);
   err = PetscObjectQuery((PetscObject)X,"dFS",(PetscObject*)&fs);dCHK(err);
   if (!fs) dERROR(PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
-  err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err);
-  err = dVecGetDHMLink(X,viewer,&xlink);dCHK(err);
+  err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err); /* we are responsible for closing */
+  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);        /* leave curstep open */
   err = dFSView_Cont_DHM(fs,viewer);dCHK(err);
-  err = VecGetSize(X,&m);dCHK(err);
-  err = VecGetOwnershipRange(X,&low,&high);dCHK(err);
-  err = VecGetBlockSize(X,&bs);dCHK(err);
+  err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
+  err = VecGetSize(Xclosure,&m);dCHK(err);
+  err = VecGetOwnershipRange(Xclosure,&low,&high);dCHK(err);
+  err = VecGetBlockSize(Xclosure,&bs);dCHK(err);
   gdim[0]   = m/bs;
   gdim[1]   = bs;
   offset[0] = low/bs;
@@ -173,7 +155,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   count[0]  = (high-low)/bs;
   count[1]  = bs;
   fspace = H5Screate_simple(2,gdim,NULL);dH5CHK(fspace,H5Screate_simple);
-  dset = H5Dcreate(xlink,"values",dH5T_SCALAR,fspace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dset,H5Dcreate);
+  dset = H5Dcreate(curstep,xname,dH5T_SCALAR,fspace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dset,H5Dcreate);
   herr = H5Sselect_hyperslab(fspace,H5S_SELECT_SET,offset,NULL,count,NULL);dH5CHK(herr,H5Sselect_hyperslab);
   mspace = H5Screate_simple(2,count,NULL);dH5CHK(mspace,H5Screate_simple);
 
@@ -182,16 +164,12 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   herr = H5Pset_dxpl_mpio(plist,H5FD_MPIO_COLLECTIVE);dH5CHK(herr,H5Pset_dxpl_mpio);
 #endif
 
-  {
-    Vec Xclosure;
-    dScalar *x;
-    err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
-    err = VecGetArray(Xclosure,&x);dCHK(err);
-    herr = H5Dwrite(dset,dH5T_SCALAR,mspace,fspace,plist,x);dH5CHK(herr,H5Dwrite);
-    err = VecRestoreArray(Xclosure,&x);dCHK(err);
-    err = VecDohpRestoreClosure(X,&Xclosure);dCHK(err);
-  }
+  err = VecGetArray(Xclosure,&x);dCHK(err);
+  herr = H5Dwrite(dset,dH5T_SCALAR,mspace,fspace,plist,x);dH5CHK(herr,H5Dwrite);
+  err = VecRestoreArray(Xclosure,&x);dCHK(err);
+  err = VecDohpRestoreClosure(X,&Xclosure);dCHK(err);
 
+  /* Write attributes on this dataset */
   {
     char fsname[256];
     ssize_t namelen;
@@ -200,7 +178,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
     {
       dht_Vec vecatt[1];
       hsize_t dims[1] = {1};
-      hid_t space,attr,vectype;
+      hid_t aspace,attr,vectype;
 
       err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
       /* Initialize data vecatt[0] */
@@ -208,11 +186,11 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
       vecatt[0].time = dhm->time;
       err = PetscObjectStateQuery((PetscObject)viewer,&vecatt[0].state);dCHK(err);
       /* Write attribute */
-      space = H5Screate_simple(1,dims,NULL);dH5CHK(space,H5Screate_simple);
-      attr = H5Acreate(dset,"meta",vectype,space,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(attr,H5Acreate);
+      aspace = H5Screate_simple(1,dims,NULL);dH5CHK(aspace,H5Screate_simple);
+      attr = H5Acreate(dset,"meta",vectype,aspace,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(attr,H5Acreate);
       herr = H5Awrite(attr,vectype,vecatt);dH5CHK(herr,H5Awrite);
       herr = H5Aclose(attr);dH5CHK(herr,H5Aclose);
-      herr = H5Sclose(space);dH5CHK(herr,H5Aclose);
+      herr = H5Sclose(aspace);dH5CHK(herr,H5Aclose);
     }
   }
 
@@ -220,7 +198,6 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   herr = H5Pclose(plist);dH5CHK(herr,H5Pclose);
   herr = H5Sclose(fspace);dH5CHK(herr,H5Sclose);
   herr = H5Sclose(mspace);dH5CHK(herr,H5Sclose);
-  herr = H5Gclose(xlink);dH5CHK(herr,H5Gclose);
   herr = H5Dclose(fsdset);dH5CHK(herr,H5Dclose);
   herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   dFunctionReturn(0);

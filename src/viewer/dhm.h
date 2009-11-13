@@ -49,14 +49,12 @@ typedef struct {
   char          *timeunits;
   dReal          timescale;
   dInt           stepnumber;
-  hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec;
+  hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec,h5t_units;
 } dViewer_DHM;
 
 extern dErr dViewerDHMSetUp(dViewer);
 extern dErr dViewerDHMGetStringTypes(PetscViewer,hid_t *fstring,hid_t *mstring,hid_t *sspace);
 extern dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step);
-extern dErr dViewerDHMAttributeStringWrite(PetscViewer viewer,hid_t grp,const char *attname,const char *str);
-extern dErr dViewerDHMWriteDimensions(PetscViewer viewer,hid_t grp,const char *name,const char *units,dReal scale);
 extern dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *type);
 extern dErr dViewerDHMGetVecType(PetscViewer viewer,hid_t *type);
 
@@ -70,6 +68,11 @@ typedef struct {
   char      *name;
   dht_Units  units;
 } dht_Field;
+
+typedef struct {
+  dReal     value;
+  dht_Units units;
+} dht_RealWithUnits;
 
 typedef struct {
   char       *degree;

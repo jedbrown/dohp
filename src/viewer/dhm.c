@@ -23,35 +23,23 @@ dErr dViewerDHMGetStringTypes(PetscViewer viewer,hid_t *fstring,hid_t *mstring,h
   dFunctionReturn(0);
 }
 
-dErr dViewerDHMAttributeStringWrite(PetscViewer viewer,hid_t grp,const char *attname,const char *str)
+static dErr dViewerDHMGetUnitsType(PetscViewer viewer,hid_t *unitstype)
 {
-  hid_t fstring,mstring,scalar,att;
-  herr_t herr;
-  dErr err;
+  dViewer_DHM *dhm = viewer->data;
+  dErr         err;
 
   dFunctionBegin;
-  err = dViewerDHMGetStringTypes(viewer,&fstring,&mstring,&scalar);dCHK(err);
-  att = H5Acreate(grp,attname,fstring,scalar,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(att,H5Acreate);
-  herr = H5Awrite(att,mstring,&str);dH5CHK(herr,H5Awrite);
-  herr = H5Aclose(att);dH5CHK(herr,H5Aclose);
-  dFunctionReturn(0);
-}
-
-dErr dViewerDHMWriteDimensions(PetscViewer viewer,hid_t grp,const char *name,const char *units,dReal scale)
-{
-  herr_t herr;
-  hid_t dimgrp,satt,sspace;
-  dErr err;
-
-  dFunctionBegin;
-  dimgrp = H5Gcreate(grp,name,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);                   if (dimgrp < 0) dERROR(PETSC_ERR_LIB,"H5Gcreate");
-  sspace = H5Screate(H5S_SCALAR); if (sspace < 0) dERROR(PETSC_ERR_LIB,"H5Screate");  if (sspace < 0) dERROR(PETSC_ERR_LIB,"H5Screate");
-  satt = H5Acreate(dimgrp,"scale",dH5T_REAL,sspace,H5P_DEFAULT,H5P_DEFAULT);if (satt < 0) dERROR(PETSC_ERR_LIB,"H5Acreate");
-  herr = H5Awrite(satt,dH5T_REAL,&scale);  if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Awrite");
-  err = dViewerDHMAttributeStringWrite(viewer,dimgrp,"dimensions",units);dCHK(err);
-  herr = H5Aclose(satt);   if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Aclose");
-  herr = H5Sclose(sspace); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Sclose");
-  herr = H5Gclose(dimgrp); if (herr < 0) dERROR(PETSC_ERR_LIB,"H5Gclose");
+  if (dhm->h5t_units < 0) {
+    hid_t  type,strtype;
+    herr_t herr;
+    err  = dViewerDHMGetStringTypes(viewer,&strtype,NULL,NULL);dCHK(err);
+    type = H5Tcreate(H5T_COMPOUND,sizeof(dht_Units));dH5CHK(type,H5Tcreate);
+    herr = H5Tinsert(type,"dimensions",offsetof(dht_Units,dimensions),strtype);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(type,"scale",offsetof(dht_Units,scale),dH5T_SCALAR);dH5CHK(herr,H5Tinsert);
+    herr = H5Tcommit(dhm->typeroot,"Units_type",type,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit);
+    dhm->h5t_units = type;
+  }
+  *unitstype = dhm->h5t_units;
   dFunctionReturn(0);
 }
 
@@ -66,12 +54,7 @@ dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *intype)
     herr_t herr;
 
     err = dViewerDHMGetStringTypes(viewer,&strtype,NULL,NULL);dCHK(err);
-    unittype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Units));dH5CHK(unittype,H5Tcreate);
-    herr = H5Tinsert(unittype,"dimensions",offsetof(dht_Units,dimensions),strtype);dH5CHK(herr,H5Tinsert);
-    herr = H5Tinsert(unittype,"scale",offsetof(dht_Units,scale),dH5T_SCALAR);dH5CHK(herr,H5Tinsert);
-
-    herr = H5Tcommit(dhm->typeroot,"Units_type",unittype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit); /* skip this? */
-
+    err = dViewerDHMGetUnitsType(viewer,&unittype);dCHK(err);
     fieldtype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Field));dH5CHK(fieldtype,H5Tcreate);
     herr = H5Tinsert(fieldtype,"name",offsetof(dht_Field,name),strtype);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fieldtype,"units",offsetof(dht_Field,units),unittype);dH5CHK(herr,H5Tinsert);
@@ -92,7 +75,6 @@ dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *intype)
     herr = H5Tcommit(dhm->typeroot,"FS_type",fstype,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tcommit);
     herr = H5Tclose(fieldstype);dH5CHK(herr,H5Tclose);
     herr = H5Tclose(fieldtype);dH5CHK(herr,H5Tclose);
-    herr = H5Tclose(unittype);dH5CHK(herr,H5Tclose);
     dhm->h5t_fs = fstype;
   }
   *intype = dhm->h5t_fs;
@@ -123,7 +105,6 @@ dErr dViewerDHMSetUp(PetscViewer viewer)
   dViewer_DHM *dhm = viewer->data;
   herr_t       herr;
   hid_t        plist_id,fid;
-  dErr         err;
 
   dFunctionBegin;
   if (dhm->file >= 0) dFunctionReturn(0);
@@ -162,8 +143,6 @@ dErr dViewerDHMSetUp(PetscViewer viewer)
   dhm->typeroot = H5Gcreate(dhm->dohproot,"type",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dhm->typeroot,H5Gcreate);
 
   dhm->h5s_scalar = H5Screate(H5S_SCALAR);dH5CHK(dhm->h5s_scalar,H5Screate);
-
-  err = dViewerDHMWriteDimensions(viewer,dhm->steproot,"time",dhm->timeunits,dhm->timescale);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -176,10 +155,11 @@ static dErr PetscViewerDestroy_DHM(PetscViewer v)
   dFunctionBegin;
   err = dFree(dhm->filename);dCHK(err);
   err = dFree(dhm->timeunits);dCHK(err);
-  if (dhm->h5t_vec     >= 0) {herr = H5Tclose(dhm->h5t_vec);dH5CHK(herr,H5Tclose);}
-  if (dhm->h5t_fs      >= 0) {herr = H5Tclose(dhm->h5t_fs);dH5CHK(herr,H5Tclose);}
   if (dhm->h5t_fstring >= 0) {herr = H5Tclose(dhm->h5t_fstring);dH5CHK(herr,H5Tclose);}
   if (dhm->h5t_mstring >= 0) {herr = H5Tclose(dhm->h5t_mstring);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5t_fs      >= 0) {herr = H5Tclose(dhm->h5t_fs);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5t_vec     >= 0) {herr = H5Tclose(dhm->h5t_vec);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5t_units   >= 0) {herr = H5Tclose(dhm->h5t_units);dH5CHK(herr,H5Tclose);}
   if (dhm->h5s_scalar  >= 0) {herr = H5Sclose(dhm->h5s_scalar);dH5CHK(herr,H5Sclose);}
   if (dhm->curstep     >= 0) {herr = H5Gclose(dhm->curstep);dH5CHK(herr,H5Gclose);}
   if (dhm->meshroot    >= 0) {herr = H5Gclose(dhm->meshroot);dH5CHK(herr,H5Gclose);}
@@ -240,7 +220,6 @@ static dErr dViewerDHMSetTimeUnits_DHM(PetscViewer v,const char *units,dReal sca
   dFunctionReturn(0);
 }
 
-
 dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step)
 {
   dViewer_DHM *dhm = viewer->data;
@@ -250,12 +229,21 @@ dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step)
   if (dhm->curstep < 0) {
     char stepname[16];
     herr_t herr;
-    hid_t att;
+    hid_t att,unitstype,timetype;
+    dht_RealWithUnits time;
     err = PetscSNPrintf(stepname,sizeof stepname,"%03d",dhm->stepnumber);dCHK(err);
-    dhm->curstep = H5Gcreate(dhm->steproot,stepname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dhm->curstep,H5Gopen);
-    att = H5Acreate(dhm->curstep,"time",dH5T_REAL,dhm->h5s_scalar,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(att,H5Acreate);
-    herr = H5Awrite(att,dH5T_REAL,&dhm->time);dH5CHK(herr,H5Awrite);
+    dhm->curstep = H5Gcreate(dhm->steproot,stepname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dhm->curstep,H5Gcreate);
+    err = dViewerDHMGetUnitsType(viewer,&unitstype);dCHK(err);
+    timetype = H5Tcreate(H5T_COMPOUND,sizeof(dht_RealWithUnits));dH5CHK(timetype,H5Tcreate);
+    herr = H5Tinsert(timetype,"value",offsetof(dht_RealWithUnits,value),dH5T_REAL);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(timetype,"units",offsetof(dht_RealWithUnits,units),unitstype);dH5CHK(herr,H5Tinsert);
+    att = H5Acreate(dhm->curstep,"time",timetype,dhm->h5s_scalar,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(att,H5Acreate);
+    time.value            = dhm->time;
+    time.units.dimensions = dhm->timeunits;
+    time.units.scale      = dhm->timescale;
+    herr = H5Awrite(att,timetype,&time);dH5CHK(herr,H5Awrite);
     herr = H5Aclose(att);dH5CHK(herr,H5Aclose);
+    herr = H5Tclose(timetype);dH5CHK(herr,H5Tclose);
   }
   *step = dhm->curstep;
   dFunctionReturn(0);
@@ -284,8 +272,9 @@ PetscErrorCode PetscViewerCreate_DHM(PetscViewer v)
   dhm->curstep     = -1;
   dhm->h5t_fstring = -1;
   dhm->h5t_mstring = -1;
-  dhm->h5t_vec     = -1;
   dhm->h5t_fs      = -1;
+  dhm->h5t_vec     = -1;
+  dhm->h5t_units   = -1;
   dhm->h5s_scalar  = -1;
 
   err = PetscObjectComposeFunctionDynamic((PetscObject)v,"PetscViewerFileSetName_C","PetscViewerFileSetName_DHM",
