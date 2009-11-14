@@ -80,7 +80,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   MPI_Comm               comm  = ((dObject)fs)->comm;
   /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
   dUNUSED dFS_Cont      *cont  = fs->data;
-  struct dMeshAdjacency  ma;
+  struct _p_dMeshAdjacency ma;
   dMesh                  mesh;
   iMesh_Instance         mi;
   dEntTopology          *regTopo;

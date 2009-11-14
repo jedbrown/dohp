@@ -51,12 +51,12 @@ struct _dJacobiOps {
   dErr (*Destroy)(dJacobi);
   dErr (*View)(dJacobi,PetscViewer);
   dErr (*GetRuleSize)(dJacobi,dEntTopology,dInt*);
-  dErr (*PropogateDown)(dJacobi,const struct dMeshAdjacency*,dInt[]);
+  dErr (*PropogateDown)(dJacobi,dMeshAdjacency,dInt[]);
   dErr (*GetRule)(dJacobi,dInt,const dEntTopology[],const dInt[],dRule);
   dErr (*GetEFS)(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
   dErr (*GetNodeCount)(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
-  dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[]);
-  dErr (*AddConstraints)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat);
+  dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,dInt[],dInt[]);
+  dErr (*AddConstraints)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,Mat,Mat);
 };
 
 /**

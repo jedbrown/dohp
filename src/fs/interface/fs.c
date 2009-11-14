@@ -15,6 +15,7 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
     err = dQuotientGetMesh(fs->quotient,&qmesh);dCHK(err);
     if (mesh != qmesh) fs->quotient = 0; /* The Quotient is stale */
   }
+  err = PetscObjectReference((PetscObject)mesh);dCHK(err);
   fs->mesh = mesh;
   fs->activeSet = active;
   err = dMeshGetTag(mesh,fs->bdyTagName,&fs->bdyTag);dCHK(err);

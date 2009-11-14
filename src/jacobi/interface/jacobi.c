@@ -223,7 +223,7 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
 *
 * @return error (if connectivity or adjacency is wrong)
 */
-dErr dJacobiPropogateDown(dJacobi jac,const struct dMeshAdjacency *a,dInt deg[])
+dErr dJacobiPropogateDown(dJacobi jac,dMeshAdjacency a,dInt deg[])
 {
   dErr err;
 
@@ -513,7 +513,7 @@ dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScal
 * @param nnz Number of nonzeros per row of element assembly matrix
 * @param pnnz Number of nonzeros per row of preconditioning element assembly matrix
 */
-dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[])
+dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
 {
   dErr err;
 
@@ -532,7 +532,7 @@ dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs
 
 /** Actually assemble the element assembly matrices, see dJacobiGetConstraintCount()
 */
-dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat E,Mat Ep)
+dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],dMeshAdjacency ma,Mat E,Mat Ep)
 {
   dErr err;
 

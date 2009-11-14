@@ -203,7 +203,6 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-
 dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
 {
   dFS fs;

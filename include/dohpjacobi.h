@@ -92,8 +92,8 @@ typedef enum {
 typedef struct p_dJacobi *dJacobi;
 
 #define dMESHADJACENCY_HAS_CONNECTIVITY 1
-typedef struct dMeshAdjacency *dMeshAdjacency;
-struct dMeshAdjacency {
+typedef struct _p_dMeshAdjacency *dMeshAdjacency;
+struct _p_dMeshAdjacency {
   dMeshESH set;
   dMeshTag indexTag;
   dInt nents;
@@ -137,11 +137,11 @@ EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,co
 EXTERN dErr dEFSGetGlobalCoordinates(dEFS,const dReal vtx[restrict][3],dInt*,dInt[3],dReal(*)[3]);
 EXTERN dErr dEFSGetRule(dEFS efs,dRule *rule);
 EXTERN dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
-EXTERN dErr dJacobiPropogateDown(dJacobi,const struct dMeshAdjacency*,dInt[]);
+EXTERN dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dInt[]);
 EXTERN dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 
-EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,dInt[],dInt[]);
-EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const struct dMeshAdjacency*,Mat,Mat);
+EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,dInt[],dInt[]);
+EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,Mat,Mat);
 
 PETSC_EXTERN_CXX_END
 

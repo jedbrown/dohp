@@ -167,7 +167,7 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
   dFunctionReturn(0);
 }
 
-static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,const struct dMeshAdjacency *a,dInt deg[])
+static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dInt deg[])
 {
   static const dInt quadperm[4] = {0,1,0,1};
   static const dInt hexperm[6][2] = {{0,2},{1,2},{0,2},{1,2},{1,0},{0,1}}; /* map natural axis of Quad to natural axis of Hex */
@@ -250,7 +250,7 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
 }
 
 static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],const dInt dUNUSED is[],
-                                             const dInt dUNUSED deg[],const struct dMeshAdjacency *ma,dInt nnz[],dInt pnnz[])
+                                             const dInt dUNUSED deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
 {
 
   dFunctionBegin;
@@ -326,7 +326,7 @@ static dErr PrivateMatSetValue(Mat E,Mat Ep,dInt row,dInt col,MatScalar v,Insert
   dFunctionReturn(0);
 }
 
-static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],const struct dMeshAdjacency *ma,Mat matE,Mat matEp)
+static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],dMeshAdjacency ma,Mat matE,Mat matEp)
 {
   dInt elem,i,j,k,l,e[12],eP[12],v[8];
   dInt nrow,ncol,irow[10],icol[30];

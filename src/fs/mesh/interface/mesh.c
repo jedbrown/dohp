@@ -694,8 +694,6 @@ dErr dMeshLoad(dMesh mesh)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshView"
 /*@
    dMeshView -
 
@@ -740,8 +738,6 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dMeshView_EntSet"
 /*@
    dMeshView_EntSet -
 
@@ -869,6 +865,7 @@ dErr dMeshDestroy(dMesh m)
 
   dFunctionBegin;
   PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
+  if (--((PetscObject)m)->refct > 0) dFunctionReturn(0);
   if (m->ops->destroy) {
     err = (*m->ops->destroy)(m);dCHK(err);
   }
@@ -959,7 +956,7 @@ dErr dMeshDestroyRuleTag(dMesh mesh,dMeshTag rtag)
   dFunctionReturn(0);
 }
 
-static dErr dMeshAdjacencyPermutations_Private(struct dMeshAdjacency *ma,const dInt connoff[],const dMeshEH conn[])
+static dErr dMeshAdjacencyPermutations_Private(dMeshAdjacency ma,const dInt connoff[],const dMeshEH conn[])
 {
   dInt i,e,ai,aind;
   dErr err;
@@ -994,7 +991,7 @@ static dErr dMeshAdjacencyPermutations_Private(struct dMeshAdjacency *ma,const d
 dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
 {
   iMesh_Instance mi = mesh->mi;
-  struct dMeshAdjacency ma;
+  struct _p_dMeshAdjacency ma;
   dMeshEH *adj,*conn;
   dEntType type;
   dInt i,rank,cnt,nadj,*connoff,tnents,*eind;
