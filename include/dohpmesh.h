@@ -81,9 +81,12 @@ typedef struct {
 } DohpLoopBounds;
 
 /* name tag on manifold sets, NEUMANN_SET is the default when coming from Cubit */
-#define dTAG_MANIFOLD_ID      "NEUMANN_SET"
-#define dTAG_SENSE            "SENSE"
-#define dTAG_EMPTYSET         "EMPTYSET"
+#define dTAG_MANIFOLD_ID       "NEUMANN_SET"
+#define dTAG_SENSE             "SENSE"
+#define dTAG_EMPTYSET          "EMPTYSET"
+#define dTAG_ORDERED_SUBDOMAIN "ORDERED_SUBDOMAIN"
+
+enum dMeshSetOrdering {dMESHSET_UNORDERED = 0,dMESHSET_ORDERED = 1};
 
 #define dMeshType char *
 #define dMESHPACK   "pack"

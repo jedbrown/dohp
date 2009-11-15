@@ -78,6 +78,7 @@ typedef struct {
   char       *degree;
   char       *global_offset;
   char       *partition;
+  char       *ordered_subdomain;
   hobj_ref_t  mesh;
   dReal       time;
   dInt        internal_state;

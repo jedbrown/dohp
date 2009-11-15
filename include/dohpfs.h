@@ -73,6 +73,8 @@ EXTERN dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*res
 EXTERN dErr dFSMatSetValuesBlockedExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
 EXTERN dErr dFSGetMatrix(dFS,const MatType,Mat*);
 EXTERN dErr dFSBuildSpace(dFS);
+EXTERN dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*);
+EXTERN dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dInt topo[],dInt off[],dInt ind[]);
 
 EXTERN dErr dFSDestroy(dFS);
 EXTERN dErr dFSView(dFS,PetscViewer);

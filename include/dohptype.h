@@ -5,6 +5,14 @@
 #include <petsc.h>
 #include <iMesh_extensions.h>
 
+#if defined __cplusplus
+#  define dEXTERN_CXX_BEGIN extern "C" {
+#  define dEXTERN_CXX_END   }
+#else
+#  define dEXTERN_CXX_BEGIN
+#  define dEXTERN_CXX_END
+#endif
+
 /**
 * These types all have to be exactly the Petsc versions.  These typedefs are here just to shorten the names, not to
 * become autonomous.

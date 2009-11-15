@@ -1,7 +1,7 @@
 #include <dohpfsimpl.h>
 #include <dohpvec.h>
 
-/** Get coordinates for every node in closure
+/** Get coordinates for every node in closure (every subelement vertex)
 *
 * @param fs Function space
 * @param inx the new vector with block size 3 and the same number of blocks as the closure vector
@@ -80,5 +80,41 @@ dErr dFSGetGeometryVector(dFS dUNUSED fs,Vec *ingeom)
   dValidPointer(ingeom,2);
   *ingeom = 0;
   dERROR(1,"not implemented");
+  dFunctionReturn(0);
+}
+
+
+/** Get the number of subelements and number of vertices of subelements.
+*
+* @note the number of vertices is the same as the number of local nodes in closure vertor.
+**/
+dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidIntPointer(nelems,2);
+  dValidIntPointer(nverts,3);
+  if (!fs->ops->getsubelementmeshsize) dERROR(1,"not implemented");
+  err = (*fs->ops->getsubelementmeshsize)(fs,nelems,nverts);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** Get the number of subelements and number of vertices of subelements.
+*
+* @note the number of vertices is the same as the number of local nodes in closure vertor.
+**/
+dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dInt topo[],dInt off[],dInt ind[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidIntPointer(topo,4);
+  dValidIntPointer(off,5);
+  dValidIntPointer(ind,6);
+  if (!fs->ops->getsubelementmesh) dERROR(1,"not implemented");
+  err = (*fs->ops->getsubelementmesh)(fs,nelems,nverts,topo,off,ind);dCHK(err);
   dFunctionReturn(0);
 }

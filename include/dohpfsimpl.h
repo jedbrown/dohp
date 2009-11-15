@@ -37,6 +37,8 @@ struct _dFSOps {
   DMOPS(dFS)
   dErr (*impldestroy)(dFS);
   dErr (*buildspace)(dFS);
+  dErr (*getsubelementmeshsize)(dFS,dInt*,dInt*);
+  dErr (*getsubelementmesh)(dFS,dInt,dInt,dInt[],dInt[],dInt[]);
 };
 
 #define dFS_MAX_WORKSPACES 64
@@ -60,7 +62,6 @@ struct _p_dFS {
   dTruth       assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
   dInt         ruleStrength;
   dInt         bs;              /**< Block size (number of dofs per node) */
-  dMeshEH     *ents;            /**< All entities in active set */
   dInt         nelem;
   dInt        *off;             /**< Offset of element dofs in expanded vector */
   s_dRule     *rule;            /**< Integration rule */

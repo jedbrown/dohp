@@ -54,6 +54,9 @@ static dErr dFSDestroy_Cont(dFS fs)
   dFunctionReturn(0);
 }
 
+/**
+@note Not collective
+*/
 static dErr dFSContPropogateDegree(dFS fs)
 {
   dMeshAdjacency ma = fs->meshAdj;
@@ -168,8 +171,6 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   fs->nc = nc;
   fs->ngh = ngh;
 
-  iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-
   /* compute a low-bandwidth ordering of explicit entities here (instead of [v,e,f,r]) */
   {                             /* The result of this block is that \a ents will be reordered */
     dScalar   weights[256];
@@ -228,6 +229,18 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = ISDestroy(rperm);dCHK(err);
     err = ISDestroy(cperm);dCHK(err);
     free(adj); adj = NULL; adj_a = 0; /* iMesh allocated this memory */
+  }
+
+  {                             /* Make an ordered local set and apply tag */
+    /* This is used primarily for reading */
+    dMeshESH set;
+    dMeshTag tag;
+    dMPIInt rank;
+    iMesh_createTag(mi,dTAG_ORDERED_SUBDOMAIN,1,iBase_INTEGER,&tag,&ierr,sizeof(dTAG_ORDERED_SUBDOMAIN));dICHK(mi,ierr);
+    iMesh_createEntSet(mi,dMESHSET_ORDERED,&set,&ierr);dICHK(mi,ierr);
+    iMesh_addEntArrToSet(mi,ents,ents_s,set,&ierr);dICHK(mi,ierr);
+    err = MPI_Comm_rank(comm,&rank);dCHK(err);
+    iMesh_setEntSetIntData(mi,set,tag,rank,&ierr);dICHK(mi,ierr);
   }
 
   {                             /* Set offsets (global, closure, local) of first node associated with every entity */
@@ -432,6 +445,50 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dFunctionReturn(0);
 }
 
+static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert)
+{
+  /* dFS_Cont *cont = fs->data; */
+  dErr err;
+  dInt n,nsub;
+  Vec  X;
+
+  dFunctionBegin;
+  nsub = 0;
+  for (dInt e=0; e<fs->nelem; e++) {
+    dInt tsize[3],dim;
+    err = dEFSGetTensorNodes(&fs->efs[e],&dim,tsize,NULL,NULL,NULL,NULL);dCHK(err);
+    switch (dim) {
+      case 1: nsub += tsize[0]-1;
+        break;
+      case 2: nsub += (tsize[0]-1)*(tsize[1]-1);
+        break;
+      case 3: nsub += (tsize[0]-1)*(tsize[1]-1)*(tsize[2]-1);
+        break;
+      default: dERROR(1,"element dimension out of range");
+    }
+  }
+  err = VecDohpGetClosure(fs->gvec,&X);dCHK(err);
+  err = VecGetLocalSize(X,&n);dCHK(err);
+  err = VecDohpRestoreClosure(fs->gvec,&X);dCHK(err);
+  *nelem = nsub;
+  *nvert = n/fs->bs;
+  dFunctionReturn(0);
+}
+
+static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nelems,dInt nverts,dInt topo[],dInt off[],dInt ind[])
+{
+  dErr err;
+  dMeshAdjacency ma;
+
+  dFunctionBegin;
+  err = dMeshGetAdjacency(fs->mesh,fs->activeSet,&ma);dCHK(err);
+  err = dMemzero(topo,sizeof(*topo)*nelems);dCHK(err);
+  err = dMemzero(off,sizeof(*off)*nelems);dCHK(err);
+  err = dMemzero(ind,sizeof(*ind)*nverts);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
 /**
 * Create the private structure used by a continuous Galerkin function space.
 *
@@ -449,9 +506,12 @@ dErr dFSCreate_Cont(dFS fs)
   dFunctionBegin;
   err = dNewLog(fs,*fsc,&fsc);dCHK(err);
   fs->data = (void*)fsc;
-  fs->ops->view           = dFSView_Cont;
-  fs->ops->impldestroy    = dFSDestroy_Cont;
-  fs->ops->setfromoptions = dFSSetFromOptions_Cont;
-  fs->ops->buildspace     = dFSBuildSpace_Cont;
+
+  fs->ops->view                  = dFSView_Cont;
+  fs->ops->impldestroy           = dFSDestroy_Cont;
+  fs->ops->setfromoptions        = dFSSetFromOptions_Cont;
+  fs->ops->buildspace            = dFSBuildSpace_Cont;
+  fs->ops->getsubelementmeshsize = dFSGetSubElementMeshSize_Cont;
+  fs->ops->getsubelementmesh     = dFSGetSubElementMesh_Cont;
   dFunctionReturn(0);
 }

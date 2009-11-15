@@ -988,13 +988,16 @@ static dErr dMeshAdjacencyPermutations_Private(dMeshAdjacency ma,const dInt conn
   dFunctionReturn(0);
 }
 
+/**
+@note Not collective
+*/
 dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
 {
   iMesh_Instance mi = mesh->mi;
   struct _p_dMeshAdjacency ma;
   dMeshEH *adj,*conn;
   dEntType type;
-  dInt i,rank,cnt,nadj,*connoff,tnents,*eind;
+  dInt i,cnt,nadj,*connoff,tnents,*eind;
   dIInt ierr;
   dErr err;
 
@@ -1040,11 +1043,6 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
   err = dMallocA(ma.nents,&eind);dCHK(err);
   for (i=0; i<ma.nents; i++) {
     eind[i] = i;
-  }
-  if (0) {                      /* Debugging information */
-    err = PetscSynchronizedPrintf(PETSC_COMM_WORLD,"[%d] toff=(%d %d %d %d; %d)\n",
-                                  rank,ma.toff[0],ma.toff[1],ma.toff[2],ma.toff[3],ma.toff[4]);dCHK(err);
-    err = PetscSynchronizedFlush(PETSC_COMM_WORLD);dCHK(err);
   }
 
   /* Create the tag to hold indices and set it with strictly increasing values */
