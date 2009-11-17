@@ -78,7 +78,7 @@ static dErr dFSContPropogateDegree(dFS fs)
      \a ents_a needs the length of this array
 The result of this block is that \a ents will have a good ordering
 */
-static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMeshESH explicitSet,dMeshESH dirichletSet,dMeshESH ghostSet,const MatOrderingType orderingtype,dMeshEH *ents_hack)
+static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMeshESH explicitSet,dMeshESH dirichletSet,dMeshESH ghostSet,const MatOrderingType orderingtype)
 {
   dScalar         weights[256];
   Mat             madj;
@@ -160,7 +160,6 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   free(adj); adj = NULL; adj_a = 0; /* iMesh allocated this memory */
 
   err = dMeshSetAddEnts(mesh,orderedSet,ents,ents_a);dCHK(err);
-  err = dMemcpy(ents_hack,ents,ents_a*sizeof(ents[0]));dCHK(err);
   err = dFree2(ents,intdata);dCHK(err);
   dFunctionReturn(0);
 }
@@ -232,14 +231,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   }
   after_boundaries:
 
-#ifdef dIMESH_ORDERED_SETS_WORK
   err = dMeshPopulateOrderedSet_Private(mesh,fs->orderedSet,fs->explicitSet,fs->dirichletSet,fs->ghostSet,fs->orderingtype);dCHK(err);
   err = dMeshGetEnts(fs->mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
-#else
-  err = dMeshPopulateOrderedSet_Private(mesh,fs->orderedSet,fs->explicitSet,fs->dirichletSet,fs->ghostSet,fs->orderingtype,ents);dCHK(err);
-  ents_s = ents_a;
-#endif
 
   /* Get number of nodes for all entities, and parallel status */
   err = dMallocA5(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&xnodes,ma.nents,&status);dCHK(err);
@@ -277,9 +271,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     dInt i,scan,nentsExplicit,nentsDirichlet;
 
     /* We assume that orderedSet contains explicitSet+dirichletSet+ghostSet (in that order) */
-#ifdef dIMESH_ORDERED_SETS_WORK
     err = dMeshGetEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-#endif
     err = dMeshGetNumEnts(mesh,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
     err = dMeshGetNumEnts(mesh,fs->dirichletSet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
     err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
