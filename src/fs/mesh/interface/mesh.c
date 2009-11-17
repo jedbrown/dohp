@@ -314,7 +314,7 @@ dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot)
 }
 
 /**
-* This function allocates memory for the tag.  It should be freed with PetscFree()
+* This function allocates memory for the tag name.  It should be freed with PetscFree()
 */
 dErr dMeshGetTagName(dMesh mesh,dMeshTag tag,char **name)
 {
@@ -606,15 +606,47 @@ dErr dMeshTagBcast(dMesh m,dMeshTag tag)
   dFunctionReturn(0);
 }
 
-dErr dMeshSetCreate(dMesh mesh,dMeshESH *inset)
+dErr dMeshSetCreate(dMesh mesh,dMeshSetOrdering ordering,dMeshESH *inset)
 {
   dIInt ierr;
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_COOKIE,1);
-  dValidPointer(inset,2);
+  dValidPointer(inset,3);
   *inset = 0;
-  iMesh_createEntSet(mesh->mi,0,inset,&ierr);dICHK(mesh->mi,ierr);
+  iMesh_createEntSet(mesh->mi,ordering,inset,&ierr);dICHK(mesh->mi,ierr);
+  dFunctionReturn(0);
+}
+
+dErr dMeshSetAddEnts(dMesh mesh,dMeshESH set,const dMeshEH *ents,dInt nents)
+{
+  dIInt ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  if (!nents) dFunctionReturn(0);
+  dValidPointer(ents,3);
+  iMesh_addEntArrToSet(mesh->mi,ents,nents,set,&ierr);dICHK(mesh->mi,ierr);
+  dFunctionReturn(0);
+}
+
+dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,dMeshESH *sets,dInt *member)
+{
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(sets,4);
+  dValidPointer(member,5);
+  *member = -1;
+  for (dInt i=0; i<nsets; i++) {
+    dIInt ismember,ierr;
+    iMesh_isEntContained(mesh->mi,sets[i],ent,&ismember,&ierr);dICHK(mesh->mi,ierr);
+    if (ismember) {
+      if (*member >= 0) dERROR(PETSC_ERR_ARG_INCOMP,"sets are not disjoint");
+      *member = i;
+    }
+  }
+  if (*member < 0) dERROR(PETSC_ERR_ARG_INCOMP,"entity missing from all sets");
   dFunctionReturn(0);
 }
 

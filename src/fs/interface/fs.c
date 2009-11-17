@@ -24,11 +24,12 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   err = dMeshTagCreateTemp(mesh,"global_offset",1,dDATA_INT,&fs->goffsetTag);dCHK(err);
   err = dMeshTagCreateTemp(mesh,"local_offset",1,dDATA_INT,&fs->loffsetTag);dCHK(err);
   err = dMeshTagCreate(mesh,"global_closure_offset",1,dDATA_INT,&fs->gcoffsetTag);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->explicitSet);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->dirichletSet);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->ghostSet);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->weakFaceSet);dCHK(err);
-  err = dMeshSetCreate(mesh,&fs->boundaries);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_ORDERED,&fs->orderedSet);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->explicitSet);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->dirichletSet);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->ghostSet);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->weakFaceSet);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->boundaries);dCHK(err);
   dFunctionReturn(0);
 }
 

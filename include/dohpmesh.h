@@ -86,7 +86,7 @@ typedef struct {
 #define dTAG_EMPTYSET          "EMPTYSET"
 #define dTAG_ORDERED_SUBDOMAIN "ORDERED_SUBDOMAIN"
 
-enum dMeshSetOrdering {dMESHSET_UNORDERED = 0,dMESHSET_ORDERED = 1};
+typedef enum {dMESHSET_UNORDERED = 0,dMESHSET_ORDERED = 1} dMeshSetOrdering;
 
 #define dMeshType char *
 #define dMESHPACK   "pack"
@@ -134,7 +134,9 @@ EXTERN dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt
 EXTERN dErr dMeshGetTaggedSet(dMesh,dMeshTag,const void*,dMeshESH*);
 EXTERN dErr dMeshSetFromOptions(dMesh);
 EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
-EXTERN dErr dMeshSetCreate(dMesh,dMeshESH*);
+EXTERN dErr dMeshSetCreate(dMesh,dMeshSetOrdering,dMeshESH*);
+EXTERN dErr dMeshSetAddEnts(dMesh,dMeshESH,const dMeshEH*,dInt);
+EXTERN dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,dMeshESH *sets,dInt *member);
 EXTERN dErr dMeshGetStatus(dMesh,const dMeshEH[],dInt,dEntStatus[]);
 EXTERN dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
 EXTERN dErr dMeshGetAdjacency(dMesh,dMeshESH,dMeshAdjacency*);

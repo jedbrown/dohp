@@ -73,6 +73,98 @@ static dErr dFSContPropogateDegree(dFS fs)
   dFunctionReturn(0);
 }
 
+/** Compute a low-bandwidth ordering of explicit entities here (instead of [v,e,f,r])
+@pre \a ents must point to an array large enough to hold all explicit ents
+     \a ents_a needs the length of this array
+The result of this block is that \a ents will have a good ordering
+*/
+static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMeshESH explicitSet,dMeshESH dirichletSet,dMeshESH ghostSet,const MatOrderingType orderingtype,dMeshEH *ents_hack)
+{
+  dScalar         weights[256];
+  Mat             madj;
+  dTruth          flg;
+  dInt           *nnz,*ordering,ordering_a;
+  const dInt     *newindices;
+  dIInt           adj_a = 0,adj_s,*adjoff=NULL,adjoff_a=0,adjoff_s,ierr,*intdata,ents_s,ents_a,tmp;
+  IS              rperm,cperm;
+  dMeshEH        *ents = NULL,*adj = NULL;
+  dMeshTag        orderTag;
+  dErr            err;
+  iMesh_Instance  mi;
+
+  dFunctionBegin;
+  err = dMeshGetInstance(mesh,&mi);dCHK(err);
+
+  /* Determine number of entities in all sets */
+  err = dMeshGetNumEnts(mesh,explicitSet,dTYPE_ALL,dTOPO_ALL,&ents_s);dCHK(err);
+  ents_a = ents_s;
+  err = dMeshGetNumEnts(mesh,dirichletSet,dTYPE_ALL,dTOPO_ALL,&ents_s);dCHK(err);
+  ents_a += ents_s;
+  err = dMeshGetNumEnts(mesh,ghostSet,dTYPE_ALL,dTOPO_ALL,&ents_s);dCHK(err);
+  ents_a += ents_s;
+  err = dMallocA2(ents_a,&ents,ents_a,&intdata);dCHK(err);
+
+  err = dMeshTagCreateTemp(mesh,"ordering",1,dDATA_INT,&orderTag);dCHK(err);
+
+  /* Get all entities packed into the \a ents array */
+  err = dMeshGetEnts(mesh,explicitSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err); /* ents_s = number of explicit ents */
+  err = dMeshGetEnts(mesh,dirichletSet,dTYPE_ALL,dTOPO_ALL,ents+ents_s,ents_a-ents_s,&tmp);dCHK(err);
+  err = dMeshGetEnts(mesh,ghostSet,dTYPE_ALL,dTOPO_ALL,ents+ents_s+tmp,ents_a-ents_s-tmp,&tmp);dCHK(err);
+  if (tmp != 0) dERROR(PETSC_ERR_LIB,"iMesh returned inconsistent count");
+
+  /* Set default data on all ents, entities retaining this value will not be reordered */
+  for (dInt i=0; i<ents_a; i++) intdata[i] = -1;
+  err = dMeshTagSetData(mesh,orderTag,ents,ents_a,intdata,ents_a,dDATA_INT);dCHK(err);
+
+  /* Get adjacencies of owned explicitly represented entities (not ghosts or dirichlet) */
+  iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_ALL,&adj,&adj_a,&adj_s,&adjoff,&adjoff_a,&adjoff_s,&ierr);dICHK(mi,ierr);
+  if (adj_s < ents_s) dERROR(1,"peculiar mesh");
+  ordering_a = adj_s;
+  err = dMallocA2(ordering_a,&ordering,ents_s,&nnz);dCHK(err); /* enough space for index on all adjacencies */
+  for (dInt i=0; i<ents_s; i++) intdata[i] = i; /* Define a reference ordering on primary entities */
+  err = dMeshTagSetData(mesh,orderTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+
+  err = dMeshTagGetData(mesh,orderTag,adj,adj_s,ordering,ordering_a,dDATA_INT);dCHK(err);
+  err = dMeshTagDestroy(mesh,orderTag);dCHK(err);
+
+  for (dInt i=0; i<ents_s; i++) {
+    dInt cnt = 0;
+    for (dInt j=adjoff[i]; j<adjoff[i+1]; j++) cnt += (ordering[j] >= 0);
+    nnz[i] = cnt;
+  }
+  /* Create matrix for number of owned entities */
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,ents_s,ents_s,0,nnz,&madj);dCHK(err);
+  for (dInt i=0; i<256; i++) weights[i] = 1.0; /* Maybe we should use the topology */
+  for (dInt i=0; i<ents_s; i++) {
+    err = MatSetValues(madj,1,&i,adjoff[i+1]-adjoff[i],ordering+adjoff[i],weights,INSERT_VALUES);dCHK(err);
+  }
+  err = dFree2(ordering,nnz);dCHK(err);
+  free(adjoff); adjoff = NULL; adjoff_a = 0; /* iMesh allocated this memory */
+  err = MatAssemblyBegin(madj,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd  (madj,MAT_FINAL_ASSEMBLY);dCHK(err);
+
+  /* Compute reordering */
+  err = MatGetOrdering(madj,orderingtype,&rperm,&cperm);dCHK(err);
+  err = MatDestroy(madj);dCHK(err);
+  err = ISEqual(rperm,cperm,&flg);dCHK(err);
+  if (!flg) dERROR(1,"Cannot use ordering");
+  err = ISGetIndices(rperm,&newindices);dCHK(err);
+
+  /* Reuse \a adj as a buffer to apply permutation */
+  for (dInt i=0; i<ents_s; i++) adj[i] = ents[i];
+  for (dInt i=0; i<ents_s; i++) ents[i] = adj[newindices[i]];
+
+  err = ISRestoreIndices(rperm,&newindices);dCHK(err);
+  err = ISDestroy(rperm);dCHK(err);
+  err = ISDestroy(cperm);dCHK(err);
+  free(adj); adj = NULL; adj_a = 0; /* iMesh allocated this memory */
+
+  err = dMeshSetAddEnts(mesh,orderedSet,ents,ents_a);dCHK(err);
+  err = dMemcpy(ents_hack,ents,ents_a*sizeof(ents[0]));dCHK(err);
+  err = dFree2(ents,intdata);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /**
 * Build a scalar continuous function space, perhaps with constraints at non-conforming nodes
 *
@@ -87,11 +179,11 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dMesh                  mesh;
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
-  dInt                  *inodes,*xnodes,*deg,*rdeg,nregions,*bstat,ents_a,ents_s,*intdata,*idx,*ghidx;
+  dInt                  *inodes,*xnodes,*deg,*rdeg,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
   dInt                  *xstart,xcnt,*regRDeg,*regBDeg;
   dInt                   bs,n,ngh,ndirichlet,nc,rstart,crstart;
   dIInt                  ierr;
-  dMeshEH               *ents;
+  dMeshEH               *ents,*ghents;
   dEntStatus            *status;
   dErr                   err;
 
@@ -140,6 +232,15 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   }
   after_boundaries:
 
+#ifdef dIMESH_ORDERED_SETS_WORK
+  err = dMeshPopulateOrderedSet_Private(mesh,fs->orderedSet,fs->explicitSet,fs->dirichletSet,fs->ghostSet,fs->orderingtype);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
+#else
+  err = dMeshPopulateOrderedSet_Private(mesh,fs->orderedSet,fs->explicitSet,fs->dirichletSet,fs->ghostSet,fs->orderingtype,ents);dCHK(err);
+  ents_s = ents_a;
+#endif
+
   /* Get number of nodes for all entities, and parallel status */
   err = dMallocA5(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&xnodes,ma.nents,&status);dCHK(err);
   err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,3*ma.nents,dDATA_INT);dCHK(err);
@@ -152,14 +253,15 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   /* Count the number of nodes in each space (explicit, dirichlet, ghost) */
   n = ndirichlet = ngh = 0;
   for (int i=0; i<ma.nents; i++) {
-    dIInt isexplicit,isdirichlet,isghost;
-    iMesh_isEntContained(mi,fs->explicitSet,ma.ents[i],&isexplicit,&ierr);dICHK(mi,ierr);
-    iMesh_isEntContained(mi,fs->dirichletSet,ma.ents[i],&isdirichlet,&ierr);dICHK(mi,ierr);
-    iMesh_isEntContained(mi,fs->ghostSet,ma.ents[i],&isghost,&ierr);dICHK(mi,ierr);
-    if (!!isexplicit + !!isdirichlet + !!isghost != 1) dERROR(1,"should not happen");
-    if (isexplicit)       n          += inodes[i];
-    else if (isdirichlet) ndirichlet += inodes[i];
-    else if (isghost)     ngh        += inodes[i];
+    dInt member;
+    dMeshESH exclusive_sets[] = {fs->explicitSet,fs->dirichletSet,fs->ghostSet};
+    err = dMeshEntClassifyExclusive(mesh,ma.ents[i],3,exclusive_sets,&member);dCHK(err);
+    switch (member) {
+      case 0: n          += inodes[i]; break;
+      case 1: ndirichlet += inodes[i]; break;
+      case 2: ngh        += inodes[i]; break;
+      default: dERROR(PETSC_ERR_PLIB,"Should not be possible");
+    }
   }
   err = MPI_Scan(&n,&rstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
   rstart -= n;
@@ -171,127 +273,54 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   fs->nc = nc;
   fs->ngh = ngh;
 
-  /* compute a low-bandwidth ordering of explicit entities here (instead of [v,e,f,r]) */
-  {                             /* The result of this block is that \a ents will be reordered */
-    dScalar   weights[256];
-    Mat       madj;
-    dTruth    flg;
-    dInt     *nnz,*ordering,ordering_a;
-    const dInt *newindices;
-    dIInt     adj_a = 0,adj_s,*adjoff=NULL,adjoff_a=0,adjoff_s;
-    IS        rperm,cperm;
-    dMeshEH  *adj   = NULL;
-    dMeshTag  orderTag;
-
-    /* Get owned entities and adjacencies */
-    iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_ALL,&adj,&adj_a,&adj_s,&adjoff,&adjoff_a,&adjoff_s,&ierr);dICHK(mi,ierr);
-    if (adj_s < ents_s) dERROR(1,"peculiar mesh");
-    ordering_a = adj_s;
-    err = dMallocA2(ordering_a,&ordering,ents_s,&nnz);dCHK(err); /* enough space for index on all adjacencies */
-    err = dMeshTagCreateTemp(mesh,"ordering",1,dDATA_INT,&orderTag);dCHK(err);
-    /* Set default data on all ents, these entries will be discarded from matrix */
-    for (dInt i=0; i<ma.nents; i++) intdata[i] = -1;
-    err = dMeshTagSetData(fs->mesh,orderTag,ma.ents,ma.nents,intdata,ma.nents,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) intdata[i] = i; /* Define a reference ordering on primary entities */
-    err = dMeshTagSetData(fs->mesh,orderTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err); /* values in \a intdata are not important after here */
-    err = dMeshTagGetData(mesh,orderTag,adj,adj_s,ordering,ordering_a,dDATA_INT);dCHK(err);
-    err = dMeshTagDestroy(mesh,orderTag);dCHK(err);
-
-    for (dInt i=0; i<ents_s; i++) {
-      dInt cnt = 0;
-      for (dInt j=adjoff[i]; j<adjoff[i+1]; j++) cnt += (ordering[j] >= 0);
-      nnz[i] = cnt;
-    }
-    /* Create matrix for number of owned entities */
-    err = MatCreateSeqAIJ(comm,ents_s,ents_s,0,nnz,&madj);dCHK(err);
-    for (dInt i=0; i<256; i++) weights[i] = 1.0; /* Maybe we should use the topology */
-    for (dInt i=0; i<ents_s; i++) {
-      err = MatSetValues(madj,1,&i,adjoff[i+1]-adjoff[i],ordering+adjoff[i],weights,INSERT_VALUES);dCHK(err);
-    }
-    err = dFree2(ordering,nnz);dCHK(err);
-    free(adjoff); adjoff = NULL; adjoff_a = 0; /* iMesh allocated this memory */
-    err = MatAssemblyBegin(madj,MAT_FINAL_ASSEMBLY);dCHK(err);
-    err = MatAssemblyEnd  (madj,MAT_FINAL_ASSEMBLY);dCHK(err);
-
-    /* Compute reordering */
-    err = MatGetOrdering(madj,fs->orderingtype,&rperm,&cperm);dCHK(err);
-    err = MatDestroy(madj);dCHK(err);
-    err = ISEqual(rperm,cperm,&flg);dCHK(err);
-    if (!flg) dERROR(1,"Cannot use ordering");
-    err = ISGetIndices(rperm,&newindices);dCHK(err);
-
-    /* Reuse \a adj as a buffer to apply permutation */
-    for (dInt i=0; i<ents_s; i++) adj[i] = ents[i];
-    for (dInt i=0; i<ents_s; i++) ents[i] = adj[newindices[i]];
-
-    err = ISRestoreIndices(rperm,&newindices);dCHK(err);
-    err = ISDestroy(rperm);dCHK(err);
-    err = ISDestroy(cperm);dCHK(err);
-    free(adj); adj = NULL; adj_a = 0; /* iMesh allocated this memory */
-  }
-
-  {                             /* Make an ordered local set and apply tag */
-    /* This is used primarily for reading */
-    dMeshESH set;
-    dMeshTag tag;
-    dMPIInt rank;
-    iMesh_createTag(mi,dTAG_ORDERED_SUBDOMAIN,1,iBase_INTEGER,&tag,&ierr,sizeof(dTAG_ORDERED_SUBDOMAIN));dICHK(mi,ierr);
-    iMesh_createEntSet(mi,dMESHSET_ORDERED,&set,&ierr);dICHK(mi,ierr);
-    iMesh_addEntArrToSet(mi,ents,ents_s,set,&ierr);dICHK(mi,ierr);
-    err = MPI_Comm_rank(comm,&rank);dCHK(err);
-    iMesh_setEntSetIntData(mi,set,tag,rank,&ierr);dICHK(mi,ierr);
-  }
-
   {                             /* Set offsets (global, closure, local) of first node associated with every entity */
-    dInt g=rstart,gc=crstart,l=0;
-    /* explicit */
+    dInt i,scan,nentsExplicit,nentsDirichlet;
+
+    /* We assume that orderedSet contains explicitSet+dirichletSet+ghostSet (in that order) */
+#ifdef dIMESH_ORDERED_SETS_WORK
+    err = dMeshGetEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+#endif
+    err = dMeshGetNumEnts(mesh,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
+    err = dMeshGetNumEnts(mesh,fs->dirichletSet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
     err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; g+=inodes[idx[i++]]) intdata[i] = g; /* fill \a intdata with the global offset */
-    if (g - rstart != n) dERROR(1,"Dohp Error: g does not agree with rstart");
+
+    /* global offset */
+    for (i=0,scan=rstart; i<nentsExplicit; scan+=inodes[idx[i++]])
+      intdata[i] = scan; /* fill \a intdata with the global offset */
+    for ( ; i<ents_s; i++) intdata[i] = -1;
     err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; gc+=inodes[idx[i++]]) intdata[i] = gc; /* fill \a intdata with the closure offset */
-    if (gc - crstart != n) dERROR(1,"Dohp Error: gc does not agree with crstart");
+
+    /* global closure offset */
+    for (i=0,scan=crstart; i<nentsExplicit+nentsDirichlet; scan+=inodes[idx[i++]])
+      intdata[i] = scan;
+    for ( ; i<ents_s; i++) intdata[i] = -1;
     err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
+
+    /* local index */
+    for (i=0,scan=0; i<ents_s; scan+=inodes[idx[i++]])
+      intdata[i] = scan;
     err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
 
-    /* dirichlet */
-    iMesh_getEntitiesRec(mi,fs->dirichletSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) intdata[i] = -1; /* mark global offset invalid */
-    err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; gc+=inodes[idx[i++]]) intdata[i] = gc; /* fill \a intdata with closure offset */
-    if (gc - crstart != nc) dERROR(1,"Dohp Error: closure count is incorrect");
-    err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-
-    /* ghost */
-    iMesh_getEntitiesRec(mi,fs->ghostSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; i++) intdata[i] = -1; /* mark global and closure offset as invalid */
-    err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    for (dInt i=0; i<ents_s; l+=inodes[idx[i++]]) intdata[i] = l; /* fill \a intdata with local offset */
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-    if (l != n + ndirichlet + ngh) dERROR(1,"Dohp Error: local count is incorrect");
+    /* Set a pointer to the ghost portion, we will work with that next */
+    ghents   = ents + nentsExplicit + nentsDirichlet;
+    ghents_s = ents_s - nentsExplicit - nentsDirichlet;
   }
+
 
   /* communicate global and closure offset for ghosts */
   err = dMeshTagBcast(mesh,fs->goffsetTag);dCHK(err);
   err = dMeshTagBcast(mesh,fs->gcoffsetTag);dCHK(err);
 
-  /* Retrieve ghost offsets, to create localupdate.  Note that \a ents still holds the ghost ents. */
-  err = dMeshTagGetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-  for (dInt i=0; i<ents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
+  /* Retrieve ghost offsets, to create localupdate. */
+  err = dMeshTagGetData(mesh,fs->gcoffsetTag,ghents,ghents_s,intdata,ghents_s,dDATA_INT);dCHK(err);
+  for (dInt i=0; i<ghents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
     if (intdata[i] < 0) dERROR(1,"Tag exchange did not work");
   }
 
-  /* Set ghost indices of every node using \a ghidx, create global vector.  Note that \a ents still holds ghosts. */
+  /* Set ghost indices of every node using \a ghidx, create global vector. */
   {
     dInt gh=0;
-    for (dInt i=0; i<ents_s; i++) {
+    for (dInt i=0; i<ghents_s; i++) {
       for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
     }
     if (gh != fs->ngh) dERROR(1,"Ghost count inconsistent");

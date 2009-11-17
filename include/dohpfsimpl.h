@@ -72,9 +72,10 @@ struct _p_dFS {
   dMeshTag     goffsetTag;      /**< Offset of first node in global vector */
   dMeshTag     gcoffsetTag;     /**< Offset of first node in global closure vector */
   dMeshTag     loffsetTag;      /**< Offset of first node in local vector (split to include both real and Dirichlet vectors, based on dsplit) */
-  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first part, closure is first two, local is whole thing.
-  * The sets allow us to work with pieces. */
-  dMeshESH     explicitSet,dirichletSet,ghostSet;
+  dMeshESH     orderedSet;      /**< All entities in local space, ordered as they are used in the computation */
+  dMeshESH     explicitSet,dirichletSet,ghostSet;  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first
+                                                   * part, closure is first two, local is whole thing.  The sets allow
+                                                   * us to work with pieces. */
   dMeshESH     weakFaceSet;     /**< Faces on which weak forms need to be evaluated (I'm not sure this is actually needed) */
   Mat          E;               /**< full-order element assembly matrix (element nodes to local numbering) */
   Mat          Ep;              /**< preconditioning element assembly matrix (element nodes to local numbering, as sparse as possible) */
