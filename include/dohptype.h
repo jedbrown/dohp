@@ -208,22 +208,22 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 # define dFree7(a,b,c,d,e,f,g) (dFree(a) || dFree(b) || dFree(c) || dFree(d) || dFree(e) || dFree(f) || dFree(g))
 #else
 # define dMallocA2(n0,p0,n1,p1)                                         \
-  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+dDEFAULT_ALIGN,(p0)) \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(dDEFAULT_ALIGN-1),(p0)) \
    || (*(p1) = dNextAligned(*(p0)+(n0)),0))
 # define dMallocA3(n0,p0,n1,p1,n2,p2)                                   \
-  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+2*dDEFAULT_ALIGN,(p0)) \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+2*(dDEFAULT_ALIGN-1),(p0)) \
    || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),0))
 # define dMallocA4(n0,p0,n1,p1,n2,p2,n3,p3)                             \
-  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+3*dDEFAULT_ALIGN,(p0)) \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+3*(dDEFAULT_ALIGN-1),(p0)) \
    || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),0))
 # define dMallocA5(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4)                       \
-  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+4*dDEFAULT_ALIGN,(p0)) \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+4*(dDEFAULT_ALIGN-1),(p0)) \
    || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),*(p4) = dNextAligned(*(p3)+(n3)),0))
 # define dMallocA6(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5)                 \
-  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+(n5)*sizeof(**(p5))+5*dDEFAULT_ALIGN,(p0)) \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+(n5)*sizeof(**(p5))+5*(dDEFAULT_ALIGN-1),(p0)) \
    || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),*(p4) = dNextAligned(*(p3)+(n3)),*(p5) = dNextAligned(*(p4)+(n4)),0))
 # define dMallocA7(n0,p0,n1,p1,n2,p2,n3,p3,n4,p4,n5,p5,n6,p6)             \
-  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+(n5)*sizeof(**(p5))+(n6)*sizeof(**(p6))+6*dDEFAULT_ALIGN,(p0)) \
+  (dMalloc((n0)*sizeof(**(p0))+(n1)*sizeof(**(p1))+(n2)*sizeof(**(p2))+(n3)*sizeof(**(p3))+(n4)*sizeof(**(p4))+(n5)*sizeof(**(p5))+(n6)*sizeof(**(p6))+6*(dDEFAULT_ALIGN-1),(p0)) \
    || (*(p1) = dNextAligned(*(p0)+(n0)),*(p2) = dNextAligned(*(p1)+(n1)),*(p3) = dNextAligned(*(p2)+(n2)),*(p4) = dNextAligned(*(p3)+(n3)),*(p5) = dNextAligned(*(p4)+(n4)),*(p6) = dNextAligned(*(p5)+(n5)),0))
 # define dFree2(a,b) dFree(a)
 # define dFree3(a,b,c) dFree(a)
