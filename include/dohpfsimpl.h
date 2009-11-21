@@ -37,8 +37,8 @@ struct _dFSOps {
   DMOPS(dFS)
   dErr (*impldestroy)(dFS);
   dErr (*buildspace)(dFS);
-  dErr (*getsubelementmeshsize)(dFS,dInt*,dInt*);
-  dErr (*getsubelementmesh)(dFS,dInt,dInt,dInt[],dInt[],dInt[]);
+  dErr (*getsubelementmeshsize)(dFS,dInt*,dInt*,dInt*);
+  dErr (*getsubelementmesh)(dFS,dInt,dInt,dEntTopology[],dInt[],dInt[]);
 };
 
 #define dFS_MAX_WORKSPACES 64

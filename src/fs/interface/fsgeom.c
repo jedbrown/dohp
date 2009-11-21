@@ -88,7 +88,7 @@ dErr dFSGetGeometryVector(dFS dUNUSED fs,Vec *ingeom)
 *
 * @note the number of vertices is the same as the number of local nodes in closure vertor.
 **/
-dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts)
+dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts,dInt *nconn)
 {
   dErr err;
 
@@ -96,8 +96,9 @@ dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts)
   dValidHeader(fs,DM_COOKIE,1);
   dValidIntPointer(nelems,2);
   dValidIntPointer(nverts,3);
+  dValidIntPointer(nconn,4);
   if (!fs->ops->getsubelementmeshsize) dERROR(1,"not implemented");
-  err = (*fs->ops->getsubelementmeshsize)(fs,nelems,nverts);dCHK(err);
+  err = (*fs->ops->getsubelementmeshsize)(fs,nelems,nverts,nconn);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -105,7 +106,7 @@ dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts)
 *
 * @note the number of vertices is the same as the number of local nodes in closure vertor.
 **/
-dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dInt topo[],dInt off[],dInt ind[])
+dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dEntTopology topo[],dInt off[],dInt ind[])
 {
   dErr err;
 

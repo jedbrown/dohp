@@ -5,7 +5,7 @@
 * @author Jed Brown <jed@59A2.org>
 * @date   Fri Aug 22 19:40:10 2008
 *
-* @brief  Interface to dJacobi, dBasis, and dRule.
+* @brief  Interface to dJacobi, dEFS, and dRule.
 *
 * The purpose of these objects is to abstract the generation of basis functions.  dJacobi serves as a cache and
 * lookup table for quadrature rules and Basis operations (derivatives and basis evalution).  The implementation may also

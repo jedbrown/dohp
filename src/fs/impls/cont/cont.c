@@ -466,7 +466,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dFunctionReturn(0);
 }
 
-static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert)
+static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *nconn)
 {
   /* dFS_Cont *cont = fs->data; */
   dErr err;
@@ -493,19 +493,63 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert)
   err = VecDohpRestoreClosure(fs->gvec,&X);dCHK(err);
   *nelem = nsub;
   *nvert = n/fs->bs;
+  *nconn = nsub*8;              /* all hex */
   dFunctionReturn(0);
 }
 
-static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nelems,dInt nverts,dInt topo[],dInt off[],dInt ind[])
+static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTopology subtopo[],dInt suboff[],dInt subind[])
 {
-  dErr err;
-  dMeshAdjacency ma;
+  dErr       err;
+  s_dEFS     *efs;
+  dReal (*nx)[3],(*geom)[3];
+  dInt       n,sub,subc,*off,*geomoff,nnodes,*ai,*aj;
+  dTruth     done;
 
   dFunctionBegin;
-  err = dMeshGetAdjacency(fs->mesh,fs->activeSet,&ma);dCHK(err);
-  err = dMemzero(topo,sizeof(*topo)*nelems);dCHK(err);
-  err = dMemzero(off,sizeof(*off)*nelems);dCHK(err);
-  err = dMemzero(ind,sizeof(*ind)*nverts);dCHK(err);
+  err = dMemzero(subtopo,sizeof(*subtopo)*nsubelems);dCHK(err);
+  err = dMemzero(suboff,sizeof(*suboff)*(nsubelems+1));dCHK(err);
+  err = dMemzero(subind,sizeof(*subind)*nsubconn);dCHK(err);
+
+  err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnodes,&ai,&aj,&done);dCHK(err);
+  if (!done) dERROR(PETSC_ERR_PLIB,"Element assembly matrix not gotten");
+  /*
+  In the following, we have to get a bit more than we actually need (topology only).  We'll change the interface if it
+  becomes a performance issue.
+  */
+  err = dFSGetElements(fs,&n,&off,0,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err); /* space for nodal coordinates (which we won't use) */
+  sub = subc = 0;
+  for (dInt e=0; e<n; e++) {
+    dInt three,P[3];
+    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    dASSERT(three == 3);
+    for (dInt i=0; i<P[0]-1; i++) {
+      for (dInt j=0; j<P[1]-1; j++) {
+        for (dInt k=0; k<P[2]-1; k++,sub++) {
+          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
+          dReal no_warn_unused;           /* \a corners is unused, but I don't want to see a warning about it until I get around */
+          no_warn_unused = corners[0][0]; /* to finding a replacement for dQ1CORNER_CONST_DECLARE. */
+          subtopo[sub] = dTOPO_HEX;
+          suboff[sub] = subc;
+          for (dInt l=0; l<8; l++,subc++) {
+            dASSERT(0 <= rowcol[l] && rowcol[l] < nnodes);
+            subind[subc] = aj[ai[rowcol[l]]];
+#if defined dUSE_DEBUG
+            if (ai[rowcol[l]+1]-ai[rowcol[l]] != 1) dERROR(PETSC_ERR_SUP,"Element assembly matrix is not boolean");
+            if (subc >= nsubconn) dERROR(1,"Insufficient preallocation for connectivity");
+#endif
+          }
+        }
+      }
+    }
+  }
+  dASSERT(subc == nsubconn);
+  suboff[nsubelems] = subc;
+
+  err = dFSRestoreElements(fs,&n,&off,0,0,0,0);dCHK(err);
+  err = dFSRestoreWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err);
+  err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&n,&ai,&aj,&done);dCHK(err);
+  if (!done) dERROR(PETSC_ERR_PLIB,"Element assembly matrix not restored");
   dFunctionReturn(0);
 }
 
