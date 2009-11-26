@@ -3,7 +3,6 @@
 #include "cont.h"
 #include "../../../viewer/dhm.h"
 
-EXTERN dErr dFSView_Cont_DHM(dFS,dViewer);
 EXTERN dErr VecView_Dohp_FSCont(Vec,dViewer);
 
 /** Get data set and space to write the next element for this FS
@@ -186,7 +185,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
       /* Initialize data vecatt[0] */
       herr = H5Rcreate(&vecatt[0].fs,dhm->file,fsname,H5R_DATASET_REGION,fsspace);dH5CHK(herr,H5Rcreate);
       vecatt[0].time = dhm->time;
-      err = PetscObjectStateQuery((PetscObject)viewer,&vecatt[0].state);dCHK(err);
+      err = PetscObjectStateQuery((PetscObject)X,&vecatt[0].internal_state);dCHK(err);
       /* Write attribute */
       aspace = H5Screate_simple(1,dims,NULL);dH5CHK(aspace,H5Screate_simple);
       attr = H5Acreate(dset,"meta",vectype,aspace,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(attr,H5Acreate);
@@ -223,5 +222,38 @@ dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
   } else {
     dERROR(1,"not implemented");
   }
+  dFunctionReturn(0);
+}
+
+dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
+{
+  dViewer_DHM *dhm = viewer->data;
+  dErr        err;
+  hid_t       curstep,vectype,fstype,vdset,vattr,fsobj;
+  herr_t      herr;
+  dht_Vec     vecmeta;
+  //dht_FS      fsmeta;
+
+  dFunctionBegin;
+  err = dViewerDHMSetUp(viewer);dCHK(err);
+  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
+  err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
+
+  vdset = H5Dopen(curstep,fieldname,H5P_DEFAULT);dH5CHK(vdset,H5Dopen);
+  vattr = H5Aopen(vdset,"meta",H5P_DEFAULT);dH5CHK(vattr,H5Aopen);
+  herr = H5Aread(vattr,vectype,&vecmeta);dH5CHK(herr,H5Aread);
+  herr = H5Aclose(vattr);dH5CHK(herr,H5Aclose);
+
+  err = dPrintf(PETSC_COMM_SELF,"Vec name '%s'  time %g  internal_state %d\n",fieldname,vecmeta.time,vecmeta.internal_state);dCHK(err);
+
+  fsobj = H5Rdereference(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(fsobj,H5Rdereference);
+  {
+    char fsobjname[256];
+    ssize_t len;
+    len = H5Iget_name(fsobj,fsobjname,sizeof fsobjname);dH5CHK(len,H5Iget_name);
+    err = dPrintf(PETSC_COMM_SELF,"fsobj name '%s'\n",len?fsobjname:"(no name)");dCHK(err);
+  }
+  herr = H5Oclose(fsobj);dH5CHK(herr,H5Oclose);
+  herr = H5Dclose(vdset);dH5CHK(herr,H5Dclose);
   dFunctionReturn(0);
 }

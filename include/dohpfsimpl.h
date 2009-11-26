@@ -39,6 +39,7 @@ struct _dFSOps {
   dErr (*buildspace)(dFS);
   dErr (*getsubelementmeshsize)(dFS,dInt*,dInt*,dInt*);
   dErr (*getsubelementmesh)(dFS,dInt,dInt,dEntTopology[],dInt[],dInt[]);
+  dErr (*loadintofs)(PetscViewer,const char[],dFS);
 };
 
 #define dFS_MAX_WORKSPACES 64

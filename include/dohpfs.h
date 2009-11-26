@@ -78,6 +78,7 @@ EXTERN dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dI
 
 EXTERN dErr dFSDestroy(dFS);
 EXTERN dErr dFSView(dFS,PetscViewer);
+EXTERN dErr dFSLoadIntoFS(PetscViewer,const char[],dFS);
 #define dFSRegisterDynamic(a,b,c,d) dFSRegister(a,b,c,d)
 EXTERN dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
 EXTERN dErr dFSRegisterAll(const char[]);

@@ -194,6 +194,22 @@ dErr dFSView(dFS fs,dViewer viewer)
   dFunctionReturn(0);
 }
 
+/**
+Load the FS associated with a named field at the current time step
+**/
+dErr dFSLoadIntoFS(PetscViewer viewer,const char fieldname[],dFS fs)
+{
+  dErr              err;
+
+  dFunctionBegin;
+  dValidHeader(viewer,PETSC_VIEWER_COOKIE,1);
+  dValidCharPointer(fieldname,2);
+  dValidHeader(fs,DM_COOKIE,3);
+  if (!fs->ops->loadintofs) dERROR(PETSC_ERR_SUP,"FS does not support load");
+  err = (*fs->ops->loadintofs)(viewer,fieldname,fs);dCHK(err);
+  dFunctionReturn(0);
+}
+
 dErr dFSDestroy(dFS fs)
 {
   dErr err;

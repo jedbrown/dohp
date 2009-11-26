@@ -8,8 +8,15 @@
 
 PETSC_EXTERN_CXX_BEGIN
 
+/* For writing */
 EXTERN dErr dViewerDHMSetTime(PetscViewer,dReal);
 EXTERN dErr dViewerDHMSetTimeUnits(PetscViewer,const char*,dReal);
+
+/* For reading */
+EXTERN dErr dViewerDHMSetTimeStep(PetscViewer,dInt);
+EXTERN dErr dViewerDHMGetSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
+EXTERN dErr dViewerDHMRestoreSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
+
 EXTERN dErr dViewerRegisterAll(const char*);
 
 PETSC_EXTERN_CXX_END

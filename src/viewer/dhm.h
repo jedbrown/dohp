@@ -50,6 +50,9 @@ typedef struct {
   dReal          timescale;
   dInt           stepnumber;
   hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec,h5t_units;
+
+  /* For reading */
+  dInt totalsteps;
 } dViewer_DHM;
 
 extern dErr dViewerDHMSetUp(dViewer);
@@ -88,7 +91,7 @@ typedef struct {
 typedef struct {
   hdset_reg_ref_t fs;
   dReal           time;
-  dInt            state;
+  dInt            internal_state;
 } dht_Vec;
 
 #endif

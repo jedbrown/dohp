@@ -88,23 +88,26 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
 int main(int argc,char *argv[])
 {
   MPI_Comm comm;
-  FSEx4   ex4;
-  dFS     fs;
-  dErr    err;
-  dMesh   mesh;
-  dViewer viewer;
-  dJacobi jac;
+  FSEx4    ex4;
+  dFS      fs;
+  dErr     err;
+  dMesh    mesh;
+  dViewer  viewer;
+  dJacobi  jac;
   dMeshTag rtag,dtag;
-  Vec     X;
+  dTruth   read;
+  Vec      X;
 
   err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   err = dCalloc(sizeof(struct _n_FSEx4),&ex4);dCHK(err);
   ex4->rdeg = 4;
   ex4->bdeg = 4;
+  read      = dFALSE;
   err = PetscOptionsBegin(comm,NULL,"FS-Ex4 Options","");dCHK(err);
   {
     err = PetscOptionsInt("-bdeg","Number of nodes per element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
+    err = PetscOptionsTruth("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
   }
   err = PetscOptionsEnd();dCHK(err);
   err = FSEx4CreateMesh(comm,&mesh);dCHK(err);
@@ -121,10 +124,11 @@ int main(int argc,char *argv[])
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
   err = dFSCreateGlobalVector(fs,&X);dCHK(err);
+  err = PetscObjectSetName((PetscObject)X,"my_vec");dCHK(err);
 
   err = PetscViewerCreate(comm,&viewer);dCHK(err);
   err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
-  err = PetscViewerFileSetName(viewer,"fs-ex4.dhm");dCHK(err);
+  err = PetscViewerFileSetName(viewer,"fsex4.dhm");dCHK(err);
   err = PetscViewerFileSetMode(viewer,FILE_MODE_WRITE);dCHK(err);
   err = dViewerDHMSetTimeUnits(viewer,"hour",PETSC_PI*1e7/3600);dCHK(err);
   err = dViewerDHMSetTime(viewer,0.1);dCHK(err);
@@ -137,6 +141,33 @@ int main(int argc,char *argv[])
   err = dJacobiDestroy(jac);dCHK(err);
   err = dFSDestroy(fs);dCHK(err);
   err = dMeshDestroy(mesh);dCHK(err);
+
+  if (read) {
+    PetscMPIInt rank;
+    dInt nsteps;
+    dReal *steptimes;
+    err = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);dCHK(err);
+    err = PetscViewerCreate(PETSC_COMM_SELF,&viewer);dCHK(err);
+    err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
+    err = PetscViewerFileSetName(viewer,"fsex4.dhm");dCHK(err);
+    err = PetscViewerFileSetMode(viewer,FILE_MODE_READ);dCHK(err);
+    err = dViewerDHMGetSteps(viewer,&nsteps,&steptimes);dCHK(err);
+    err = dPrintf(PETSC_COMM_SELF,"[%d] DHM has %d steps available\n",rank,nsteps);dCHK(err);
+    for (dInt i=0; i<nsteps; i++) {
+      err = dPrintf(PETSC_COMM_SELF,"[%d] step %d  time %g\n",rank,i,steptimes[i]);dCHK(err);
+    }
+    err = dViewerDHMSetTimeStep(viewer,0);dCHK(err);
+    err = dFSCreate(PETSC_COMM_SELF,&fs);dCHK(err);
+    err = dFSSetType(fs,dFSCONT);dCHK(err);
+    err = dFSLoadIntoFS(viewer,"my_vec",fs);dCHK(err);
+
+    err = FSEx4CheckSubMesh(ex4,fs);dCHK(err);
+
+    err = dViewerDHMRestoreSteps(viewer,&nsteps,&steptimes);dCHK(err);
+    err = dFSDestroy(fs);dCHK(err);
+    err = PetscViewerDestroy(viewer);dCHK(err);
+  }
+
   err = dFree(ex4);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;

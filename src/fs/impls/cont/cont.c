@@ -3,8 +3,6 @@
 #include <dohpvec.h>
 #include <dohpviewer.h>
 
-EXTERN dErr dFSView_Cont_DHM(dFS,dViewer);
-
 static dErr dFSView_Cont(dFS fs,dViewer viewer)
 {
   dBool ascii,dhm;
@@ -20,6 +18,20 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
   }
   dFunctionReturn(0);
 }
+
+static dErr dFSLoadIntoFS_Cont(dViewer viewer,const char fieldname[],dFS fs)
+{
+  dBool isdhm;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
+  if (isdhm) {
+    err = dFSLoadIntoFS_Cont_DHM(viewer,fieldname,fs);dCHK(err);
+  } else dERROR(PETSC_ERR_SUP,"No support for viewer type \"%s\"",((PetscObject)viewer)->type_name);
+  dFunctionReturn(0);
+}
+
 
 /**
 * Calculate the sizes of the global and local vectors, create scatter contexts.  Assemble the constraint matrix for
@@ -578,5 +590,6 @@ dErr dFSCreate_Cont(dFS fs)
   fs->ops->buildspace            = dFSBuildSpace_Cont;
   fs->ops->getsubelementmeshsize = dFSGetSubElementMeshSize_Cont;
   fs->ops->getsubelementmesh     = dFSGetSubElementMesh_Cont;
+  fs->ops->loadintofs            = dFSLoadIntoFS_Cont;
   dFunctionReturn(0);
 }
