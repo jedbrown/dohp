@@ -30,6 +30,8 @@ dErr VecDohpGetClosure(Vec v,Vec *c)
   dErr     err;
 
   dFunctionBegin;
+  dValidHeader(v,VEC_COOKIE,1);
+  dValidPointer(c,2);
   err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(1,"Vector type %s does not have closure",((dObject)v)->type_name);
   vmpi = v->data;
@@ -42,9 +44,14 @@ dErr VecDohpGetClosure(Vec v,Vec *c)
 
 dErr VecDohpRestoreClosure(Vec v,Vec *c)
 {
-  dErr err;
+  dErr   err;
+  dTruth isdohp;
 
   dFunctionBegin;
+  dValidHeader(v,VEC_COOKIE,1);
+  dValidPointer(c,2);
+  err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
+  if (!isdohp) dERROR(1,"Vector type %s does not have closure",((dObject)v)->type_name);
   if (*c != ((Vec_MPI*)v->data)->localrep) dERROR(1,"attempting to restore incorrect closure");
   err = VecStateSync_Private(v,*c);dCHK(err);
   err = PetscObjectDereference((dObject)*c);dCHK(err);
