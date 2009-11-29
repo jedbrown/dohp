@@ -244,6 +244,21 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   after_boundaries:
 
   err = dMeshPopulateOrderedSet_Private(mesh,fs->orderedSet,fs->explicitSet,fs->dirichletSet,fs->ghostSet,fs->orderingtype);dCHK(err);
+  {
+    char strbuf[dNAME_LEN];
+    const char *fsname;
+    PetscMPIInt mpirank;
+    dInt rank;
+    err = MPI_Comm_rank(((dObject)fs)->comm,&mpirank);dCHK(err);
+    rank = mpirank;
+    err = PetscObjectGetName((PetscObject)fs,&fsname);dCHK(err);
+    err = PetscSNPrintf(strbuf,sizeof strbuf,"%s_%s",fsname,dTAG_PARTITION);dCHK(err);
+    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->partitionTag);dCHK(err);
+    err = dMeshTagSSetData(mesh,fs->partitionTag,&fs->activeSet,1,&rank,1,dDATA_INT);dCHK(err);
+    err = PetscSNPrintf(strbuf,sizeof strbuf,"%s_%s",fsname,dTAG_ORDERED_SUBDOMAIN);dCHK(err);
+    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->orderedsubTag);dCHK(err);
+    err = dMeshTagSSetData(mesh,fs->orderedsubTag,&fs->orderedSet,1,&rank,1,dDATA_INT);dCHK(err);
+  }
   err = dMeshGetEnts(fs->mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
 

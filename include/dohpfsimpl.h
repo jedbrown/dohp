@@ -73,6 +73,8 @@ struct _p_dFS {
   dMeshTag     goffsetTag;      /**< Offset of first node in global vector */
   dMeshTag     gcoffsetTag;     /**< Offset of first node in global closure vector */
   dMeshTag     loffsetTag;      /**< Offset of first node in local vector (split to include both real and Dirichlet vectors, based on dsplit) */
+  dMeshTag     partitionTag;    /**< Part number of activeSet */
+  dMeshTag     orderedsubTag;   /**< Part number of ordered set */
   dMeshESH     orderedSet;      /**< All entities in local space, ordered as they are used in the computation */
   dMeshESH     explicitSet,dirichletSet,ghostSet;  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first
                                                    * part, closure is first two, local is whole thing.  The sets allow

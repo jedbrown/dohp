@@ -94,8 +94,8 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     err = dViewerDHMGetFSType(viewer,&h5t_fs);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->degreetag,&fs5.degree);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->gcoffsetTag,&fs5.global_offset);dCHK(err);
-    err = PetscStrallocpy("mock_partition",&fs5.partition);dCHK(err);
-    err = PetscStrallocpy(dTAG_ORDERED_SUBDOMAIN,&fs5.ordered_subdomain);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->partitionTag,&fs5.partition);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->orderedsubTag,&fs5.ordered_subdomain);dCHK(err);
     herr = H5Rcreate(&fs5.mesh,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
     fs5.time = dhm->time;
     err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);

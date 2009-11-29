@@ -85,6 +85,7 @@ typedef struct {
 #define dTAG_SENSE             "SENSE"
 #define dTAG_EMPTYSET          "EMPTYSET"
 #define dTAG_ORDERED_SUBDOMAIN "ORDERED_SUBDOMAIN"
+#define dTAG_PARTITION         "PARALLEL_PARTITION"
 
 typedef enum {dMESHSET_UNORDERED = 0,dMESHSET_ORDERED = 1} dMeshSetOrdering;
 
