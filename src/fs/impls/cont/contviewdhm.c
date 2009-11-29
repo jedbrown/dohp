@@ -75,14 +75,29 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     meshgrp = H5Gopen(dhm->meshroot,meshname,H5P_DEFAULT);dH5CHK(meshgrp,H5Gopen);
   }
   err = PetscSNPrintf(mstatestr,sizeof mstatestr,"%03d",meshstate);dCHK(err);
+#if defined dH5_USE_EXTERNAL_LINK
   hflg = H5Lexists(meshgrp,mstatestr,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
+#else
+  hflg = H5Aexists(meshgrp,mstatestr);dH5CHK(hflg,H5Lexists);
+  hflg = 0;                     /* Why can't I just check if the dataset exists? */
+#endif
   if (!hflg) {                  /* Save mesh to external file and create link to it */
-    char imeshpath[dNAME_LEN];
+    char imeshpath[dNAME_LEN],*imeshpath_ptr = imeshpath;
     iMesh_Instance mi;
     err = PetscSNPrintf(imeshpath,sizeof imeshpath,"imesh-%s-%03d.h5m",meshname,meshstate);dCHK(err);
     err = dMeshGetInstance(fs->mesh,&mi);dCHK(err);
     iMesh_save(mi,0,imeshpath,"",&ierr,(int)strlen(imeshpath),0);dICHK(mi,ierr);
+#if defined dH5_USE_EXTERNAL_LINK
     herr = H5Lcreate_external(imeshpath,"tstt",meshgrp,mstatestr,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(hflg,H5Lcreate_external);
+#else
+    {
+      hid_t fstring,mstring,sspace,strattr;
+      err = dViewerDHMGetStringTypes(viewer,&fstring,&mstring,&sspace);dCHK(err);
+      strattr = H5Dcreate(meshgrp,mstatestr,fstring,sspace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(strattr,H5Dcreate);
+      herr = H5Dwrite(strattr,mstring,sspace,sspace,H5P_DEFAULT,&imeshpath_ptr);dH5CHK(herr,H5Dwrite);
+      herr = H5Dclose(strattr);dH5CHK(strattr,H5Dclose);
+    }
+#endif
   }
 
   {
@@ -232,7 +247,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 {
   dViewer_DHM *dhm = viewer->data;
   dErr        err;
-  hid_t       curstep,vectype,fstype,vdset,vattr,fsobj;
+  hid_t       curstep,vectype,vdset,vattr,fsobj,fsspace;
   herr_t      herr;
   dht_Vec     vecmeta;
   //dht_FS      fsmeta;
@@ -250,12 +265,68 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   err = dPrintf(PETSC_COMM_SELF,"Vec name '%s'  time %g  internal_state %d\n",fieldname,vecmeta.time,vecmeta.internal_state);dCHK(err);
 
   fsobj = H5Rdereference(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(fsobj,H5Rdereference);
+  fsspace = H5Rget_region(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(fsobj,H5Rget_region);
   {
     char fsobjname[256];
     ssize_t len;
+    hssize_t nrec;
     len = H5Iget_name(fsobj,fsobjname,sizeof fsobjname);dH5CHK(len,H5Iget_name);
-    err = dPrintf(PETSC_COMM_SELF,"fsobj name '%s'\n",len?fsobjname:"(no name)");dCHK(err);
+    nrec = H5Sget_select_npoints(fsspace);dH5CHK(nrec,H5Sget_select_npoints);
+    err = dPrintf(PETSC_COMM_SELF,"fsobj name '%s', npoints %zd\n",len?fsobjname:"(no name)",nrec);dCHK(err);
   }
+  {
+    dht_FS fs5;
+    hid_t memspace,h5t_FS,meshobj;
+    err = dViewerDHMGetFSType(viewer,&h5t_FS);dCHK(err);
+    memspace = H5Screate(H5S_SCALAR);
+    err = H5Dread(fsobj,h5t_FS,memspace,fsspace,H5P_DEFAULT,&fs5);dH5CHK(herr,H5Dread);
+    herr = H5Sclose(memspace);
+
+    printf("degree = %s\nglobal_offset = %s\npartition = %s\nordered_subdomain = %s\n",fs5.degree,fs5.global_offset,fs5.partition,fs5.ordered_subdomain);
+    meshobj = H5Rdereference(dhm->meshroot,H5R_OBJECT,&fs5.mesh);dH5CHK(meshobj,H5Rdereference);
+    {
+      char meshname[dNAME_LEN] = {0};
+      ssize_t len;
+      len = H5Iget_name(meshobj,meshname,sizeof meshname);dH5CHK(len,H5Iget_name);
+      printf("mesh name = %s\n",meshname);
+    }
+
+    {
+      hid_t mstring,strspace;
+      dMesh mesh;
+      char *imeshstr;           /* We are reading to a vlen string so HDF5 will allocate memory */
+      err = dViewerDHMGetStringTypes(viewer,NULL,&mstring,&strspace);dCHK(err);
+      herr = H5Dread(meshobj,mstring,H5S_ALL,H5S_ALL,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dread);
+      printf("imeshstr = %s\n",imeshstr);
+      err = dFSGetMesh(fs,&mesh);dCHK(err);
+      err = dMeshSetInFile(mesh,imeshstr,NULL);dCHK(err);
+      err = dMeshSetType(mesh,dMESHSERIAL);dCHK(err);
+      err = dMeshLoad(mesh);dCHK(err);
+      {
+        dMeshTag tag;
+        dJacobi jac;
+        dIInt readrank = 0;         /* Hard-code the rank for now */
+        err = dMeshGetTag(mesh,fs5.partition,&tag);dCHK(err);
+        err = dMeshGetTaggedSet(mesh,tag,&readrank,&fs->activeSet);dCHK(err);
+        err = dMeshGetTag(mesh,fs5.ordered_subdomain,&tag);dCHK(err);
+        err = dMeshGetTaggedSet(mesh,tag,&readrank,&fs->orderedSet);dCHK(err);
+        err = dMeshGetTag(mesh,fs5.degree,&tag);dCHK(err);
+        err = dFSGetJacobi(fs,&jac);dCHK(err);
+        err = dFSSetDegree(fs,jac,tag);dCHK(err);
+        err = dMeshGetTag(mesh,fs5.global_offset,&fs->gcoffsetTag);dCHK(err);
+      }
+      herr = H5Dvlen_reclaim(mstring,strspace,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dvlen_reclaim);
+    }
+    herr = H5Dclose(meshobj);dH5CHK(herr,H5Aclose);
+  }
+  /** @note The FS has the layout and ordering tags set (@todo boundary conditions) so we are ready to build the
+  * function space (mostly creating the LocalToGlobalMapping/update for VecDohp and setting up the element assembly
+  * matrix E.
+  **/
+
+  /* @todo Call private dFSBuildSpace pieces (once they exist) */
+
+  herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   herr = H5Oclose(fsobj);dH5CHK(herr,H5Oclose);
   herr = H5Dclose(vdset);dH5CHK(herr,H5Dclose);
   dFunctionReturn(0);
