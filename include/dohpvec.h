@@ -12,6 +12,8 @@ EXTERN dErr VecDohpGetClosure(Vec,Vec*);
 EXTERN dErr VecDohpRestoreClosure(Vec,Vec*);
 EXTERN dErr VecCreateDohp(MPI_Comm,dInt,dInt,dInt,dInt,const dInt[],Vec*);
 
+extern dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat);
+
 PETSC_EXTERN_CXX_BEGIN
 
 #endif

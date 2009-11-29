@@ -349,18 +349,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   /* Create fs->bmapping and fs->mapping */
   err = dFSCreateLocalToGlobal_Private(fs,n,nc,ngh,ghidx,rstart);dCHK(err);
 
-  /* Create a cache for Dirichlet part of closure vector, this could be local but it doesn't cost anything to make it global */
-  {
-    IS  from;
-    Vec gc;
-    err = VecCreateMPI(((dObject)fs)->comm,bs*(nc-n),PETSC_DECIDE,&fs->dcache);dCHK(err);
-    err = ISCreateStride(((dObject)fs)->comm,bs*(nc-n),bs*(crstart+n),1,&from);dCHK(err);
-    err = VecDohpGetClosure(fs->gvec,&gc);dCHK(err);
-    err = VecScatterCreate(gc,from,fs->dcache,NULL,&fs->dscat);dCHK(err);
-    err = VecDohpRestoreClosure(fs->gvec,&gc);dCHK(err);
-    err = ISDestroy(from);dCHK(err);
-    /* \todo deal with rotations */
-  }
+  err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
 
   /**
   * At this point the local to global mapping is complete.  Now we need to assemble the constraint matrices which take

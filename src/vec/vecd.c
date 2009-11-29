@@ -148,3 +148,40 @@ dErr VecCreateDohp(MPI_Comm comm,dInt bs,dInt n,dInt nc,dInt nghosts,const dInt 
   *v = vg;
   dFunctionReturn(0);
 }
+
+/** Create a cache for Dirichlet part of closure vector, and scatter from global closure to Dirichlet cache.
+
+@arg[in] gvec Global vector
+@arg[out] dcache New vector to hold the Dirichlet values
+@arg[out] dscat Scatter from global closure to \a dcache
+
+@note This could be local but it doesn't cost anything to make it global.
+**/
+dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat)
+{
+  MPI_Comm comm;
+  dErr     err;
+  dTruth   isdohp;
+  IS       from;
+  Vec      gc;
+  dInt     n,nc,crstart;
+
+  dFunctionBegin;
+  dValidHeader(gvec,VEC_COOKIE,1);
+  dValidPointer(dcache,2);
+  dValidPointer(dscat,3);
+  err = PetscTypeCompare((PetscObject)gvec,VECDOHP,&isdohp);dCHK(err);
+  if (!isdohp) dERROR(PETSC_ERR_SUP,"Vec type %s",((PetscObject)gvec)->type_name);
+  err = PetscObjectGetComm((PetscObject)gvec,&comm);dCHK(err);
+  err = VecGetLocalSize(gvec,&n);dCHK(err);
+  err = VecDohpGetClosure(gvec,&gc);dCHK(err);
+  err = VecGetLocalSize(gc,&nc);dCHK(err);
+  err = VecGetOwnershipRange(gc,&crstart,NULL);dCHK(err);
+  err = VecCreateMPI(comm,nc-n,PETSC_DECIDE,dcache);dCHK(err);
+  err = ISCreateStride(comm,nc-n,crstart+n,1,&from);dCHK(err);
+  err = VecScatterCreate(gc,from,*dcache,NULL,dscat);dCHK(err);
+  err = VecDohpRestoreClosure(gvec,&gc);dCHK(err);
+  err = ISDestroy(from);dCHK(err);
+  /* \todo deal with rotations */
+  dFunctionReturn(0);
+}
