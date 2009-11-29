@@ -167,7 +167,8 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);dCHK(err);
   elt->mesh = mesh;
-  domain = 0;                   /* Root set in MOAB */
+  err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
+  err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(elt->comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,9,2);dCHK(err);
@@ -180,7 +181,7 @@ static dErr ElastSetFromOptions(Elast elt)
 
   err = dFSCreate(elt->comm,&fs);dCHK(err);
   err = dFSSetBlockSize(fs,3);dCHK(err);
-  err = dFSSetMesh(fs,mesh,0);dCHK(err);
+  err = dFSSetMesh(fs,mesh,domain);dCHK(err);
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSRegisterBoundary(fs,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);

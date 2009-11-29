@@ -257,7 +257,8 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);dCHK(err);
   stk->mesh = mesh;
-  err = dMeshGetRoot(mesh,&domain);dCHK(err);
+  err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
+  err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(stk->comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,9,2);dCHK(err);

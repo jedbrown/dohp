@@ -105,6 +105,7 @@ EXTERN dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name);
 EXTERN dErr dMeshLoad(dMesh m);
 EXTERN dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
 EXTERN dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
+EXTERN dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
 EXTERN dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 EXTERN dErr dMeshDestroy(dMesh);
 EXTERN dErr dMeshView(dMesh,PetscViewer);

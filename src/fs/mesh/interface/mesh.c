@@ -313,6 +313,28 @@ dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot)
   dFunctionReturn(0);
 }
 
+/* Makes a new set containing all entities in original, but not subsets */
+dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy)
+{
+  iMesh_Instance mi = mesh->mi;
+  dIInt   ierr,islist;
+  dInt    size;
+  dMeshEH *ents;
+  dErr    err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidPointer(copy,3);
+  err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&size);dCHK(err);
+  err = dMallocA(size,&ents);dCHK(err);
+  err = dMeshGetEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,ents,size,NULL);dCHK(err);
+  iMesh_isList(mi,set,&islist,&ierr);dICHK(mi,ierr);
+  err = dMeshSetCreate(mesh,islist?dMESHSET_ORDERED:dMESHSET_UNORDERED,copy);dCHK(err);
+  err = dMeshSetAddEnts(mesh,*copy,ents,size);dCHK(err);
+  err = dFree(ents);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /**
 * This function allocates memory for the tag name.  It should be freed with PetscFree()
 */

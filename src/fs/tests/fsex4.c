@@ -95,6 +95,7 @@ int main(int argc,char *argv[])
   dViewer  viewer;
   dJacobi  jac;
   dMeshTag rtag,dtag;
+  dMeshESH active;
   dTruth   read;
   Vec      X;
 
@@ -115,11 +116,13 @@ int main(int argc,char *argv[])
   err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
+  err = dMeshGetRoot(mesh,&active);dCHK(err); /* Need a taggable set */
+  err = dMeshSetDuplicateEntsOnly(mesh,active,&active);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,0,jac,"fsex4_rule_degree",ex4->rdeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,0,jac,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,active,jac,"fsex4_rule_degree",ex4->rdeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,active,jac,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
   err = dFSCreate(comm,&fs);dCHK(err);
-  err = dFSSetMesh(fs,mesh,0);dCHK(err);
+  err = dFSSetMesh(fs,mesh,active);dCHK(err);
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);

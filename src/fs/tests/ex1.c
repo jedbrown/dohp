@@ -137,7 +137,7 @@ static dErr tagHexes(dMesh mesh,dMeshTag *intag)
   if (gopt.constBDeg) {
     for (dInt i=0; i<ALEN(hexDegree); i++) hexDegree[i] = gopt.constBDeg;
   }
-  err = dMeshTagCreateTemp(mesh,"anisotropic",3,dDATA_INT,&tag);dCHK(err);
+  err = dMeshTagCreate(mesh,"ex1_anisotropic",3,dDATA_INT,&tag);dCHK(err);
   /* tag edges and faces with high values, currently needed to propogate degrees (will overwrite high values) */
   for (dEntType type=dTYPE_VERTEX; type<=dTYPE_FACE; type++) {
     err = dMeshGetEnts(mesh,0,type,dTOPO_ALL,ents,ALEN(ents),&nents);
@@ -509,7 +509,10 @@ int main(int argc,char *argv[])
   err = createHexMesh(mi);dCHK(err);
   if (showmesh) {err = dMeshView(mesh,viewer);dCHK(err);}
   err = verifyAdjacencies(mesh);dCHK(err);
-  iMesh_getRootSet(mi,&domain,&err);dICHK(mi,err);
+
+  /* The root set cannot be tagged (at least in MOAB) */
+  err = dMeshGetRoot(mesh,&domain);dCHK(err);
+  err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,15,4);dCHK(err);

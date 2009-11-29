@@ -58,6 +58,7 @@ static dErr BUSetFromOptions(BU bu)
   err = dMeshLoad(mesh);dCHK(err);dCHK(err);
   bu->mesh = mesh;
   err = dMeshGetRoot(mesh,&domain);dCHK(err);
+  err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(bu->comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,9,2);dCHK(err);
@@ -69,7 +70,7 @@ static dErr BUSetFromOptions(BU bu)
   err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"bu_efs_degree",bu->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(bu->comm,&fs);dCHK(err);
-  err = dFSSetMesh(fs,mesh,0);dCHK(err);
+  err = dFSSetMesh(fs,mesh,domain);dCHK(err);
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   bu->fs = fs;
