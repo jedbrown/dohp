@@ -121,6 +121,13 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
 #endif
 
   dFunctionBegin;
+#if defined dUSE_DEBUG
+  if (((uintptr_t)in) & 0xf) dERROR(PETSC_ERR_ARG_INCOMP,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)out) & 0xf) dERROR(PETSC_ERR_ARG_INCOMP,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)Ax) & 0xf) dERROR(PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)Ay) & 0xf) dERROR(PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)Az) & 0xf) dERROR(PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
+#endif
   if (P[2] != P2 || Q[2] != Q2 || D_is_1 != D) dERROR(1,"input sizes do not agree with unrolled sizes");
   err = dMemzero(amem,sizeof(amem));dCHK(err);
   _mm_prefetch((const char*)in,_MM_HINT_T0);
