@@ -16,6 +16,7 @@ list (APPEND Dohp_SRCS
 # ADD_SUBDIRECTORY (fs)
 list (APPEND Dohp_SRCS
   fs/interface/fs.c
+  fs/interface/fsbuild.c
   fs/interface/fsreg.c
   fs/interface/fsrot.c
   fs/interface/fsgeom.c
