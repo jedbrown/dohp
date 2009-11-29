@@ -35,24 +35,32 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 
 dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
 {
+  dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   fs->ruletag = rtag;
+  if (!fs->jacobi) {
+    err = PetscObjectReference((PetscObject)jac);dCHK(err);
+    fs->jacobi = jac;
+  }
   if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
-  if (jac) fs->jacobi = jac;
   dFunctionReturn(0);
 }
 
 dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
 {
+  dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   dValidHeader(jac,dJACOBI_COOKIE,2);
   fs->degreetag = deg;
+  if (!fs->jacobi) {
+    err = PetscObjectReference((PetscObject)jac);dCHK(err);
+    fs->jacobi = jac;
+  }
   if (jac && fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
-  if (jac) fs->jacobi = jac;
   dFunctionReturn(0);
 }
 
