@@ -90,6 +90,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     dht_Field *field5;
     hid_t      h5t_fs,fsdset,fsspace;
     dInt       i;
+    PetscMPIInt size;
 
     err = dViewerDHMGetFSType(viewer,&h5t_fs);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->degreetag,&fs5.degree);dCHK(err);
@@ -99,6 +100,8 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     herr = H5Rcreate(&fs5.mesh,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
     fs5.time = dhm->time;
     err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);
+    err = MPI_Comm_size(((dObject)fs)->comm,&size);dCHK(err);
+    fs5.number_of_subdomains = size;
     fs5.fields.len = fs->bs;
     err = dMallocA(fs5.fields.len,&field5);dCHK(err);
     for (i=0; i<fs->bs; i++) {

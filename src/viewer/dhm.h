@@ -82,10 +82,11 @@ typedef struct {
   char       *global_offset;
   char       *partition;
   char       *ordered_subdomain;
-  hobj_ref_t  mesh;
-  dReal       time;
-  dInt        internal_state;
-  hvl_t       fields;
+  hobj_ref_t mesh;
+  dReal      time;
+  dInt       internal_state;
+  dInt       number_of_subdomains;
+  hvl_t      fields;
 } dht_FS;
 
 typedef struct {

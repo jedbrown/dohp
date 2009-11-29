@@ -88,6 +88,7 @@ dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *intype)
     herr = H5Tinsert(fstype,"mesh",offsetof(dht_FS,mesh),H5T_STD_REF_OBJ);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"time",offsetof(dht_FS,time),dH5T_REAL);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"internal_state",offsetof(dht_FS,internal_state),dH5T_INT);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"number_of_subdomains",offsetof(dht_FS,number_of_subdomains),dH5T_INT);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"fields",offsetof(dht_FS,fields),fieldstype);dH5CHK(herr,H5Tinsert);
 
     err = dViewerDHM_H5Tcommit(viewer,"FS_type",fstype);dCHK(err);
