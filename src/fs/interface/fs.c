@@ -33,6 +33,38 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   dFunctionReturn(0);
 }
 
+dErr dFSGetMesh(dFS fs,dMesh *mesh)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidPointer(mesh,2);
+  if (!fs->mesh) {
+    err = dMeshCreate(((dObject)fs)->comm,&fs->mesh);dCHK(err);
+    err = PetscObjectIncrementTabLevel((PetscObject)fs->mesh,(PetscObject)fs,1);dCHK(err);
+    err = PetscLogObjectParent(fs,fs->mesh);dCHK(err);
+  }
+  *mesh = fs->mesh;
+  dFunctionReturn(0);
+}
+
+dErr dFSGetJacobi(dFS fs,dJacobi *jacobi)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidPointer(jacobi,2);
+  if (!fs->jacobi) {
+    err = dJacobiCreate(((dObject)fs)->comm,&fs->jacobi);dCHK(err);
+    err = PetscObjectIncrementTabLevel((PetscObject)fs->jacobi,(PetscObject)fs,1);dCHK(err);
+    err = PetscLogObjectParent(fs,fs->jacobi);dCHK(err);
+  }
+  *jacobi = fs->jacobi;
+  dFunctionReturn(0);
+}
+
 dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
 {
   dErr err;

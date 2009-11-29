@@ -53,6 +53,8 @@ typedef enum {dFS_ROTATE_FORWARD, dFS_ROTATE_REVERSE} dFSRotateMode;
 
 EXTERN dErr dFSCreate(MPI_Comm,dFS*);
 EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
+extern dErr dFSGetMesh(dFS,dMesh*);
+extern dErr dFSGetJacobi(dFS,dJacobi*);
 EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 EXTERN dErr dFSSetBlockSize(dFS,dInt);
