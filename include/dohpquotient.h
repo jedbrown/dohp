@@ -3,7 +3,7 @@
 
 #include "dohpmesh.h"
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 //typedef char *dQuotientType;
 #define dQuotientType char*
@@ -31,6 +31,6 @@ EXTERN dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *
 EXTERN dErr dQuotientSetDegreeConst(dQuotient q,void *vval,dInt n,dInt *degree);
 EXTERN dErr dQuotientGetArrRule(dQuotient q,dInt,dMeshEH[],dRule**);
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 
 #endif  /* _DOHPQUOTIENT_H */

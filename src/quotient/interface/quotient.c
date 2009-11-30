@@ -1,4 +1,5 @@
 #include <dohpquotientimpl.h>
+#include <dohp.h>
 
 static const struct _dQuotientOps dQuotientDefaultOps = {
   .update = 0,

@@ -1,6 +1,7 @@
 static const char help[] = "Tests the dJacobi object.";
 
 #include <dohpjacobi.h>
+#include <dohp.h>
 
 static struct {
   dErr (*function)(dInt,const dReal[],dScalar[]);

@@ -4,6 +4,7 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 #include <dohpfs.h>
 #include <dohpmesh.h>
 #include <dohpvec.h>
+#include <dohp.h>
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 

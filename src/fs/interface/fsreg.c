@@ -140,11 +140,11 @@ dErr dFSInitializePackage(const char path[])
 
 
 
-EXTERN_C_BEGIN
+dEXTERN_C_BEGIN
 
 EXTERN dErr dFSCreate_Cont(dFS);
 
-EXTERN_C_END
+dEXTERN_C_END
 
 dErr dFSRegisterAll(const char path[])
 {

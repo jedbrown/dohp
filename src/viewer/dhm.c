@@ -1,4 +1,5 @@
 #include "dhm.h"
+#include <dohp.h>
 
 extern PetscErrorCode PetscViewerCreate_DHM(PetscViewer);
 

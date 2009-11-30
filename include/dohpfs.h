@@ -14,7 +14,7 @@
 #include "dohpjacobi.h"
 #include "dohpquotient.h"
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 EXTERN PetscCookie dFSROT_COOKIE;
 
@@ -156,5 +156,5 @@ EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
 EXTERN dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**qx)[3],const dReal **jw,const dReal **basis,const dReal **deriv);
 
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 #endif  /* _DOHPFS_H */

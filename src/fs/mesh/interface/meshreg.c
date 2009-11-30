@@ -1,4 +1,5 @@
 #include <dohpmeshimpl.h>
+#include <dohp.h>
 
 PetscCookie dMESH_COOKIE;
 static PetscFList MeshList = 0;
@@ -89,12 +90,12 @@ dErr dMeshInitializePackage(const char path[])
 }
 
 
-EXTERN_C_BEGIN
+dEXTERN_C_BEGIN
 
 EXTERN dErr dMeshCreate_Pack(dMesh mesh);
 EXTERN dErr dMeshCreate_Serial(dMesh mesh);
 
-EXTERN_C_END
+dEXTERN_C_END
 
 dErr dMeshRegisterAll(const char path[])
 {

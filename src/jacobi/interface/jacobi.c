@@ -10,6 +10,7 @@
 
 #include <petsc.h>
 #include <dohpjacimpl.h>
+#include <dohp.h>
 
 PetscCookie dJACOBI_COOKIE;
 PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;

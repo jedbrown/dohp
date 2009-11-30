@@ -12,9 +12,10 @@ static const char help[] = "Solve non-Newtonian Stokes problem using dual order 
   "  int_Omega eta Dv:Du + eta' (Dv:Dw)(Dw:Du) - p div(v) - q div(u) = 0\n"
   "The problem is linear for p=2, an incompressible for g=0\n\n";
 
+#include <petscsnes.h>
 #include <dohpfs.h>
 #include <dohpvec.h>
-#include "petscsnes.h"
+#include <dohp.h>
 
 static PetscLogEvent LOG_StokesShellMult;
 typedef struct _p_Stokes *Stokes;

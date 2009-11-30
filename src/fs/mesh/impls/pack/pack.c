@@ -1,6 +1,8 @@
-#include <dohpmeshimpl.h>
-#include <MBParallelConventions.h>
 #include <stddef.h>
+#include <MBParallelConventions.h>
+
+#include <dohpmeshimpl.h>
+#include <dohp.h>
 
 dErr dMeshCreate_Pack(dMesh mesh); /* The only exported function in this file */
 

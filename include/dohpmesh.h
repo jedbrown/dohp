@@ -7,7 +7,7 @@
 #include <dohptype.h>
 #include <dohpjacobi.h>
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 typedef struct _p_dMeshPacker *dMeshPacker;
 typedef struct _p_dMesh *dMesh;
@@ -21,24 +21,26 @@ EXTERN const char *const iBase_TagValueTypeName[];
 EXTERN const int iMesh_TypeFromTopology[];
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
-#define dICHK(mesh,err)                                         \
-  if (err) {                                                    \
-    dErr _l_ret = err;                                          \
-    char _l_desc[512] = "Description not available";            \
-    iMesh_getDescription(mesh,_l_desc,&err,sizeof(_l_desc));    \
-    dERROR(1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
-  }
-#define dIGCHK(geom,err)                                        \
-  if (err) {                                                    \
-    dErr _l_ret = err;                                          \
-    char _l_desc[512] = "Description not available";            \
-    iGeom_getDescription(geom,_l_desc,&err,sizeof(_l_desc));    \
-    dERROR(1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
-  }
+#define dICHK(mesh,err) do {                                            \
+    if (PetscUnlikely(err)) {                                           \
+      dErr _l_ret = err;                                                \
+      char _l_desc[512] = "Description not available";                  \
+      iMesh_getDescription(mesh,_l_desc,&err,sizeof(_l_desc));          \
+      dERROR(1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+    }                                                                   \
+  } while (0)
+#define dIGCHK(geom,err) do {                                           \
+    if (PetscUnlikely(err)) {                                           \
+      dErr _l_ret = err;                                                \
+      char _l_desc[512] = "Description not available";                  \
+      iGeom_getDescription(geom,_l_desc,&err,sizeof(_l_desc));          \
+      dERROR(1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+    }                                                                   \
+  } while (0)
+
 #define dIRCHK(assoc,err)                                               \
-  if (err) {                                                            \
-    dERROR(1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description); \
-  }
+  if (PetscUnlikely(err))                                               \
+    dERROR(1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description)
 
 
 typedef struct {
@@ -148,5 +150,6 @@ EXTERN dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)
 EXTERN dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
 EXTERN dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
+
 #endif

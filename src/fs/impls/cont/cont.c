@@ -1,4 +1,5 @@
 #include "cont.h"
+#include <iMesh_extensions.h>
 #include <dohpmesh.h>
 #include <dohpvec.h>
 #include <dohpviewer.h>

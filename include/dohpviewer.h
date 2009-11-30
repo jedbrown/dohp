@@ -6,7 +6,7 @@
 
 #define PETSC_VIEWER_DHM "dhm"
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 /* For writing */
 EXTERN dErr dViewerDHMSetTime(PetscViewer,dReal);
@@ -19,6 +19,6 @@ EXTERN dErr dViewerDHMRestoreSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
 
 EXTERN dErr dViewerRegisterAll(const char*);
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 
 #endif

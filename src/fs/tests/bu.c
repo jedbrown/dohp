@@ -2,6 +2,7 @@ static const char help[] = "Unit test for boundary condition manipulation\n\n";
 
 #include <dohpfs.h>
 #include <dohpvec.h>
+#include <dohp.h>
 
 typedef struct BUnitCtx *BU;
 struct BUnitCtx {

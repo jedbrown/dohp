@@ -4,7 +4,7 @@
 #include <petscsys.h>
 #include <dohpjacimpl.h>
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
 
@@ -130,6 +130,6 @@ EXTERN dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac);
 EXTERN dErr TensorRuleView(const TensorRule,PetscViewer);
 EXTERN dErr TensorBasisView(const TensorBasis,PetscViewer);
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 
 #endif  /* _TENSOR_H */

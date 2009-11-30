@@ -6,9 +6,10 @@ static const char help[] = "Solve nonlinear elasticity using dual order hp eleme
   "  mu and lambda are the Lame parameters\n"
   "  gamma controls the nonlinearity, gamma=1 is the standard finite strain tensor and gamma=0 is linear elasticity\n\n";
 
+#include <petscsnes.h>
 #include <dohpfs.h>
 #include <dohpvec.h>
-#include "petscsnes.h"
+#include <dohp.h>
 
 static PetscLogEvent LOG_ElastShellMult;
 

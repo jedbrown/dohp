@@ -3,7 +3,7 @@
 
 #include <dohpfsimpl.h>
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 EXTERN dErr dFSCreate_Cont(dFS);
 EXTERN dErr dFSView_Cont_DHM(dFS,dViewer);
@@ -37,6 +37,6 @@ typedef struct {
   Mat B;
 } dFS_Cont;
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 
 #endif  /* _CONT_H */

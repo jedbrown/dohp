@@ -1,9 +1,10 @@
-#ifndef _DOHPBASE_H
-#define _DOHPBASE_H
+#ifndef _DOHPGEOM_H
+#define _DOHPGEOM_H
 
 #include "dohptype.h"
+#include "dohp.h"
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 #define INLINE static inline
 
@@ -152,7 +153,6 @@ INLINE dErr dGeomOrientFindPerm_QuadLine(const dMeshEH fv[],const dMeshEH ev[],i
   dFunctionReturn(0);
 }
 
+dEXTERN_C_END
 
-
-PETSC_EXTERN_CXX_END
-#endif  /* _DOHPBASE_H */
+#endif  /* _DOHPGEOM_H */

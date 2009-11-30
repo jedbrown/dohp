@@ -1,4 +1,5 @@
 #include <dohpmeshimpl.h>
+#include <dohp.h>
 
 dErr dMeshCreate_Serial(dMesh mesh); /* The only exported function */
 

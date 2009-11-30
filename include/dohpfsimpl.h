@@ -2,9 +2,10 @@
 #define _DOHPFSIMPL_H
 
 #include "dohpfs.h"
+#include "dohp.h"
 #include <private/dmimpl.h>
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 extern PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 
@@ -113,6 +114,6 @@ struct _p_dFSRotation {
 
 extern dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *ghidx,dInt rstart);
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 
 #endif

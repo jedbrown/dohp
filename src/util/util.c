@@ -1,4 +1,4 @@
-#include <dohptype.h>
+#include <dohp.h>
 
 /** This is similar to, but not the same as \c strcpy_s which is implemented in some C libraries
 *

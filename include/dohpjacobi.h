@@ -22,7 +22,7 @@
 #include "dohptype.h"
 #include "petscmat.h"
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 extern PetscCookie dJACOBI_COOKIE;
 
@@ -143,6 +143,6 @@ EXTERN dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],d
 EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,dInt[],dInt[]);
 EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,Mat,Mat);
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 
 #endif /* _DOHPJACOBI_H */

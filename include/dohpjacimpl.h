@@ -3,7 +3,7 @@
 
 #include "dohpjacobi.h"
 
-PETSC_EXTERN_CXX_BEGIN
+dEXTERN_C_BEGIN
 
 extern PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 
@@ -73,6 +73,6 @@ struct p_dJacobi {
 
 EXTERN dErr dJacobiCreate_Tensor(dJacobi); /* should really only be visible to dJacobiInitializePackage */
 
-PETSC_EXTERN_CXX_END
+dEXTERN_C_END
 
 #endif

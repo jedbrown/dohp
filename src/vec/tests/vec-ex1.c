@@ -1,6 +1,7 @@
 static const char help[] = "Test vector closure\n\n";
 
 #include <dohpvec.h>
+#include <dohp.h>
 
 int main(int argc,char *argv[])
 {
