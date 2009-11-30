@@ -6,8 +6,6 @@
 
 dEXTERN_C_BEGIN
 
-#define INLINE static inline
-
 /**
 * Assign a canonical orientation of the faces on a hex.  The ordering of faces
 * and vertices of the hex is defined by iMesh.  The ordering of edges and
@@ -27,26 +25,26 @@ static const int dMeshConnectHexQuad[6][4] = {{0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {
 * */
 static const int dMeshConnectQuadLine[4][2] = {{0,1},{1,2},{2,3},{3,0}};
 
-INLINE void dGeomVecPlus(const dReal a[],const dReal b[],dReal c[]) {dInt i; for (i = 0; i<3; i++) c[i] = a[i]+b[i];}
-INLINE void dGeomVecMinus(const dReal a[],const dReal b[],dReal c[]) {dInt i; for (i = 0; i<3; i++) c[i] = a[i]-b[i];}
-INLINE dReal dGeomDotProd(const dReal a[],const dReal b[]) {return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+static inline void dGeomVecPlus(const dReal a[],const dReal b[],dReal c[]) {dInt i; for (i = 0; i<3; i++) c[i] = a[i]+b[i];}
+static inline void dGeomVecMinus(const dReal a[],const dReal b[],dReal c[]) {dInt i; for (i = 0; i<3; i++) c[i] = a[i]-b[i];}
+static inline dReal dGeomDotProd(const dReal a[],const dReal b[]) {return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
 /* c = a \cross b */
-INLINE void dGeomCrossProd(const dReal a[],const dReal b[],dReal c[])
+static inline void dGeomCrossProd(const dReal a[],const dReal b[],dReal c[])
 {c[0]=a[1]*b[2]-a[2]*b[1]; c[1]=a[2]*b[0]-a[0]*b[2]; c[2]=a[0]*b[1]+a[1]*b[0];}
 /* coordinates for vertices are interlaced in a, result goes in b */
-INLINE void dGeomVecMeanI(dInt n,const dReal a[],dReal b[])
+static inline void dGeomVecMeanI(dInt n,const dReal a[],dReal b[])
 {dInt i,j; b[0]=b[1]=b[2]=0; for (i=0;i<n;i++) {for (j=0;j<3;j++) b[j]+=a[3*i+j]/n;}}
 /* coordinates are interlaced in a, result in b */
-INLINE void dGeomQuadFaceNormal(const dReal a[],dReal b[]) {
+static inline void dGeomQuadFaceNormal(const dReal a[],dReal b[]) {
   dReal f[3],g[3],h[3];
   dGeomVecMinus(a+3,a,b); dGeomVecMinus(a+6,a+9,f); dGeomVecPlus(b,f,g); /* g = mean vector in x direction */
   dGeomVecMinus(a+9,a,b); dGeomVecMinus(a+6,a+3,f); dGeomVecPlus(b,f,h); /* h = mean vector in y direction */
   dGeomCrossProd(g,h,b);
 }
-INLINE dBool dGeomQuadParallel(const dReal a[],const dReal b[]) /* return true if Quad a \dot b > 0 */
+static inline dBool dGeomQuadParallel(const dReal a[],const dReal b[]) /* return true if Quad a \dot b > 0 */
 {dReal f[3]; dGeomQuadFaceNormal(a,f); return (dGeomDotProd(b,f) > 0);}
 
-INLINE dErr dGeomConvexComb_2_4(dReal x,dReal y,const dReal (*v)[3],const dInt p[],dReal f[])
+static inline dErr dGeomConvexComb_2_4(dReal x,dReal y,const dReal (*v)[3],const dInt p[],dReal f[])
 {
   dInt i;
   if (!(-1 <= x && x <= 1 && -1 <= y && y <= 1)) dERROR(1,"Point out of bounds");
@@ -56,7 +54,7 @@ INLINE dErr dGeomConvexComb_2_4(dReal x,dReal y,const dReal (*v)[3],const dInt p
   return 0;
 }
 
-INLINE dErr dGeomInvert3(const dReal a[restrict static 9],dReal b[restrict static 9],dReal det[restrict static 1])
+static inline dErr dGeomInvert3(const dReal a[restrict static 9],dReal b[restrict static 9],dReal det[restrict static 1])
 {
   const dReal b0 =  (a[1*3+1]*a[2*3+2] - a[2*3+1]*a[1*3+2]);
   const dReal b3 = -(a[1*3+0]*a[2*3+2] - a[2*3+0]*a[1*3+2]);
@@ -96,7 +94,7 @@ INLINE dErr dGeomInvert3(const dReal a[restrict static 9],dReal b[restrict stati
 *
 * @return error if they don't fit
 */
-INLINE dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH fv[],int fnum,dInt *orient)
+static inline dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH fv[],int fnum,dInt *orient)
 {
   //static const dInt perm[8][4] = {{0,1,2,3},{1,2,3,0},{2,3,0,1},{3,0,1,2}, {0,3,2,1},{3,2,1,0},{2,1,0,3},{1,0,3,2}};
   static const dInt perm[8][4] = {{0,1,2,3},{3,0,1,2},{2,3,0,1},{1,2,3,0}, {0,3,2,1},{1,0,3,2},{2,1,0,3},{3,2,1,0}};
@@ -127,7 +125,7 @@ INLINE dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH fv[],in
   dFunctionReturn(0);
 }
 
-INLINE dErr dGeomOrientFindPerm_QuadLine(const dMeshEH fv[],const dMeshEH ev[],int en,dInt *orient)
+static inline dErr dGeomOrientFindPerm_QuadLine(const dMeshEH fv[],const dMeshEH ev[],int en,dInt *orient)
 {
   static const dInt perm[2][2] = {{0,1},{1,0}};
   static const dInt permorient[4] = {0,1};
