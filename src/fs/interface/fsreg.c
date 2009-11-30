@@ -142,7 +142,7 @@ dErr dFSInitializePackage(const char path[])
 
 dEXTERN_C_BEGIN
 
-EXTERN dErr dFSCreate_Cont(dFS);
+extern dErr dFSCreate_Cont(dFS);
 
 dEXTERN_C_END
 

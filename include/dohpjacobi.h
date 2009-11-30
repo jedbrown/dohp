@@ -110,38 +110,38 @@ struct _p_dMeshAdjacency {
 #define dJacobiType char *
 #define dJACOBI_TENSOR "tensor"
 
-EXTERN dErr dJacobiCreate(MPI_Comm,dJacobi*);
-EXTERN dErr dJacobiSetType(dJacobi,dJacobiType);
-EXTERN dErr dJacobiSetFromOptions(dJacobi);
-EXTERN dErr dJacobiSetUp(dJacobi);
-EXTERN dErr dJacobiDestroy(dJacobi);
-EXTERN dErr dJacobiView(dJacobi,PetscViewer);
+extern dErr dJacobiCreate(MPI_Comm,dJacobi*);
+extern dErr dJacobiSetType(dJacobi,dJacobiType);
+extern dErr dJacobiSetFromOptions(dJacobi);
+extern dErr dJacobiSetUp(dJacobi);
+extern dErr dJacobiDestroy(dJacobi);
+extern dErr dJacobiView(dJacobi,PetscViewer);
 #define dJacobiRegisterDynamic(a,b,c,d) dJacobiRegister(a,b,c,d)
-EXTERN dErr dJacobiRegister(const char[],const char[],const char[],dErr(*)(dJacobi));
-EXTERN dErr dJacobiRegisterAll(const char[]);
-EXTERN dErr dJacobiInitializePackage(const char[]);
+extern dErr dJacobiRegister(const char[],const char[],const char[],dErr(*)(dJacobi));
+extern dErr dJacobiRegisterAll(const char[]);
+extern dErr dJacobiInitializePackage(const char[]);
 
-EXTERN dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
-EXTERN dErr dJacobiGetRule(dJacobi,dInt,const dEntTopology[],const dInt[],dRule);
-EXTERN dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
+extern dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
+extern dErr dJacobiGetRule(dJacobi,dInt,const dEntTopology[],const dInt[],dRule);
+extern dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
 
-EXTERN dErr dRuleView(dRule rule,PetscViewer);
-EXTERN dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
-EXTERN dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
-EXTERN dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
-EXTERN dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
+extern dErr dRuleView(dRule rule,PetscViewer);
+extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
+extern dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
+extern dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
+extern dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
 
-EXTERN dErr dEFSView(dEFS efs,PetscViewer viewer);
-EXTERN dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
-EXTERN dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,const dReal**);
-EXTERN dErr dEFSGetGlobalCoordinates(dEFS,const dReal vtx[restrict][3],dInt*,dInt[3],dReal(*)[3]);
-EXTERN dErr dEFSGetRule(dEFS efs,dRule *rule);
-EXTERN dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
-EXTERN dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dInt[]);
-EXTERN dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
+extern dErr dEFSView(dEFS efs,PetscViewer viewer);
+extern dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
+extern dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,const dReal**);
+extern dErr dEFSGetGlobalCoordinates(dEFS,const dReal vtx[restrict][3],dInt*,dInt[3],dReal(*)[3]);
+extern dErr dEFSGetRule(dEFS efs,dRule *rule);
+extern dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
+extern dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dInt[]);
+extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 
-EXTERN dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,dInt[],dInt[]);
-EXTERN dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,Mat,Mat);
+extern dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,dInt[],dInt[]);
+extern dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,Mat,Mat);
 
 dEXTERN_C_END
 

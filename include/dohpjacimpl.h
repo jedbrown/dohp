@@ -71,7 +71,7 @@ struct p_dJacobi {
   void *impl;                   /**< private implementation context */
 };
 
-EXTERN dErr dJacobiCreate_Tensor(dJacobi); /* should really only be visible to dJacobiInitializePackage */
+extern dErr dJacobiCreate_Tensor(dJacobi); /* should really only be visible to dJacobiInitializePackage */
 
 dEXTERN_C_END
 

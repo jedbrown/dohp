@@ -92,8 +92,8 @@ dErr dMeshInitializePackage(const char path[])
 
 dEXTERN_C_BEGIN
 
-EXTERN dErr dMeshCreate_Pack(dMesh mesh);
-EXTERN dErr dMeshCreate_Serial(dMesh mesh);
+extern dErr dMeshCreate_Pack(dMesh mesh);
+extern dErr dMeshCreate_Serial(dMesh mesh);
 
 dEXTERN_C_END
 

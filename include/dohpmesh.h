@@ -14,11 +14,11 @@ typedef struct _p_dMesh *dMesh;
 
 extern PetscCookie dMESH_COOKIE;
 
-EXTERN const char *const iBase_ErrorString[];
-EXTERN const char *const iMesh_TopologyName[];
-EXTERN const char *const iBase_TypeName[];
-EXTERN const char *const iBase_TagValueTypeName[];
-EXTERN const int iMesh_TypeFromTopology[];
+extern const char *const iBase_ErrorString[];
+extern const char *const iMesh_TopologyName[];
+extern const char *const iBase_TypeName[];
+extern const char *const iBase_TagValueTypeName[];
+extern const int iMesh_TypeFromTopology[];
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
 #define dICHK(mesh,err) do {                                            \
@@ -100,55 +100,55 @@ extern dErr dMeshListEHView(MeshListEH*,const char*);
 
 extern dErr dMeshOrientLoopBounds_Quad(dInt orient, const dInt *size, DohpLoopBounds *l);
 extern dErr dMeshOrientLoopBounds_Line(dInt orient, const dInt *size, DohpLoopBounds *l);
-EXTERN dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l);
-EXTERN dErr dMeshLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l);
+extern dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l);
+extern dErr dMeshLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l);
 
-EXTERN dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
-EXTERN dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name);
-EXTERN dErr dMeshLoad(dMesh m);
-EXTERN dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
-EXTERN dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
-EXTERN dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
-EXTERN dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
-EXTERN dErr dMeshDestroy(dMesh);
-EXTERN dErr dMeshView(dMesh,PetscViewer);
-EXTERN dErr dMeshRegisterAll(const char path[]);
+extern dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
+extern dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name);
+extern dErr dMeshLoad(dMesh m);
+extern dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
+extern dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
+extern dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
+extern dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
+extern dErr dMeshDestroy(dMesh);
+extern dErr dMeshView(dMesh,PetscViewer);
+extern dErr dMeshRegisterAll(const char path[]);
 #define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,d)
-EXTERN dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
-EXTERN dErr dMeshSetType(dMesh,const dMeshType);
-EXTERN dErr dMeshInitializePackage(const char[]);
-EXTERN dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
-EXTERN dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
-EXTERN dErr dMeshGetInstance(dMesh,iMesh_Instance*);
-EXTERN dErr dMeshGetNumEnts(dMesh,dMeshESH,dEntType,dEntTopology,dInt*);
-EXTERN dErr dMeshGetEnts(dMesh,dMeshESH,dEntType,dEntTopology,dMeshEH[],dInt,dInt*);
-EXTERN dErr dMeshGetNumSubsets(dMesh,dMeshESH,dInt,dInt*);
-EXTERN dErr dMeshGetSubsets(dMesh,dMeshESH,dInt,dMeshESH[],dInt,dInt*);
-EXTERN dErr dMeshGetEntsOff(dMesh,dMeshESH,dInt*,dMeshEH**);
-EXTERN dErr dMeshGetAdjIndex(dMesh,const dMeshEH[],dInt,const dMeshEH[],dInt,dInt[],dInt*);
+extern dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
+extern dErr dMeshSetType(dMesh,const dMeshType);
+extern dErr dMeshInitializePackage(const char[]);
+extern dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
+extern dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
+extern dErr dMeshGetInstance(dMesh,iMesh_Instance*);
+extern dErr dMeshGetNumEnts(dMesh,dMeshESH,dEntType,dEntTopology,dInt*);
+extern dErr dMeshGetEnts(dMesh,dMeshESH,dEntType,dEntTopology,dMeshEH[],dInt,dInt*);
+extern dErr dMeshGetNumSubsets(dMesh,dMeshESH,dInt,dInt*);
+extern dErr dMeshGetSubsets(dMesh,dMeshESH,dInt,dMeshESH[],dInt,dInt*);
+extern dErr dMeshGetEntsOff(dMesh,dMeshESH,dInt*,dMeshEH**);
+extern dErr dMeshGetAdjIndex(dMesh,const dMeshEH[],dInt,const dMeshEH[],dInt,dInt[],dInt*);
 
-EXTERN dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag);
-EXTERN dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag);
-EXTERN dErr dMeshTagCreate(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
-EXTERN dErr dMeshTagCreateTemp(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
-EXTERN dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type);
-EXTERN dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type);
-EXTERN dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,const void *data,dInt count,dDataType type);
-EXTERN dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type);
-EXTERN dErr dMeshGetTaggedSet(dMesh,dMeshTag,const void*,dMeshESH*);
-EXTERN dErr dMeshSetFromOptions(dMesh);
-EXTERN dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
-EXTERN dErr dMeshSetCreate(dMesh,dMeshSetOrdering,dMeshESH*);
-EXTERN dErr dMeshSetAddEnts(dMesh,dMeshESH,const dMeshEH*,dInt);
-EXTERN dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,dMeshESH *sets,dInt *member);
-EXTERN dErr dMeshGetStatus(dMesh,const dMeshEH[],dInt,dEntStatus[]);
-EXTERN dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
-EXTERN dErr dMeshGetAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
-EXTERN dErr dMeshRestoreAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
-EXTERN dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
-EXTERN dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
-EXTERN dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
-EXTERN dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
+extern dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag);
+extern dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag);
+extern dErr dMeshTagCreate(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
+extern dErr dMeshTagCreateTemp(dMesh mesh,const char[],dInt count,dDataType type,dMeshTag *intag);
+extern dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type);
+extern dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type);
+extern dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,const void *data,dInt count,dDataType type);
+extern dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type);
+extern dErr dMeshGetTaggedSet(dMesh,dMeshTag,const void*,dMeshESH*);
+extern dErr dMeshSetFromOptions(dMesh);
+extern dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
+extern dErr dMeshSetCreate(dMesh,dMeshSetOrdering,dMeshESH*);
+extern dErr dMeshSetAddEnts(dMesh,dMeshESH,const dMeshEH*,dInt);
+extern dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,dMeshESH *sets,dInt *member);
+extern dErr dMeshGetStatus(dMesh,const dMeshEH[],dInt,dEntStatus[]);
+extern dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
+extern dErr dMeshGetAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
+extern dErr dMeshRestoreAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
+extern dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
+extern dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
+extern dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
+extern dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 
 dEXTERN_C_END
 

@@ -1,7 +1,7 @@
 #include <dohpfsimpl.h>
 #include <dohpvec.h>
 
-EXTERN dErr VecView_Dohp_FSCont(Vec,PetscViewer);
+extern dErr VecView_Dohp_FSCont(Vec,PetscViewer);
 
 dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 {

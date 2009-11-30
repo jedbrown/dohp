@@ -16,7 +16,7 @@
 
 dEXTERN_C_BEGIN
 
-EXTERN PetscCookie dFSROT_COOKIE;
+extern PetscCookie dFSROT_COOKIE;
 
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;
@@ -51,56 +51,56 @@ typedef enum {dFS_ROTATE_FORWARD, dFS_ROTATE_REVERSE} dFSRotateMode;
 
 #define dFSCONT "cont"
 
-EXTERN dErr dFSCreate(MPI_Comm,dFS*);
-EXTERN dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
+extern dErr dFSCreate(MPI_Comm,dFS*);
+extern dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 extern dErr dFSGetMesh(dFS,dMesh*);
 extern dErr dFSGetJacobi(dFS,dJacobi*);
-EXTERN dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
-EXTERN dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
-EXTERN dErr dFSSetBlockSize(dFS,dInt);
-EXTERN dErr dFSSetFieldName(dFS,dInt,const char*);
-EXTERN dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
-EXTERN dErr dFSSetFromOptions(dFS);
-EXTERN dErr dFSSetType(dFS,const dFSType);
-EXTERN dErr dFSCreateExpandedVector(dFS,Vec*);
-EXTERN dErr dFSCreateGlobalVector(dFS,Vec*);
-EXTERN dErr dFSExpandedToLocal(dFS,Vec,Vec,InsertMode);
-EXTERN dErr dFSLocalToExpanded(dFS,Vec,Vec,InsertMode);
-EXTERN dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc);
-EXTERN dErr dFSRotateGlobal(dFS,Vec,dFSRotateMode,dFSHomogeneousMode);
-EXTERN dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
-EXTERN dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
-EXTERN dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
-EXTERN dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
-EXTERN dErr dFSMatSetValuesBlockedExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
-EXTERN dErr dFSGetMatrix(dFS,const MatType,Mat*);
-EXTERN dErr dFSBuildSpace(dFS);
-EXTERN dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
-EXTERN dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
+extern dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
+extern dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
+extern dErr dFSSetBlockSize(dFS,dInt);
+extern dErr dFSSetFieldName(dFS,dInt,const char*);
+extern dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
+extern dErr dFSSetFromOptions(dFS);
+extern dErr dFSSetType(dFS,const dFSType);
+extern dErr dFSCreateExpandedVector(dFS,Vec*);
+extern dErr dFSCreateGlobalVector(dFS,Vec*);
+extern dErr dFSExpandedToLocal(dFS,Vec,Vec,InsertMode);
+extern dErr dFSLocalToExpanded(dFS,Vec,Vec,InsertMode);
+extern dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc);
+extern dErr dFSRotateGlobal(dFS,Vec,dFSRotateMode,dFSHomogeneousMode);
+extern dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
+extern dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
+extern dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
+extern dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
+extern dErr dFSMatSetValuesBlockedExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
+extern dErr dFSGetMatrix(dFS,const MatType,Mat*);
+extern dErr dFSBuildSpace(dFS);
+extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
+extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
 
-EXTERN dErr dFSDestroy(dFS);
-EXTERN dErr dFSView(dFS,PetscViewer);
-EXTERN dErr dFSLoadIntoFS(PetscViewer,const char[],dFS);
+extern dErr dFSDestroy(dFS);
+extern dErr dFSView(dFS,PetscViewer);
+extern dErr dFSLoadIntoFS(PetscViewer,const char[],dFS);
 #define dFSRegisterDynamic(a,b,c,d) dFSRegister(a,b,c,d)
-EXTERN dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
-EXTERN dErr dFSRegisterAll(const char[]);
-EXTERN dErr dFSInitializePackage(const char[]);
+extern dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
+extern dErr dFSRegisterAll(const char[]);
+extern dErr dFSInitializePackage(const char[]);
 
 /* These are purely for convenience */
-EXTERN dErr dFSGlobalToExpanded(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
-EXTERN dErr dFSExpandedToGlobal(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
+extern dErr dFSGlobalToExpanded(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
+extern dErr dFSExpandedToGlobal(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
 
-EXTERN dErr dFSRotationCreate(dFS,IS,dReal[],dInt[],Vec,dFSRotation*);
-EXTERN dErr dFSRotationDestroy(dFSRotation);
-EXTERN dErr dFSRotationView(dFSRotation,PetscViewer);
-EXTERN dErr dFSRotationApply(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
-EXTERN dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
+extern dErr dFSRotationCreate(dFS,IS,dReal[],dInt[],Vec,dFSRotation*);
+extern dErr dFSRotationDestroy(dFSRotation);
+extern dErr dFSRotationView(dFSRotation,PetscViewer);
+extern dErr dFSRotationApply(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
+extern dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
 
-EXTERN dErr dFSSetRotation(dFS,dFSRotation);
-EXTERN dErr dFSGetRotation(dFS,dFSRotation*);
+extern dErr dFSSetRotation(dFS,dFSRotation);
+extern dErr dFSGetRotation(dFS,dFSRotation*);
 
-EXTERN dErr dFSGetCoordinates(dFS,Vec*);
-EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
+extern dErr dFSGetCoordinates(dFS,Vec*);
+extern dErr dFSGetGeometryVector(dFS,Vec*);
 
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
 * separate it out yet.  This macro is a rather dirty way to avoid a bunch of code duplication without much runtime cost.
@@ -153,7 +153,7 @@ EXTERN dErr dFSGetGeometryVector(dFS,Vec*);
                                     (tscale)[0][(i)+1]*(tscale)[1][(j)+1]*(tscale)[2][(k)+1], \
                                     (tscale)[0][(i)+0]*(tscale)[1][(j)+1]*(tscale)[2][(k)+1]}
 
-EXTERN dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**qx)[3],const dReal **jw,const dReal **basis,const dReal **deriv);
+extern dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**qx)[3],const dReal **jw,const dReal **basis,const dReal **deriv);
 
 
 dEXTERN_C_END

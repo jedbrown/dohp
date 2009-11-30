@@ -38,6 +38,6 @@ struct p_dQuotient {
   dBool                  setdegreeset;
 };
 
-EXTERN dErr dQuotientCreate_Gauss(dQuotient);
+extern dErr dQuotientCreate_Gauss(dQuotient);
 
 #endif /* _DOHPQUOTIENTIMPL_H */

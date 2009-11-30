@@ -1,7 +1,7 @@
 #include <dohpviewer.h>
 #include <dohp.h>
 
-EXTERN PetscErrorCode PetscViewerCreate_DHM(PetscViewer);
+extern PetscErrorCode PetscViewerCreate_DHM(PetscViewer);
 
 dErr dViewerRegisterAll(const char *path)
 {

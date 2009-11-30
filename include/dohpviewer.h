@@ -9,15 +9,15 @@
 dEXTERN_C_BEGIN
 
 /* For writing */
-EXTERN dErr dViewerDHMSetTime(PetscViewer,dReal);
-EXTERN dErr dViewerDHMSetTimeUnits(PetscViewer,const char*,dReal);
+extern dErr dViewerDHMSetTime(PetscViewer,dReal);
+extern dErr dViewerDHMSetTimeUnits(PetscViewer,const char*,dReal);
 
 /* For reading */
-EXTERN dErr dViewerDHMSetTimeStep(PetscViewer,dInt);
-EXTERN dErr dViewerDHMGetSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
-EXTERN dErr dViewerDHMRestoreSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
+extern dErr dViewerDHMSetTimeStep(PetscViewer,dInt);
+extern dErr dViewerDHMGetSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
+extern dErr dViewerDHMRestoreSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
 
-EXTERN dErr dViewerRegisterAll(const char*);
+extern dErr dViewerRegisterAll(const char*);
 
 dEXTERN_C_END
 

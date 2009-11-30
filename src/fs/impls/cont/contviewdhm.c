@@ -3,7 +3,7 @@
 #include "cont.h"
 #include "../../../viewer/dhm.h"
 
-EXTERN dErr VecView_Dohp_FSCont(Vec,dViewer);
+extern dErr VecView_Dohp_FSCont(Vec,dViewer);
 
 /** Get data set and space to write the next element for this FS
 * \note caller is responsible for closing both

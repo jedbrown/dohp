@@ -122,13 +122,13 @@ typedef struct {
   TensorBasis basis[3];
 } dEFS_Tensor;
 
-EXTERN dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac);
-EXTERN dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);
-EXTERN dErr dJacobiRuleOpsDestroy_Tensor(dJacobi jac);
-EXTERN dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac);
+extern dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac);
+extern dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);
+extern dErr dJacobiRuleOpsDestroy_Tensor(dJacobi jac);
+extern dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac);
 
-EXTERN dErr TensorRuleView(const TensorRule,PetscViewer);
-EXTERN dErr TensorBasisView(const TensorBasis,PetscViewer);
+extern dErr TensorRuleView(const TensorRule,PetscViewer);
+extern dErr TensorBasisView(const TensorBasis,PetscViewer);
 
 dEXTERN_C_END
 

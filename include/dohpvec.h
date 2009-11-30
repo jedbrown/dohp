@@ -8,9 +8,9 @@ dEXTERN_C_BEGIN
 
 #define VECDOHP "dohp"
 
-EXTERN dErr VecDohpGetClosure(Vec,Vec*);
-EXTERN dErr VecDohpRestoreClosure(Vec,Vec*);
-EXTERN dErr VecCreateDohp(MPI_Comm,dInt,dInt,dInt,dInt,const dInt[],Vec*);
+extern dErr VecDohpGetClosure(Vec,Vec*);
+extern dErr VecDohpRestoreClosure(Vec,Vec*);
+extern dErr VecCreateDohp(MPI_Comm,dInt,dInt,dInt,dInt,const dInt[],Vec*);
 
 extern dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat);
 
