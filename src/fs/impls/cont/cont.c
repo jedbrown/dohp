@@ -177,6 +177,53 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   dFunctionReturn(0);
 }
 
+/* To generate element assembly matrices, we need
+* @arg idx the MeshAdjacency index of every region
+* @arg xstart offset in expanded vector of first node associated with this region
+* @arg ma MeshAdjacency (array-based connectivity)
+* @arg deg integer array of length \c 3*ma.nents which holds the degree of every entity in MeshAdjacency
+*
+* We will create matrices
+* @arg[out] E full order element assembly matrix
+* @arg[out] Ep preconditioning element assembly matrix (as sparse as possible)
+*
+* These are preallocated using \a nnz and \a pnnz respectively.
+**/
+static dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,dInt nregions,dInt xcnt,const dInt idx[],const dInt xstart[],dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp)
+{
+  dErr err;
+  dInt *nnz,*pnnz,*loffset;
+  Mat   E,Ep;
+
+  dFunctionBegin;
+  err = dMallocA3(xcnt,&nnz,xcnt,&pnnz,ma->nents,&loffset);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->loffsetTag,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
+
+  err = dJacobiGetConstraintCount(fs->jacobi,nregions,idx,xstart,loffset,deg,ma,nnz,pnnz);dCHK(err);
+
+  /* We don't solve systems with these so it will never make sense for them to use a different format */
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,fs->nc+fs->ngh,1,nnz,&E);dCHK(err);
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,fs->nc+fs->ngh,1,pnnz,&Ep);dCHK(err);
+
+  err = dJacobiAddConstraints(fs->jacobi,nregions,idx,xstart,loffset,deg,ma,E,Ep);dCHK(err);
+
+  err = dFree3(nnz,pnnz,loffset);dCHK(err);
+
+  err = MatAssemblyBegin(E,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyBegin(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(E,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
+
+  err = MatCreateMAIJ(E,fs->bs,inE);dCHK(err);
+  err = MatCreateMAIJ(Ep,fs->bs,inEp);dCHK(err);
+
+  err = MatDestroy(E);dCHK(err);
+  err = MatDestroy(Ep);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
+
 /**
 * Build a scalar continuous function space, perhaps with constraints at non-conforming nodes
 *
@@ -396,47 +443,10 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
   err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
 
-  {
-    dInt *nnz,*pnnz;
-    Mat   E,Ep;
-    err = dMallocA2(xcnt,&nnz,xcnt,&pnnz);dCHK(err);
-    err = dMeshTagGetData(mesh,fs->loffsetTag,ma.ents,ma.nents,intdata,ma.nents,dDATA_INT);dCHK(err);
-    /* To generate element assembly matrices, we need
-    * \a idx the MeshAdjacency index of every region
-    * \a xstart offset in expanded vector of first node associated with this region
-    * \a istart offset in local vectors of first dof associated with each entity (not just regions)
-    * \a deg integer array of length \c 3*ma.nents which holds the degree of every entity in MeshAdjacency
-    * \a ma MeshAdjacency (array-based connectivity)
-    *
-    * We will create matrices
-    * \a E full order element assembly matrix
-    * \a Ep preconditioning element assembly matrix (as sparse as possible)
-    *
-    * These are preallocated using \a nnz and \a pnnz respectively.
-    **/
-    err = dJacobiGetConstraintCount(fs->jacobi,nregions,idx,xstart,intdata,deg,&ma,nnz,pnnz);dCHK(err);
+  err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,nregions,xcnt,idx,xstart,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
-    /* We don't solve systems with these so it will never make sense for them to use a different format */
-    err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nc+ngh,1,nnz,&E);dCHK(err);
-    err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nc+ngh,1,pnnz,&Ep);dCHK(err);
-    err = dFree2(nnz,pnnz);dCHK(err);
-
-    err = dJacobiAddConstraints(fs->jacobi,nregions,idx,xstart,intdata,deg,&ma,E,Ep);dCHK(err);
-    err = dFree4(deg,rdeg,inodes,status);dCHK(err);
-    err = dMeshRestoreAdjacency(mesh,fs->activeSet,&fs->meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
-
-    err = MatAssemblyBegin(E,MAT_FINAL_ASSEMBLY);dCHK(err);
-    err = MatAssemblyBegin(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
-    err = MatAssemblyEnd(E,MAT_FINAL_ASSEMBLY);dCHK(err);
-    err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
-
-    err = MatCreateMAIJ(E,bs,&fs->E);dCHK(err);
-    err = MatCreateMAIJ(Ep,bs,&fs->Ep);dCHK(err);
-
-    err = MatDestroy(E);dCHK(err);
-    err = MatDestroy(Ep);dCHK(err);
-  }
-
+  err = dMeshRestoreAdjacency(fs->mesh,fs->activeSet,&fs->meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
+  err = dFree4(deg,rdeg,inodes,status);dCHK(err);
   err = dFree4(ents,intdata,idx,ghidx);dCHK(err);
   err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);
 
