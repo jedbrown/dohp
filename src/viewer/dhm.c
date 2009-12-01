@@ -284,8 +284,7 @@ dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step)
       att          = H5Aopen(dhm->curstep,"time",H5P_DEFAULT);dH5CHK(att,H5Aopen);
       herr         = H5Aread(att,timetype,&time);dCHK(err);
       dhm->time      = time.value;
-      dhm->timeunits = time.units.dimensions;
-      dhm->timescale = time.units.scale;
+      err = dViewerDHMSetTimeUnits(viewer,time.units.dimensions,time.units.scale);dCHK(err);
     } else {
       dhm->curstep = H5Gcreate(dhm->steproot,stepname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dhm->curstep,H5Gcreate);
       att = H5Acreate(dhm->curstep,"time",timetype,dhm->h5s_scalar,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(att,H5Acreate);
