@@ -70,9 +70,8 @@ static dErr dFSDestroy_Cont(dFS fs)
 /**
 @note Not collective
 */
-static dErr dFSContPropogateDegree(dFS fs)
+static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
 {
-  dMeshAdjacency ma = fs->meshAdj;
   dInt *deg;
   dErr err;
 
@@ -197,15 +196,16 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 *
 * These are preallocated using \a nnz and \a pnnz respectively.
 **/
-static dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,dInt xcnt,const dInt idx[],const dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp)
+dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp)
 {
   dErr err;
   const dInt *xstart = fs->off;
-  dInt nloc,bs,*nnz,*pnnz,*loffset;
+  dInt nloc,bs,*nnz,*pnnz,*loffset,xcnt;
   Vec   Xclosure,Xloc;
   Mat   E,Ep;
 
   dFunctionBegin;
+  xcnt = xstart[fs->nelem];
   err = dMallocA3(xcnt,&nnz,xcnt,&pnnz,ma->nents,&loffset);dCHK(err);
   err = dMeshTagGetData(fs->mesh,fs->loffsetTag,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
 
@@ -253,6 +253,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
   dUNUSED dFS_Cont      *cont  = fs->data;
   struct _p_dMeshAdjacency ma;
+  dMeshAdjacency         meshAdj;
   dMesh                  mesh;
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
@@ -269,9 +270,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   bs   = fs->bs;
   mesh = fs->mesh;
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
-  err = dMeshGetAdjacency(mesh,fs->activeSet,&fs->meshAdj);dCHK(err);
-  err = dMemcpy(&ma,fs->meshAdj,sizeof ma);dCHK(err); /* To have object rather than pointer semantics in this function. */
-  err = dFSContPropogateDegree(fs);dCHK(err);
+  err = dMeshGetAdjacency(mesh,fs->activeSet,&meshAdj);dCHK(err);
+  err = dMemcpy(&ma,meshAdj,sizeof ma);dCHK(err); /* To have object rather than pointer semantics in this function. */
+  err = dFSContPropogateDegree(fs,meshAdj);dCHK(err);
 
   /* Allocate a workspace that's plenty big, so that we don't have to allocate memory constantly */
   ents_a = ma.nents;
@@ -433,7 +434,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   * be constrained against all nodes on the adjacent entity.
   */
 
-  iMesh_getEntitiesRec(mi,fs->activeSet,dTYPE_REGION,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+  err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
   nregions = ents_s;
   err = dMallocA5(nregions+1,&xstart,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg,nregions,&xnodes);dCHK(err);
@@ -446,12 +447,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     regRDeg[i] = dMaxInt(regRDeg[i],regBDeg[i]+fs->ruleStrength);
   }
 
-  xcnt = 0;
-  for (dInt i=0; i<nregions; i++) {
-    xstart[i] = xcnt;              /* first node on this entity */
-    xcnt += xnodes[i];
-  }
-  xstart[nregions] = xcnt;
+  xcnt = xstart[0] = 0;
+  for (dInt i=0; i<nregions; i++) xstart[i+1] = (xcnt += xnodes[i]);
 
   /* Get Rule and EFS for domain ents. */
   fs->nelem = nregions;
@@ -462,9 +459,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
   err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);
 
-  err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,xcnt,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
+  err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
-  err = dMeshRestoreAdjacency(fs->mesh,fs->activeSet,&fs->meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
+  err = dMeshRestoreAdjacency(fs->mesh,fs->activeSet,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
   err = dFree4(deg,rdeg,inodes,status);dCHK(err);
   err = dFree4(ents,intdata,idx,ghidx);dCHK(err);
   dFunctionReturn(0);

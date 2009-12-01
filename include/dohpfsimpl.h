@@ -49,7 +49,6 @@ struct _p_dFS {
   PETSCHEADER(struct _dFSOps);
   DMHEADER
   dMesh        mesh;
-  dMeshAdjacency meshAdj;
   dMeshTag     degreetag,ruletag; /**< tags on regions */
   dMeshESH     activeSet;       /**< all entities that will be part of this space, weak forms are evaluated on regions in this set */
   dQuotient    quotient;
