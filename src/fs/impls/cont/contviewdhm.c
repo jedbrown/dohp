@@ -305,15 +305,30 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
       {
         dMeshTag tag;
         dJacobi jac;
+        dMeshESH set;
         dIInt readrank = 0;         /* Hard-code the rank for now */
         err = dMeshGetTag(mesh,fs5.partition,&tag);dCHK(err);
-        err = dMeshGetTaggedSet(mesh,tag,&readrank,&fs->activeSet);dCHK(err);
+        err = dMeshGetTaggedSet(mesh,tag,&readrank,&set);dCHK(err);
+        err = dFSSetMesh(fs,mesh,set);dCHK(err); /* Create all the private sets and tags */
         err = dMeshGetTag(mesh,fs5.ordered_subdomain,&tag);dCHK(err);
-        err = dMeshGetTaggedSet(mesh,tag,&readrank,&fs->orderedSet);dCHK(err);
+        err = dMeshGetTaggedSet(mesh,tag,&readrank,&set);dCHK(err);
+        if (set != fs->orderedSet) { /* Replace it */
+          err = dMeshSetDestroy(mesh,fs->orderedSet);dCHK(err);
+          fs->orderedSet = set;
+        }
+
         err = dMeshGetTag(mesh,fs5.degree,&tag);dCHK(err);
         err = dFSGetJacobi(fs,&jac);dCHK(err);
         err = dFSSetDegree(fs,jac,tag);dCHK(err);
-        err = dMeshGetTag(mesh,fs5.global_offset,&fs->gcoffsetTag);dCHK(err);
+        err = dFSSetRuleTag(fs,jac,tag);dCHK(err); /* Should have a better way to get this */
+        err = dJacobiSetFromOptions(jac);dCHK(err);
+        err = dJacobiSetUp(jac);dCHK(err);
+
+        err = dMeshGetTag(mesh,fs5.global_offset,&tag);dCHK(err);
+        if (tag != fs->gcoffsetTag) { /* Replace it */
+          err = dMeshTagDestroy(mesh,fs->gcoffsetTag);dCHK(err);
+          fs->gcoffsetTag = tag;
+        }
       }
       herr = H5Dvlen_reclaim(mstring,strspace,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dvlen_reclaim);
     }
@@ -325,6 +340,67 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   **/
 
   /* @todo Call private dFSBuildSpace pieces (once they exist) */
+  {
+    dInt           i,n,bs,ents_a,ents_s,*bdeg,*inodes,*xnodes,*idx,xcnt,*loffset;
+    dEntTopology   *topo;
+    dMeshEH        *ents;
+    dMesh          mesh;
+    dMeshAdjacency meshadj;
+
+    err = dFSGetMesh(fs,&mesh);dCHK(err);
+    err = dMeshGetNumEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
+    err = dMallocA5(ents_a,&ents,ents_a,&topo,3*ents_a,&bdeg,ents_a,&xnodes,ents_a,&idx);dCHK(err);
+
+    err = dMeshGetEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+    dASSERT(ents_a == ents_s);
+    err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
+    err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,3*ents_s,dDATA_INT);dCHK(err);
+
+    err = dMallocA2(ents_s,&inodes,ents_s,&loffset);dCHK(err);
+    err = dJacobiGetNodeCount(fs->jacobi,ents_s,topo,bdeg,inodes,xnodes);dCHK(err);
+    for (i=0,n=0; i<ents_s; n += inodes[i++]) loffset[i] = n;
+    bs = 1;                     /* @bug */
+
+    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,loffset,ents_s,dDATA_INT);dCHK(err);
+    err = dFree2(inodes,loffset);dCHK(err);
+
+    /* The global vector is the same as the closure (assume no Dirichlet boundaries for now).
+     * It is sequential and thus has no ghosts.
+     */
+    err = VecCreateDohp(PETSC_COMM_SELF,bs,n,n,0,NULL,&fs->gvec);dCHK(err);
+    /* Create fs->bmapping and fs->mapping */
+    err = dFSCreateLocalToGlobal_Private(fs,n,n,0,NULL,0);dCHK(err);
+    err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
+
+    err = dMeshGetAdjacency(mesh,fs->activeSet,&meshadj);dCHK(err);
+    err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+
+    err = dMeshGetVertexCoords(mesh,ents_s,ents,&fs->vtxoff,&fs->vtx);dCHK(err);
+
+    fs->nelem = ents_s;
+    err = dMallocA3(ents_s,&fs->rule,ents_s,&fs->efs,ents_s+1,&fs->off);dCHK(err); /* Owned by FS */
+
+    {
+      dInt *rdeg;
+      err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
+      err = dMallocA(ents_s*3,&rdeg);dCHK(err);
+      err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,ents_s*3,dDATA_INT);dCHK(err);
+      err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,rdeg,ents_s*3,dDATA_INT);dCHK(err);
+      err = dJacobiGetRule(fs->jacobi,ents_s,topo,rdeg,fs->rule);dCHK(err);
+      err = dJacobiGetEFS(fs->jacobi,ents_s,topo,bdeg,fs->rule,fs->efs);dCHK(err);
+      err = dFree(rdeg);dCHK(err);
+    }
+
+    err = dMeshTagGetData(mesh,meshadj->indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
+    fs->off[0] = xcnt = 0;
+    for (i=0; i<ents_s; i++) fs->off[i+1] = (xcnt += xnodes[idx[i]]);
+
+    err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
+
+    err = dMeshRestoreAdjacency(mesh,fs->activeSet,&meshadj);dCHK(err);
+    err = dFree5(ents,topo,bdeg,xnodes,idx);dCHK(err);
+  }
+
 
   herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   herr = H5Oclose(fsobj);dH5CHK(herr,H5Oclose);
