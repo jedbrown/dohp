@@ -139,6 +139,7 @@ extern dErr dMeshGetTaggedSet(dMesh,dMeshTag,const void*,dMeshESH*);
 extern dErr dMeshSetFromOptions(dMesh);
 extern dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
 extern dErr dMeshSetCreate(dMesh,dMeshSetOrdering,dMeshESH*);
+extern dErr dMeshSetDestroy(dMesh,dMeshESH);
 extern dErr dMeshSetAddEnts(dMesh,dMeshESH,const dMeshEH*,dInt);
 extern dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,dMeshESH *sets,dInt *member);
 extern dErr dMeshGetStatus(dMesh,const dMeshEH[],dInt,dEntStatus[]);

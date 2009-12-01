@@ -640,6 +640,16 @@ dErr dMeshSetCreate(dMesh mesh,dMeshSetOrdering ordering,dMeshESH *inset)
   dFunctionReturn(0);
 }
 
+dErr dMeshSetDestroy(dMesh mesh,dMeshESH set)
+{
+  dIInt ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_COOKIE,1);
+  iMesh_destroyEntSet(mesh->mi,set,&ierr);dICHK(mesh->mi,ierr);
+  dFunctionReturn(0);
+}
+
 dErr dMeshSetAddEnts(dMesh mesh,dMeshESH set,const dMeshEH *ents,dInt nents)
 {
   dIInt ierr;
