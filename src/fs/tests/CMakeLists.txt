@@ -13,6 +13,7 @@ dohp_add_test (fs-mf-op-proj-1  1 fs-ex1 -const_BDeg 7 -snes_mf_operator -ksp_co
 dohp_add_test (bu-0 1 bu -dmesh_in "${Dohp_DATA_DIR}/dblock211.h5m" -dfs_ordering_type natural -malloc_dump)
 
 dohp_add_test (fsex4-submesh-p2 1 fs-ex4 -bdeg 2 -dfs_view -dfs_ordering_type natural -malloc_dump)
+dohp_add_test (fsex4-submesh-p2-read 1 fs-ex4 -bdeg 2 -dfs_view -dfs_ordering_type natural -read_back)
 
 dohp_add_test (ellip-e0-b2-p16 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -ksp_monitor_short -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 2 -ellip_p 1.6 -dfs_ordering_type natural -malloc_dump)
 dohp_add_test (ellip-e0-b4-p16 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -ksp_monitor_short -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 4 -ellip_p 1.6 -djac_tensor_no_unroll -dfs_ordering_type natural -malloc_dump)

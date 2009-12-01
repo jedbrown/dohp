@@ -84,6 +84,19 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
   dFunctionReturn(0);
 }
 
+static dErr FSEx4FillVec(Vec X)
+{
+  dErr    err;
+  dInt    n;
+  dScalar *x;
+
+  dFunctionBegin;
+  err = VecGetLocalSize(X,&n);dCHK(err);
+  err = VecGetArray(X,&x);dCHK(err);
+  for (dInt i=0; i<n; i++) x[i] = 0.1*i;
+  err = VecRestoreArray(X,&x);dCHK(err);
+  dFunctionReturn(0);
+}
 
 int main(int argc,char *argv[])
 {
@@ -128,6 +141,7 @@ int main(int argc,char *argv[])
   err = dFSSetFromOptions(fs);dCHK(err);
   err = dFSCreateGlobalVector(fs,&X);dCHK(err);
   err = PetscObjectSetName((PetscObject)X,"my_vec");dCHK(err);
+  err = FSEx4FillVec(X);dCHK(err);
 
   err = PetscViewerCreate(comm,&viewer);dCHK(err);
   err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);

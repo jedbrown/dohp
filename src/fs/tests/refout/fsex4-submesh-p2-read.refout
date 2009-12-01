@@ -1,0 +1,106 @@
+dFS object:(no prefix)
+  type: cont
+  General information about the mesh topology.
+  number of vertices=14 edges=25 faces=15 regions=3
+  On rank 0: 24/24 expanded nodes constrained against 14+0 / 14+0 real nodes, 14 / 14 closure
+  Block size 1: global dofs 14, ghost dofs 0, closure dofs 14
+  Continuous Galerkin function space
+Offsets for 3 subelements
+0: 0 8 16 24
+Connectivity
+0: 0 1 2 3 7 8 9 10 0 3 4 5 7 10 11 12 0 5 6 1
+20: 7 12 13 8
+Coordinates
+0
+0
+0
+1
+0
+0
+0.5
+1.5
+0
+-0.3
+0.8
+0
+-1.5
+0
+0
+-0.3
+-0.8
+0
+0.5
+-1.5
+0
+0
+0
+1
+1
+0
+1
+0.5
+1.5
+1
+-0.3
+0.8
+1
+-1.5
+0
+1
+-0.3
+-0.8
+1
+0.5
+-1.5
+1
+link[0] = '000'
+[0] DHM has 1 steps available
+[0] step 0  time 0
+Offsets for 3 subelements
+0: 0 8 16 24
+Connectivity
+0: 0 1 2 3 7 8 9 10 0 3 4 5 7 10 11 12 0 5 6 1
+20: 7 12 13 8
+Coordinates
+0
+0
+0
+1
+0
+0
+0.5
+1.5
+0
+-0.3
+0.8
+0
+-1.5
+0
+0
+-0.3
+-0.8
+0
+0.5
+-1.5
+0
+0
+0
+1
+1
+0
+1
+0.5
+1.5
+1
+-0.3
+0.8
+1
+-1.5
+0
+1
+-0.3
+-0.8
+1
+0.5
+-1.5
+1

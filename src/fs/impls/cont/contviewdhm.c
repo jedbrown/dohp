@@ -250,7 +250,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   hid_t       curstep,vectype,vdset,vattr,fsobj,fsspace;
   herr_t      herr;
   dht_Vec     vecmeta;
-  //dht_FS      fsmeta;
+  dTruth      debug = dFALSE;
 
   dFunctionBegin;
   err = dViewerDHMSetUp(viewer);dCHK(err);
@@ -262,7 +262,10 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   herr = H5Aread(vattr,vectype,&vecmeta);dH5CHK(herr,H5Aread);
   herr = H5Aclose(vattr);dH5CHK(herr,H5Aclose);
 
-  err = dPrintf(PETSC_COMM_SELF,"Vec name '%s'  time %g  internal_state %d\n",fieldname,vecmeta.time,vecmeta.internal_state);dCHK(err);
+  if (debug) {
+    err = dPrintf(PETSC_COMM_SELF,"Vec name '%s'  time %g  internal_state %d\n",
+                  fieldname,vecmeta.time,vecmeta.internal_state);dCHK(err);
+  }
 
   fsobj = H5Rdereference(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(fsobj,H5Rdereference);
   fsspace = H5Rget_region(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(fsobj,H5Rget_region);
@@ -272,7 +275,9 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     hssize_t nrec;
     len = H5Iget_name(fsobj,fsobjname,sizeof fsobjname);dH5CHK(len,H5Iget_name);
     nrec = H5Sget_select_npoints(fsspace);dH5CHK(nrec,H5Sget_select_npoints);
-    err = dPrintf(PETSC_COMM_SELF,"fsobj name '%s', npoints %zd\n",len?fsobjname:"(no name)",nrec);dCHK(err);
+    if (debug) {
+      err = dPrintf(PETSC_COMM_SELF,"fsobj name '%s', npoints %zd\n",len?fsobjname:"(no name)",nrec);dCHK(err);
+    }
   }
   {
     dht_FS fs5;
@@ -282,13 +287,17 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = H5Dread(fsobj,h5t_FS,memspace,fsspace,H5P_DEFAULT,&fs5);dH5CHK(herr,H5Dread);
     herr = H5Sclose(memspace);
 
-    printf("degree = %s\nglobal_offset = %s\npartition = %s\nordered_subdomain = %s\n",fs5.degree,fs5.global_offset,fs5.partition,fs5.ordered_subdomain);
+    if (debug) {
+      dPrintf(PETSC_COMM_SELF,"degree = %s\nglobal_offset = %s\npartition = %s\nordered_subdomain = %s\n",fs5.degree,fs5.global_offset,fs5.partition,fs5.ordered_subdomain);dCHK(err);
+    }
     meshobj = H5Rdereference(dhm->meshroot,H5R_OBJECT,&fs5.mesh);dH5CHK(meshobj,H5Rdereference);
     {
       char meshname[dNAME_LEN] = {0};
       ssize_t len;
       len = H5Iget_name(meshobj,meshname,sizeof meshname);dH5CHK(len,H5Iget_name);
-      printf("mesh name = %s\n",meshname);
+      if (debug) {
+        err = dPrintf(PETSC_COMM_SELF,"mesh name = %s\n",meshname);dCHK(err);
+      }
     }
 
     {
@@ -297,7 +306,9 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
       char *imeshstr;           /* We are reading to a vlen string so HDF5 will allocate memory */
       err = dViewerDHMGetStringTypes(viewer,NULL,&mstring,&strspace);dCHK(err);
       herr = H5Dread(meshobj,mstring,H5S_ALL,H5S_ALL,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dread);
-      printf("imeshstr = %s\n",imeshstr);
+      if (debug) {
+        err = dPrintf(PETSC_COMM_SELF,"imeshstr = %s\n",imeshstr);dCHK(err);
+      }
       err = dFSGetMesh(fs,&mesh);dCHK(err);
       err = dMeshSetInFile(mesh,imeshstr,NULL);dCHK(err);
       err = dMeshSetType(mesh,dMESHSERIAL);dCHK(err);
