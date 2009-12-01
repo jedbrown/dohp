@@ -264,12 +264,12 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
 
   /* Get number of nodes for all entities, and parallel status */
-  err = dMallocA5(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&xnodes,ma.nents,&status);dCHK(err);
+  err = dMallocA4(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
   err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,3*ma.nents,dDATA_INT);dCHK(err);
   err = dMeshTagGetData(mesh,fs->ruletag,ma.ents,ma.nents,rdeg,3*ma.nents,dDATA_INT);dCHK(err);
   /* Fill the arrays \a inodes and \a xnodes with the number of interior and expanded nodes for each
   * (topology,degree) pair */
-  err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,xnodes);dCHK(err);
+  err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
   err = dMeshGetStatus(mesh,ma.ents,ma.nents,status);dCHK(err);
 
   /* Count the number of nodes in each space (explicit, dirichlet, ghost) */
@@ -371,25 +371,30 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   iMesh_getEntitiesRec(mi,fs->activeSet,dTYPE_REGION,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
   err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
   nregions = ents_s;
-  err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg);dCHK(err);
+  err = dMallocA5(nregions+1,&xstart,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg,nregions,&xnodes);dCHK(err);
+  err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions*3,dDATA_INT);dCHK(err);
+  err = dJacobiGetNodeCount(fs->jacobi,ents_s,regTopo,regBDeg,NULL,xnodes);dCHK(err);
+
+  err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,regRDeg,nregions*3,dDATA_INT);dCHK(err);
+  for (dInt i=0; i<3*nregions; i++) {
+    regRDeg[i] = dMaxInt(regRDeg[i],regBDeg[i]+fs->ruleStrength);
+  }
+
   xcnt = 0;
   for (dInt i=0; i<nregions; i++) {
-    const dInt ii = idx[i]; /* Index in MeshAdjacency */
-    dInt type;
     xstart[i] = xcnt;              /* first node on this entity */
-    regTopo[i] = ma.topo[ii];
-    type = iMesh_TypeFromTopology[regTopo[i]];
-    for (dInt j=0; j<type && j<3; j++) {
-      regRDeg[i*3+j] = dMaxInt(rdeg[ii*3+j],deg[ii*3+j]+fs->ruleStrength);
-      regBDeg[i*3+j] = deg[ii*3+j];
-    }
-    for (dInt j=type; j<3; j++) {
-      regRDeg[i*3+2] = 1;
-      regBDeg[i*3+2] = 1;
-    }
-    xcnt += xnodes[ii];
+    xcnt += xnodes[i];
   }
   xstart[nregions] = xcnt;
+
+  /* Get Rule and EFS for domain ents. */
+  fs->nelem = nregions;
+  err = dMallocA3(nregions,&fs->rule,nregions,&fs->efs,nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
+  err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
+  err = dJacobiGetRule(fs->jacobi,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
+  err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
+  err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
 
   {
     dInt *nnz,*pnnz;
@@ -417,7 +422,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = dFree2(nnz,pnnz);dCHK(err);
 
     err = dJacobiAddConstraints(fs->jacobi,nregions,idx,xstart,intdata,deg,&ma,E,Ep);dCHK(err);
-    err = dFree5(deg,rdeg,inodes,xnodes,status);dCHK(err);
+    err = dFree4(deg,rdeg,inodes,status);dCHK(err);
     err = dMeshRestoreAdjacency(mesh,fs->activeSet,&fs->meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
 
     err = MatAssemblyBegin(E,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -432,15 +437,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = MatDestroy(Ep);dCHK(err);
   }
 
-  /* Get Rule and EFS for domain ents. */
-  fs->nelem = nregions;
-  err = dMallocA3(nregions,&fs->rule,nregions,&fs->efs,nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
-  err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
-  err = dJacobiGetRule(fs->jacobi,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
-  err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
-  err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
-  err = dFree4(xstart,regTopo,regRDeg,regBDeg);dCHK(err);
   err = dFree4(ents,intdata,idx,ghidx);dCHK(err);
+  err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);
 
   dFunctionReturn(0);
 }
