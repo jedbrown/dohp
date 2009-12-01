@@ -342,6 +342,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
         }
       }
       herr = H5Dvlen_reclaim(mstring,strspace,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dvlen_reclaim);
+      err = dMeshDestroy(mesh);dCHK(err); /* Give ownership to FS */
     }
     herr = H5Dclose(meshobj);dH5CHK(herr,H5Aclose);
   }

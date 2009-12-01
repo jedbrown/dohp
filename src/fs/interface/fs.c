@@ -296,6 +296,7 @@ dErr dFSDestroy(dFS fs)
   err = dFree3(fs->rule,fs->efs,fs->off);dCHK(err);
   err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = dMeshDestroy(fs->mesh);dCHK(err);
+  err = dJacobiDestroy(fs->jacobi);dCHK(err);
   err = PetscHeaderDestroy(fs);dCHK(err);
   dFunctionReturn(0);
 }

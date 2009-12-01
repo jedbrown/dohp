@@ -157,6 +157,7 @@ dErr dJacobiDestroy(dJacobi jac)
 
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
+  if (--((PetscObject)jac)->refct > 0) dFunctionReturn(0);
   if (jac->ops->Destroy) {
     err = jac->ops->Destroy(jac);dCHK(err);
   }
