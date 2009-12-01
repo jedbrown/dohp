@@ -178,10 +178,18 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 }
 
 /* To generate element assembly matrices, we need
-* @arg idx the MeshAdjacency index of every region
-* @arg xstart offset in expanded vector of first node associated with this region
+* @arg fs[in] Function space, see precondition
+* @arg xcnt the size of the expanded space
+* @arg idx the MeshAdjacency index of every region (array of length fs->nelem)
 * @arg ma MeshAdjacency (array-based connectivity)
 * @arg deg integer array of length \c 3*ma.nents which holds the degree of every entity in MeshAdjacency
+*
+* @note The function space is assumed to be in a state where the following members are valid
+*   - mesh
+*   - loffsetTag : Local offset
+*   - nelem      : Number of elements/regions
+*   - off        : Offset of first expanded dof for each elem above (length=nelem+1)
+*   - gvec       : Global vector, defines layout
 *
 * We will create matrices
 * @arg[out] E full order element assembly matrix
@@ -189,23 +197,33 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 *
 * These are preallocated using \a nnz and \a pnnz respectively.
 **/
-static dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,dInt nregions,dInt xcnt,const dInt idx[],const dInt xstart[],dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp)
+static dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,dInt xcnt,const dInt idx[],const dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp)
 {
   dErr err;
-  dInt *nnz,*pnnz,*loffset;
+  const dInt *xstart = fs->off;
+  dInt nloc,bs,*nnz,*pnnz,*loffset;
+  Vec   Xclosure,Xloc;
   Mat   E,Ep;
 
   dFunctionBegin;
   err = dMallocA3(xcnt,&nnz,xcnt,&pnnz,ma->nents,&loffset);dCHK(err);
   err = dMeshTagGetData(fs->mesh,fs->loffsetTag,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
 
-  err = dJacobiGetConstraintCount(fs->jacobi,nregions,idx,xstart,loffset,deg,ma,nnz,pnnz);dCHK(err);
+  err = VecDohpGetClosure(fs->gvec,&Xclosure);dCHK(err);
+  err = VecGhostGetLocalForm(Xclosure,&Xloc);dCHK(err);
+  err = VecGetLocalSize(Xloc,&nloc);dCHK(err);
+  err = VecGetBlockSize(Xloc,&bs);dCHK(err);
+  nloc /= bs;                   /* nloc now counts nodes */
+  err = VecGhostRestoreLocalForm(Xclosure,&Xloc);dCHK(err);
+  err = VecDohpRestoreClosure(fs->gvec,&Xclosure);dCHK(err);
+
+  err = dJacobiGetConstraintCount(fs->jacobi,fs->nelem,idx,xstart,loffset,deg,ma,nnz,pnnz);dCHK(err);
 
   /* We don't solve systems with these so it will never make sense for them to use a different format */
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,fs->nc+fs->ngh,1,nnz,&E);dCHK(err);
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,fs->nc+fs->ngh,1,pnnz,&Ep);dCHK(err);
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nloc,1,nnz,&E);dCHK(err);
+  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nloc,1,pnnz,&Ep);dCHK(err);
 
-  err = dJacobiAddConstraints(fs->jacobi,nregions,idx,xstart,loffset,deg,ma,E,Ep);dCHK(err);
+  err = dJacobiAddConstraints(fs->jacobi,fs->nelem,idx,xstart,loffset,deg,ma,E,Ep);dCHK(err);
 
   err = dFree3(nnz,pnnz,loffset);dCHK(err);
 
@@ -214,8 +232,8 @@ static dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,dInt nregions,dInt 
   err = MatAssemblyEnd(E,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
 
-  err = MatCreateMAIJ(E,fs->bs,inE);dCHK(err);
-  err = MatCreateMAIJ(Ep,fs->bs,inEp);dCHK(err);
+  err = MatCreateMAIJ(E,bs,inE);dCHK(err);
+  err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);
 
   err = MatDestroy(E);dCHK(err);
   err = MatDestroy(Ep);dCHK(err);
@@ -442,14 +460,13 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dJacobiGetRule(fs->jacobi,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
   err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
   err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
+  err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);
 
-  err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,nregions,xcnt,idx,xstart,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
+  err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,xcnt,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
   err = dMeshRestoreAdjacency(fs->mesh,fs->activeSet,&fs->meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
   err = dFree4(deg,rdeg,inodes,status);dCHK(err);
   err = dFree4(ents,intdata,idx,ghidx);dCHK(err);
-  err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);
-
   dFunctionReturn(0);
 }
 
