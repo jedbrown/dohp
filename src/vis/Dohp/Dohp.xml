@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+  <Plugin name="Dohp" type="database" label="Dohp HDF5" version="1.0" enabled="true" mdspecificcode="false" engspecificcode="false" onlyengine="false" noengine="false" dbtype="MTMD" haswriter="false" hasoptions="false" specifiedFilenames="false">
+    <CXXFLAGS>
+      -I/home/jed/usr/include -Wno-deprecated
+    </CXXFLAGS>
+    <LDFLAGS>
+      -L/home/jed/usr/lib
+    </LDFLAGS>
+    <LIBS>
+      -ldohp
+    </LIBS>
+    <Extensions>
+      dhm
+      h5
+    </Extensions>
+    <Files components="M">
+      avtDohpFileFormat.C
+    </Files>
+    <LIBS components="M">
+    </LIBS>
+    <Files components="E">
+      avtDohpFileFormat.C
+    </Files>
+    <LIBS components="EPar">
+    </LIBS>
+    <Attribute name="" purpose="" persistent="false" keyframe="true" exportAPI="" exportInclude="">
+    </Attribute>
+  </Plugin>
