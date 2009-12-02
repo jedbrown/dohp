@@ -61,6 +61,7 @@
 
 #include <vector>
 #include <petscvec.h>
+#include <dohpsys.h>
 
 // This exception is a copout, but VisIt doesn't offer many choices
 #define avtCHK(err) do {						\
@@ -83,7 +84,17 @@ avtDohpFileFormat::avtDohpFileFormat(const char *filename)
   : avtMTMDFileFormat(filename)
 {
   dErr err;
+  dMPIInt flg;
 
+  // The metadata server is "serial" which means it never uses MPI.  We are
+  // always "parallel" in the sense that we use MPI even though we only ever use
+  // MPI_COMM_SELF.
+  err = MPI_Initialized(&flg);avtCHK(err);
+  if (!flg) {
+    err = MPI_Init(0,0);avtCHK(err);
+  }
+  PETSC_COMM_WORLD = MPI_COMM_SELF;
+  err = dInitialize(0,0,0,0);avtCHK(err);
   err = PetscViewerCreate(MPI_COMM_SELF,&this->viewer);avtCHK(err);
   err = PetscViewerSetType(this->viewer,PETSC_VIEWER_DHM);avtCHK(err);
   err = PetscViewerFileSetName(this->viewer,filename);avtCHK(err);
@@ -94,6 +105,10 @@ avtDohpFileFormat::~avtDohpFileFormat()
 {
   /* Throwing exceptions in the destructor might cause a real problem. */
   PetscViewerDestroy(this->viewer);
+  // I *think* it is fine to finalize Dohp+PETSc.  It is definitely not okay to
+  // finalize MPI and then initialize it again, but this should not happen since
+  // we called MPI_Init ourselves and nobody should be calling MPI_Finalize.
+  dFinalize();
 }
 
 // ****************************************************************************
@@ -306,9 +321,7 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
   for (dInt e=0; e<nelem; e++) {
     int econn[8];
     if (topo[e] != dTOPO_HEX) EXCEPTION1(InvalidZoneTypeException,topo[e]);
-    //EXCEPTION2(InvalidZoneTypeException,"Expected a HEX, but got %s",iMesh_TopologyName[topo[e]]);
     if (off[e+1] - off[e] != 8) EXCEPTION1(InvalidZoneTypeException,topo[e]);
-      //EXCEPTION2(InvalidZoneTypeException,"Masquerading as a HEX with %d vertices",off[e+1]-off[e]);
     for (dInt i=0; i<off[e+1]-off[e]; i++) {
       // Some day: check that value actually fits, only necessary if a single block has more than 2B elements
       econn[i] = conn[off[e]+i];
