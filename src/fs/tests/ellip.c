@@ -9,6 +9,7 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Bra
 #include <dohpfs.h>
 #include <dohpvec.h>
 #include <dohpviewer.h>
+#include <dohpsys.h>
 #include <petscsnes.h>
 
 PetscLogEvent LOG_EllipShellMatMult;

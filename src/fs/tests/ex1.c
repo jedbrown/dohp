@@ -4,6 +4,7 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 #include <dohpfs.h>
 #include <dohpmesh.h>
 #include <dohpvec.h>
+#include <dohpsys.h>
 #include <dohp.h>
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
@@ -479,7 +480,7 @@ int main(int argc,char *argv[])
   dInt exactChoice,nset;
   dErr err;
 
-  err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
+  err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
@@ -548,6 +549,6 @@ int main(int argc,char *argv[])
   err = dFSDestroy(fs);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);
   err = dMeshDestroy(mesh);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   return 0;
 }

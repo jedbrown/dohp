@@ -1,6 +1,7 @@
 static const char help[] = "Tests the dJacobi object.";
 
 #include <dohpjacobi.h>
+#include <dohpsys.h>
 #include <dohp.h>
 
 static struct {
@@ -314,7 +315,7 @@ int main(int argc,char *argv[])
   dInt ex;
   dErr err;
 
-  err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
+  err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
 
@@ -339,6 +340,6 @@ int main(int argc,char *argv[])
   err = dJacobiSetUp(jac);dCHK(err);
   err = checkRulesAndEFS(jac);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   return 0;
 }

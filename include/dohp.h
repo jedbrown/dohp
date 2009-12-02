@@ -92,7 +92,11 @@ static inline void dTensorSymUncompress3(const dScalar Du[6],dScalar Dv[9])
 # define true PETSC_TRUE
 #endif
 
-/* stdbool has small (1 byte) bools, but ours are the same size as int to preserve alignment */
+/* stdbool.h has small (1 byte) bools, PETSc uses an enum which has few size guarantees, so we use it directly and keep
+* it out of our public interface (which is why these typedefs are here and not in dohptype.h).
+**/
+typedef PetscTruth dTruth;
+typedef PetscTruth  dBool;
 #define dTRUE  PETSC_TRUE
 #define dFALSE PETSC_FALSE
 
@@ -212,9 +216,5 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 #endif
 
 #define dASSERT(cond) if (!(cond)) { dERROR(1,"Assertion failed: " #cond); }
-
-extern dErr dInitialize(int*,char***,const char*,const char*);
-extern dErr dFinalize(void);
-extern dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict]);
 
 #endif

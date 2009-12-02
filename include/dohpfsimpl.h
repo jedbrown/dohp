@@ -15,7 +15,7 @@ static inline dInt dFSBStatusStrongCount(dFSBStatus stat) {
 static inline dFSBStatus dFSBStatusSetStrongCount(dFSBStatus stat,dInt count) {
   return (stat & ~dFSBSTATUS_MASK) /* clear lower bits */ & count;
 }
-static inline dTruth dFSBStatusValid(dFSBStatus stat) {
+static inline bool dFSBStatusValid(dFSBStatus stat) {
   /* cannot be Dirichlet and anything else, note that (!a ^ !b) is (a LXOR b) */
   return (!(stat & dFSBSTATUS_DIRICHLET) ^ !((stat & dFSBSTATUS_WEAK) || dFSBStatusStrongCount(stat)));
 }
@@ -58,9 +58,9 @@ struct _p_dFS {
   char         bdyTagName[dNAME_LEN]; /**< Usually "NEUMANN_SET" */
   dMeshTag     bstatusTag;      /**< Boundary status tag, every NEUMANN_SET=x set will be tagged */
   dMeshTag     bdyConstraintTag; /**< User-defined context for enforcing boundary constraints */
-  dTruth       spacebuilt;
-  dTruth       assemblefull;    /**< Use full order constraints for assembly */
-  dTruth       assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
+  PetscTruth   spacebuilt;
+  PetscTruth   assemblefull;    /**< Use full order constraints for assembly */
+  PetscTruth   assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
   dInt         ruleStrength;
   dInt         bs;              /**< Block size (number of dofs per node) */
   dInt         nelem;

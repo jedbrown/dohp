@@ -67,7 +67,7 @@ struct p_dJacobi {
   PETSCHEADER(struct _dJacobiOps);
   dInt basisdegree;         /**< the maximum degree basis functions to be supported */
   dInt ruleexcess;          /**< the amount of over-integration to be supported */
-  dBool setupcalled;
+  bool setupcalled;
   void *impl;                   /**< private implementation context */
 };
 

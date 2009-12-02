@@ -15,7 +15,7 @@ int main(int argc,char *argv[])
   dErr err;
 
   dFunctionBegin;
-  err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
+  err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = dMeshCreate(comm,&mesh);dCHK(err);
@@ -31,6 +31,6 @@ int main(int argc,char *argv[])
   err = dJacobiView(jac,viewer);dCHK(err);
   err = dJacobiSetUp(jac);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   dFunctionReturn(0);
 }

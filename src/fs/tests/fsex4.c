@@ -3,6 +3,7 @@ static const char help[] = "Test viewer\n";
 #include <dohp.h>
 #include <dohpfs.h>
 #include <dohpviewer.h>
+#include <dohpsys.h>
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
 

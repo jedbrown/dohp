@@ -1,5 +1,6 @@
 #include <dohpfsimpl.h>
 #include <dohpvec.h>
+#include <dohpstring.h>
 
 extern dErr VecView_Dohp_FSCont(Vec,PetscViewer);
 

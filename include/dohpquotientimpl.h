@@ -25,17 +25,17 @@ struct _dQuotientOps {
 * */
 struct p_dQuotient {
   PETSCHEADER(struct _dQuotientOps);
-  dMesh                    mesh;
-  dMeshTag                     qsizetag;
-  dMeshESH                     loc;
-  dInt                    nelems;
+  dMesh                  mesh;
+  dMeshTag               qsizetag;
+  dMeshESH               loc;
+  dInt                   nelems;
   dInt                   *degree;
-  void                      **quad; // element quadrature context for locally owned elements
-  void                      **emap; // locally owned element map context, compatible with quad
-  dInt                    setupcalled;
-  dQuotientSetDegreeFunc   setdegreefunc;
-  void                       *setdegreectx;
-  dBool                  setdegreeset;
+  void                   **quad; // element quadrature context for locally owned elements
+  void                   **emap; // locally owned element map context, compatible with quad
+  dInt                   setupcalled;
+  dQuotientSetDegreeFunc setdegreefunc;
+  void                   **setdegreectx;
+  bool                   setdegreeset;
 };
 
 extern dErr dQuotientCreate_Gauss(dQuotient);

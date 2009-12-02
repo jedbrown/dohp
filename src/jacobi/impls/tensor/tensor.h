@@ -104,12 +104,11 @@ struct s_Tensor {
                                   * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
   dInt M;                       /**< number of rules */
   dInt N;                       /**< basis size limit */
-  dTruth usemscale,uselscale;
-  dTruth nounroll;
+  PetscTruth usemscale,uselscale,nounroll;
   /* dBufferList data; */
   struct _dRuleOps *ruleOpsLine,*ruleOpsQuad,*ruleOpsHex;
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
-  dBool setupcalled;
+  bool setupcalled;
 };
 
 typedef struct {

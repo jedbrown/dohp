@@ -1,6 +1,7 @@
 static const char help[] = "Test vector closure\n\n";
 
 #include <dohpvec.h>
+#include <dohpsys.h>
 #include <dohp.h>
 
 int main(int argc,char *argv[])
@@ -15,7 +16,7 @@ int main(int argc,char *argv[])
   dInt         nghost = 2,ghosts[2],n=3,bs=2,xn,xbs;
   dErr         err;
 
-  err = PetscInitialize(&argc,&argv,0,help);dCHK(err);
+  err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   err = MPI_Comm_size(comm,&size);dCHK(err);
   err = MPI_Comm_rank(comm,&rank);dCHK(err);
@@ -83,6 +84,6 @@ int main(int argc,char *argv[])
   err = VecDohpRestoreClosure(y,&yc);dCHK(err);
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(y);dCHK(err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   return 0;
 }

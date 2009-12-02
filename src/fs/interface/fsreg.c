@@ -1,5 +1,6 @@
 #include <MBTagConventions.hpp>
 #include <dohpfsimpl.h>
+#include <dohpstring.h>
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 dCookie dFSROT_COOKIE;

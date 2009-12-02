@@ -13,6 +13,7 @@
 #else
 #  define dEXTERN_C_BEGIN
 #  define dEXTERN_C_END
+#  include <stdbool.h>
 #endif
 
 /**
@@ -53,9 +54,7 @@ typedef double dScalar;
 #  endif
 #endif
 
-#define dBool dTruth
-#define dTruth PetscTruth
-//typedef enum PetscTruth {dFALSE,dTRUE} dTruth;
+/* Do not define a boolean type */
 typedef int dErr;               /* PetscErrorCode */
 typedef int dCookie;            /* PetscCookie */
 typedef int dLogEvent;          /* PetscLogEvent */

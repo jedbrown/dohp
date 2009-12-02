@@ -9,6 +9,7 @@ static const char help[] = "Solve nonlinear elasticity using dual order hp eleme
 #include <petscsnes.h>
 #include <dohpfs.h>
 #include <dohpvec.h>
+#include <dohpsys.h>
 #include <dohp.h>
 
 static PetscLogEvent LOG_ElastShellMult;
@@ -560,7 +561,7 @@ int main(int argc,char *argv[])
   dTruth nojshell,nocheck;
   dErr err;
 
-  err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
+  err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscLogEventRegister("ElastShellMult",MAT_COOKIE,&LOG_ElastShellMult);dCHK(err);
@@ -628,6 +629,6 @@ int main(int argc,char *argv[])
   if (J != Jp) {err = MatDestroy(J);dCHK(err);}
   err = MatDestroy(Jp);dCHK(err);
   err = ElastDestroy(elt);dCHK(err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   return 0;
 }

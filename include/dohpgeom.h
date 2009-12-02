@@ -41,7 +41,7 @@ static inline void dGeomQuadFaceNormal(const dReal a[],dReal b[]) {
   dGeomVecMinus(a+9,a,b); dGeomVecMinus(a+6,a+3,f); dGeomVecPlus(b,f,h); /* h = mean vector in y direction */
   dGeomCrossProd(g,h,b);
 }
-static inline dTruth dGeomQuadParallel(const dReal a[],const dReal b[]) /* return true if Quad a \dot b > 0 */
+static inline bool dGeomQuadParallel(const dReal a[],const dReal b[]) /* return true if Quad a \dot b > 0 */
 {dReal f[3]; dGeomQuadFaceNormal(a,f); return (dGeomDotProd(b,f) > 0);}
 
 static inline dErr dGeomConvexComb_2_4(dReal x,dReal y,const dReal (*v)[3],const dInt p[],dReal f[])

@@ -15,6 +15,8 @@ static const char help[] = "Solve non-Newtonian Stokes problem using dual order 
 #include <petscsnes.h>
 #include <dohpfs.h>
 #include <dohpvec.h>
+#include <dohpsys.h>
+#include <dohpstring.h>
 #include <dohp.h>
 
 static PetscLogEvent LOG_StokesShellMult;
@@ -1405,7 +1407,7 @@ int main(int argc,char *argv[])
   dTruth nocheck,check_null,compute_explicit,use_jblock;
   dErr err;
 
-  err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
+  err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscLogEventRegister("StokesShellMult",MAT_COOKIE,&LOG_StokesShellMult);dCHK(err);
@@ -1530,6 +1532,6 @@ int main(int argc,char *argv[])
   if (J != Jp) {err = MatDestroy(J);dCHK(err);}
   err = MatDestroy(Jp);dCHK(err);
   err = StokesDestroy(stk);dCHK(err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   return 0;
 }

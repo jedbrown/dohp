@@ -8,6 +8,7 @@ static const char help[] = "Create a hexahedral mesh of a block domain with full
 #include <iRel.h>
 #include <dohpmesh.h>
 #include <dohpgeom.h>
+#include <dohpsys.h>
 
 #define CHK(err) if (err) { printf("iMesh error at %s:%d\n", __FILE__, __LINE__); exit(1); }
 #define ERR(str) { printf("error at %s:%d ",__FILE__,__LINE__); exit(2); }
@@ -172,7 +173,7 @@ int main(int argc, char *argv[])
   Box box;
 
   dFunctionBegin;
-  err = PetscInitialize(&argc,&argv,(char *)0,help);dCHK(err);
+  err = dInitialize(&argc,&argv,(char *)0,help);dCHK(err);
 
   err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"dohpblock: create cartesian meshes",NULL);dCHK(err);
   {
@@ -528,6 +529,6 @@ int main(int argc, char *argv[])
   }
 
   iMesh_save(mesh,0,outfile,outopts,&err,(int)sizeof(outfile),(int)strlen(outopts));dICHK(mesh,err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   dFunctionReturn(0);
 }

@@ -89,7 +89,7 @@ dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
 dErr dQuotientSetType(dQuotient q,const dQuotientType type)
 {
   dErr (*r)(dQuotient);
-  dBool     match;
+  PetscTruth     match;
   dErr err;
 
   dFunctionBegin;

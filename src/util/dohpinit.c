@@ -1,4 +1,5 @@
 #include <dohpviewer.h>
+#include <dohpsys.h>
 #include <dohp.h>
 
 dErr dInitialize(int *argc,char ***argv,const char *file,const char *help)

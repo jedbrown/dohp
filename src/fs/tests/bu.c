@@ -2,6 +2,7 @@ static const char help[] = "Unit test for boundary condition manipulation\n\n";
 
 #include <dohpfs.h>
 #include <dohpvec.h>
+#include <dohpsys.h>
 #include <dohp.h>
 
 typedef struct BUnitCtx *BU;
@@ -155,7 +156,7 @@ int main(int argc,char *argv[])
   Mat         Jp;
   dErr        err;
 
-  err = PetscInitialize(&argc,&argv,NULL,help);dCHK(err);
+  err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
 
@@ -170,6 +171,6 @@ int main(int argc,char *argv[])
 
   err = MatDestroy(Jp);dCHK(err);
   err = BUDestroy(bu);dCHK(err);
-  err = PetscFinalize();dCHK(err);
+  err = dFinalize();dCHK(err);
   return 0;
 }

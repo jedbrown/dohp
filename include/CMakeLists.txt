@@ -1,15 +1,17 @@
 install_files (/include FILES
   dohpconfig.h
   # public headers
-  dohp.h
+  dohptype.h                    # mandatory and included by all components below
   dohpfs.h
-  dohpgeom.h
   dohpjacobi.h
   dohpmesh.h
   dohpquotient.h
-  dohptype.h
   dohpvec.h
   dohpviewer.h
+  dohpstring.h                  # safer string handling, entirely optional
+  dohpsys.h                     # needed for user 'main', not usually otherwise
+  dohp.h                        # macros, optional for users, used heavily internally
+  dohpgeom.h                    # inlined geometry primitives
   # private headers, we install them only so that users can extend Dohp
   dohpfsimpl.h
   dohpjacimpl.h
