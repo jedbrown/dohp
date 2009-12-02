@@ -24,3 +24,5 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
   dFunctionReturn(0);
 }
 
+dErr dObjectGetComm(dObject obj,MPI_Comm *comm)
+{ return PetscObjectGetComm(obj,comm); }

@@ -9,6 +9,7 @@
 #if defined __cplusplus
 #  define dEXTERN_C_BEGIN extern "C" {
 #  define dEXTERN_C_END   }
+#  define restrict
 #else
 #  define dEXTERN_C_BEGIN
 #  define dEXTERN_C_END
