@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
   <Plugin name="Dohp" type="database" label="Dohp HDF5" version="1.0" enabled="true" mdspecificcode="false" engspecificcode="false" onlyengine="false" noengine="false" dbtype="MTMD" haswriter="false" hasoptions="false" specifiedFilenames="false">
     <CXXFLAGS>
-      -I/home/jed/usr/include -Wno-deprecated
+      -I/home/jed/dohp/bompi/include -I/home/jed/dohp/include -I/home/jed/petsc/ompi/include -I/home/jed/petsc/include -I/home/jed/usr/include -Wno-deprecated
     </CXXFLAGS>
     <LDFLAGS>
-      -L/home/jed/usr/lib
+      -L/home/jed/dohp/bompi/src -L/home/jed/petsc/ompi/lib
     </LDFLAGS>
     <LIBS>
       -ldohp

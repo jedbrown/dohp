@@ -45,7 +45,7 @@
 
 #include <avtMTMDFileFormat.h>
 
-typedef struct _p_avtDohp *avtDohp;
+#include <dohpviewer.h>
 
 // ****************************************************************************
 //  Class: avtDohpFileFormat
@@ -96,8 +96,7 @@ class avtDohpFileFormat : public avtMTMDFileFormat
   virtual void           PopulateDatabaseMetaData(avtDatabaseMetaData *, int);
 
   private:
-
-  avtDohp dohp;
+  dViewer viewer;
 };
 
 

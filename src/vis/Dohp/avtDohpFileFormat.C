@@ -45,9 +45,8 @@
 #include <string>
 
 #include <vtkFloatArray.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkStructuredGrid.h>
 #include <vtkUnstructuredGrid.h>
+#include <vtkCellType.h>
 
 #include <avtDatabaseMetaData.h>
 
@@ -56,14 +55,21 @@
 #include <DebugStream.h>
 
 #include <InvalidVariableException.h>
+#include <InvalidZoneTypeException.h>
 #include <InvalidDBTypeException.h>
 #include <InvalidFilesException.h>
 
 #include <vector>
-#include <hdf5.h>
+#include <petscvec.h>
 
-#define HCHK(herr,str) if ((herr) < 0) EXCEPTION1(InvalidFilesException,"Error in HDF5 function: " str "()")
-#define HCALL(func,args) HCHK(func args,#func)
+// This exception is a copout, but VisIt doesn't offer many choices
+#define avtCHK(err) do {						\
+    if (err) {								\
+      char buf[256];							\
+      snprintf(buf,sizeof buf,"Error %d at %s:%d in %s()",(err),__FILE__,__LINE__,__PRETTY_FUNCTION__); \
+      EXCEPTION1(ImproperUseException,buf);				\
+    }									\
+  } while (0)
 
 // ****************************************************************************
 //  Method: avtDohpFileFormat constructor
@@ -76,22 +82,18 @@
 avtDohpFileFormat::avtDohpFileFormat(const char *filename)
   : avtMTMDFileFormat(filename)
 {
-  hid_t  plist;
-  plist = H5Pcreate(H5P_FILE_ACCESS);
-#ifdef PARALLEL
-  HCALL(H5Pset_fapl_mpio,(plist,VISIT_MPI_COMM,MPI_INFO_NULL));
-#endif
-  this->file = H5Fopen(filename,H5F_ACC_RDONLY,plist);
-  if (this->file < 0) EXCEPTION1(InvalidFilesException,"Could not open file");
-  HCALL(H5Pclose,(plist));
-  this->grp_dohp = H5Gopen(this->file,"/dohp",H5P_DEFAULT);
-  if (this->grp_dohp < 0) EXCEPTION1(InvalidDBTypeException,"File has no group \"/dohp\", cannot be a Dohp file");
+  dErr err;
+
+  err = PetscViewerCreate(MPI_COMM_SELF,&this->viewer);avtCHK(err);
+  err = PetscViewerSetType(this->viewer,PETSC_VIEWER_DHM);avtCHK(err);
+  err = PetscViewerFileSetName(this->viewer,filename);avtCHK(err);
+  err = PetscViewerFileSetMode(this->viewer,FILE_MODE_READ);avtCHK(err);
 }
 
 avtDohpFileFormat::~avtDohpFileFormat()
 {
-  if (this->grp_dohp) HCALL(H5Gclose,(this->grp_dohp));
-  if (this->file) HCALL(H5Fclose,(this->file));
+  /* Throwing exceptions in the destructor might cause a real problem. */
+  PetscViewerDestroy(this->viewer);
 }
 
 // ****************************************************************************
@@ -108,7 +110,15 @@ avtDohpFileFormat::~avtDohpFileFormat()
 int
 avtDohpFileFormat::GetNTimesteps(void)
 {
-  return 100;
+  int ret;
+  dInt nsteps;
+  dReal *times;
+  dErr err;
+
+  err = dViewerDHMGetSteps(viewer,&nsteps,&times);avtCHK(err);
+  ret = nsteps;
+  err = dViewerDHMRestoreSteps(viewer,&nsteps,&times);avtCHK(err);
+  return ret;
 }
 
 
@@ -129,6 +139,7 @@ avtDohpFileFormat::GetNTimesteps(void)
 void
 avtDohpFileFormat::FreeUpResources(void)
 {
+  // We don't keep any internal state now
 }
 
 
@@ -155,7 +166,7 @@ avtDohpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int timeSta
   //
   // AVT_RECTILINEAR_MESH, AVT_CURVILINEAR_MESH, AVT_UNSTRUCTURED_MESH,
   // AVT_POINT_MESH, AVT_SURFACE_MESH, AVT_UNKNOWN_MESH
-  avtMeshType mt = AVT_RECTILINEAR_MESH;
+  avtMeshType mt = AVT_UNSTRUCTURED_MESH;
   int nblocks = 1;
   int block_origin = 0;
   int spatial_dimension = 3;
@@ -171,7 +182,7 @@ avtDohpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int timeSta
   // CODE TO ADD A SCALAR VARIABLE
   //
   string mesh_for_this_var = meshname;
-  string varname = "BarVar";
+  string varname = "my_var";
   //
   // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
   avtCentering cent = AVT_NODECENT;
@@ -275,25 +286,60 @@ avtDohpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int timeSta
 vtkDataSet *
 avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
 {
-  vtkRectilinearGrid *rect = vtkRectilinearGrid::New();
-  int dims[3] = {101,101,101};
-  vtkFloatArray *x = vtkFloatArray::New(),*y = vtkFloatArray::New(),*z = vtkFloatArray::New();
+  vtkUnstructuredGrid *grid = vtkUnstructuredGrid::New();
+  dFS fs;
+  dInt nelem,nverts,nconn,*off,*conn;
+  dEntTopology *topo;
+  dErr err;
 
-  x->SetNumberOfTuples(101);
-  y->SetNumberOfTuples(101);
-  z->SetNumberOfTuples(101);
-  for (int i=0; i<101; i++) x->SetTuple1(i,-1.+2.*i/100);
-  for (int i=0; i<101; i++) y->SetTuple1(i,-1.+2.*i/100);
-  for (int i=0; i<101; i++) z->SetTuple1(i,-1.+2.*i/100);
+  err = dViewerDHMSetTimeStep(this->viewer,timestate);avtCHK(err);
+  err = dFSCreate(MPI_COMM_SELF,&fs);avtCHK(err);
+  err = dFSSetType(fs,dFSCONT);avtCHK(err);
+  err = dFSLoadIntoFS(this->viewer,"my_vec",fs);avtCHK(err);
+  err = dFSGetSubElementMeshSize(fs,&nelem,&nverts,&nconn);avtCHK(err);
+  //err = dMallocA3(nelems,&topo,nelems+1,&off,nconn,&conn);dCHK(err);
+  off = new dInt[nelem+1];
+  topo = new dEntTopology[nelem];
+  conn = new dInt[nconn];
+  err = dFSGetSubElementMesh(fs,nelem,nconn,topo,off,conn);avtCHK(err);
 
-  rect->SetDimensions(dims);
-  rect->SetXCoordinates(x);
-  rect->SetYCoordinates(y);
-  rect->SetZCoordinates(z);
-  x->Delete();
-  y->Delete();
-  z->Delete();
-  return rect;
+  for (dInt e=0; e<nelem; e++) {
+    int econn[8];
+    if (topo[e] != dTOPO_HEX) EXCEPTION1(InvalidZoneTypeException,topo[e]);
+    //EXCEPTION2(InvalidZoneTypeException,"Expected a HEX, but got %s",iMesh_TopologyName[topo[e]]);
+    if (off[e+1] - off[e] != 8) EXCEPTION1(InvalidZoneTypeException,topo[e]);
+      //EXCEPTION2(InvalidZoneTypeException,"Masquerading as a HEX with %d vertices",off[e+1]-off[e]);
+    for (dInt i=0; i<off[e+1]-off[e]; i++) {
+      // Some day: check that value actually fits, only necessary if a single block has more than 2B elements
+      econn[i] = conn[off[e]+i];
+    }
+    grid->InsertNextCell(VTK_HEXAHEDRON,8,econn);
+  }
+
+  {
+    dInt n,bs;
+    dScalar *x;
+    Vec X;
+    err = dFSGetCoordinates(fs,&X);avtCHK(err);
+    err = VecGetLocalSize(X,&n);avtCHK(err);
+    err = VecGetBlockSize(X,&bs);avtCHK(err);
+    if (bs != 3) EXCEPTION1(InvalidVariableException,"Unexpected block size bs != 3");
+    if (n != nverts*bs) EXCEPTION1(InvalidVariableException,"Vec and FS do not agree about sizes");
+    err = VecGetArray(X,&x);avtCHK(err);
+    vtkPoints *points = vtkPoints::New();
+    points->SetNumberOfPoints(nverts);
+    float *pts = (float*)points->GetVoidPointer(0);
+    for (dInt i=0; i<n; i++) pts[i] = (float)x[i];
+    grid->SetPoints(points);
+    points->Delete();
+    err = VecRestoreArray(X,&x);avtCHK(err);
+    err = VecDestroy(X);avtCHK(err);
+  }
+
+  delete [] off;
+  delete [] topo;
+  delete [] conn;
+  return grid;
 }
 
 
@@ -386,35 +432,35 @@ vtkDataArray *
 avtDohpFileFormat::GetVectorVar(int timestate, int domain,const char *varname)
 {
   return 0; //YOU MUST IMPLEMENT THIS
-    //
-    // If you have a file format where variables don't apply (for example a
-    // strictly polygonal format like the STL (Stereo Lithography) format,
-    // then uncomment the code below.
-    //
-    // EXCEPTION1(InvalidVariableException, varname);
-    //
+  //
+  // If you have a file format where variables don't apply (for example a
+  // strictly polygonal format like the STL (Stereo Lithography) format,
+  // then uncomment the code below.
+  //
+  // EXCEPTION1(InvalidVariableException, varname);
+  //
 
-    //
-    // If you do have a vector variable, here is some code that may be helpful.
-    //
-    // int ncomps = YYY;  // This is the rank of the vector - typically 2 or 3.
-    // int ntuples = XXX; // this is the number of entries in the variable.
-    // vtkFloatArray *rv = vtkFloatArray::New();
-    // int ucomps = (ncomps == 2 ? 3 : ncomps);
-    // rv->SetNumberOfComponents(ucomps);
-    // rv->SetNumberOfTuples(ntuples);
-    // float *one_entry = new float[ucomps];
-    // for (int i = 0 ; i < ntuples ; i++)
-    // {
-    //      int j;
-    //      for (j = 0 ; j < ncomps ; j++)
-    //           one_entry[j] = ...
-    //      for (j = ncomps ; j < ucomps ; j++)
-    //           one_entry[j] = 0.;
-    //      rv->SetTuple(i, one_entry); 
-    // }
-    //
-    // delete [] one_entry;
-    // return rv;
-    //
-    }
+  //
+  // If you do have a vector variable, here is some code that may be helpful.
+  //
+  // int ncomps = YYY;  // This is the rank of the vector - typically 2 or 3.
+  // int ntuples = XXX; // this is the number of entries in the variable.
+  // vtkFloatArray *rv = vtkFloatArray::New();
+  // int ucomps = (ncomps == 2 ? 3 : ncomps);
+  // rv->SetNumberOfComponents(ucomps);
+  // rv->SetNumberOfTuples(ntuples);
+  // float *one_entry = new float[ucomps];
+  // for (int i = 0 ; i < ntuples ; i++)
+  // {
+  //      int j;
+  //      for (j = 0 ; j < ncomps ; j++)
+  //           one_entry[j] = ...
+  //      for (j = ncomps ; j < ucomps ; j++)
+  //           one_entry[j] = 0.;
+  //      rv->SetTuple(i, one_entry); 
+  // }
+  //
+  // delete [] one_entry;
+  // return rv;
+  //
+}

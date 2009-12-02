@@ -1,1 +1,4 @@
-Run VisIt's xml2makefile -clobber Dohp.xml to create a Makefile.
+Many files here are auto-generated
+
+$ xml2makefile -clobber Dohp.xml
+$ xml2info -clobber Dohp.xml
