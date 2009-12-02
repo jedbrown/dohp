@@ -1,0 +1,7 @@
+*.d
+*.o
+Makefile
+DohpPluginInfo.[hC]
+DohpCommonPluginInfo.C
+DohpEnginePluginInfo.C
+DohpMDServerPluginInfo.C
