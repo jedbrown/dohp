@@ -2,6 +2,8 @@
 #define _DOHP_H
 
 #include "dohptype.h"
+#include <stdint.h>
+#include <petsc.h>
 
 #define dSTATUS_UNOWNED   (dEntStatus)0x1
 #define dSTATUS_SHARED    (dEntStatus)0x2
@@ -63,7 +65,7 @@
 #define dValidRealPointer(p,a) dValidPointerSpecific((p),"dReal",(a))
 
 #define dStrlen(s,l) PetscStrlen((s),(l))
-static inline dErr dObjectGetComm(dObject obj,MPI_Comm *comm) { return PetscObjectGetComm(obj,comm); }
+extern dErr dObjectGetComm(dObject obj,MPI_Comm *comm);
 
 static inline dInt dMaxInt(dInt a,dInt b) { return (a > b) ? a : b; }
 static inline dInt dMinInt(dInt a,dInt b) { return (a < b) ? a : b; }

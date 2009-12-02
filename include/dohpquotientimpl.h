@@ -13,7 +13,7 @@ struct _dQuotientOps {
   dErr (*update)(dQuotient);
   dErr (*setup)(dQuotient);
   dErr (*setfromoptions)(dQuotient);
-  dErr (*view)(dQuotient,PetscViewer);
+  dErr (*view)(dQuotient,dViewer);
   dErr (*destroy)(dQuotient);
 };
 

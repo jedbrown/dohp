@@ -2,8 +2,9 @@
 #define _DOHPTYPE_H
 
 #include "dohpconfig.h"
-#include <petsc.h>
+#include <petscconf.h>
 #include <iMesh.h>
+#include <mpi.h>
 
 #if defined __cplusplus
 #  define dEXTERN_C_BEGIN extern "C" {
@@ -14,21 +15,54 @@
 #endif
 
 /**
-* These types all have to be exactly the Petsc versions.  These typedefs are here just to shorten the names, not to
-* become autonomous.
+* These types all have to be exactly the PETSc versions.  These typedefs are here so that we don't alway have to include
+* all the PETSc headers (and to give us shorter names).
 *
 */
 
-typedef PetscInt       dInt;
-typedef PetscReal      dReal;
-typedef PetscScalar    dScalar;
-typedef PetscTruth     dBool;
-typedef PetscTruth     dTruth;
-typedef PetscErrorCode dErr;
-typedef PetscObject    dObject;
-typedef PetscViewer    dViewer;
+#if defined(PETSC_USE_64BIT_INDICES)
+typedef long long dInt;
+#else
+typedef int dInt;
+#endif
 
-typedef PetscMPIInt dMPIInt;
+#if defined PETSC_USE_SCALAR_SINGLE
+typedef float dReal;
+#elif defined PETSC_USE_SCALAR_LONG_DOUBLE
+typedef long long dReal;
+#else
+typedef double dReal;
+#endif
+#if defined PETSC_USE_COMPLEX
+#  include <complex.h>
+#  if defined PETSC_USE_SCALAR_SINGLE
+typedef float complex dScalar;
+#  elif defined PETSC_USE_SCALAR_LONG_DOUBLE
+typedef long long complex dScalar;
+#  else
+typedef double complex dScalar;
+#  endif
+#else
+#  if defined PETSC_USE_SCALAR_SINGLE
+typedef float dScalar;
+#  elif defined PETSC_USE_SCALAR_LONG_DOUBLE
+typedef long long dScalar;
+#  else
+typedef double dScalar;
+#  endif
+#endif
+
+#define dBool dTruth
+#define dTruth PetscTruth
+//typedef enum PetscTruth {dFALSE,dTRUE} dTruth;
+typedef int dErr;               /* PetscErrorCode */
+typedef int dCookie;            /* PetscCookie */
+typedef int dLogEvent;          /* PetscLogEvent */
+typedef struct _n_PetscFList  *dFList;
+typedef struct _p_PetscObject *dObject;
+typedef struct _p_PetscViewer *dViewer;
+
+typedef int dMPIInt;
 
 typedef int dMeshInt;
 typedef double dMeshReal;

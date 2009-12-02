@@ -9,7 +9,7 @@ dEXTERN_C_BEGIN
 #define dQuotientType char*
 typedef struct p_dQuotient *dQuotient;
 
-extern PetscCookie dQUOTIENT_COOKIE;
+extern dCookie dQUOTIENT_COOKIE;
 typedef dErr (*dQuotientSetDegreeFunc)(dQuotient,void*,dInt,dInt[]);
 
 #define dQuotientGauss "gauss"
@@ -25,7 +25,7 @@ extern dErr dQuotientDestroy(dQuotient q);
 extern dErr dQuotientRegister(const char sname[],const char path[],const char name[],dErr (*function)(dQuotient));
 extern dErr dQuotientRegisterAll(const char path[]);
 extern dErr dQuotientGetType(dQuotient q,const dQuotientType *type);
-extern dErr dQuotientView(dQuotient q,PetscViewer viewer);
+extern dErr dQuotientView(dQuotient q,dViewer viewer);
 extern dErr dQuotientInitializePackage(const char path[]);
 extern dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx);
 extern dErr dQuotientSetDegreeConst(dQuotient q,void *vval,dInt n,dInt *degree);

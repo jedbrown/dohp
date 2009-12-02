@@ -122,7 +122,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     for (i=0; i<fs->bs; i++) {
       field5[i].name = fs->fieldname[i];
       field5[i].units.dimensions = (char*)"m s-1"; /* we only use it as \c const */
-      field5[i].units.scale = exp(1);
+      field5[i].units.scale = exp(1.0);
     }
     fs5.fields.p = field5;
     err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err); /* Get location to write this FS */

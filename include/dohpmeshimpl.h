@@ -8,7 +8,7 @@ struct _dMeshOps {
   dErr (*tagbcast)(dMesh,dMeshTag);
   dErr (*setfromoptions)(dMesh);
   dErr (*load)(dMesh);
-  dErr (*view)(dMesh,PetscViewer);
+  dErr (*view)(dMesh,dViewer);
   dErr (*destroy)(dMesh);
 };
 

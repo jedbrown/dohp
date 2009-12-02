@@ -7,7 +7,7 @@
 
 dEXTERN_C_BEGIN
 
-extern PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
+extern dLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 
 static inline dInt dFSBStatusStrongCount(dFSBStatus stat) {
   return stat & dFSBSTATUS_MASK;
@@ -40,7 +40,7 @@ struct _dFSOps {
   dErr (*buildspace)(dFS);
   dErr (*getsubelementmeshsize)(dFS,dInt*,dInt*,dInt*);
   dErr (*getsubelementmesh)(dFS,dInt,dInt,dEntTopology[],dInt[],dInt[]);
-  dErr (*loadintofs)(PetscViewer,const char[],dFS);
+  dErr (*loadintofs)(dViewer,const char[],dFS);
 };
 
 #define dFS_MAX_WORKSPACES 64

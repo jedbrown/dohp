@@ -12,7 +12,7 @@
 #include <dohpjacimpl.h>
 #include <dohp.h>
 
-PetscCookie dJACOBI_COOKIE;
+dCookie dJACOBI_COOKIE;
 PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 static PetscFList dJacobiList = 0;
 

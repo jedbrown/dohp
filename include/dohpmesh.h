@@ -12,7 +12,7 @@ dEXTERN_C_BEGIN
 typedef struct _p_dMeshPacker *dMeshPacker;
 typedef struct _p_dMesh *dMesh;
 
-extern PetscCookie dMESH_COOKIE;
+extern dCookie dMESH_COOKIE;
 
 extern const char *const iBase_ErrorString[];
 extern const char *const iMesh_TopologyName[];
@@ -111,7 +111,7 @@ extern dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
 extern dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
 extern dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 extern dErr dMeshDestroy(dMesh);
-extern dErr dMeshView(dMesh,PetscViewer);
+extern dErr dMeshView(dMesh,dViewer);
 extern dErr dMeshRegisterAll(const char path[]);
 #define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,d)
 extern dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));

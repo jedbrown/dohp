@@ -24,7 +24,7 @@
 
 dEXTERN_C_BEGIN
 
-extern PetscCookie dJACOBI_COOKIE;
+extern dCookie dJACOBI_COOKIE;
 
 /**
 * Handle for manipulating EFS objects.  The EFS are stored directly in arrays so other components (like dFS) will have
@@ -115,7 +115,7 @@ extern dErr dJacobiSetType(dJacobi,dJacobiType);
 extern dErr dJacobiSetFromOptions(dJacobi);
 extern dErr dJacobiSetUp(dJacobi);
 extern dErr dJacobiDestroy(dJacobi);
-extern dErr dJacobiView(dJacobi,PetscViewer);
+extern dErr dJacobiView(dJacobi,dViewer);
 #define dJacobiRegisterDynamic(a,b,c,d) dJacobiRegister(a,b,c,d)
 extern dErr dJacobiRegister(const char[],const char[],const char[],dErr(*)(dJacobi));
 extern dErr dJacobiRegisterAll(const char[]);
@@ -125,13 +125,13 @@ extern dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
 extern dErr dJacobiGetRule(dJacobi,dInt,const dEntTopology[],const dInt[],dRule);
 extern dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
 
-extern dErr dRuleView(dRule rule,PetscViewer);
+extern dErr dRuleView(dRule rule,dViewer);
 extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
 extern dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
 extern dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
 extern dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
 
-extern dErr dEFSView(dEFS efs,PetscViewer viewer);
+extern dErr dEFSView(dEFS efs,dViewer viewer);
 extern dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
 extern dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,const dReal**);
 extern dErr dEFSGetGlobalCoordinates(dEFS,const dReal vtx[restrict][3],dInt*,dInt[3],dReal(*)[3]);

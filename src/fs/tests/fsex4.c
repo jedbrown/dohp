@@ -170,8 +170,8 @@ int main(int argc,char *argv[])
     err = PetscViewerFileSetMode(viewer,FILE_MODE_READ);dCHK(err);
     err = dViewerDHMGetSteps(viewer,&nsteps,&steptimes);dCHK(err);
     err = dPrintf(PETSC_COMM_SELF,"[%d] DHM has %d steps available\n",rank,nsteps);dCHK(err);
-    for (dInt i=0; i<nsteps; i++) {
-      err = dPrintf(PETSC_COMM_SELF,"[%d] step %d  time %g\n",rank,i,steptimes[i]);dCHK(err);
+    for (dInt i=0; i<nsteps; i++) { /* In optimized mode, 0 doesn't quite come back as 0 */
+      err = dPrintf(PETSC_COMM_SELF,"[%d] step %d  time %g\n",rank,i,(dAbs(steptimes[i]) < 1e-10) ? 0 : steptimes[i]);dCHK(err);
     }
     err = dViewerDHMSetTimeStep(viewer,0);dCHK(err);
     err = dFSCreate(PETSC_COMM_SELF,&fs);dCHK(err);

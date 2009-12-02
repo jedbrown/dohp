@@ -1,7 +1,7 @@
 #include <dohpmeshimpl.h>
 #include <dohp.h>
 
-PetscCookie dMESH_COOKIE;
+dCookie dMESH_COOKIE;
 static PetscFList MeshList = 0;
 
 dErr dMeshCreate(MPI_Comm comm,dMesh *inm)

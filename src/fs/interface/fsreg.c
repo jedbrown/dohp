@@ -2,7 +2,7 @@
 #include <dohpfsimpl.h>
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
-PetscCookie dFSROT_COOKIE;
+dCookie dFSROT_COOKIE;
 static PetscFList FSList = 0;
 
 /**

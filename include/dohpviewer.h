@@ -9,13 +9,13 @@
 dEXTERN_C_BEGIN
 
 /* For writing */
-extern dErr dViewerDHMSetTime(PetscViewer,dReal);
-extern dErr dViewerDHMSetTimeUnits(PetscViewer,const char*,dReal);
+extern dErr dViewerDHMSetTime(dViewer,dReal);
+extern dErr dViewerDHMSetTimeUnits(dViewer,const char*,dReal);
 
 /* For reading */
-extern dErr dViewerDHMSetTimeStep(PetscViewer,dInt);
-extern dErr dViewerDHMGetSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
-extern dErr dViewerDHMRestoreSteps(PetscViewer,dInt *nsteps,dReal **steptimes);
+extern dErr dViewerDHMSetTimeStep(dViewer,dInt);
+extern dErr dViewerDHMGetSteps(dViewer,dInt *nsteps,dReal **steptimes);
+extern dErr dViewerDHMRestoreSteps(dViewer,dInt *nsteps,dReal **steptimes);
 
 extern dErr dViewerRegisterAll(const char*);
 

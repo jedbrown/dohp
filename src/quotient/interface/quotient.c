@@ -8,7 +8,7 @@ static const struct _dQuotientOps dQuotientDefaultOps = {
   .destroy = 0
 };
 
-PetscCookie dQUOTIENT_COOKIE;
+dCookie dQUOTIENT_COOKIE;
 static PetscFList dQuotientList = 0;
 
 static dErr dQuotientSetUp_Private(dQuotient q);

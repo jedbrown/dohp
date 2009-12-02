@@ -16,7 +16,7 @@
 
 dEXTERN_C_BEGIN
 
-extern PetscCookie dFSROT_COOKIE;
+extern dCookie dFSROT_COOKIE;
 
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;
@@ -79,8 +79,8 @@ extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
 extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
 
 extern dErr dFSDestroy(dFS);
-extern dErr dFSView(dFS,PetscViewer);
-extern dErr dFSLoadIntoFS(PetscViewer,const char[],dFS);
+extern dErr dFSView(dFS,dViewer);
+extern dErr dFSLoadIntoFS(dViewer,const char[],dFS);
 #define dFSRegisterDynamic(a,b,c,d) dFSRegister(a,b,c,d)
 extern dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
 extern dErr dFSRegisterAll(const char[]);
@@ -92,7 +92,7 @@ extern dErr dFSExpandedToGlobal(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
 
 extern dErr dFSRotationCreate(dFS,IS,dReal[],dInt[],Vec,dFSRotation*);
 extern dErr dFSRotationDestroy(dFSRotation);
-extern dErr dFSRotationView(dFSRotation,PetscViewer);
+extern dErr dFSRotationView(dFSRotation,dViewer);
 extern dErr dFSRotationApply(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
 extern dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
 
