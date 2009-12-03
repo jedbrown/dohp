@@ -49,7 +49,7 @@ typedef struct {
   char          *timeunits;
   dReal          timescale;
   dInt           stepnumber;
-  hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec,h5t_units;
+  hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec,h5t_units,h5t_time;
 
   /* For reading */
   dInt totalsteps;
