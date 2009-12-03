@@ -379,18 +379,29 @@ dErr dViewerDHMSetTimeStep(PetscViewer viewer,dInt step)
 }
 
 typedef struct {
-  dInt link;
-  dInt nlinks;
+  hid_t timetype;
+  dInt  link;
+  dInt  nlinks;
   dReal *times;
 } step_traversal_t;
 
-static herr_t step_traverse_func(hid_t dUNUSED loc_id,const char *name,const H5L_info_t dUNUSED *info,void *data)
+static herr_t step_traverse_func(hid_t base,const char *name,const H5L_info_t dUNUSED *info,void *data)
 {
   step_traversal_t *ctx = data;
+  herr_t herr,ret = 0;
+  hid_t step = -1,attr = -1;
+  dht_RealWithUnits time;
 
-  printf("link[%d] = '%s'\n",ctx->link,name);
-  ctx->link++;
-  return 0;
+  step = H5Gopen(base,name,H5P_DEFAULT); if (step < 0) {ret = -1; goto out;}
+  attr = H5Aopen(step,"time",H5P_DEFAULT); if (attr < 0) {ret = -2; goto out;}
+  herr = H5Aread(attr,ctx->timetype,&time); if (herr < 0) {ret = -3; goto out;}
+
+  ctx->times[ctx->link++] = time.value;
+
+  out:
+  if (attr >= 0) H5Aclose(attr);
+  if (step >= 0) H5Gclose(step);
+  return ret;
 }
 
 dErr dViewerDHMGetSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
@@ -413,6 +424,7 @@ dErr dViewerDHMGetSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
   ctx.link   = 0;               /* Will count the number of interesting links */
   ctx.nlinks = (dInt)info.nlinks;
   ctx.times  = *steptimes;
+  err = dViewerDHMGetTimeType(viewer,&ctx.timetype);dCHK(err);
   idx = 0;
   herr = H5Literate(dhm->steproot,H5_INDEX_NAME,H5_ITER_INC,&idx,step_traverse_func,&ctx);dCHK(err);
   dhm->totalsteps = ctx.link;
