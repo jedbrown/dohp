@@ -3,6 +3,7 @@ static const char help[] = "Test viewer\n";
 #include <dohp.h>
 #include <dohpfs.h>
 #include <dohpviewer.h>
+#include <dohpvec.h>
 #include <dohpsys.h>
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
@@ -106,11 +107,11 @@ int main(int argc,char *argv[])
   dFS      fs;
   dErr     err;
   dMesh    mesh;
-  dViewer  viewer;
+  dViewer  viewer,viewnative;
   dJacobi  jac;
   dMeshTag rtag,dtag;
   dMeshESH active;
-  dTruth   read;
+  dTruth   read,read_vec;
   Vec      X;
 
   err = dInitialize(&argc,&argv,0,help);dCHK(err);
@@ -119,10 +120,14 @@ int main(int argc,char *argv[])
   ex4->rdeg = 4;
   ex4->bdeg = 4;
   read      = dFALSE;
+  read_vec  = dFALSE;
   err = PetscOptionsBegin(comm,NULL,"FS-Ex4 Options","");dCHK(err);
   {
     err = PetscOptionsInt("-bdeg","Number of nodes per element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
     err = PetscOptionsTruth("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
+    if (read) {
+      err = PetscOptionsTruth("-read_back_vec","Read the Vec back in too","",read_vec,&read_vec,NULL);dCHK(err);
+    }
   }
   err = PetscOptionsEnd();dCHK(err);
   err = FSEx4CreateMesh(comm,&mesh);dCHK(err);
@@ -144,6 +149,10 @@ int main(int argc,char *argv[])
   err = PetscObjectSetName((PetscObject)X,"my_vec");dCHK(err);
   err = FSEx4FillVec(X);dCHK(err);
 
+  err = PetscViewerASCIIGetStdout(PETSC_COMM_WORLD,&viewnative);dCHK(err); /* Does not give us ownership */
+  err = PetscViewerSetFormat(viewnative,PETSC_VIEWER_NATIVE);dCHK(err);
+  if (0) {err = VecView(X,viewnative);dCHK(err);} /* Skip viewing here because it's just a boring sequence */
+
   err = PetscViewerCreate(comm,&viewer);dCHK(err);
   err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
   err = PetscViewerFileSetName(viewer,"fsex4.dhm");dCHK(err);
@@ -164,6 +173,7 @@ int main(int argc,char *argv[])
     PetscMPIInt rank;
     dInt nsteps;
     dReal *steptimes;
+
     err = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);dCHK(err);
     err = PetscViewerCreate(PETSC_COMM_SELF,&viewer);dCHK(err);
     err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
@@ -180,6 +190,15 @@ int main(int argc,char *argv[])
     err = dFSLoadIntoFS(viewer,"my_vec",fs);dCHK(err);
 
     err = FSEx4CheckSubMesh(ex4,fs);dCHK(err);
+
+    if (read_vec) {
+      Vec Y;
+      err = dFSCreateGlobalVector(fs,&Y);dCHK(err);
+      err = VecDohpLoadIntoVector(viewer,"my_vec",Y);dCHK(err);
+      err = dPrintf(PETSC_COMM_SELF,"Loaded vector \"my_vec\"\n");dCHK(err);
+      err = VecView(Y,viewnative);dCHK(err);
+      err = VecDestroy(Y);dCHK(err);
+    }
 
     err = dViewerDHMRestoreSteps(viewer,&nsteps,&steptimes);dCHK(err);
     err = dFSDestroy(fs);dCHK(err);

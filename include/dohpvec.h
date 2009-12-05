@@ -14,6 +14,8 @@ extern dErr VecCreateDohp(MPI_Comm,dInt,dInt,dInt,dInt,const dInt[],Vec*);
 
 extern dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat);
 
+extern dErr VecDohpLoadIntoVector(PetscViewer,const char fieldname[],Vec);
+
 dEXTERN_C_BEGIN
 
 #endif

@@ -53,9 +53,8 @@ Coordinates
 0.5
 -1.5
 1
-link[0] = '000'
 [0] DHM has 1 steps available
-[0] step 0  time 0
+[0] step 0  time 0.1
 Offsets for 3 subelements
 0: 0 8 16 24
 Connectivity

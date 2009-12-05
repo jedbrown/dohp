@@ -142,6 +142,25 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
   dFunctionReturn(0);
 }
 
+static dErr dVecGetHDF5Hyperslab(Vec X,hsize_t gdim[2],hsize_t offset[2],hsize_t count[2])
+{
+  dInt    m,low,high,bs;
+  dErr    err;
+
+  dFunctionBegin;
+  err = VecGetSize(X,&m);dCHK(err);
+  err = VecGetOwnershipRange(X,&low,&high);dCHK(err);
+  err = VecGetBlockSize(X,&bs);dCHK(err);
+  gdim[0]   = m/bs;
+  gdim[1]   = bs;
+  offset[0] = low/bs;
+  offset[1] = 0;
+  count[0]  = (high-low)/bs;
+  count[1]  = bs;
+  dFunctionReturn(0);
+}
+
+
 static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
 {
   dViewer_DHM *dhm = viewer->data;
@@ -152,7 +171,6 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   hid_t        fsdset,fsspace,curstep,dset,fspace,mspace,plist;
   hsize_t      gdim[2],offset[2],count[2];
   herr_t       herr;
-  dInt         m,low,high,bs;
   dErr         err;
 
   dFunctionBegin;
@@ -164,15 +182,8 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);        /* leave curstep open */
   err = dFSView_Cont_DHM(fs,viewer);dCHK(err);
   err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
-  err = VecGetSize(Xclosure,&m);dCHK(err);
-  err = VecGetOwnershipRange(Xclosure,&low,&high);dCHK(err);
-  err = VecGetBlockSize(Xclosure,&bs);dCHK(err);
-  gdim[0]   = m/bs;
-  gdim[1]   = bs;
-  offset[0] = low/bs;
-  offset[1] = 0;
-  count[0]  = (high-low)/bs;
-  count[1]  = bs;
+
+  err = dVecGetHDF5Hyperslab(Xclosure,gdim,offset,count);dCHK(err);
   fspace = H5Screate_simple(2,gdim,NULL);dH5CHK(fspace,H5Screate_simple);
   dset = H5Dcreate(curstep,xname,dH5T_SCALAR,fspace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dset,H5Dcreate);
   herr = H5Sselect_hyperslab(fspace,H5S_SELECT_SET,offset,NULL,count,NULL);dH5CHK(herr,H5Sselect_hyperslab);
@@ -225,21 +236,16 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
 dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
 {
   dFS fs;
-  dTruth isdhm,isdraw;
+  dTruth isdhm;
   dErr err;
 
   dFunctionBegin;
   err = PetscObjectQuery((PetscObject)x,"dFS",(PetscObject*)&fs);dCHK(err);
   if (!fs) dERROR(PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DRAW,&isdraw);dCHK(err);
   if (isdhm) {
     err = VecView_Dohp_FSCont_DHM(x,viewer);dCHK(err);
-  } else if (isdraw) {
-    dERROR(1,"not implemented");
-  } else {
-    dERROR(1,"not implemented");
-  }
+  } else dERROR(1,"not implemented");
   dFunctionReturn(0);
 }
 
@@ -417,5 +423,45 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   herr = H5Oclose(fsobj);dH5CHK(herr,H5Oclose);
   herr = H5Dclose(vdset);dH5CHK(herr,H5Dclose);
+  dFunctionReturn(0);
+}
+
+/* Viewer dispatch sucks, we're just binding statically */
+dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
+{
+  dErr    err;
+  dTruth  match;
+  hid_t   curstep,dset,memspace,filespace;
+  hsize_t gdim[2],offset[2],count[2];
+  herr_t  herr;
+  Vec     Xclosure;
+  dScalar *x;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"The viewer must be type \"%s\"",PETSC_VIEWER_DHM);
+  err = PetscTypeCompare((PetscObject)X,VECDOHP,&match);dCHK(err);
+  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"Vector must have type \"%s\"",VECDOHP);
+
+  err = dViewerDHMSetUp(viewer);dCHK(err);
+  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
+  dset = H5Dopen(curstep,fieldname,H5P_DEFAULT);dH5CHK(dset,H5Dopen);
+
+  err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
+
+  /* \bug when independently reading a subdomain */
+  err = dVecGetHDF5Hyperslab(Xclosure,gdim,offset,count);dCHK(err);
+  filespace = H5Dget_space(dset);dH5CHK(filespace,H5Dget_space);
+  herr = H5Sselect_hyperslab(filespace,H5S_SELECT_SET,offset,NULL,count,NULL);dH5CHK(herr,H5Sselect_hyperslab);
+  memspace = H5Screate_simple(2,count,NULL);dH5CHK(memspace,H5Screate_simple);
+
+  err = VecGetArray(Xclosure,&x);dCHK(err);
+  herr = H5Dread(dset,dH5T_SCALAR,memspace,filespace,H5P_DEFAULT,x);dH5CHK(herr,H5Dread);
+  err = VecRestoreArray(Xclosure,&x);dCHK(err);
+
+  herr = H5Sclose(memspace);dH5CHK(herr,H5Sclose);
+  herr = H5Sclose(filespace);dH5CHK(herr,H5Sclose);
+  herr = H5Dclose(dset);dH5CHK(herr,H5Dclose);
+  err = VecDohpRestoreClosure(X,&Xclosure);dCHK(err);
   dFunctionReturn(0);
 }
