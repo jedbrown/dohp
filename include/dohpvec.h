@@ -16,6 +16,6 @@ extern dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat);
 
 extern dErr VecDohpLoadIntoVector(PetscViewer,const char fieldname[],Vec);
 
-dEXTERN_C_BEGIN
+dEXTERN_C_END
 
 #endif
