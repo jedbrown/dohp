@@ -60,7 +60,7 @@
 #include <InvalidFilesException.h>
 
 #include <vector>
-#include <petscvec.h>
+#include <dohpvec.h>
 #include <dohpsys.h>
 
 // This exception is a copout, but VisIt doesn't offer many choices
@@ -197,7 +197,7 @@ avtDohpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int timeSta
   // CODE TO ADD A SCALAR VARIABLE
   //
   string mesh_for_this_var = meshname;
-  string varname = "my_var";
+  string varname = "my_vec";
   //
   // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
   avtCentering cent = AVT_NODECENT;
@@ -349,6 +349,7 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
     err = VecDestroy(X);avtCHK(err);
   }
 
+  err = dFSDestroy(fs);avtCHK(err);
   delete [] off;
   delete [] topo;
   delete [] conn;
@@ -380,44 +381,29 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
 vtkDataArray *
 avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
 {
+  dErr    err;
+  dFS     fs;
+  Vec     X;
+  dScalar *x;
+  dInt    n;
+
+  err = dFSCreate(MPI_COMM_SELF,&fs);avtCHK(err);
+  err = dFSSetType(fs,dFSCONT);avtCHK(err);
+  err = dFSLoadIntoFS(this->viewer,varname,fs);avtCHK(err);
+  err = dFSCreateGlobalVector(fs,&X);avtCHK(err);
+  err = VecDohpLoadIntoVector(this->viewer,varname,X);avtCHK(err);
+  err = dFSDestroy(fs);avtCHK(err);
+
+  err = VecGetLocalSize(X,&n);avtCHK(err);
+  err = VecGetArray(X,&x);avtCHK(err);
   vtkFloatArray *var = vtkFloatArray::New();
-  var->SetNumberOfTuples(101*101*101);
-  for (int i=0; i<101; i++) {
-    for (int j=0; j<101; j++) {
-      for (int k=0; k<101; k++) {
-        double x = -1. + 2.*i/100;
-        double y = -1. + 2.*j/100;
-        double z = -1. + 2.*k/100;
-        double t = 0.1*timestate;
-        var->SetTuple1((i*101+j)*101+k,sin(0.2*t)*x*cos(y)*exp(z));
-      }
-    }
-  }
-
-  return var; //YOU_MUST_IMPLEMENT_THIS;
-
-    //
-    // If you have a file format where variables don't apply (for example a
-    // strictly polygonal format like the STL (Stereo Lithography) format,
-    // then uncomment the code below.
-    //
-    // EXCEPTION1(InvalidVariableException, varname);
-    //
-
-    //
-    // If you do have a scalar variable, here is some code that may be helpful.
-    //
-    // int ntuples = XXX; // this is the number of entries in the variable.
-    // vtkFloatArray *rv = vtkFloatArray::New();
-    // rv->SetNumberOfTuples(ntuples);
-    // for (int i = 0 ; i < ntuples ; i++)
-    // {
-    //      rv->SetTuple1(i, VAL);  // you must determine value for ith entry.
-    // }
-    //
-    // return rv;
-    //
-    }
+  var->SetNumberOfComponents(1);
+  var->SetNumberOfTuples(n);
+  for (int i=0; i<n; i++) var->SetTuple1(i,x[i]);
+  err = VecRestoreArray(X,&x);avtCHK(err);
+  err = VecDestroy(X);avtCHK(err);
+  return var;
+}
 
 
 // ****************************************************************************
@@ -444,36 +430,5 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
 vtkDataArray *
 avtDohpFileFormat::GetVectorVar(int timestate, int domain,const char *varname)
 {
-  return 0; //YOU MUST IMPLEMENT THIS
-  //
-  // If you have a file format where variables don't apply (for example a
-  // strictly polygonal format like the STL (Stereo Lithography) format,
-  // then uncomment the code below.
-  //
-  // EXCEPTION1(InvalidVariableException, varname);
-  //
-
-  //
-  // If you do have a vector variable, here is some code that may be helpful.
-  //
-  // int ncomps = YYY;  // This is the rank of the vector - typically 2 or 3.
-  // int ntuples = XXX; // this is the number of entries in the variable.
-  // vtkFloatArray *rv = vtkFloatArray::New();
-  // int ucomps = (ncomps == 2 ? 3 : ncomps);
-  // rv->SetNumberOfComponents(ucomps);
-  // rv->SetNumberOfTuples(ntuples);
-  // float *one_entry = new float[ucomps];
-  // for (int i = 0 ; i < ntuples ; i++)
-  // {
-  //      int j;
-  //      for (j = 0 ; j < ncomps ; j++)
-  //           one_entry[j] = ...
-  //      for (j = ncomps ; j < ucomps ; j++)
-  //           one_entry[j] = 0.;
-  //      rv->SetTuple(i, one_entry); 
-  // }
-  //
-  // delete [] one_entry;
-  // return rv;
-  //
+  return 0;
 }
