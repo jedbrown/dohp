@@ -174,71 +174,27 @@ avtDohpFileFormat::FreeUpResources(void)
 void
 avtDohpFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md, int timeState)
 {
-  //
-  // CODE TO ADD A MESH
-  //
-  string meshname = "FooMesh";
-  //
-  // AVT_RECTILINEAR_MESH, AVT_CURVILINEAR_MESH, AVT_UNSTRUCTURED_MESH,
-  // AVT_POINT_MESH, AVT_SURFACE_MESH, AVT_UNKNOWN_MESH
-  avtMeshType mt = AVT_UNSTRUCTURED_MESH;
-  int nblocks = 1;
-  int block_origin = 0;
-  int spatial_dimension = 3;
-  int topological_dimension = 3;
-  double extents[6] = {-1,1,-1,1,-1,1};
-  //
-  // Here's the call that tells the meta-data object that we have a mesh:
-  //
-  AddMeshToMetaData(md, meshname, mt, extents, nblocks, block_origin,
-                    spatial_dimension, topological_dimension);
+  const struct dViewerDHMSummaryFS *fspaces;
+  const struct dViewerDHMSummaryField *fields;
+  dInt nfspaces,nfields;
+  dErr err;
 
-  //
-  // CODE TO ADD A SCALAR VARIABLE
-  //
-  string mesh_for_this_var = meshname;
-  string varname = "my_vec";
-  //
-  // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
-  avtCentering cent = AVT_NODECENT;
-  //
-  //
-  // Here's the call that tells the meta-data object that we have a var:
-  //
-  AddScalarVarToMetaData(md, varname, mesh_for_this_var, cent);
-
-
-  //
-  // CODE TO ADD A VECTOR VARIABLE
-  //
-  // string mesh_for_this_var = meshname; // ??? -- could be multiple meshes
-  // string varname = ...
-  // int vector_dim = 2;
-  //
-  // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
-  // avtCentering cent = AVT_NODECENT;
-  //
-  //
-  // Here's the call that tells the meta-data object that we have a var:
-  //
-  // AddVectorVarToMetaData(md, varname, mesh_for_this_var, cent,vector_dim);
-  //
-
-  //
-  // CODE TO ADD A TENSOR VARIABLE
-  //
-  // string mesh_for_this_var = meshname; // ??? -- could be multiple meshes
-  // string varname = ...
-  // int tensor_dim = 9;
-  //
-  // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
-  // avtCentering cent = AVT_NODECENT;
-  //
-  //
-  // Here's the call that tells the meta-data object that we have a var:
-  //
-  // AddTensorVarToMetaData(md, varname, mesh_for_this_var, cent,tensor_dim);
-  //
+  err = dViewerDHMSetTimeStep(this->viewer,timeState);avtCHK(err);
+  err = dViewerDHMGetStepSummary(this->viewer,&nfspaces,&fspaces,&nfields,&fields);avtCHK(err);
+  for (dInt i=0; i<nfspaces; i++) {
+    int block_origin = 0,spatial_dimension = 3,topological_dimension = 3;
+    double extents[6];
+    for (int j=0; j<6; j++) extents[j] = ((dReal*)fspaces[i].boundingbox)[j];
+    AddMeshToMetaData(md,fspaces[i].name,AVT_UNSTRUCTURED_MESH,extents,fspaces[i].nblocks,block_origin,spatial_dimension,topological_dimension);
+  }
+  for (dInt i=0; i<nfields; i++) {
+    if (fields[i].bs == 1) {
+      AddScalarVarToMetaData(md,fields[i].name,fields[i].fsname,AVT_NODECENT);
+    } else {
+      AddVectorVarToMetaData(md,fields[i].name,fields[i].fsname,AVT_NODECENT,fields[i].bs);
+    }
+  }
+  err = dViewerDHMRestoreStepSummary(this->viewer,&nfspaces,&fspaces,&nfields,&fields);avtCHK(err);
 
   //
   // CODE TO ADD A MATERIAL
