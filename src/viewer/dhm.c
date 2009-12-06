@@ -1,5 +1,7 @@
 #include "dhm.h"
 #include <dohp.h>
+#include <dohpstring.h>
+#include <string.h>
 
 extern PetscErrorCode PetscViewerCreate_DHM(PetscViewer);
 
@@ -426,7 +428,7 @@ dErr dViewerDHMGetSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
   ctx.times  = *steptimes;
   err = dViewerDHMGetTimeType(viewer,&ctx.timetype);dCHK(err);
   idx = 0;
-  herr = H5Literate(dhm->steproot,H5_INDEX_NAME,H5_ITER_INC,&idx,step_traverse_func,&ctx);dCHK(err);
+  herr = H5Literate(dhm->steproot,H5_INDEX_NAME,H5_ITER_INC,&idx,step_traverse_func,&ctx);dH5CHK(herr,H5Literate);
   dhm->totalsteps = ctx.link;
   *nsteps = ctx.link;
   dFunctionReturn(0);
@@ -445,5 +447,200 @@ dErr dViewerDHMRestoreSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
   if (!match) dERROR(PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   *nsteps = 0;
   err = dFree(*steptimes);dCHK(err);
+  dFunctionReturn(0);
+}
+
+struct field_node {
+  char *name;
+  char *fsname;
+  dInt bs;
+  struct field_node *next;
+};
+
+struct fs_node {
+  char *name;
+  dInt nblocks;
+  dReal boundingbox[3][2];
+  struct fs_node *next;
+};
+
+struct field_traversal {
+  struct field_node *field_head;
+  struct fs_node    *fs_head;
+  hid_t             vectype;
+  hid_t             fstype;
+  hid_t             fsroot;
+};
+
+static herr_t field_traverse_func(hid_t base,const char *name,const H5L_info_t dUNUSED *info,void *data)
+{
+  struct field_traversal *ctx = data;
+  struct field_node *new_field;
+  hid_t field = -1,attr = -1,fs,fsspace,memspace;
+  dht_Vec vecmeta;
+  herr_t herr,ret = 0;
+  bool fs_found;
+
+  field = H5Dopen(base,name,H5P_DEFAULT);if (field < 0) {ret = -1; goto out;}
+  attr = H5Aopen(field,"meta",H5P_DEFAULT);if (attr < 0) {ret = -2; goto out;}
+  herr = H5Aread(attr,ctx->vectype,&vecmeta);if (herr < 0) {ret = -3; goto out;}
+
+  if (dMallocA(1,&new_field)) {ret = -4; goto out;}
+  if (PetscStrallocpy(name,&new_field->name)) {dFree(new_field); ret = -5; goto out;}
+  new_field->fsname = 0;
+  {
+    char fullname[256] = {0};
+    ssize_t len,i;
+    len = H5Rget_name(ctx->fsroot,H5R_DATASET_REGION,vecmeta.fs,fullname,sizeof(fullname));
+    if (len > 0) {
+      for (i=len-1; i > 0 && fullname[i] != '/'; i--) {}
+      if (!dMalloc(dNAME_LEN,&new_field->fsname)) {
+        dStrcpyS(new_field->fsname,dNAME_LEN,&fullname[i+1]);
+      }
+    }
+  }
+  new_field->bs = 1;
+
+  /* cons with list */
+  new_field->next = ctx->field_head;
+  ctx->field_head = new_field;
+
+  fs_found = false;
+  for (const struct fs_node *p = ctx->fs_head; p; p = p->next) {
+    if (!strcmp(p->name,new_field->fsname)) {
+      fs_found = true;
+      break;
+    }
+  }
+
+  if (!fs_found) {
+    struct fs_node new_fs,*p;
+    /* Read the FS */
+    if ((fs = H5Rdereference(field,H5R_DATASET_REGION,vecmeta.fs)) >= 0) {
+      if ((fsspace = H5Rget_region(field,H5R_DATASET_REGION,vecmeta.fs)) >= 0) {
+        if ((memspace = H5Screate(H5S_SCALAR)) >= 0) {
+          dht_FS fs5;
+          if (H5Dread(fs,ctx->fstype,memspace,fsspace,H5P_DEFAULT,&fs5) >= 0) {
+            new_fs.nblocks = fs5.number_of_subdomains;
+            new_fs.boundingbox[0][0] = -1;
+            new_fs.boundingbox[0][1] =  1;
+            new_fs.boundingbox[1][0] = -1;
+            new_fs.boundingbox[1][1] =  1;
+            new_fs.boundingbox[2][0] = -1;
+            new_fs.boundingbox[2][1] =  1;
+          }
+          H5Sclose(memspace);
+        }
+        H5Sclose(fsspace);
+      }
+      H5Dclose(fs);
+    }
+    if (PetscStrallocpy(new_field->fsname,&new_fs.name)) {ret = -7; goto out;}
+    if (dMallocA(1,&p)) {dFree(new_fs.name); ret = -8; goto out;}
+    dMemcpy(p,&new_fs,sizeof(new_fs));
+    p->next = ctx->fs_head;
+    ctx->fs_head = p;
+  }
+
+  out:
+  if (attr >= 0) H5Aclose(attr);
+  if (field >= 0) H5Dclose(field);
+  return ret;
+}
+
+/* This is a nasty interface made especially for VisIt. */
+dErr dViewerDHMGetStepSummary(PetscViewer viewer,dInt *nfs,const struct dViewerDHMSummaryFS **infs,dInt *nfields,const struct dViewerDHMSummaryField **infields)
+{
+  dViewer_DHM                   *dhm = viewer->data;
+  struct dViewerDHMSummaryFS    *fspaces;
+  struct dViewerDHMSummaryField *fields;
+  dErr                          err;
+  PetscTruth                    match;
+  hid_t                         curstep;
+  struct field_traversal        ctx;
+  hsize_t                       idx;
+  herr_t                        herr;
+  dInt                          i;
+
+  dFunctionBegin;
+  dValidHeader(viewer,PETSC_VIEWER_COOKIE,1);
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  if (!match) dERROR(PETSC_ERR_SUP,"Only for viewer type 'dhm'");
+  dValidIntPointer(nfs,2);
+  dValidPointer(infs,3);
+  dValidIntPointer(nfields,4);
+  dValidPointer(infields,5);
+
+  *nfs      = 0;
+  *infs     = NULL;
+  *nfields  = 0;
+  *infields = NULL;
+
+  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
+
+  err = dMemzero(&ctx,sizeof(ctx));dCHK(err);
+  err = dViewerDHMGetVecType(viewer,&ctx.vectype);dCHK(err);
+  err = dViewerDHMGetFSType(viewer,&ctx.fstype);dCHK(err);
+  ctx.fsroot = dhm->fsroot;
+
+  idx = 0;
+  herr = H5Literate(curstep,H5_INDEX_NAME,H5_ITER_INC,&idx,field_traverse_func,&ctx);dH5CHK(herr,H5Literate);
+
+  *nfs = 0;
+  for (struct fs_node *p=ctx.fs_head; p; p=p->next) (*nfs)++;
+  err = dMallocA(*nfs,&fspaces);dCHK(err);
+
+  i = 0;
+  for (struct fs_node *p = ctx.fs_head; p; i++) {
+    struct fs_node *tmp;
+    err = dStrcpyS(fspaces[i].name,sizeof(fspaces[i].name),p->name);dCHK(err);
+    err = dFree(p->name);dCHK(err);
+    fspaces[i].nblocks = p->nblocks;
+    err = dMemcpy(&fspaces[i].boundingbox,p->boundingbox,sizeof(p->boundingbox));dCHK(err);
+    tmp = p;
+    p = p->next;
+    err = dFree(tmp);dCHK(err);
+  }
+
+  *nfields = 0;
+  for (struct field_node *p = ctx.field_head; p; p=p->next) (*nfields)++;
+  err = dMallocA(*nfields,&fields);dCHK(err);
+
+  i = 0;
+  for (struct field_node *p = ctx.field_head; p; i++) {
+    struct field_node *tmp;
+    err = dStrcpyS(fields[i].name,sizeof(fields[i].name),p->name);dCHK(err);
+    err = dStrcpyS(fields[i].fsname,sizeof(fields[i].fsname),p->fsname);dCHK(err);
+    err = dFree(p->name);dCHK(err);
+    err = dFree(p->fsname);dCHK(err);
+    fields[i].bs = p->bs;
+    tmp = p;
+    p   = p->next;
+    err = dFree(tmp);dCHK(err);
+  }
+
+  *infs     = fspaces;
+  *infields = fields;
+  dFunctionReturn(0);
+}
+
+dErr dViewerDHMRestoreStepSummary(PetscViewer viewer,dInt *nfs,const struct dViewerDHMSummaryFS **infs,dInt *nfields,const struct dViewerDHMSummaryField **infields)
+{
+  dErr       err;
+  PetscTruth match;
+
+  dFunctionBegin;
+  dValidHeader(viewer,PETSC_VIEWER_COOKIE,1);
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  if (!match) dERROR(PETSC_ERR_SUP,"Only for viewer type 'dhm'");
+  dValidIntPointer(nfs,2);
+  dValidPointer(infs,3);
+  dValidIntPointer(nfields,4);
+  dValidPointer(infields,5);
+
+  err = dFree(*infs);dCHK(err);
+  err = dFree(*infields);dCHK(err);
+  *nfs = 0;
+  *nfields = 0;
   dFunctionReturn(0);
 }

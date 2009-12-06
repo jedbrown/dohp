@@ -351,6 +351,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
       err = dMeshDestroy(mesh);dCHK(err); /* Give ownership to FS */
     }
     herr = H5Dclose(meshobj);dH5CHK(herr,H5Aclose);
+    // \bug herr = H5Dvlen_reclaim(&fs5);
   }
   /** @note The FS has the layout and ordering tags set (@todo boundary conditions) so we are ready to build the
   * function space (mostly creating the LocalToGlobalMapping/update for VecDohp and setting up the element assembly

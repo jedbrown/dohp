@@ -171,8 +171,10 @@ int main(int argc,char *argv[])
 
   if (read) {
     PetscMPIInt rank;
-    dInt nsteps;
+    dInt nsteps,nfspaces,nfields;
     dReal *steptimes;
+    const struct dViewerDHMSummaryFS *fspaces;
+    const struct dViewerDHMSummaryField *fields;
 
     err = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);dCHK(err);
     err = PetscViewerCreate(PETSC_COMM_SELF,&viewer);dCHK(err);
@@ -185,6 +187,14 @@ int main(int argc,char *argv[])
       err = dPrintf(PETSC_COMM_SELF,"[%d] step %d  time %g\n",rank,i,(dAbs(steptimes[i]) < 1e-10) ? 0 : steptimes[i]);dCHK(err);
     }
     err = dViewerDHMSetTimeStep(viewer,0);dCHK(err);
+    err = dViewerDHMGetStepSummary(viewer,&nfspaces,&fspaces,&nfields,&fields);dCHK(err);
+    for (dInt i=0; i<nfspaces; i++) {
+      err = dPrintf(PETSC_COMM_SELF,"fspace[%d] '%s', blocks %d\n",i,fspaces[i].name,fspaces[i].nblocks);dCHK(err);
+    }
+    for (dInt i=0; i<nfields; i++) {
+      err = dPrintf(PETSC_COMM_SELF,"field[%d] '%s', fspace '%s', bs %d\n",i,fields[i].name,fields[i].fsname,fields[i].bs);dCHK(err);
+    }
+    err = dViewerDHMRestoreStepSummary(viewer,&nfspaces,&fspaces,&nfields,&fields);dCHK(err);
     err = dFSCreate(PETSC_COMM_SELF,&fs);dCHK(err);
     err = dFSSetType(fs,dFSCONT);dCHK(err);
     err = dFSLoadIntoFS(viewer,"my_vec",fs);dCHK(err);
