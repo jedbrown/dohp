@@ -341,7 +341,7 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
   dFS     fs;
   Vec     X;
   dScalar *x;
-  dInt    n;
+  dInt    n,bs;
 
   err = dFSCreate(MPI_COMM_SELF,&fs);avtCHK(err);
   err = dFSSetType(fs,dFSCONT);avtCHK(err);
@@ -351,11 +351,28 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
   err = dFSDestroy(fs);avtCHK(err);
 
   err = VecGetLocalSize(X,&n);avtCHK(err);
+  err = VecGetBlockSize(X,&bs);avtCHK(err);
+  n /= bs;
   err = VecGetArray(X,&x);avtCHK(err);
   vtkFloatArray *var = vtkFloatArray::New();
-  var->SetNumberOfComponents(1);
+  var->SetNumberOfComponents(bs);
   var->SetNumberOfTuples(n);
-  for (int i=0; i<n; i++) var->SetTuple1(i,x[i]);
+  for (int i=0; i<n; i++) {
+    switch (bs) {
+      case 1:
+        var->SetTuple1(i,x[i]);
+        break;
+      case 3:
+        var->SetTuple3(i,x[i*3+0],x[i*3+1],x[i*3+2]);
+        break;
+      default:
+      {
+        char buf[256];
+        snprintf(buf,sizeof(buf),"Variable has size %d, don't know what to do with it",bs);
+        EXCEPTION1(InvalidVariableException,buf);
+      }
+    }
+  }
   err = VecRestoreArray(X,&x);avtCHK(err);
   err = VecDestroy(X);avtCHK(err);
   return var;
@@ -386,5 +403,5 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
 vtkDataArray *
 avtDohpFileFormat::GetVectorVar(int timestate, int domain,const char *varname)
 {
-  return 0;
+  return this->GetVar(timestate,domain,varname);
 }
