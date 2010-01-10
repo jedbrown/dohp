@@ -148,13 +148,18 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   dFunctionReturn(0);
 }
 
-static void Morph(void *ctx,double *coords)
+typedef struct {
+  dReal morph,twist,stretch;
+} MorphCtx;
+
+static void Morph(void *vctx,double *coords)
 {
-  dReal morph = ((dReal*)ctx)[0],twist = ((dReal*)ctx)[1];
+  MorphCtx *ctx = vctx;
+  dReal morph = ctx->morph,twist = ctx->twist,stretch = ctx->stretch;
   double x = coords[0],y = coords[1],z = coords[2];
   coords[0] =  cos(twist*z)*x + sin(twist*z)*y;
   coords[1] = -sin(twist*z)*x + cos(twist*z)*y;
-  coords[2] = -1 + (z + 1) * (1 + morph * (dSqr(x + 1) + dSqr(y + 1)));
+  coords[2] = -1 + (z + 1) * (1 + morph * (dSqr(x + 1) + dSqr(y + 1))) + stretch*z;
 }
 
 static dErr EllipSetFromOptions(Ellip elp)
@@ -168,12 +173,12 @@ static dErr EllipSetFromOptions(Ellip elp)
   dMeshESH domain;
   dMeshTag rtag,dtag;
   dTruth mesh_out;
-  dReal morph,twist;
+  dReal morph,twist,stretch;
   dInt exact;
   dErr err;
 
   dFunctionBegin;
-  exact = 0; morph = twist = 0.0; mesh_out = dFALSE; exc->a = exc->b = exc->c = 1;
+  exact = 0; morph = twist = stretch = 0.0; mesh_out = dFALSE; exc->a = exc->b = exc->c = 1;
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic (p-Laplacian) options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elp->constBDeg,&elp->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elp->nominalRDeg,&elp->nominalRDeg,NULL);dCHK(err);
@@ -190,6 +195,7 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
     err = PetscOptionsReal("-morph","Deform the mesh by this factor","",morph,&morph,NULL);dCHK(err);
     err = PetscOptionsReal("-twist","Twist the mesh by this factor","",twist,&twist,NULL);dCHK(err);
+    err = PetscOptionsReal("-stretch","Stretch the mesh by this factor","",stretch,&stretch,NULL);dCHK(err);
     err = PetscOptionsString("-mesh_out","Write the (morphed) mesh with this name","",mesh_out_name,mesh_out_name,sizeof mesh_out_name,&mesh_out);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
 
@@ -218,8 +224,10 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);dCHK(err);
   {
-    dReal ctx[2] = {morph,twist};
-    err = dMeshMorph(mesh,&Morph,ctx);dCHK(err);
+    MorphCtx ctx = {.morph   = morph,
+                    .twist   = twist,
+                    .stretch = stretch};
+    err = dMeshMorph(mesh,Morph,&ctx);dCHK(err);
   }
   elp->mesh = mesh;
   err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
