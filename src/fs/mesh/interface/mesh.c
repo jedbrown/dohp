@@ -492,7 +492,7 @@ dErr dMeshGetNumEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dIn
   dFunctionBegin;
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(num,5);
-  if (topo == iMesh_ALL_TOPOLOGIES) {
+  if (topo == dTOPO_ALL) {
     iMesh_getNumOfType(mesh->mi,set,type,&n,&ierr);dICHK(mesh->mi,ierr);
   } else {
     iMesh_getNumOfTopo(mesh->mi,set,topo,&n,&ierr);dICHK(mesh->mi,ierr);
