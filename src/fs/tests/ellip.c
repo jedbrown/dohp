@@ -2,7 +2,7 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Bra
   "The model problem is\n"
   "  \\int_\\Omega (\\eta Dv \\cdot Du - \\lambda e^u - f v) - \\int_\\Gamma v (\\eta Du \\cdot n) = 0\n"
   "where\n"
-  "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^(p-2)\n"
+  "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^((p-2)/2)\n"
   "  (\\eta Du \\cdot n) = known OR function of u OR self (\"No condition\" outflow)\n\n";
 
 #include <dohp.h>
@@ -440,7 +440,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
   dFunctionReturn(0);
 }
 
-static dErr EllipJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+static dErr EllipJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
   Ellip     elp = ctx;
   s_dRule  *rule;
