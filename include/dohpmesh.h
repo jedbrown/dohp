@@ -141,7 +141,7 @@ extern dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
 extern dErr dMeshSetCreate(dMesh,dMeshSetOrdering,dMeshESH*);
 extern dErr dMeshSetDestroy(dMesh,dMeshESH);
 extern dErr dMeshSetAddEnts(dMesh,dMeshESH,const dMeshEH*,dInt);
-extern dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,dMeshESH *sets,dInt *member);
+extern dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,const dMeshESH sets[],dInt *member);
 extern dErr dMeshGetStatus(dMesh,const dMeshEH[],dInt,dEntStatus[]);
 extern dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
 extern dErr dMeshGetAdjacency(dMesh,dMeshESH,dMeshAdjacency*);

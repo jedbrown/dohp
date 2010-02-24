@@ -662,7 +662,7 @@ dErr dMeshSetAddEnts(dMesh mesh,dMeshESH set,const dMeshEH *ents,dInt nents)
   dFunctionReturn(0);
 }
 
-dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,dMeshESH *sets,dInt *member)
+dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,const dMeshESH sets[],dInt *member)
 {
 
   dFunctionBegin;
