@@ -7,6 +7,9 @@ dEXTERN_C_BEGIN
 
 extern dLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 
+typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
+extern const char *GaussFamilies[];
+
 /**
 * There is exactly one #dRule on each element.  The ops table is normally shared across the domain.
 *
@@ -50,13 +53,12 @@ struct _dJacobiOps {
   dErr (*SetFromOptions)(dJacobi);
   dErr (*Destroy)(dJacobi);
   dErr (*View)(dJacobi,dViewer);
-  dErr (*GetRuleSize)(dJacobi,dEntTopology,dInt*);
   dErr (*PropogateDown)(dJacobi,dMeshAdjacency,dInt[]);
-  dErr (*GetRule)(dJacobi,dInt,const dEntTopology[],const dInt[],dRule);
   dErr (*GetEFS)(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
   dErr (*GetNodeCount)(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
   dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,dInt[],dInt[]);
   dErr (*AddConstraints)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,Mat,Mat);
+  dErr (*GetQuadrature)(dJacobi,dQuadrature*);
 };
 
 /**
@@ -68,10 +70,27 @@ struct p_dJacobi {
   dInt basisdegree;         /**< the maximum degree basis functions to be supported */
   dInt ruleexcess;          /**< the amount of over-integration to be supported */
   bool setupcalled;
-  void *impl;                   /**< private implementation context */
+  dQuadrature quad;
+  void *data;                   /**< private implementation context */
 };
 
-extern dErr dJacobiCreate_Tensor(dJacobi); /* should really only be visible to dJacobiInitializePackage */
+struct _dQuadratureOps {
+  dErr (*View)(dQuadrature,PetscViewer);
+  dErr (*GetRule)(dQuadrature,dInt,const dEntTopology[],const dInt[],dRule);
+  dErr (*SetFromOptions)(dQuadrature);
+  dErr (*Destroy)(dQuadrature);
+};
+
+struct p_dQuadrature {
+  PETSCHEADER(struct _dQuadratureOps);
+  void *data;
+};
+
+/* These only need to be visible to dJacobiInitializePackage, but I don't like declaring extern functions in source files. */
+extern dErr dJacobiCreate_Tensor(dJacobi);
+extern dErr dJacobiCreate_Modal(dJacobi);
+
+extern dErr dQuadratureCreate_Tensor(dQuadrature);
 
 dEXTERN_C_END
 

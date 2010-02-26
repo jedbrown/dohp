@@ -519,7 +519,6 @@ int main(int argc,char *argv[])
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
-  err = dJacobiSetUp(jac);dCHK(err);
 
   err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
   err = tagHexes(mesh,&dtag);dCHK(err);

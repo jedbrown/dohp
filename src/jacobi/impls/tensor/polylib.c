@@ -1,18 +1,13 @@
-#ifndef _INLINEPOLY_H
-#define _INLINEPOLY_H
-
 #include <stdlib.h>
 #include <sys/types.h>
 #include <stdio.h>
-#include <float.h>
 #include <math.h>
-#include "polylib.h"
 #include <float.h>
+#include "polylib.h"
 #define STOP  30
 #define EPS   100*DBL_EPSILON
 #define sign(a,b) ((b)<0 ? -fabs(a) : fabs(a))
-#define M_PI PETSC_PI
-
+#define PI 3.14159265358979323846264
 #define USE_JACOBZ 0
 
 /*
@@ -951,13 +946,13 @@ void jacobd(int np, double *z, double *polyd, int n, double alpha, double beta)
 static double gammaF(double x){
   double gamma = 1.0;
 
-  if     (x == -0.5) gamma = -2.0*sqrt(M_PI);
+  if     (x == -0.5) gamma = -2.0*sqrt(PI);
   else if (!x) return gamma;
   else if ((x-(int)x) == 0.5){
     int n = (int) x;
     double tmp = x;
 
-    gamma = sqrt(M_PI);
+    gamma = sqrt(PI);
     while(n--){
       tmp   -= 1.0;
       gamma *= tmp;
@@ -987,7 +982,7 @@ static double gammaF(double x){
 #if USE_JACOBZ
 static void Jacobz(int n, double *z, double alpha, double beta){
   register int i,j,k;
-  double   dth = M_PI/(2.0*(double)n);
+  double   dth = PI/(2.0*(double)n);
   double   poly,pder,rlast=0.0;
   double   sum,delr,r;
   double one = 1.0, two = 2.0;
@@ -1161,6 +1156,3 @@ static void TriQL(int n, double *d,double *e){
     d[i] = p;
   }
 }
-
-
-#endif

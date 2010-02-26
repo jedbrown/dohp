@@ -266,7 +266,6 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dJacobiCreate(stk->comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
-  err = dJacobiSetUp(jac);dCHK(err);
   stk->jac = jac;
 
   err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_rule_degree",stk->nominalRDeg,&rtag);dCHK(err);

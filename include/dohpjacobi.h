@@ -24,7 +24,7 @@
 
 dEXTERN_C_BEGIN
 
-extern dCookie dJACOBI_COOKIE;
+extern PetscCookie dJACOBI_COOKIE,dQUADRATURE_COOKIE;
 
 /**
 * Handle for manipulating EFS objects.  The EFS are stored directly in arrays so other components (like dFS) will have
@@ -85,6 +85,8 @@ typedef enum {
   dAPPLY_SYMGRAD_TRANSPOSE
 } dApplyMode;
 
+typedef struct p_dQuadrature *dQuadrature;
+
 /**
 * Handle for setting up #dRule and #dEFS contexts.
 *
@@ -107,13 +109,16 @@ struct _p_dMeshAdjacency {
   dMeshEH *ents;
 };
 
-#define dJacobiType char *
+#define dJacobiType char*
 #define dJACOBI_TENSOR "tensor"
+#define dJACOBI_MODAL  "modal"
+
+#define dQuadratureType char*
+#define dQUADRATURE_TENSOR "tensor"
 
 extern dErr dJacobiCreate(MPI_Comm,dJacobi*);
 extern dErr dJacobiSetType(dJacobi,dJacobiType);
 extern dErr dJacobiSetFromOptions(dJacobi);
-extern dErr dJacobiSetUp(dJacobi);
 extern dErr dJacobiDestroy(dJacobi);
 extern dErr dJacobiView(dJacobi,dViewer);
 #define dJacobiRegisterDynamic(a,b,c,d) dJacobiRegister(a,b,c,d)
@@ -122,8 +127,8 @@ extern dErr dJacobiRegisterAll(const char[]);
 extern dErr dJacobiInitializePackage(const char[]);
 
 extern dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
-extern dErr dJacobiGetRule(dJacobi,dInt,const dEntTopology[],const dInt[],dRule);
 extern dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
+extern dErr dJacobiGetQuadrature(dJacobi,dQuadrature*);
 
 extern dErr dRuleView(dRule rule,dViewer);
 extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
@@ -142,6 +147,17 @@ extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],d
 
 extern dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,dInt[],dInt[]);
 extern dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,Mat,Mat);
+
+#define dQuadratureRegisterDynamic(a,b,c,d) dQuadratureRegister(a,b,c,d)
+extern dErr dQuadratureRegister(const char[],const char[],const char[],dErr(*)(dQuadrature));
+extern dErr dQuadratureRegisterAll(const char[]);
+
+extern dErr dQuadratureCreate(MPI_Comm,dQuadrature*);
+extern dErr dQuadratureView(dQuadrature,PetscViewer);
+extern dErr dQuadratureSetType(dQuadrature,dQuadratureType);
+extern dErr dQuadratureSetFromOptions(dQuadrature);
+extern dErr dQuadratureDestroy(dQuadrature);
+extern dErr dQuadratureGetRule(dQuadrature,dInt,const dEntTopology[],const dInt[],dRule);
 
 dEXTERN_C_END
 

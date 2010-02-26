@@ -67,6 +67,8 @@
 #define dStrlen(s,l) PetscStrlen((s),(l))
 extern dErr dObjectGetComm(dObject obj,MPI_Comm *comm);
 
+extern dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer viewer);
+
 static inline dInt dMaxInt(dInt a,dInt b) { return (a > b) ? a : b; }
 static inline dInt dMinInt(dInt a,dInt b) { return (a < b) ? a : b; }
 static inline dReal dMax(dReal a,dReal b) { return (a > b) ? a : b; }

@@ -10,35 +10,129 @@
 */
 
 #include "tensor.h"
-#include "inlinepoly.h"
+#include "polylib.h"
 #include "optimalscale.h"
 #include <dohpgeom.h>
-#include <dohpmesh.h>           /* for iMesh_TopologyName */
 #include "inlinetmulthex.h"     /* Unrolled variants of TensorMult_Hex_ */
 
-static dErr TensorBuilderCreate(void*,TensorBuilder*);
-static dErr TensorBuilderDestroy(TensorBuilder);
-
-static dErr TensorRuleCreate(TensorBuilder,dInt,TensorRule*);
-static dErr TensorRuleDestroy(TensorRule);
-
-static dErr TensorBasisCreate(TensorBuilder,const TensorRule,dInt,TensorBasis*);
-static dErr TensorBasisDestroy(TensorBasis);
-
-static dErr dJacobiSetUp_Tensor(dJacobi);
 static dErr dJacobiDestroy_Tensor(dJacobi);
 static dErr dJacobiView_Tensor(dJacobi,PetscViewer);
 
-static dErr TensorGetRule(Tensor this,dInt n,TensorRule *out);
-static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out);
+static dErr TensorBasisCreate(Tensor tnsr,dInt rsize,const dReal rcoord[],dInt P,TensorBasis *basis)
+{
+  TensorBasis b;
+  const dInt Q=rsize;
+  dErr err;
 
-static dErr TensorJacobiHasBasis(dJacobi,dInt,dInt,dBool*);
+  dFunctionBegin;
+  if (!(0 < P && P <= Q)) dERROR(1,"Requested TensorBasis size %d out of bounds.",P);
+  if (tnsr->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %s not supported",GaussFamilies[tnsr->family]);
+  err = dNew(struct s_TensorBasis,&b);dCHK(err);
+  err = dMallocA6(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node,P,&b->weight);dCHK(err);
+  b->Q = Q;
+  b->P = P;
 
-static dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char name[],dViewer viewer);
+  if (P == 1) {         /* degenerate case */
+    b->interp[0] = 1.0;
+    b->deriv[0] = 0.0;
+    b->node[0] = 0.0;
+    goto matrices_computed;
+  } else {
+    const dReal alpha=tnsr->alpha,beta=tnsr->beta;
+    dReal *cDeriv;        /* collocation derivative at Gauss-Lobatto points */
+    dReal *cDerivT;       /* useless matrix spewed out of Dglj() */
+    dReal *interp = b->interp;
+    dReal *node = b->node;
+    dReal *weight = b->weight;
+    err = dMallocA2(P*Q,&cDeriv,P*Q,&cDerivT);dCHK(err);
+    zwglj(node,weight,P,alpha,beta);               /* Gauss-Lobatto nodes */
+    Imglj(interp,node,rcoord,P,Q,alpha,beta);      /* interpolation matrix */
+    Dglj(cDeriv,cDerivT,node,P,alpha,beta);        /* collocation derivative matrix */
+    for (dInt i=0; i<Q; i++) {
+      for (dInt j=0; j<P; j++) {
+        dReal z = 0;
+        for (dInt k=0; k<P; k++) {
+          z += interp[i*P+k] * cDeriv[k*P+j];
+        }
+        b->deriv[i*P+j] = z;
+      }
+    }
+    err = dFree2(cDeriv,cDerivT);dCHK(err);
+  }
+  /* Storing the transposed version explicitly is sort of lame because it costs the same to multiply dense
+  * transposed matrices with vectors, however it makes things simple for now. */
+  for (dInt i=0; i<Q; i++) {
+    for (dInt j=0; j<P; j++) {
+      b->interpTranspose[j*Q+i] = b->interp[i*P+j];
+      b->derivTranspose[j*Q+i] = b->deriv[i*P+j];
+    }
+  }
+
+  matrices_computed:
+  switch (P) {
+#define _C(p) case p: b->mscale = optimal_mscale_ ## p; b->lscale = optimal_lscale_ ## p; break
+    _C(2);
+    _C(3);
+    _C(4);
+    _C(5);
+    _C(6);
+    _C(7);
+    _C(8);
+    _C(9);
+    _C(10);
+    _C(11);
+    _C(12);
+    _C(13);
+    _C(14);
+#undef _C
+    default:
+      b->mscale = optimal_ones;
+      b->lscale = optimal_ones;
+      dERROR(1,"optimal scaling not available for this order, this should just be a PetscInfo warning");
+  }
+  {
+    b->multhex[0] = &TensorMult_Hex_nounroll;
+    b->multhex[1] = &TensorMult_Hex_nounroll;
+    b->multhex[2] = &TensorMult_Hex_nounroll;
+#if defined __SSE3__
+    if (P == 4 && Q == 4) {
+      b->multhex[0] = &TensorMult_Hex_P4_Q4_D1;
+    }
+#endif
+  }
+  *basis = b;
+  dFunctionReturn(0);
+}
+
+static dErr TensorBasisDestroy(TensorBasis basis)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!basis) dFunctionReturn(0);
+  err = dFree6(basis->interp,basis->deriv,basis->interpTranspose,basis->derivTranspose,basis->node,basis->weight);dCHK(err);
+  err = dFree(basis);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so that topology implementations can see it */
+{
+  dBool ascii;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  if (!ascii) dFunctionReturn(0);
+  err = PetscViewerASCIIPrintf(viewer,"TensorBasis with rule=%d basis=%d.\n",basis->Q,basis->P);dCHK(err);
+  err = dRealTableView(basis->Q,basis->P,basis->interp,"interp",viewer);dCHK(err);
+  err = dRealTableView(basis->Q,basis->P,basis->deriv,"deriv",viewer);dCHK(err);
+  err = dRealTableView(1,basis->P,basis->node,"node",viewer);dCHK(err);
+  dFunctionReturn(0);
+}
 
 static dErr dJacobiSetFromOptions_Tensor(dJacobi jac)
 {
-  Tensor this = jac->impl;
+  Tensor this = jac->data;
   dErr err;
 
   dFunctionBegin;
@@ -52,118 +146,39 @@ static dErr dJacobiSetFromOptions_Tensor(dJacobi jac)
   dFunctionReturn(0);
 }
 
-/**
-* Prepare the dJacobi context to return dRule and dEFS objects (with dJacobiGetRule and dJacobiGetEFS).
-*
-* @param jac the context
-*
-* @return err
-*/
-static dErr dJacobiSetUp_Tensor(dJacobi jac)
-{
-  Tensor this = (Tensor)(jac->impl);
-  dInt   M,N;
-  dBool  has;
-  dErr   err;
-
-  dFunctionBegin;
-  if (this->setupcalled) dFunctionReturn(0);
-  err = TensorBuilderCreate((void*)this->ruleOpts,&this->ruleBuilder);dCHK(err);
-  err = TensorBuilderCreate((void*)this->basisOpts,&this->basisBuilder);dCHK(err);
-  this->N = N = jac->basisdegree;                     /* all valid basis degrees are < P */
-  this->M = M = N + jac->ruleexcess;                  /* all valid rule degrees are < M */
-
-  err = dMallocM(M,TensorRule,&this->rule);dCHK(err); /* Get space to store all the rule pointers */
-  this->rule[0] = NULL;
-  for (dInt i=1; i<M; i++) {
-    err = TensorRuleCreate(this->ruleBuilder,i,&this->rule[i]);dCHK(err);
-  }
-
-  err = dMallocM(M*N,TensorBasis,&this->basis);dCHK(err);
-  for (dInt i=0; i<M; i++) {
-    TensorRule rule = this->rule[i];
-    for (dInt j=0; j<N; j++) {
-      err = TensorJacobiHasBasis(jac,i,j,&has);dCHK(err);
-      if (!has || !rule) {
-        this->basis[i*N+j] = NULL;
-        continue;
-      }
-      err = TensorBasisCreate(this->basisBuilder,rule,j,&this->basis[i*N+j]);dCHK(err);
-      if (!this->usemscale) this->basis[i*N+j]->mscale = optimal_ones;
-      if (!this->uselscale) this->basis[i*N+j]->lscale = optimal_ones;
-      if (this->nounroll) {
-        this->basis[i*N+j]->multhex[0] = &TensorMult_Hex_nounroll;
-        this->basis[i*N+j]->multhex[1] = &TensorMult_Hex_nounroll;
-        this->basis[i*N+j]->multhex[2] = &TensorMult_Hex_nounroll;
-      }
-    }
-  }
-  err = dJacobiRuleOpsSetUp_Tensor(jac);dCHK(err);
-  err = dJacobiEFSOpsSetUp_Tensor(jac);dCHK(err);
-  this->setupcalled = true;
-  dFunctionReturn(0);
-}
-
 static dErr dJacobiDestroy_Tensor(dJacobi jac)
 {
-  Tensor this = (Tensor)jac->impl;
+  Tensor tnsr = (Tensor)jac->data;
+  khash_t(basis) *bases = tnsr->bases;
   dErr err;
 
   dFunctionBegin;
-  if (this->rule) {
-    for (dInt i=0; i<this->M; i++) {
-      if (this->rule[i]) { err = TensorRuleDestroy(this->rule[i]);dCHK(err); this->rule[i] = NULL; }
-    }
-    err = dFree(this->rule);dCHK(err);
+  for (khiter_t k=kh_begin(bases); k!=kh_end(bases); k++) {
+    if (!kh_exist(bases,k)) continue;
+    err = TensorBasisDestroy(kh_val(bases,k));dCHK(err);
   }
-  if (this->basis) {
-    for (dInt i=0; i<this->M; i++) {
-      for (dInt j=0; j<this->N; j++) {
-        dInt idx = i*this->N + j;
-        if (this->basis[idx]) { err = TensorBasisDestroy(this->basis[idx]);dCHK(err); this->basis[idx] = NULL; }
-      }
-    }
-    err = dFree(this->basis);dCHK(err);
-  }
-  if (this->ruleBuilder) { err = TensorBuilderDestroy(this->ruleBuilder);dCHK(err); }
-  if (this->basisBuilder) { err = TensorBuilderDestroy(this->basisBuilder);dCHK(err); }
-  if (this->ruleOpts) { err = dFree(this->ruleOpts);dCHK(err); }
-  if (this->basisOpts) { err = dFree(this->basisOpts);dCHK(err); }
-  err = dJacobiRuleOpsDestroy_Tensor(jac);dCHK(err);
+  if (jac->quad) {err = dQuadratureDestroy(jac->quad);dCHK(err);}
+  kh_destroy_basis(bases);
   err = dJacobiEFSOpsDestroy_Tensor(jac);dCHK(err);
-  err = dFree(this);dCHK(err);
+  err = dFree(tnsr);dCHK(err);
   dFunctionReturn(0);
 }
 
 static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
 {
-  Tensor this = (Tensor)jac->impl;
-  dBool ascii;
-  TensorRule r;
-  TensorBasis b;
+  Tensor tnsr = (Tensor)jac->data;
+  dTruth ascii;
   dErr err;
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
-  if (!ascii) dFunctionReturn(0);
+  if (!ascii) SETERRQ(PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Tensor based Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"TensorRule database:\n");dCHK(err);
-  for (dInt i=0; i<this->M; i++) {
-    r = this->rule[i];
-    if (r) {err = TensorRuleView(r,viewer);dCHK(err);}
-  }
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis database.\n");dCHK(err);
-  for (dInt i=1; i<this->M; i++) {
-    for (dInt j=1; j<this->N; j++) {
-      b = 0;
-      err = TensorGetBasis(this,i,j,&b);dCHK(err);
-      if (b) {
-        err = TensorBasisView(b,viewer);dCHK(err);
-      }
-    }
+  for (khiter_t k=kh_begin(tnsr->bases); k!=kh_end(tnsr->bases); k++) {
+    err = TensorBasisView(kh_val(tnsr->bases,k),viewer);dCHK(err);
   }
-  /* view the basis functions next */
   dFunctionReturn(0);
 }
 
@@ -435,91 +450,51 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
   dFunctionReturn(0);
 }
 
-static dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer viewer)
+static dErr TensorGetBasis(Tensor tnsr,dInt rsize,const dReal rcoord[],dInt bsize,TensorBasis *out)
 {
-  dBool ascii;
   dErr err;
+  int key,new;
+  khiter_t k;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
-  if (!ascii) dFunctionReturn(0);
-  for (dInt i=0; i<m; i++) {
-    if (name) {
-      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
+  if (rsize <= 0) dERROR(1,"Rule size %d must be positive",rsize);
+  if (bsize <= 0) dERROR(1,"Basis size %d must be positive",bsize);
+  *out = 0;
+  key = ((int)tnsr->family << 24) | (rsize << 16) | bsize;
+  k = kh_put_basis(tnsr->bases,key,&new);
+  if (new) {
+    TensorBasis b;
+    err = TensorBasisCreate(tnsr,rsize,rcoord,bsize,&b);dCHK(err);
+    if (!tnsr->usemscale) b->mscale = optimal_ones;
+    if (!tnsr->uselscale) b->lscale = optimal_ones;
+    if (tnsr->nounroll) {
+      b->multhex[0] = TensorMult_Hex_nounroll;
+      b->multhex[1] = TensorMult_Hex_nounroll;
+      b->multhex[2] = TensorMult_Hex_nounroll;
     }
-    err = PetscViewerASCIIUseTabs(viewer,PETSC_NO);dCHK(err);
-    for (dInt j=0; j<n; j++) {
-      err = PetscViewerASCIIPrintf(viewer," % 9.5f",mat[i*n+j]);dCHK(err);
-    }
-    err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
-    err = PetscViewerASCIIUseTabs(viewer,PETSC_YES);dCHK(err);
+    kh_val(tnsr->bases,k) = b;
   }
+  *out = kh_val(tnsr->bases,k);
   dFunctionReturn(0);
 }
 
-static dErr TensorJacobiHasBasis(dJacobi jac,dInt rule,dInt basis,dBool *has)
+static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],const dInt bsize[],dRule rules,dEFS firstefs)
 {
-  Tensor this = jac->impl;
-
-  dFunctionBegin;
-  *has = (1 < basis && basis < this->N && basis <= rule && rule < this->M);
-  dFunctionReturn(0);
-}
-
-static dErr dJacobiGetRule_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
-{
-  Tensor this = jac->impl;
-  dRule_Tensor *rule = (dRule_Tensor*)firstrule;
-  dErr err;
-
-  dFunctionBegin;
-  for (dInt i=0; i<n; i++) {
-    switch (topo[i]) {
-      case dTOPO_LINE:
-        rule[i].ops = this->ruleOpsLine;
-        err = TensorGetRule(this,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        if (rsize[3*i+1] != 1 || rsize[3*i+2] != 1)
-          dERROR(1,"Invalid rule size for Line");
-        rule[i].trule[1] = rule[i].trule[2] = NULL;
-        break;
-      case dTOPO_QUAD:
-        rule[i].ops = this->ruleOpsQuad;
-        err = TensorGetRule(this,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        err = TensorGetRule(this,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
-        if (rsize[3*i+2] != 1) dERROR(1,"Invalid rule size for Line");
-        rule[i].trule[2] = NULL;
-        break;
-      case dTOPO_HEX:
-        rule[i].ops = this->ruleOpsHex;
-        err = TensorGetRule(this,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        err = TensorGetRule(this,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
-        err = TensorGetRule(this,rsize[3*i+2],&rule[i].trule[2]);dCHK(err);
-        break;
-      default: dERROR(1,"no rule available for given topology");
-    }
-  }
-  dFunctionReturn(0);
-}
-
-static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],const dInt bsize[],dRule firstrule,dEFS firstefs)
-{
-  Tensor       this = jac->impl;
-  dRule_Tensor *rule = (dRule_Tensor*)firstrule;
+  Tensor       this = jac->data;
   dEFS_Tensor  *efs  = (dEFS_Tensor*)firstefs;
   dInt rdim,rsize[3];
+  const dReal *rcoord[3];
   dErr err;
 
   dFunctionBegin;
   for (dInt i=0; i<n; i++) {
-    /* The cast is to make types work with the polymorphic version.  This can probably be specialized to
-    * dRuleGetTensorNodeWeight_Tensor_TOPO */
-    err = dRuleGetTensorNodeWeight((dRule)&rule[i],&rdim,rsize,NULL,NULL);dCHK(err);
+    err = dRuleGetTensorNodeWeight(&rules[i],&rdim,rsize,rcoord,NULL);dCHK(err);
     switch (topo[i]) {
       case dTOPO_LINE:
         if (rdim != 1) dERROR(1,"Incompatible Rule size %d, expected 1",rdim);
         efs[i].ops = this->efsOpsLine;
-        efs[i].rule = (dRule)&rule[i];
-        err = TensorGetBasis(this,rsize[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
+        efs[i].rule = &rules[i];
+        err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
         if (bsize[3*i+1] != 1 || bsize[3*i+2] != 1)
           dERROR(1,"Invalid basis size for Line");
         efs[i].basis[1] = efs[i].basis[2] = NULL;
@@ -527,19 +502,19 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
       case dTOPO_QUAD:
         if (rdim != 2) dERROR(1,"Incompatible Rule size %d, expected 2",rdim);
         efs[i].ops = this->efsOpsQuad;
-        efs[i].rule = (dRule)&rule[i];
-        err = TensorGetBasis(this,rsize[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
-        err = TensorGetBasis(this,rsize[1],bsize[3*i+1],&efs[i].basis[1]);dCHK(err);
+        efs[i].rule = &rules[i];
+        err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
+        err = TensorGetBasis(this,rsize[1],rcoord[1],bsize[3*i+1],&efs[i].basis[1]);dCHK(err);
         if (bsize[3*i+2] != 1) dERROR(1,"Invalid basis size for Quad");
         efs[i].basis[2] = NULL;
         break;
       case dTOPO_HEX:
         if (rdim != 3) dERROR(1,"Incompatible Rule size %d, expected 3",rdim);
         efs[i].ops = this->efsOpsHex;
-        efs[i].rule = (dRule)&rule[i];
-        err = TensorGetBasis(this,rsize[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
-        err = TensorGetBasis(this,rsize[1],bsize[3*i+1],&efs[i].basis[1]);dCHK(err);
-        err = TensorGetBasis(this,rsize[2],bsize[3*i+2],&efs[i].basis[2]);dCHK(err);
+        efs[i].rule = &rules[i];
+        err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
+        err = TensorGetBasis(this,rsize[1],rcoord[1],bsize[3*i+1],&efs[i].basis[1]);dCHK(err);
+        err = TensorGetBasis(this,rsize[2],rcoord[2],bsize[3*i+2],&efs[i].basis[2]);dCHK(err);
         break;
       default:
         dERROR(1,"no basis available for given topology");
@@ -547,255 +522,6 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
   }
   dFunctionReturn(0);
 }
-
-
-static dErr TensorBuilderCreate(void *opts,TensorBuilder *out)
-{
-  dErr err;
-  TensorBuilder new;
-
-  dFunctionBegin;
-  err = dNew(struct s_TensorBuilder,&new);dCHK(err);
-  new->options = opts;
-  new->workLength = 0;
-  new->work = NULL;
-  *out = new;
-  dFunctionReturn(0);
-}
-
-static dErr TensorBuilderGetArray(TensorBuilder build,dInt size,dReal **a)
-{
-  dErr err;
-
-  dFunctionBegin;
-  if (build->workLength < size) { /* make sure we have enough work space, we're currently not using this space. */
-    err = dFree(build->work);dCHK(err);
-    build->workLength = 2*size;
-    err = dMalloc(build->workLength*sizeof(dReal),&build->work);dCHK(err);
-  }
-  *a = build->work;
-  dFunctionReturn(0);
-}
-
-static dErr TensorBuilderDestroy(TensorBuilder build)
-{
-  dErr err;
-
-  dFunctionBegin;
-  err = dFree(build->work);dCHK(err);
-  err = dFree(build);dCHK(err);
-  dFunctionReturn(0);
-}
-
-static dErr TensorRuleCreate(TensorBuilder build,dInt size,TensorRule *rule)
-{
-  TensorRuleOptions opt = (TensorRuleOptions)build->options;
-  dReal *work;
-  TensorRule r;
-  dErr err;
-
-  dFunctionBegin;
-  if (!(0 < size && size < 50)) dERROR(1,"rule size out of bounds.");
-  /* Check options */
-  if (!opt) dERROR(1,"TensorRuleOptions not set.");
-  if (opt->family != GAUSS) dERROR(1,"GaussFamily %d not supported",opt->family);
-  err = dNew(struct s_TensorRule,rule);dCHK(err);
-
-  r = *rule;
-  err = PetscMalloc2(size,dReal,&r->weight,size,dReal,&r->coord);dCHK(err);
-  err = TensorBuilderGetArray(build,size,&work);dCHK(err); /* We're not using this now */
-
-  r->size = size;
-  if (size == 1) {              /* Polylib function fails for this size. */
-    r->weight[0] = 2.0;
-    r->coord[0] = 0.0;
-  } else {
-    zwgj(r->coord,r->weight,size,opt->alpha,opt->beta); /* polylib function */
-  }
-  dFunctionReturn(0);
-}
-
-static dErr TensorRuleDestroy(TensorRule rule)
-{
-  dErr err;
-
-  dFunctionBegin;
-  if (!rule) dFunctionReturn(0);
-  err = PetscFree2(rule->weight,rule->coord);dCHK(err);
-  err = dFree(rule);dCHK(err);
-  dFunctionReturn(0);
-}
-
-dErr TensorRuleView(const TensorRule rule,PetscViewer viewer) /* exported so that topology implementation can use it */
-{
-  dBool ascii;
-  dErr err;
-
-  dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
-  if (!ascii) dFunctionReturn(0);
-  err = PetscViewerASCIIPrintf(viewer,"TensorRule with %d nodes.\n",rule->size);dCHK(err);
-  err = dRealTableView(1,rule->size,rule->coord,"q",viewer);dCHK(err);
-  err = dRealTableView(1,rule->size,rule->weight,"w",viewer);dCHK(err);
-  dFunctionReturn(0);
-}
-
-static dErr TensorBasisCreate(TensorBuilder build,const TensorRule rule,dInt P,TensorBasis *basis)
-{
-  TensorBasisOptions opt = (TensorBasisOptions)build->options;
-  TensorBasis b;
-  const dInt Q=rule->size;
-  dReal *work;
-  dErr err;
-
-  dFunctionBegin;
-  if (!(0 < P && P <= Q)) dERROR(1,"Requested TensorBasis size %d out of bounds.",P);
-  if (!opt) dERROR(1,"TensorRuleOptions not set.");
-  if (opt->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %d not supported",opt->family);
-  err = dNew(struct s_TensorBasis,&b);dCHK(err);
-  err = dMallocA6(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node,P,&b->weight);dCHK(err);
-  err = TensorBuilderGetArray(build,2*P*Q,&work);dCHK(err); /* We're not using this now */
-  b->Q = Q;
-  b->P = P;
-
-  if (P == 1) {         /* degenerate case */
-    b->interp[0] = 1.0;
-    b->deriv[0] = 0.0;
-    b->node[0] = 0.0;
-    goto matrices_computed;
-  } else {
-    const dReal alpha=opt->alpha,beta=opt->beta;
-    dReal *cDeriv = work;        /* collocation derivative at Gauss-Lobatto points */
-    dReal *cDerivT = work + P*Q; /* useless matrix spewed out of Dglj() */
-    dReal *interp = b->interp;
-    dReal *node = b->node;
-    dReal *weight = b->weight;
-    zwglj(node,weight,P,alpha,beta);               /* Gauss-Lobatto nodes */
-    Imglj(interp,node,rule->coord,P,Q,alpha,beta); /* interpolation matrix */
-    Dglj(cDeriv,cDerivT,node,P,alpha,beta);        /* collocation derivative matrix */
-    for (dInt i=0; i<Q; i++) {
-      for (dInt j=0; j<P; j++) {
-        dReal z = 0;
-        for (dInt k=0; k<P; k++) {
-          z += interp[i*P+k] * cDeriv[k*P+j];
-        }
-        b->deriv[i*P+j] = z;
-      }
-    }
-  }
-  /* Storing the transposed version explicitly is sort of lame because it costs the same or less to multiply dense
-  * transposed matrices with vectors, however it makes things simple for now. */
-  for (dInt i=0; i<Q; i++) {
-    for (dInt j=0; j<P; j++) {
-      b->interpTranspose[j*Q+i] = b->interp[i*P+j];
-      b->derivTranspose[j*Q+i] = b->deriv[i*P+j];
-    }
-  }
-
-  matrices_computed:
-  switch (P) {
-#define _C(p) case p: b->mscale = optimal_mscale_ ## p; b->lscale = optimal_lscale_ ## p; break
-    _C(2);
-    _C(3);
-    _C(4);
-    _C(5);
-    _C(6);
-    _C(7);
-    _C(8);
-    _C(9);
-    _C(10);
-    _C(11);
-    _C(12);
-    _C(13);
-    _C(14);
-#undef _C
-    default:
-      b->mscale = optimal_ones;
-      b->lscale = optimal_ones;
-      dERROR(1,"optimal scaling not available for this order, this should just be a PetscInfo warning");
-  }
-  {
-    b->multhex[0] = &TensorMult_Hex_nounroll;
-    b->multhex[1] = &TensorMult_Hex_nounroll;
-    b->multhex[2] = &TensorMult_Hex_nounroll;
-#if defined __SSE3__
-    if (P == 4 && Q == 4) {
-      b->multhex[0] = &TensorMult_Hex_P4_Q4_D1;
-    }
-#endif
-  }
-  *basis = b;
-  dFunctionReturn(0);
-}
-
-static dErr TensorBasisDestroy(TensorBasis basis)
-{
-  dErr err;
-
-  dFunctionBegin;
-  if (!basis) dFunctionReturn(0);
-  err = dFree6(basis->interp,basis->deriv,basis->interpTranspose,basis->derivTranspose,basis->node,basis->weight);dCHK(err);
-  err = dFree(basis);dCHK(err);
-  dFunctionReturn(0);
-}
-
-dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so that topology implementations can see it */
-{
-  dBool ascii;
-  dErr err;
-
-  dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
-  if (!ascii) dFunctionReturn(0);
-  err = PetscViewerASCIIPrintf(viewer,"TensorBasis with rule=%d basis=%d.\n",basis->Q,basis->P);dCHK(err);
-  err = dRealTableView(basis->Q,basis->P,basis->interp,"interp",viewer);dCHK(err);
-  err = dRealTableView(basis->Q,basis->P,basis->deriv,"deriv",viewer);dCHK(err);
-  err = dRealTableView(1,basis->P,basis->node,"node",viewer);dCHK(err);
-  dFunctionReturn(0);
-}
-
-
-/**
-* Just an error checking indexing function.
-*
-* @param this
-* @param m
-* @param out
-*
-* @return
-*/
-static dErr TensorGetRule(Tensor this,dInt m,TensorRule *out)
-{
-
-  dFunctionBegin;
-  if (!this->setupcalled) dERROR(1,"Attempt to get rule before Tensor setup.");
-  if (!(0 < m && m < this->M)) dERROR(1,"Rule %d not less than limit %d",m,this->M);
-  *out = this->rule[m];
-  dFunctionReturn(0);
-}
-
-/**
-* An error checking lookup function.
-*
-* @param this
-* @param m
-* @param n
-* @param out
-*
-* @return
-*/
-static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
-{
-
-  dFunctionBegin;
-  if (!this->setupcalled) dERROR(1,"Attempt to get basis before Tensor setup.");
-  if (!(0 < m && m < this->M)) dERROR(1,"Rule size %d not less than limit %d",m,this->M);
-  if (!(0 < n && n < this->N)) dERROR(1,"Basis size %d not less than limit %d",n,this->N);
-  *out = this->basis[m*this->N+n];
-  dFunctionReturn(0);
-}
-
-
 
 /**
 * Initializes the ops table, this is the only non-static function in this file.
@@ -807,41 +533,32 @@ static dErr TensorGetBasis(Tensor this,dInt m,dInt n,TensorBasis *out)
 dErr dJacobiCreate_Tensor(dJacobi jac)
 {
   static const struct _dJacobiOps myops = {
-    .SetUp              = dJacobiSetUp_Tensor,
     .SetFromOptions     = dJacobiSetFromOptions_Tensor,
     .Destroy            = dJacobiDestroy_Tensor,
     .View               = dJacobiView_Tensor,
     .PropogateDown      = dJacobiPropogateDown_Tensor,
-    .GetRule            = dJacobiGetRule_Tensor,
     .GetEFS             = dJacobiGetEFS_Tensor,
     .GetNodeCount       = dJacobiGetNodeCount_Tensor,
     .GetConstraintCount = dJacobiGetConstraintCount_Tensor,
     .AddConstraints     = dJacobiAddConstraints_Tensor
   };
-  TensorRuleOptions ropt;
-  TensorBasisOptions bopt;
   Tensor tensor;
   dErr err;
 
   dFunctionBegin;
   err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
   err = dNew(struct s_Tensor,&tensor);dCHK(err);
-  err = dNew(struct s_TensorRuleOptions,&ropt);dCHK(err);
-  err = dNew(struct s_TensorBasisOptions,&bopt);dCHK(err);
 
   tensor->usemscale = dFALSE;
   tensor->uselscale = dFALSE;
 
-  ropt->alpha  = 0.0;
-  ropt->beta   = 0.0;
-  ropt->family = GAUSS;
-  tensor->ruleOpts = ropt;
+  tensor->alpha  = 0.0;
+  tensor->beta   = 0.0;
+  tensor->family = GAUSS_LOBATTO;
+  tensor->bases  = kh_init_basis();
 
-  bopt->alpha  = 0.0;
-  bopt->beta   = 0.0;
-  bopt->family = GAUSS_LOBATTO;
-  tensor->basisOpts = bopt;
+  jac->data = tensor;
 
-  jac->impl = tensor;
+  err = dJacobiEFSOpsSetUp_Tensor(jac);dCHK(err);
   dFunctionReturn(0);
 }

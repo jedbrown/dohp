@@ -9,9 +9,13 @@ list (APPEND Dohp_SRCS
 # ADD_SUBDIRECTORY (jacobi)
 list (APPEND Dohp_SRCS
   jacobi/interface/jacobi.c
+  jacobi/interface/quadrature.c
+  jacobi/quadrature/impls/tensor/ruletopo.c
+  jacobi/quadrature/impls/tensor/tensorquad.c
   jacobi/impls/tensor/tensor.c
-  jacobi/impls/tensor/ruletopo.c
-  jacobi/impls/tensor/efstopo.c)
+  jacobi/impls/tensor/efstopo.c
+  jacobi/impls/tensor/polylib.c
+  )
 
 # ADD_SUBDIRECTORY (fs)
 list (APPEND Dohp_SRCS

@@ -27,3 +27,25 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
 
 dErr dObjectGetComm(dObject obj,MPI_Comm *comm)
 { return PetscObjectGetComm(obj,comm); }
+
+dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer viewer)
+{
+  dBool ascii;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  if (!ascii) dFunctionReturn(0);
+  for (dInt i=0; i<m; i++) {
+    if (name) {
+      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
+    }
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_NO);dCHK(err);
+    for (dInt j=0; j<n; j++) {
+      err = PetscViewerASCIIPrintf(viewer," % 9.5f",mat[i*n+j]);dCHK(err);
+    }
+    err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_YES);dCHK(err);
+  }
+  dFunctionReturn(0);
+}

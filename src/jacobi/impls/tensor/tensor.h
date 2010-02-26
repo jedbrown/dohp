@@ -1,54 +1,10 @@
 #ifndef _TENSOR_H
 #define _TENSOR_H
 
-#include <petscsys.h>
+#include <dohpkhash.h>
 #include <dohpjacimpl.h>
 
 dEXTERN_C_BEGIN
-
-typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
-
-/**
-* Describes a traversal of a 3D array of values.
-*
-* @example block {1000,{5,8,9},
-*
-*/
-struct TensorBlock {
-  dInt start;                   /**< array index for [0][0][0] */
-  dInt len[3];                  /**< total number of elements in each direction */
-  dInt stride[3];               /**< stride in each direction */
-};
-
-/**
-* The Rule and Basis building functions need work space that is freeable later (mostly just so that valgrind won't
-* complain, it's not a serious memory leak, but this design is more flexible than internal static memory management).
-*
-*/
-typedef struct s_TensorBuilder *TensorBuilder;
-struct s_TensorBuilder {
-  void *options;
-  dInt workLength;
-  dReal *work;
-};
-
-typedef struct s_TensorRuleOptions *TensorRuleOptions;
-struct s_TensorRuleOptions {
-  dReal       alpha,beta;
-  GaussFamily family;
-};
-
-typedef struct s_TensorRule *TensorRule;
-/**
-* We make no particular attempt to align the beginning of the structure, however we would like to align the arrays,
-* especially the large derivative arrays, at least to 16-byte boundaries (to enable SSE) and preferably to cache line
-* boundaries.
-*
-*/
-struct s_TensorRule {
-  dInt  size;                      /**< number of quadrature points */
-  dReal *weight,*coord;            /**< weights and nodal coordinates */
-};
 
 typedef dErr (*TensorMultFunction)(dInt,const dInt[3],const dInt[3],const dReal*[],const dScalar*,dScalar[restrict],InsertMode);
 
@@ -59,7 +15,6 @@ typedef struct s_TensorBasis *TensorBasis;
 */
 struct s_TensorBasis {
   TensorMultFunction multhex[3];
-  //dErr (*(multhex[3]))(dInt,const dInt[3],const dInt[3],const dReal*[],const dScalar*,dScalar[restrict],InsertMode);
   dInt  P,Q;
   dReal *interp,*deriv,*node;
   dReal *interpTranspose,*derivTranspose;
@@ -67,12 +22,7 @@ struct s_TensorBasis {
   const dReal *mscale,*lscale;  /**< Used to produce optimal scaling of sparse mass and Laplacian matrices */
 };
 
-typedef struct s_TensorBasisOptions *TensorBasisOptions;
-struct s_TensorBasisOptions {
-  dReal       alpha,beta;
-  GaussFamily family;
-};
-
+KHASH_MAP_INIT_INT(basis,TensorBasis)
 
 typedef struct s_Tensor *Tensor;
 /**
@@ -90,11 +40,9 @@ typedef struct s_Tensor *Tensor;
 *
 */
 struct s_Tensor {
-  TensorBuilder ruleBuilder,basisBuilder;
-  TensorRuleOptions ruleOpts;
-  TensorBasisOptions basisOpts;
-  TensorRule  *rule;   /**< Array of 1D rules.  The rule with \a m points is indexed as \a rule[\a m]. */
-  TensorBasis *basis;  /**< Array of 1D bases, length \f$ M*N \f$.  Consider basis with \a m quadrature
+  dReal       alpha,beta;
+  GaussFamily family;
+  khash_t(basis) *bases;  /**< Hash of bases.  Consider basis with \a m quadrature
                                   * points and \a n basis functions.
                                   *
                                   * If the quadrature points are \f$ q_i, i = 0,1,\dotsc,m-1 \f$
@@ -106,27 +54,18 @@ struct s_Tensor {
   dInt N;                       /**< basis size limit */
   PetscTruth usemscale,uselscale,nounroll;
   /* dBufferList data; */
-  struct _dRuleOps *ruleOpsLine,*ruleOpsQuad,*ruleOpsHex;
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
   bool setupcalled;
 };
-
-typedef struct {
-  dRuleHEADER;
-  TensorRule trule[3];
-} dRule_Tensor;
 
 typedef struct {
   dEFSHEADER;
   TensorBasis basis[3];
 } dEFS_Tensor;
 
-extern dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac);
 extern dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);
-extern dErr dJacobiRuleOpsDestroy_Tensor(dJacobi jac);
 extern dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac);
 
-extern dErr TensorRuleView(const TensorRule,PetscViewer);
 extern dErr TensorBasisView(const TensorBasis,PetscViewer);
 
 dEXTERN_C_END

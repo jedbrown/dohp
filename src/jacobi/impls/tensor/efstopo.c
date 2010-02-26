@@ -44,7 +44,7 @@ _F(dEFSScatterFacet_Tensor_Hex);
 # undef _F
 #endif
 
-#define _F(f) static dErr f(dRule_Tensor*,const dReal[],dInt,const dScalar[],dScalar[],InsertMode)
+#define _F(f) static dErr f(dRule,const dReal[],dInt,const dScalar[],dScalar[],InsertMode)
 _F(dRuleMappingApply_Tensor_Line);
 _F(dRuleMappingApply_Tensor_Quad);
 //_F(dRuleMappingApply_Tensor_Hex);
@@ -96,7 +96,7 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
                                              .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex,
                                              .scatterInt           = 0,
                                              .scatterFacet         = 0 };
-  Tensor this = (Tensor)jac->impl;
+  Tensor this = (Tensor)jac->data;
   dErr err;
 
   dFunctionBegin;
@@ -117,7 +117,7 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
 
 dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac)
 {
-  Tensor this = (Tensor)jac->impl;
+  Tensor this = (Tensor)jac->data;
   dErr err;
 
   dFunctionBegin;
@@ -332,7 +332,7 @@ static dErr dEFSApply_Tensor_Line(dEFS efs,const dReal mapdata[],dInt D,const dS
       dScalar df[1][Q[0]*D];
       A[0] = b[0]->deriv;
       err = TensorMult_Line(D,P,Q,A,in,df[0],INSERT_VALUES);dCHK(err);
-      err = dRuleMappingApply_Tensor_Line((dRule_Tensor*)efs->rule,mapdata,D,&df[0][0],out,imode);dCHK(err);
+      err = dRuleMappingApply_Tensor_Line(efs->rule,mapdata,D,&df[0][0],out,imode);dCHK(err);
     } break;
     case dAPPLY_GRAD_TRANSPOSE:
     case dAPPLY_SYMGRAD:
@@ -372,7 +372,7 @@ static dErr dEFSApply_Tensor_Quad(dEFS efs,const dReal mapdata[],dInt D,const dS
       err = TensorMult_Quad(D,P,Q,A,in,df[0],INSERT_VALUES);dCHK(err);
       A[0] = b[0]->interp; A[1] = b[1]->deriv;
       err = TensorMult_Quad(D,P,Q,A,in,df[1],INSERT_VALUES);dCHK(err);
-      err = dRuleMappingApply_Tensor_Quad((dRule_Tensor*)efs->rule,mapdata,D,&df[0][0],out,imode);dCHK(err);
+      err = dRuleMappingApply_Tensor_Quad(efs->rule,mapdata,D,&df[0][0],out,imode);dCHK(err);
     } break;
     case dAPPLY_GRAD_TRANSPOSE:
     default:
@@ -643,12 +643,13 @@ static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dI
 * The following functions are defined in this file so that they can be static.  Perhaps they should become virtual and
 * be put in ruletopo.c
 **/
-static dErr dRuleMappingApply_Tensor_Line(dRule_Tensor *rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
+static dErr dRuleMappingApply_Tensor_Line(dRule rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
 {
-  const dInt Q = rule->trule[0]->size;
+  dInt Q;
   dErr err;
 
   dFunctionBegin;
+  err = dRuleGetSize(rule,NULL,&Q);dCHK(err);
   if (jinv) {
     dERROR(1,"Not implemented");
   } else {
@@ -657,12 +658,13 @@ static dErr dRuleMappingApply_Tensor_Line(dRule_Tensor *rule,const dReal jinv[],
   dFunctionReturn(0);
 }
 
-static dErr dRuleMappingApply_Tensor_Quad(dRule_Tensor *rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
+static dErr dRuleMappingApply_Tensor_Quad(dRule rule,const dReal jinv[],dInt D,const dScalar in[],dScalar out[],InsertMode imode)
 {
-  const dInt Q = rule->trule[0]->size * rule->trule[1]->size;
+  dInt Q;
   dErr err;
 
   dFunctionBegin;
+  err = dRuleGetSize(rule,NULL,&Q);dCHK(err);
   if (jinv) {
     dERROR(1,"Not implemented");
   } else {

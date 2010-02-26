@@ -5,7 +5,6 @@
 
 dEXTERN_C_BEGIN
 
-//typedef char *dQuotientType;
 #define dQuotientType char*
 typedef struct p_dQuotient *dQuotient;
 

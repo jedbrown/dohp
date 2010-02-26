@@ -252,6 +252,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   MPI_Comm               comm  = ((dObject)fs)->comm;
   /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
   dUNUSED dFS_Cont      *cont  = fs->data;
+  dQuadrature            quad;
   struct _p_dMeshAdjacency ma;
   dMeshAdjacency         meshAdj;
   dMesh                  mesh;
@@ -454,7 +455,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   fs->nelem = nregions;
   err = dMallocA3(nregions,&fs->rule,nregions,&fs->efs,nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
   err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
-  err = dJacobiGetRule(fs->jacobi,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
+  err = dJacobiGetQuadrature(fs->jacobi,&quad);dCHK(err);
+  err = dQuadratureGetRule(quad,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
   err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
   err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
   err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);

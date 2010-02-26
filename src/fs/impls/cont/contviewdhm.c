@@ -339,7 +339,6 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
         err = dFSSetDegree(fs,jac,tag);dCHK(err);
         err = dFSSetRuleTag(fs,jac,tag);dCHK(err); /* Should have a better way to get this */
         err = dJacobiSetFromOptions(jac);dCHK(err);
-        err = dJacobiSetUp(jac);dCHK(err);
 
         err = dMeshGetTag(mesh,fs5.global_offset,&tag);dCHK(err);
         if (tag != fs->gcoffsetTag) { /* Replace it */
@@ -401,11 +400,13 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 
     {
       dInt *rdeg;
+      dQuadrature quad;
       err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
       err = dMallocA(ents_s*3,&rdeg);dCHK(err);
       err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,ents_s*3,dDATA_INT);dCHK(err);
       err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,rdeg,ents_s*3,dDATA_INT);dCHK(err);
-      err = dJacobiGetRule(fs->jacobi,ents_s,topo,rdeg,fs->rule);dCHK(err);
+      err = dJacobiGetQuadrature(fs->jacobi,&quad);dCHK(err);
+      err = dQuadratureGetRule(quad,ents_s,topo,rdeg,fs->rule);dCHK(err);
       err = dJacobiGetEFS(fs->jacobi,ents_s,topo,bdeg,fs->rule,fs->efs);dCHK(err);
       err = dFree(rdeg);dCHK(err);
     }

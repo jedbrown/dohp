@@ -1,5 +1,5 @@
 #include <dohpgeom.h>
-#include "tensor.h"
+#include "tensorquad.h"
 
 static dErr dRuleView_Tensor_Private(const char*,dInt,TensorRule*,PetscViewer);
 #define _F(f) static dErr f(dRule,PetscViewer)
@@ -27,67 +27,6 @@ _F(dRuleGetTensorNodeWeight_Tensor_Hex);
 /* _F(dRuleComputeGeometry_Tensor_Quad); */
 _F(dRuleComputeGeometry_Tensor_Hex);
 #undef _F
-
-/**
-* Set up the rule ops table for each topology.
-*
-* @param jac
-*
-* @return
-*/
-dErr dJacobiRuleOpsSetUp_Tensor(dJacobi jac)
-{
-  static const struct _dRuleOps ruleOpsLine = {
-    .view                = dRuleView_Tensor_Line,
-    .getSize             = dRuleGetSize_Tensor_Line,
-    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Line, */
-    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Line,
-    .computeGeometry     = NULL, /* Not implemented */
-  };
-  static const struct _dRuleOps ruleOpsQuad = {
-    .view                = dRuleView_Tensor_Quad,
-    .getSize             = dRuleGetSize_Tensor_Quad,
-    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Quad, */
-    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Quad,
-    .computeGeometry     = NULL, /* Not implemented */
-  };
-  static const struct _dRuleOps ruleOpsHex  = {
-    .view                = dRuleView_Tensor_Hex,
-    .getSize             = dRuleGetSize_Tensor_Hex,
-    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Hex, */
-    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Hex,
-    .computeGeometry     = dRuleComputeGeometry_Tensor_Hex,
-  };
-  Tensor this = (Tensor)jac->impl;
-  dErr err;
-
-  dFunctionBegin;
-  if (!this->ruleOpsLine) {
-    err = dMalloc(sizeof(struct _dRuleOps),&this->ruleOpsLine);dCHK(err);
-    err = dMemcpy(this->ruleOpsLine,&ruleOpsLine,sizeof(struct _dRuleOps));
-  }
-  if (!this->ruleOpsQuad) {
-    err = dMalloc(sizeof(struct _dRuleOps),&this->ruleOpsQuad);dCHK(err);
-    err = dMemcpy(this->ruleOpsQuad,&ruleOpsQuad,sizeof(struct _dRuleOps));
-  }
-  if (!this->ruleOpsHex) {
-    err = dMalloc(sizeof(struct _dRuleOps),&this->ruleOpsHex);dCHK(err);
-    err = dMemcpy(this->ruleOpsHex,&ruleOpsHex,sizeof(struct _dRuleOps));
-  }
-  dFunctionReturn(0);
-}
-
-dErr dJacobiRuleOpsDestroy_Tensor(dJacobi jac)
-{
-  Tensor this = (Tensor)jac->impl;
-  dErr err;
-
-  dFunctionBegin;
-  if (this->ruleOpsLine) { err = dFree(this->ruleOpsLine);dCHK(err); }
-  if (this->ruleOpsQuad) { err = dFree(this->ruleOpsQuad);dCHK(err); }
-  if (this->ruleOpsHex)  { err = dFree(this->ruleOpsHex);dCHK(err); }
-  dFunctionReturn(0);
-}
 
 static dErr dRuleView_Tensor_Private(const char *name,dInt n,TensorRule *tr,PetscViewer viewer)
 {
@@ -294,5 +233,41 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
     }
   }
   PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */ + 3 /* weight */));
+  dFunctionReturn(0);
+}
+
+dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
+{
+  static const struct _dRuleOps ruleOpsLine = {
+    .view                = dRuleView_Tensor_Line,
+    .getSize             = dRuleGetSize_Tensor_Line,
+    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Line, */
+    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Line,
+    .computeGeometry     = NULL, /* Not implemented */
+  };
+  static const struct _dRuleOps ruleOpsQuad = {
+    .view                = dRuleView_Tensor_Quad,
+    .getSize             = dRuleGetSize_Tensor_Quad,
+    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Quad, */
+    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Quad,
+    .computeGeometry     = NULL, /* Not implemented */
+  };
+  static const struct _dRuleOps ruleOpsHex  = {
+    .view                = dRuleView_Tensor_Hex,
+    .getSize             = dRuleGetSize_Tensor_Hex,
+    .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Hex, */
+    .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Hex,
+    .computeGeometry     = dRuleComputeGeometry_Tensor_Hex,
+  };
+  dQuadrature_Tensor *tnsr = quad->data;
+  dErr err;
+
+  dFunctionBegin;
+  err = dMalloc(sizeof(struct _dRuleOps),&tnsr->ruleOpsLine);dCHK(err);
+  err = dMemcpy(tnsr->ruleOpsLine,&ruleOpsLine,sizeof(struct _dRuleOps));
+  err = dMalloc(sizeof(struct _dRuleOps),&tnsr->ruleOpsQuad);dCHK(err);
+  err = dMemcpy(tnsr->ruleOpsQuad,&ruleOpsQuad,sizeof(struct _dRuleOps));
+  err = dMalloc(sizeof(struct _dRuleOps),&tnsr->ruleOpsHex);dCHK(err);
+  err = dMemcpy(tnsr->ruleOpsHex,&ruleOpsHex,sizeof(struct _dRuleOps));
   dFunctionReturn(0);
 }

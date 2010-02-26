@@ -246,16 +246,17 @@ static dErr createFS(MPI_Comm comm,dInt dim,dInt N,dEFS efs,Vec *U)
 
 static dErr checkRulesAndEFS(dJacobi jac)
 {
-  const dInt dim = 3;
-  PetscViewer viewer = PETSC_VIEWER_STDOUT_WORLD;
-  MPI_Comm comm = ((PetscObject)jac)->comm;
-  Vec u = NULL;
-  dInt N,minrdeg,maxrdeg,minbdeg,maxbdeg,*rdeg,*bdeg;
+  const dInt   dim    = 3;
+  PetscViewer  viewer = PETSC_VIEWER_STDOUT_WORLD;
+  MPI_Comm     comm   = ((PetscObject)jac)->comm;
+  Vec          u      = NULL;
+  dQuadrature  quad;
+  dInt         N,minrdeg,maxrdeg,minbdeg,maxbdeg,*rdeg,*bdeg;
   dEntTopology *topo;
-  dTruth showrules,showefs;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dErr err;
+  dTruth       showrules,showefs;
+  s_dRule      *rule;
+  s_dEFS       *efs;
+  dErr         err;
 
   dFunctionBegin;
   minrdeg = 10;
@@ -283,7 +284,8 @@ static dErr checkRulesAndEFS(dJacobi jac)
     }
   }
 
-  err = dJacobiGetRule(jac,N,topo,rdeg,rule);dCHK(err);
+  err = dJacobiGetQuadrature(jac,&quad);dCHK(err);
+  err = dQuadratureGetRule(quad,N,topo,rdeg,rule);dCHK(err);
   if (showrules) {
     for (dInt i=0; i<N; i++) {
       err = dPrintf(comm,"Rule for element %d\n",i);dCHK(err);
@@ -337,7 +339,6 @@ int main(int argc,char *argv[])
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
-  err = dJacobiSetUp(jac);dCHK(err);
   err = checkRulesAndEFS(jac);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);
   err = dFinalize();dCHK(err);

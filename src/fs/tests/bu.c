@@ -65,7 +65,6 @@ static dErr BUSetFromOptions(BU bu)
   err = dJacobiCreate(bu->comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
-  err = dJacobiSetUp(jac);dCHK(err);
   bu->jac = jac;
 
   err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"bu_rule_degree",bu->nominalRDeg,&rtag);dCHK(err);

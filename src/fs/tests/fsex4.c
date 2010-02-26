@@ -134,7 +134,6 @@ int main(int argc,char *argv[])
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
-  err = dJacobiSetUp(jac);dCHK(err);
   err = dMeshGetRoot(mesh,&active);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,active,&active);dCHK(err);
 
