@@ -1077,7 +1077,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
 
   err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&ma.nents);dCHK(err);
   /* These arrays are persistant for the life of dMeshAdjacency, the arrays are populated in the remainder of this function */
-  err = dMallocA3(ma.nents,&ma.ents,ma.nents,&ma.adjoff,ma.nents,&ma.topo);dCHK(err);
+  err = dMallocA3(ma.nents,&ma.ents,ma.nents+1,&ma.adjoff,ma.nents,&ma.topo);dCHK(err);
 
   /* Get counts and populate \c ma.ents, guaranteed to be in type-order */
   ma.toff[dTYPE_VERTEX] = 0; cnt = 0;
