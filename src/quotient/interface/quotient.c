@@ -13,16 +13,9 @@ static PetscFList dQuotientList = 0;
 
 static dErr dQuotientSetUp_Private(dQuotient q);
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientUpdate"
-/*@
-   dQuotientUpdate - update the quadrature order and element maps
-
-   Collective on dQuotient
-
-   Input parameter:
-.  q - the quotient
-@*/
+/** update the quadrature order and element maps
+*
+**/
 dErr dQuotientUpdate(dQuotient q)
 {
   dErr err;
@@ -38,30 +31,23 @@ dErr dQuotientUpdate(dQuotient q)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientCreate"
-/*@
-   dQuotientCreate - set up a quotient map over the mesh with size given by the values in the tag
-
-   Collective on dMesh
-
-   Input Parameters:
-.  m - the mesh over which to set up
-.  loc - an entity set handle corresponding to the local portion of the domain
-.  qsizetag - a tag handle on the mesh, valid at least for all regions in loc
-
-   Output Parameters:
-.  q - the new Quotient
-@*/
+/** set up a quotient map over the mesh with size given by the values in the tag
+*
+* @param[in] m the mesh over which to set up
+* @param[in] loc an entity set handle corresponding to the local portion of the domain
+* @param[in] qsizetag a tag handle on the mesh, valid at least for all regions in loc
+* @param[out] q the new Quotient
+**/
 dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
 {
-  dQuotient   q;
-  MPI_Comm       comm;
-  dErr err;
+  dQuotient q;
+  MPI_Comm  comm;
+  dErr      err;
 
   dFunctionBegin;
   PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
   dValidPointer(inq,4);
+  SETERRQ(1,"boo");
   *inq = 0;
   err = PetscObjectGetComm((PetscObject)m,&comm);dCHK(err);
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
@@ -80,12 +66,6 @@ dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientSetType"
-/*@
-   dQuotientSetType -
-
-@*/
 dErr dQuotientSetType(dQuotient q,const dQuotientType type)
 {
   dErr (*r)(dQuotient);
@@ -107,8 +87,6 @@ dErr dQuotientSetType(dQuotient q,const dQuotientType type)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientSetFromOptions"
 /**
 * Use the options database to determine type and other settings for the quotient
 *
@@ -148,13 +126,6 @@ dErr dQuotientSetFromOptions(dQuotient q)
   dFunctionReturn(0);
 }
 
-
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientSetUp"
-/*@
-   dQuotientSetUp -
-
-@*/
 dErr dQuotientSetUp(dQuotient q)
 {
   dErr err;
@@ -172,8 +143,6 @@ dErr dQuotientSetUp(dQuotient q)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientSetUp_Private"
 /**
 * This function should determine which subdomain of the mesh is in use.  For now, we assume that it is always the whole
 * mesh.
@@ -191,11 +160,8 @@ dErr dQuotientSetUp_Private(dQuotient q)
   dFunctionReturn(0);
 }
 
-
 #define dQuotientRegisterDynamic(a,b,c,d) dQuotientRegister(a,b,c,d)
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientRegister"
 /**
 * Register a new Quotient type in the quotient list.  It can then be selected with \fn dQuotientSetType or on the
 * command line.
@@ -218,12 +184,6 @@ dErr dQuotientRegister(const char name[],const char path[],const char cname[],dE
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientRegisterAll"
-/*@
-   dQuotientRegisterAll -
-
-@*/
 dErr dQuotientRegisterAll(const char path[])
 {
   static dBool registered = PETSC_FALSE;
@@ -236,12 +196,6 @@ dErr dQuotientRegisterAll(const char path[])
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientDestroy"
-/*@
-   dQuotientDestroy -
-
-@*/
 dErr dQuotientDestroy(dQuotient q)
 {
   dErr err;
@@ -257,12 +211,6 @@ dErr dQuotientDestroy(dQuotient q)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientGetType"
-/*@
-   dQuotientGetType -
-
-@*/
 dErr dQuotientGetType(dQuotient q,const dQuotientType *type)
 {
 
@@ -273,13 +221,6 @@ dErr dQuotientGetType(dQuotient q,const dQuotientType *type)
   dFunctionReturn(0);
 }
 
-
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientView"
-/*@
-   dQuotientView -
-
-@*/
 dErr dQuotientView(dQuotient q,PetscViewer viewer)
 {
   const dQuotientType  type;
@@ -322,12 +263,6 @@ dErr dQuotientView(dQuotient q,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientInitializePackage"
-/*@
-   dQuotientInitializePackage -
-
-@*/
 dErr dQuotientInitializePackage(const char path[])
 {
   static dBool initialized = PETSC_FALSE;
@@ -341,12 +276,6 @@ dErr dQuotientInitializePackage(const char path[])
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientSetSetDegree"
-/*@
-   dQuotientSetSetDegree -
-
-@*/
 dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx)
 {
   //dErr err;
@@ -360,12 +289,6 @@ dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx)
   dFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "dQuotientSetDegreeConst"
-/*@
-   dQuotientSetDegreeConst -
-
-@*/
 dErr dQuotientSetDegreeConst(dUNUSED dQuotient quot,void *vval,dInt n,dInt *degree)
 {
   dInt i,*val=(dInt *)vval;
