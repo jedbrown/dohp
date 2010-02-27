@@ -50,12 +50,9 @@ struct s_Tensor {
                                   * and the nodes are \f$ x_j, j=0,1,\dotsc,n-1 \f$
                                   *
                                   * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
-  dInt M;                       /**< number of rules */
-  dInt N;                       /**< basis size limit */
   PetscTruth usemscale,uselscale,nounroll;
   /* dBufferList data; */
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
-  bool setupcalled;
 };
 
 typedef struct {

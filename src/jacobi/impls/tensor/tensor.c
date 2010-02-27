@@ -157,8 +157,8 @@ static dErr dJacobiDestroy_Tensor(dJacobi jac)
     if (!kh_exist(bases,k)) continue;
     err = TensorBasisDestroy(kh_val(bases,k));dCHK(err);
   }
-  if (jac->quad) {err = dQuadratureDestroy(jac->quad);dCHK(err);}
   kh_destroy_basis(bases);
+  if (jac->quad) {err = dQuadratureDestroy(jac->quad);dCHK(err);}
   err = dJacobiEFSOpsDestroy_Tensor(jac);dCHK(err);
   err = dFree(tnsr);dCHK(err);
   dFunctionReturn(0);
@@ -172,13 +172,15 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
-  if (!ascii) SETERRQ(PETSC_ERR_SUP,"only ASCII");
+  if (!ascii) dERROR(PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Tensor based Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis database.\n");dCHK(err);
   for (khiter_t k=kh_begin(tnsr->bases); k!=kh_end(tnsr->bases); k++) {
+    if (!kh_exist(tnsr->bases,k)) continue;
     err = TensorBasisView(kh_val(tnsr->bases,k),viewer);dCHK(err);
   }
+  err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -264,7 +266,7 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],const dInt dUNUSED is[],
+static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt dUNUSED is[],
                                              const dInt dUNUSED deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
 {
 
@@ -546,6 +548,8 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
   dErr err;
 
   dFunctionBegin;
+  if (sizeof(dEFS_Tensor) != sizeof(s_dEFS))
+    dERROR(PETSC_ERR_PLIB,"sizeof(dEFS_Tensor) %zd != sizeof(s_dEFS) %zd",sizeof(dEFS_Tensor),sizeof(s_dEFS));
   err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
   err = dNew(struct s_Tensor,&tensor);dCHK(err);
 
