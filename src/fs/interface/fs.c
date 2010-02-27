@@ -672,6 +672,8 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
   err = MatSetType(J,mtype);dCHK(err);
   err = MatSeqBAIJSetPreallocation(J,bs,27,NULL);dCHK(err);         /* \bug incorrect for unstructured meshes */
   err = MatMPIBAIJSetPreallocation(J,bs,27,NULL,25,NULL);dCHK(err); /* \todo this wastes a lot of space in parallel */
+  err = MatSeqSBAIJSetPreallocation(J,bs,27,NULL);dCHK(err);
+  err = MatMPISBAIJSetPreallocation(J,bs,27,NULL,27,NULL);dCHK(err);
   if (fs->assemblereduced) {
     err = MatSeqAIJSetPreallocation(J,27,NULL);dCHK(err);
     err = MatMPIAIJSetPreallocation(J,27,NULL,25,NULL);dCHK(err);
