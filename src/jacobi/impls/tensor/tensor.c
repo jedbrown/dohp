@@ -493,7 +493,7 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
     err = dRuleGetTensorNodeWeight(&rules[i],&rdim,rsize,rcoord,NULL);dCHK(err);
     switch (topo[i]) {
       case dTOPO_LINE:
-        if (rdim != 1) dERROR(1,"Incompatible Rule size %d, expected 1",rdim);
+        if (rdim != 1) dERROR(1,"Incompatible Rule dim %d, expected 1",rdim);
         efs[i].ops = this->efsOpsLine;
         efs[i].rule = &rules[i];
         err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
@@ -502,7 +502,7 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
         efs[i].basis[1] = efs[i].basis[2] = NULL;
         break;
       case dTOPO_QUAD:
-        if (rdim != 2) dERROR(1,"Incompatible Rule size %d, expected 2",rdim);
+        if (rdim != 2) dERROR(1,"Incompatible Rule dim %d, expected 2",rdim);
         efs[i].ops = this->efsOpsQuad;
         efs[i].rule = &rules[i];
         err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
@@ -511,7 +511,7 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
         efs[i].basis[2] = NULL;
         break;
       case dTOPO_HEX:
-        if (rdim != 3) dERROR(1,"Incompatible Rule size %d, expected 3",rdim);
+        if (rdim != 3) dERROR(1,"Incompatible Rule dim %d, expected 3",rdim);
         efs[i].ops = this->efsOpsHex;
         efs[i].rule = &rules[i];
         err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
