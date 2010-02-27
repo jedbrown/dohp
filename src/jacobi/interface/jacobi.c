@@ -369,7 +369,33 @@ dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight)
 
   dFunctionBegin;
   dValidPointer(rule,1);
-  err = (*rule->ops->getNodeWeight)(rule,coord,weight);dCHK(err);
+  if (rule->ops->getNodeWeight) {
+    err = (*rule->ops->getNodeWeight)(rule,coord,weight);dCHK(err);
+  } else if (rule->ops->getTensorNodeWeight) {
+    dInt dim,nnodes[3];
+    const dReal *tcoord[3],*tweight[3];
+    err = (*rule->ops->getTensorNodeWeight)(rule,&dim,nnodes,tcoord,tweight);dCHK(err);
+    switch (dim) {
+      case 3:
+        for (dInt i=0; i<nnodes[0]; i++) {
+          for (dInt j=0; j<nnodes[1]; j++) {
+            for (dInt k=0; k<nnodes[2]; k++) {
+              dInt idx = (i*nnodes[1]+j)*nnodes[2]+k;
+              if (coord) {
+                coord[idx*3+0] = tcoord[0][i];
+                coord[idx*3+1] = tcoord[1][j];
+                coord[idx*3+2] = tcoord[2][k];
+              }
+              if (weight) {
+                weight[idx] = tweight[0][i]*tweight[1][j]*tweight[2][k];
+              }
+            }
+          }
+        }
+      default:
+        dERROR(PETSC_ERR_SUP,"dimension %d",dim);
+    }
+  } else dERROR(PETSC_ERR_SUP,"deficient rule");
   dFunctionReturn(0);
 }
 
