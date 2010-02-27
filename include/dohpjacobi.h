@@ -159,6 +159,16 @@ extern dErr dQuadratureSetFromOptions(dQuadrature);
 extern dErr dQuadratureDestroy(dQuadrature);
 extern dErr dQuadratureGetRule(dQuadrature,dInt,const dEntTopology[],const dInt[],dRule);
 
+typedef enum {
+  dJACOBI_MODAL_P_CONFORMING,
+  dJACOBI_MODAL_P_DISCONTINUOUS,
+  dJACOBI_MODAL_Q_CONFORMING,
+  dJACOBI_MODAL_Q_DISCONTINUOUS,
+} dJacobiModalFamily;
+extern const char *const dJacobiModalFamilies[];
+
+extern dErr dJacobiModalSetFamily(dJacobi,dJacobiModalFamily);
+
 dEXTERN_C_END
 
 #endif /* _DOHPJACOBI_H */

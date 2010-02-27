@@ -15,6 +15,8 @@ list (APPEND Dohp_SRCS
   jacobi/impls/tensor/tensor.c
   jacobi/impls/tensor/efstopo.c
   jacobi/impls/tensor/polylib.c
+  jacobi/impls/modal/modal.c
+  jacobi/impls/modal/modaltopo.c
   )
 
 # ADD_SUBDIRECTORY (fs)
