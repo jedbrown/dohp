@@ -27,7 +27,7 @@ static dErr TensorBasisCreate(Tensor tnsr,dInt rsize,const dReal rcoord[],dInt P
   dFunctionBegin;
   if (!(0 < P && P <= Q)) dERROR(1,"Requested TensorBasis size %d out of bounds.",P);
   if (tnsr->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %s not supported",GaussFamilies[tnsr->family]);
-  err = dNew(struct s_TensorBasis,&b);dCHK(err);
+  err = dNew(struct _TensorBasis,&b);dCHK(err);
   err = dMallocA6(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node,P,&b->weight);dCHK(err);
   b->Q = Q;
   b->P = P;

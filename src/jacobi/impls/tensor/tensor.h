@@ -8,12 +8,12 @@ dEXTERN_C_BEGIN
 
 typedef dErr (*TensorMultFunction)(dInt,const dInt[3],const dInt[3],const dReal*[],const dScalar*,dScalar[restrict],InsertMode);
 
-typedef struct s_TensorBasis *TensorBasis;
+typedef struct _TensorBasis *TensorBasis;
 /**
 * Stores a one-dimensional part of a Tensor product basis.  Includes optimized functions for 3D tensor multiplication.
 *
 */
-struct s_TensorBasis {
+struct _TensorBasis {
   TensorMultFunction multhex[3];
   dInt  P,Q;
   dReal *interp,*deriv,*node;
