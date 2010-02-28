@@ -572,6 +572,79 @@ static dErr EllipJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structur
   dFunctionReturn(0);
 }
 
+static dErr EllipJacobian_new(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+{
+  Ellip   elp = ctx;
+  s_dRule *rule;
+  s_dEFS  *efs;
+  dReal   (*nx)[3];
+  dScalar *x;
+  dFS     fs  = elp->fs;
+  dInt    n,*off,*geomoff;
+  dReal   (*geom)[3];
+  dErr    err;
+
+  dFunctionBegin;
+  err = MatZeroEntries(*Jp);dCHK(err);
+  err = dFSGlobalToExpanded(fs,gx,elp->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecGetArray(elp->x,&x);dCHK(err);
+  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
+  for (dInt e=0; e<n; e++) {
+    dInt three,P[3];
+    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
+      for (dInt j=0; j<P[1]-1; j++) {
+        for (dInt k=0; k<P[2]-1; k++) {
+          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
+          const dScalar (*uc)[1] = (const dScalar(*)[1])x+off[e]; /* function values, indexed at subelement corners \c uc[c[#]][0] */
+          const dReal (*qx)[3],*jw,(*basis)[8],(*deriv)[8][3];
+          dInt qn;
+          dScalar K[8][8];
+          err = dMemzero(K,sizeof(K));dCHK(err);
+          err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,(const dReal**)&basis,(const dReal**)&deriv);dCHK(err);
+          for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
+            struct EllipStore st;
+            { /* Set up store */
+              dReal st_u[1] = {0},st_Du[3] = {0,0,0};
+              for (dInt lp=0; lp<8; lp++) { /* Evaluate function values and gradients at this quadrature point */
+                st_u[0] += basis[lq][lp] * uc[c[lp]][0];
+                st_Du[0] += deriv[lq][lp][0] * uc[c[lp]][0];
+                st_Du[1] += deriv[lq][lp][1] * uc[c[lp]][0];
+                st_Du[2] += deriv[lq][lp][2] * uc[c[lp]][0];
+              }
+              EllipPointwiseComputeStore(&elp->param,qx[lq],st_u,st_Du,&st);
+            }
+            for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
+              for (dInt lp=0; lp<8; lp++) {                     /* loop over trial basis functions (corners) */
+                const dReal *u = &basis[lq][lp],*Du = deriv[lq][lp];
+                dReal v[1],Dv[3];
+                EllipPointwiseJacobian(&elp->param,&st,jw[lq],u,Du,v,Dv);
+                K[ltest][lp] += basis[lq][ltest] * v[0] +
+                  (+ deriv[lq][ltest][0] * Dv[0]
+                   + deriv[lq][ltest][1] * Dv[1]
+                   + deriv[lq][ltest][2] * Dv[2]);
+              }
+            }
+          }
+          err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+        }
+      }
+    }
+  }
+  err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
+  err = VecRestoreArray(elp->x,&x);dCHK(err);
+
+  err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  *structure = SAME_NONZERO_PATTERN;
+  dFunctionReturn(0);
+}
+
 static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3])
 {
   dFS fs = elp->fs;
@@ -730,7 +803,7 @@ int main(int argc,char *argv[])
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dTruth nojshell,nocheck,viewdhm;
+  dTruth nojshell,nocheck,viewdhm,new_assembly;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -752,7 +825,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsName("-nojshell","Do not use shell Jacobian","",&nojshell);dCHK(err);
     err = PetscOptionsName("-nocheck_error","Do not compute errors","",&nocheck);dCHK(err);
     err = PetscOptionsName("-viewdhm","View to a file using DHM","",&viewdhm);dCHK(err);
-    //err = PetscOptionsInt("-cont","Number of steps in continuation","",&cont,
+    err = PetscOptionsName("-new_assembly","Use new assembly that is not tied to Q1","",&new_assembly);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   if (nojshell) {
     /* Use the preconditioning matrix in place of the Jacobin.  This will NOT converge unless the elements are actually
@@ -769,7 +842,11 @@ int main(int argc,char *argv[])
   }
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,r,EllipFunction,elp);dCHK(err);
-  err = SNESSetJacobian(snes,J,Jp,EllipJacobian,elp);dCHK(err);
+  if (new_assembly) {
+    err = SNESSetJacobian(snes,J,Jp,EllipJacobian_new,elp);dCHK(err);
+  } else {
+    err = SNESSetJacobian(snes,J,Jp,EllipJacobian,elp);dCHK(err);
+  }
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-10,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
   {                             /* Set default PC */
     KSP ksp;
