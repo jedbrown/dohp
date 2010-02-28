@@ -455,6 +455,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   fs->nelem = nregions;
   err = dMallocA3(nregions,&fs->rule,nregions,&fs->efs,nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
   err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
+  /* Get the "native" quadrature and EFS for this space */
   err = dJacobiGetQuadrature(fs->jacobi,&quad);dCHK(err);
   err = dQuadratureGetRule(quad,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
   err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);

@@ -442,7 +442,7 @@ dErr dEFSGetSizes(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
   dFunctionReturn(0);
 }
 
-/** Get node locations as tensor product
+/** Get node locations (on reference element) as tensor product
 *
 * @param[in] dim[out] dimension of tensor product
 * @param[in,out] tsize Array of length 3, on return, holds each size in each direction of tensor product
@@ -461,6 +461,14 @@ dErr dEFSGetTensorNodes(dEFS efs,dInt *dim,dInt *tsize,dReal *nodes[],dReal *wei
   dFunctionReturn(0);
 }
 
+/** Get the location of nodes for a nodal EFS (only works for tensor product)
+*
+* @param[in] x Geometry vector, usually obtained from dFSGetElements()
+* @param[out] dim Spatial dimension on which the coordinates lie
+* @param[out] P Tensor product size for nodes
+* @param[out] qx Location of interpolation nodes
+*
+**/
 dErr dEFSGetGlobalCoordinates(dEFS efs,const dReal x[restrict][3],dInt *dim,dInt P[3],dReal (*qx)[3])
 {
   dErr err;
@@ -472,6 +480,25 @@ dErr dEFSGetGlobalCoordinates(dEFS efs,const dReal x[restrict][3],dInt *dim,dInt
   dValidPointer(P,4);
   dValidPointer(qx,5);
   err = (*efs->ops->getGlobalCoordinates)(efs,x,dim,P,qx);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** Updates the element integrator for the current EFS
+*
+* @param[in] efs
+* @param[in] x Geometry vector
+* @param[in,out] ei element integrator to be updated
+*
+**/
+dErr dEFSUpdateElementIntegrator(dEFS efs,const dReal x[restrict][3],dElementIntegrator ei)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  dValidRealPointer(x,2);
+  dValidPointer(ei,3);
+  err = (*efs->ops->updateElementIntegrator)(efs,x,ei);dCHK(err);
   dFunctionReturn(0);
 }
 
