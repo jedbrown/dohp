@@ -828,7 +828,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsName("-new_assembly","Use new assembly that is not tied to Q1","",&new_assembly);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   if (nojshell) {
-    /* Use the preconditioning matrix in place of the Jacobin.  This will NOT converge unless the elements are actually
+    /* Use the preconditioning matrix in place of the Jacobian.  This will NOT converge unless the elements are actually
     * Q1 (bdeg=2).  This option is nullified by -snes_mf_operator which will still only use the assembled Jacobian for
     * preconditioning. */
     J = Jp;
@@ -890,6 +890,7 @@ int main(int argc,char *argv[])
   err = VecZeroEntries(x);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err);
   if (!nocheck) {
+    dInt n;
     dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3];
     err = EllipErrorNorms(elp,x,enorm,gnorm);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
@@ -897,6 +898,17 @@ int main(int argc,char *argv[])
     err = VecWAXPY(r,-1,soln,x);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,inorm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
+    /* Scale 1-norms for constant domain size (to mimic L^p instead of l^p) */
+    err = VecGetSize(r,&n);dCHK(err);
+    anorm[0] /= 1.*n;
+    inorm[0] /= 1.*n;
+    enorm[0] /= 1.*n;
+    gnorm[0] /= 1.*n;
+    /* Correct 2-norms for domain size */
+    anorm[1] /= sqrt(1.*n);
+    inorm[1] /= sqrt(1.*n);
+    enorm[1] /= sqrt(1.*n);
+    gnorm[1] /= sqrt(1.*n);
     err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);

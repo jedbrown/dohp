@@ -438,29 +438,20 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
   nregions = ents_s;
-  err = dMallocA5(nregions+1,&xstart,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg,nregions,&xnodes);dCHK(err);
+  err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions*3,&regBDeg,nregions,&xnodes);dCHK(err);
   err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
   err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions*3,dDATA_INT);dCHK(err);
   err = dJacobiGetNodeCount(fs->jacobi,ents_s,regTopo,regBDeg,NULL,xnodes);dCHK(err);
 
-  err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,regRDeg,nregions*3,dDATA_INT);dCHK(err);
-  for (dInt i=0; i<3*nregions; i++) {
-    regRDeg[i] = dMaxInt(regRDeg[i],regBDeg[i]+fs->ruleStrength);
-  }
-
   xcnt = xstart[0] = 0;
   for (dInt i=0; i<nregions; i++) xstart[i+1] = (xcnt += xnodes[i]);
 
-  /* Get Rule and EFS for domain ents. */
   fs->nelem = nregions;
-  err = dMallocA3(nregions,&fs->rule,nregions,&fs->efs,nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
+  err = dMallocA(nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
   err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
-  /* Get the "native" quadrature and EFS for this space */
-  err = dJacobiGetQuadrature(fs->jacobi,&quad);dCHK(err);
-  err = dQuadratureGetRule(quad,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
-  err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
+
   err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
-  err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);
+  err = dFree4(xstart,regTopo,regBDeg,xnodes);dCHK(err);
 
   err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 

@@ -322,19 +322,20 @@ dErr dJacobiGetNodeCount(dJacobi jac,dInt count,const dEntTopology top[],const d
   dFunctionReturn(0);
 }
 
-/** Get preferred quadrature type for this Jacobi **/
-dErr dJacobiGetQuadrature(dJacobi jac,dQuadrature *quad)
+/** Get preferred quadrature type for this Jacobi.
+**/
+dErr dJacobiGetQuadrature(dJacobi jac,dQuadratureMethod method,dQuadrature *quad)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(jac,dJACOBI_COOKIE,1);
-  dValidPointer(quad,2);
-  if (!jac->quad) {
+  dValidPointer(quad,3);
+  if (!jac->quad[method]) {
     if (jac->ops->GetQuadrature) {
-      err = jac->ops->GetQuadrature(jac,&jac->quad);dCHK(err);
+      err = jac->ops->GetQuadrature(jac,method,&jac->quad[method]);dCHK(err);
     } else {
-      err = dQuadratureCreate(((PetscObject)jac)->comm,&jac->quad);dCHK(err);
+      err = dQuadratureCreate(((PetscObject)jac)->comm,&jac->quad[method]);dCHK(err);
       err = dQuadratureSetFromOptions(jac->quad);dCHK(err);
     }
   }

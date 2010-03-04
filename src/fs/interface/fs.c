@@ -294,7 +294,13 @@ dErr dFSDestroy(dFS fs)
   err = MatDestroy(fs->Ep);dCHK(err);
   err = ISLocalToGlobalMappingDestroy(fs->bmapping);dCHK(err);
   err = ISLocalToGlobalMappingDestroy(fs->mapping);dCHK(err);
-  err = dFree3(fs->rule,fs->efs,fs->off);dCHK(err);
+  err = dFree(fs->off);dCHK(err);
+  for (struct _dFSIntegrationLink link=fs->integration,tmp; link; link=tmp) {
+    err = dFree(link->name);dCHK(err);
+    err = dFree2(link->rule,link->efs);dCHK(err);
+    tmp = link->next;
+    err = dFree(link);dCHK(err);
+  }
   err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = dMeshDestroy(fs->mesh);dCHK(err);
   err = dJacobiDestroy(fs->jacobi);dCHK(err);
@@ -520,25 +526,123 @@ dErr dFSRotateGlobal(dFS fs,Vec g,dFSRotateMode rmode,dFSHomogeneousMode hmode)
   dFunctionReturn(0);
 }
 
-dErr dFSGetElements(dFS fs,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
+static dErr dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIntegrationLink **found)
 {
+  struct _dFSIntegrationLink *link;
+
+  dFunctionBegin;
+  *found = NULL;
+  for (link=fs->integration; link; link=link->next) {
+    if (!strcmp(name,link->name)) {
+      *found = link;
+      dFunctionReturn(0);
+    }
+  }
+  dERROR(1,"Cannot find integration \"%s\"",name);
+  dFunctionReturn(0);
+}
+
+/** Registers a quadrature to be used when integrating in this function space.  This registration enables an arbitrary
+* amount of caching by the dFS.
+*
+* @note It is common to register at least two quadratures, one for evaluating residuals using high-order basis functions
+* and an efficient Gauss quadrature, and one for assembling matrices on the Q_1 subelements.
+**/
+dErr dFSRegisterGlobalQuadrature(dFS fs,const char *name,dInt n,dRule rule)
+{
+  struct _dFSIntegrationLink *link;
+  dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
+  dValidCharPointer(name,2);
+  if (n != fs->nelem) dERROR(PETSC_ERR_ARG_INCOMP,"sizes don't agree");
+  err = dFSIntegrationFindLink(fs,name,&link);dCHK(err);
+  for (link=fs->integration; link && link->next; link=link->next) {
+    if (!strcmp(name,link->name))
+      dERROR(1,"Integration \"%s\" already registered",name);
+  }
+  if (!link) dERROR(PETSC_ERR_PLIB,"unexpected");
+  err = dNew(struct _dFSIntegrationLink,&link->next);dCHK(err);
+  link = link->next;
+  err = PetscStrallocpy(name,&link->name);dCHK(err);
+  err = dMallocA2(n,&link->rule,n,&link->efs);dCHK(err);
+  err = dMemcpy(link->rule,rule,n*sizeof(rule[0]));dCHK(err);
+  err = dJacobiGetEFS(fs->jacobi,n,regTopo,regBDeg,link->rule,link->efs);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** This is a fairly high-level function to get the preferred quadrature for this FS.  Usually the FS with the highest
+* order elements, or the physics with the most aliasing problems, is used to define the quadrature on which all
+* components are integrated.
+*
+* @note This function helps to hide the low-level dQuadrature object from the user, since it is almost always the case
+* that the user wants the "best" quadrature for a particular function space they are working with.
+*
+* @note This function should accept the "domain" (perhaps just a mesh set) on which the integration is being performed.
+*
+**/
+dErr dFSGetPreferredQuadratureRules(dFS fs,dQuadratureMethod method,dInt *nrules,dRule *rules)
+{
+  dInt nregions = fs->nelem,*regTopo,*regBDeg,*regRDeg,ents_a=0,ents_s;
+  dQuadrature quad;
+  dMeshEH *ents;
+  dErr err;
+
+  dFunctionBegin;
+  err = dMallocA4(nregions,&ents,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg);dCHK(err);
+  err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions*3,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,regRDeg,nregions*3,dDATA_INT);dCHK(err);
+  for (dInt i=0; i<3*nregions; i++) {
+    regRDeg[i] = dMaxInt(regRDeg[i],regBDeg[i]+fs->ruleStrength);
+  }
+  /* Get the "native" quadrature Rule and EFS for this space */
+  *nrules = nregions;
+  err = dMallocA(nregions,rule);dCHK(err);
+  err = dJacobiGetQuadrature(fs->jacobi,method,&quad);dCHK(err);
+  switch (method) {
+    case dQUADRATURE_METHOD_FAST:
+      err = dQuadratureGetRule(quad,nregions,regTopo,regRDeg,*rules);dCHK(err);
+      break;
+    case dQUADRATURE_METHOD_SPARSE:
+      /* For sparse assembly, it doesn't matter what the preferred rule order was because we'll be integrating on Q_1
+      * subelements (typically with standard Gauss quadrature) in each subelement.  Thus the relevant value to be passed
+      * in is the basis degree since this allows creation of a rule that understands subelements. */
+      err = dQuadratureGetRule(quad,nregions,regTopo,regBDeg,*rules);dCHK(err);
+      break;
+    default: SETERRQ(PETSC_ERR_ARG_OUTOFRANGE,"unknown QuadratureMethod");
+  }
+  dFunctionReturn(0);
+}
+
+dErr dFSGetElements(dFS fs,const char *name,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
+{
+  struct _dFSIntegrationLink *link;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_COOKIE,1);
+  dValidCharPointer(name,2);
+  err = dFSIntegrationFindLink(fs,name,&link);dCHK(err);
   if (n)       *n       = fs->nelem;
   if (off)     *off     = fs->off;
-  if (rule)    *rule    = fs->rule;
-  if (efs)     *efs     = fs->efs;
+  if (rule)    *rule    = link->rule;
+  if (efs)     *efs     = link->efs;
   if (geomoff) *geomoff = fs->vtxoff;
   if (geom)    *geom    = fs->vtx;
   dFunctionReturn(0);
 }
 
-dErr dFSRestoreElements(dFS dUNUSED fs,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
+dErr dFSRestoreElements(dFS fs,const char *name,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
 {
+  struct _dFSIntegrationLink *link;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
+  dValidCharPointer(name,2);
+  err = dFSIntegrationFindLink(fs,name,&link);dCHK(err);
   if (n)       *n       = 0;
   if (off)     *off     = NULL;
   if (rule)    *rule    = NULL;

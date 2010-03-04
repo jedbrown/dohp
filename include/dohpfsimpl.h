@@ -34,6 +34,14 @@ typedef struct {
   dScalar *u,*v,*du,*dv;
 } s_dFSWorkspace;
 
+
+struct _dFSIntegrationLink {
+  dQuadrature quad;
+  s_dRule *rule;
+  s_dEFS  *efs;
+  struct _dFSIntegrationLink next;
+};
+
 struct _dFSOps {
   DMOPS(dFS)
   dErr (*impldestroy)(dFS);
@@ -65,8 +73,7 @@ struct _p_dFS {
   dInt         bs;              /**< Block size (number of dofs per node) */
   dInt         nelem;
   dInt        *off;             /**< Offset of element dofs in expanded vector */
-  s_dRule     *rule;            /**< Integration rule */
-  s_dEFS      *efs;             /**< Element function space, defined for all entities */
+  struct _dFSIntegrationLink *integration;
   dInt        *vtxoff;
   dReal       (*vtx)[3];
   dInt         n,nc,ngh;        /**< Vector sizes in blocks: owned, owned closure, ghosts */

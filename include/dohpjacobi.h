@@ -116,6 +116,14 @@ struct _p_dMeshAdjacency {
 #define dQuadratureType char*
 #define dQUADRATURE_TENSOR "tensor"
 
+typedef enum {
+  dQUADRATURE_METHOD_FAST,      /* Low-count Gauss quadrature (often tensor product) on which basis functions
+                                * can be rapidly evaluated. */
+  dQUADRATURE_METHOD_SPARSE,    /* A reduced quadrature, used for integration of sparser approximations to the true
+                                * Jacobian.  Normally used for integration of matrices based on Q_1 subelement space. */
+  dQUADRATURE_METHOD_INVALID
+} dQuadratureMethod;
+
 extern dErr dJacobiCreate(MPI_Comm,dJacobi*);
 extern dErr dJacobiSetType(dJacobi,dJacobiType);
 extern dErr dJacobiSetFromOptions(dJacobi);
@@ -128,7 +136,7 @@ extern dErr dJacobiInitializePackage(const char[]);
 
 extern dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
 extern dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
-extern dErr dJacobiGetQuadrature(dJacobi,dQuadrature*);
+extern dErr dJacobiGetQuadrature(dJacobi,dQuadratureMethod,dQuadrature*);
 
 extern dErr dRuleView(dRule rule,dViewer);
 extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
@@ -142,6 +150,8 @@ extern dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,co
 extern dErr dEFSGetGlobalCoordinates(dEFS,const dReal vtx[restrict][3],dInt*,dInt[3],dReal(*)[3]);
 extern dErr dEFSGetRule(dEFS efs,dRule *rule);
 extern dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
+extern dErr dEFSGetExplicit(dEFS,dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
+
 extern dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dInt[]);
 extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 

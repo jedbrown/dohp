@@ -57,7 +57,7 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dInt size,TensorRule *rule)
   dFunctionReturn(0);
 }
 
-static dErr dQuadratureGetRule_Tensor(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
+static dErr dQuadratureGetRule_Tensor_Private(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
 {
   dQuadrature_Tensor *tnsr = quad->data;
   dRule_Tensor *rule = (dRule_Tensor*)firstrule;
@@ -68,29 +68,34 @@ static dErr dQuadratureGetRule_Tensor(dQuadrature quad,dInt n,const dEntTopology
     switch (topo[i]) {
       case dTOPO_LINE:
         rule[i].ops = tnsr->ruleOpsLine;
-        err = TensorGetRule(tnsr,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
+        err = TensorGetRule(tnsr,method,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
         if (rsize[3*i+1] != 1 || rsize[3*i+2] != 1)
           dERROR(1,"Invalid rule size for Line");
         rule[i].trule[1] = rule[i].trule[2] = NULL;
         break;
       case dTOPO_QUAD:
         rule[i].ops = tnsr->ruleOpsQuad;
-        err = TensorGetRule(tnsr,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        err = TensorGetRule(tnsr,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
+        err = TensorGetRule(tnsr,method,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
+        err = TensorGetRule(tnsr,method,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
         if (rsize[3*i+2] != 1) dERROR(1,"Invalid rule size for Line");
         rule[i].trule[2] = NULL;
         break;
       case dTOPO_HEX:
         rule[i].ops = tnsr->ruleOpsHex;
-        err = TensorGetRule(tnsr,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        err = TensorGetRule(tnsr,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
-        err = TensorGetRule(tnsr,rsize[3*i+2],&rule[i].trule[2]);dCHK(err);
+        err = TensorGetRule(tnsr,method,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
+        err = TensorGetRule(tnsr,method,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
+        err = TensorGetRule(tnsr,method,rsize[3*i+2],&rule[i].trule[2]);dCHK(err);
         break;
       default: dERROR(1,"no rule available for given topology");
     }
   }
   dFunctionReturn(0);
 }
+
+static dErr dQuadratureGetRule_Tensor_FAST(Quadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
+{return dQuadratureGetRule_Tensor_Private(quad,n,topo,rsize,firstrule,dQUADRATURE_METHOD_FAST);}
+static dErr dQuadratureGetRule_Tensor_SPARSE(Quadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
+{return dQuadratureGetRule_Tensor_Private(quad,n,topo,rsize,firstrule,dQUADRATURE_METHOD_SPARSE);}
 
 static dErr dQuadratureDestroy_Tensor(dQuadrature quad)
 {
