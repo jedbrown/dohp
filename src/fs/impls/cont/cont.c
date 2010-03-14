@@ -72,15 +72,15 @@ static dErr dFSDestroy_Cont(dFS fs)
 */
 static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
 {
-  dInt *deg;
+  dPolynomialOrder *deg;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
   err = dMallocA(3*ma->nents,&deg);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,3*ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
+  err = dMeshTagGetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
   err = dJacobiPropogateDown(fs->jacobi,ma,deg);dCHK(err);
-  err = dMeshTagSetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,3*ma->nents,dDATA_INT);dCHK(err);
+  err = dMeshTagSetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err);
   err = dFree(deg);dCHK(err);
   dFunctionReturn(0);
 }
@@ -252,14 +252,13 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   MPI_Comm               comm  = ((dObject)fs)->comm;
   /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
   dUNUSED dFS_Cont      *cont  = fs->data;
-  dQuadrature            quad;
   struct _p_dMeshAdjacency ma;
   dMeshAdjacency         meshAdj;
   dMesh                  mesh;
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
   dInt                  *inodes,*xnodes,*deg,*rdeg,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
-  dInt                  *xstart,xcnt,*regRDeg,*regBDeg;
+  dInt                  *xstart,xcnt,*regBDeg;
   dInt                   bs,n,ngh,ndirichlet,nc,rstart,crstart;
   dIInt                  ierr;
   dMeshEH               *ents,*ghents;
@@ -464,24 +463,21 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *nconn)
 {
   /* dFS_Cont *cont = fs->data; */
-  dErr err;
-  dInt n,nsub;
-  Vec  X;
+  dErr    err;
+  dInt    nents,nsub,n;
+  dMeshEH *ents;
+  dPolynomialOrder *degree;
+  Vec     X;
 
   dFunctionBegin;
+  err = dMeshGetNumEnts(fs->mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,&nents);dCHK(err);
+  err = dMallocA2(nents,&ents,nents,&degree);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,nents,NULL);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->degreetag,ents,nents,degree,nents,dDATA_INT);dCHK(err);
   nsub = 0;
-  for (dInt e=0; e<fs->nelem; e++) {
-    dInt tsize[3],dim;
-    err = dEFSGetTensorNodes(&fs->efs[e],&dim,tsize,NULL,NULL,NULL,NULL);dCHK(err);
-    switch (dim) {
-      case 1: nsub += tsize[0]-1;
-        break;
-      case 2: nsub += (tsize[0]-1)*(tsize[1]-1);
-        break;
-      case 3: nsub += (tsize[0]-1)*(tsize[1]-1)*(tsize[2]-1);
-        break;
-      default: dERROR(1,"element dimension out of range");
-    }
+  for (dInt e=0; e<nents; e++) {
+    /* Since this is for visualization, we represent everything as Q_k Gauss-Lobatto even if it was P_k or otherwise. */
+    nsub += dPolynomialOrder1D(degree[e],0) * dPolynomialOrder1D(degree[e],1) * dPolynomialOrder1D(degree[e],2);
   }
   err = VecDohpGetClosure(fs->gvec,&X);dCHK(err);
   err = VecGetLocalSize(X,&n);dCHK(err);
@@ -495,9 +491,8 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *n
 static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTopology subtopo[],dInt suboff[],dInt subind[])
 {
   dErr       err;
-  s_dEFS     *efs;
-  dReal (*nx)[3],(*geom)[3];
-  dInt       n,sub,subc,*off,*geomoff,nnodes,*ai,*aj;
+  //dReal (*nx)[3],(*geom)[3];
+  dInt dUNUSED n,sub,subc,*off,*geomoff,nnodes,*ai,*aj;
   dTruth     done;
 
   dFunctionBegin;
@@ -511,6 +506,9 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   In the following, we have to get a bit more than we actually need (topology only).  We'll change the interface if it
   becomes a performance issue.
   */
+#if 1
+  dERROR(1,"In flux");
+#else
   err = dFSGetElements(fs,&n,&off,0,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err); /* space for nodal coordinates (which we won't use) */
   sub = subc = 0;
@@ -529,10 +527,8 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
           for (dInt l=0; l<8; l++,subc++) {
             dASSERT(0 <= rowcol[l] && rowcol[l] < nnodes);
             subind[subc] = aj[ai[rowcol[l]]];
-#if defined dUSE_DEBUG
             if (ai[rowcol[l]+1]-ai[rowcol[l]] != 1) dERROR(PETSC_ERR_SUP,"Element assembly matrix is not boolean");
             if (subc >= nsubconn) dERROR(1,"Insufficient preallocation for connectivity");
-#endif
           }
         }
       }
@@ -543,6 +539,7 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
 
   err = dFSRestoreElements(fs,&n,&off,0,0,0,0);dCHK(err);
   err = dFSRestoreWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err);
+#endif
   err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&n,&ai,&aj,&done);dCHK(err);
   if (!done) dERROR(PETSC_ERR_PLIB,"Element assembly matrix not restored");
   dFunctionReturn(0);

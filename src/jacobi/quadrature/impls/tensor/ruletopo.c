@@ -12,11 +12,6 @@ _F(dRuleGetSize_Tensor_Line);
 _F(dRuleGetSize_Tensor_Quad);
 _F(dRuleGetSize_Tensor_Hex);
 #undef _F
-#define _F(f) static dErr f(dRule*,dReal*,dReal*)
-/* _F(dRuleGetNodeWeight_Tensor_Line); */
-/* _F(dRuleGetNodeWeight_Tensor_Quad); */
-/* _F(dRuleGetNodeWeight_Tensor_Line); */
-#undef _F
 #define _F(f) static dErr f(dRule,dInt*,dInt[],const dReal*[],const dReal*[])
 _F(dRuleGetTensorNodeWeight_Tensor_Line);
 _F(dRuleGetTensorNodeWeight_Tensor_Quad);
@@ -232,7 +227,7 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
       }
     }
   }
-  PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */ + 3 /* weight */));
+  err = PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */ + 3 /* weight */));dCHK(err);
   dFunctionReturn(0);
 }
 

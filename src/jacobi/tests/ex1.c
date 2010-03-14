@@ -116,7 +116,7 @@ static dInt productInt(dInt N,const dInt a[])
   return z;
 }
 
-static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
+static dErr checkInterp(dInt N,dEFS efs[],Vec u)
 {
   dRule rule;
   dReal *x[3],z,dz;
@@ -135,7 +135,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
   err = VecGetArray(u,&f);dCHK(err);
   ind = 0;
   for (dInt i=0; i<N; i++) {
-    err = dEFSGetTensorNodes(&efs[i],&dim,P,x,NULL,NULL,NULL);dCHK(err);
+    err = dEFSGetTensorNodes(efs[i],&dim,P,x,NULL,NULL,NULL);dCHK(err);
     for (dInt j=0; j<P[0]; j++) {
       for (dInt k=0; k<P[1]; k++) {
         for (dInt l=0; l<P[2]; l++) {
@@ -158,8 +158,8 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
 
   ind = 0;
   for (dInt i=0; i<N; i++) {
-    err = dEFSGetSizes(&efs[i],&dim,NULL,&size);dCHK(err);
-    err = dEFSGetRule(&efs[i],&rule);dCHK(err);
+    err = dEFSGetSizes(efs[i],&dim,NULL,&size);dCHK(err);
+    err = dEFSGetRule(efs[i],&rule);dCHK(err);
     err = dRuleGetTensorNodeWeight(rule,&dim,Q,qx,qw);dCHK(err);
     needed = dim * productInt(dim,Q);
     if (needed > gsize) {
@@ -172,8 +172,8 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     for (dInt count=0; count<10; count++) {
       for (dInt j=0; j<gsize; j++) { g[j] = NAN; }
       for (dInt j=0; j<gsize*dim; j++) { ((dScalar*)dg)[j] = NAN; }
-      err = dEFSApply(&efs[i],NULL,dim,f+ind,g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-      err = dEFSApply(&efs[i],NULL,dim,f+ind,&dg[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+      err = dEFSApply(efs[i],NULL,dim,f+ind,g,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+      err = dEFSApply(efs[i],NULL,dim,f+ind,&dg[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
     }
 
     /* compare to exact solution */
@@ -211,7 +211,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
     }
     {
       dInt D;
-      err = dEFSGetTensorNodes(&efs[i],&D,P,NULL,NULL,NULL,NULL);dCHK(err);
+      err = dEFSGetTensorNodes(efs[i],&D,P,NULL,NULL,NULL,NULL);dCHK(err);
       err = dPrintf(PETSC_COMM_WORLD,"L2 error for element %3d (%2d,%2d,%2d) with rule (%2d,%2d,%2d) interp %8.1e, derivative %8.1e\n",i,P[0],P[1],P[2],Q[0],Q[1],Q[2],z,dz);dCHK(err);
     }
     ind += dim*size;
@@ -222,7 +222,7 @@ static dErr checkInterp(dInt N,s_dEFS efs[],Vec u)
   dFunctionReturn(0);
 }
 
-static dErr createFS(MPI_Comm comm,dInt dim,dInt N,dEFS efs,Vec *U)
+static dErr createFS(MPI_Comm comm,dInt dim,dInt N,dEFS *efs,Vec *U)
 {
   Vec u;
   dInt m,n;
@@ -234,7 +234,7 @@ static dErr createFS(MPI_Comm comm,dInt dim,dInt N,dEFS efs,Vec *U)
   *U = 0;
   n = 0;
   for (dInt i=0; i<N; i++) {
-    err = dEFSGetSizes(&efs[i],NULL,NULL,&m);dCHK(err);
+    err = dEFSGetSizes(efs[i],NULL,NULL,&m);dCHK(err);
     n += m * dim;
   }
   err = VecCreate(comm,&u);dCHK(err);
@@ -251,18 +251,19 @@ static dErr checkRulesAndEFS(dJacobi jac)
   MPI_Comm     comm   = ((PetscObject)jac)->comm;
   Vec          u      = NULL;
   dQuadrature  quad;
-  dInt         N,minrdeg,maxrdeg,minbdeg,maxbdeg,*rdeg,*bdeg;
+  dInt         N,minrdeg,maxrdeg,minbdeg,maxbdeg;
+  dPolynomialOrder *rdeg,*bdeg;
   dEntTopology *topo;
   dTruth       showrules,showefs;
-  s_dRule      *rule;
-  s_dEFS       *efs;
+  dRule        *rule;
+  dEFS         *efs;
   dErr         err;
 
   dFunctionBegin;
-  minrdeg = 10;
-  maxrdeg = 10;
-  minbdeg = 2;
-  maxbdeg = 6;
+  minrdeg = 19;                 /* 10-point Gauss quadrature is order 19 */
+  maxrdeg = 19;
+  minbdeg = 1;
+  maxbdeg = 5;
   showrules = dFALSE;
   showefs = dFALSE;
   err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"Options for testing Jacobi",NULL);dCHK(err);
@@ -274,30 +275,30 @@ static dErr checkRulesAndEFS(dJacobi jac)
   err = PetscOptionsTruth("-show_efs","Show EFS",NULL,showefs,&showefs,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
   N = (maxrdeg-minrdeg+1) * (maxbdeg-minbdeg+1);
-  err = dMallocA5(N,&topo,3*N,&rdeg,3*N,&bdeg,N,&rule,N,&efs);dCHK(err);
+  err = dMallocA5(N,&topo,N,&rdeg,N,&bdeg,N,&rule,N,&efs);dCHK(err);
   for (dInt i=minrdeg; i<=maxrdeg; i++) {
     for (dInt j=minbdeg; j<=maxbdeg; j++) {
       const dInt e = (i-minrdeg)*(maxbdeg-minbdeg+1) + j-minbdeg;
-      rdeg[3*e+0] = rdeg[3*e+1] = rdeg[3*e+2] = i;
-      bdeg[3*e+0] = bdeg[3*e+1] = bdeg[3*e+2] = j;
+      rdeg[e] = dPolynomialOrderCreate(0,i,i,i);
+      bdeg[e] = dPolynomialOrderCreate(0,j,j,j);
       topo[e] = dTOPO_HEX;
     }
   }
 
-  err = dJacobiGetQuadrature(jac,&quad);dCHK(err);
-  err = dQuadratureGetRule(quad,N,topo,rdeg,rule);dCHK(err);
+  err = dJacobiGetQuadrature(jac,dQUADRATURE_METHOD_FAST,&quad);dCHK(err);
+  err = dQuadratureGetRules(quad,N,topo,rdeg,&rule);dCHK(err);
   if (showrules) {
     for (dInt i=0; i<N; i++) {
       err = dPrintf(comm,"Rule for element %d\n",i);dCHK(err);
-      err = dRuleView(&rule[i],viewer);dCHK(err);
+      err = dRuleView(rule[i],viewer);dCHK(err);
     }
   }
 
-  err = dJacobiGetEFS(jac,N,topo,bdeg,rule,efs);dCHK(err);
+  err = dJacobiGetEFS(jac,N,topo,bdeg,rule,&efs);dCHK(err);
   if (showefs) {
     for (dInt i=0; i<N; i++) {
       err = dPrintf(comm,"EFS for element %d\n",i);dCHK(err);
-      err = dEFSView(&efs[i],viewer);dCHK(err);
+      err = dEFSView(efs[i],viewer);dCHK(err);
     }
   }
 
@@ -337,7 +338,6 @@ int main(int argc,char *argv[])
     default: dERROR(1,"exact solution %d not implemented",ex);
   }
   err = dJacobiCreate(comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = checkRulesAndEFS(jac);dCHK(err);
   err = dJacobiDestroy(jac);dCHK(err);

@@ -27,7 +27,7 @@ static dErr TensorRuleDestroy(TensorRule rule)
   dFunctionReturn(0);
 }
 
-static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dInt size,TensorRule *rule)
+static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt size,TensorRule *rule)
 {
   dErr err;
   int key,new;
@@ -37,8 +37,8 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dInt size,TensorRule *rule)
   *rule = 0;
   if (!(0 < size && size < 50)) dERROR(1,"rule size out of bounds.");
   if (tnsr->family != GAUSS) dERROR(1,"GaussFamily %d not supported",tnsr->family);
-  key = ((int)tnsr->family << 16) | size;
-  kiter = kh_put_rule(tnsr->rules,key,&new);
+  key = ((uint32_t)method) << 8 | size;
+  kiter = kh_put_tensor(tnsr->tensor,key,&new);
   if (new) {
     TensorRule r;
 
@@ -51,51 +51,55 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dInt size,TensorRule *rule)
     } else {
       zwgj(r->coord,r->weight,size,tnsr->alpha,tnsr->beta); /* polylib function */
     }
-    kh_val(tnsr->rules,kiter) = r;
+    kh_val(tnsr->tensor,kiter) = r;
   }
-  *rule = kh_val(tnsr->rules,kiter);
+  *rule = kh_val(tnsr->tensor,kiter);
   dFunctionReturn(0);
 }
 
-static dErr dQuadratureGetRule_Tensor_Private(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
+static dErr dQuadratureGetRule_Tensor_Private(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule rules[],dQuadratureMethod method)
 {
   dQuadrature_Tensor *tnsr = quad->data;
-  dRule_Tensor *rule = (dRule_Tensor*)firstrule;
   dErr err;
 
   dFunctionBegin;
   for (dInt i=0; i<n; i++) {
-    switch (topo[i]) {
-      case dTOPO_LINE:
-        rule[i].ops = tnsr->ruleOpsLine;
-        err = TensorGetRule(tnsr,method,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        if (rsize[3*i+1] != 1 || rsize[3*i+2] != 1)
-          dERROR(1,"Invalid rule size for Line");
-        rule[i].trule[1] = rule[i].trule[2] = NULL;
-        break;
-      case dTOPO_QUAD:
-        rule[i].ops = tnsr->ruleOpsQuad;
-        err = TensorGetRule(tnsr,method,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        err = TensorGetRule(tnsr,method,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
-        if (rsize[3*i+2] != 1) dERROR(1,"Invalid rule size for Line");
-        rule[i].trule[2] = NULL;
-        break;
-      case dTOPO_HEX:
-        rule[i].ops = tnsr->ruleOpsHex;
-        err = TensorGetRule(tnsr,method,rsize[3*i+0],&rule[i].trule[0]);dCHK(err);
-        err = TensorGetRule(tnsr,method,rsize[3*i+1],&rule[i].trule[1]);dCHK(err);
-        err = TensorGetRule(tnsr,method,rsize[3*i+2],&rule[i].trule[2]);dCHK(err);
-        break;
-      default: dERROR(1,"no rule available for given topology");
+    int       new;
+    khint64_t key   = ((uint64_t)topo[i]) << 32 | ((uint64_t)order[i]);
+    khiter_t   kiter = kh_put_rule(tnsr->rules,key,&new);
+    if (new) {
+      dRule_Tensor *newrule;
+      err = dNewLog(quad,dRule_Tensor,&newrule);dCHK(err);
+      newrule->topo = topo[i];
+      switch (topo[i]) {
+        case dTOPO_LINE:
+          err = dMemcpy(&newrule->ops,tnsr->ruleOpsLine,sizeof(struct _dRuleOps));dCHK(err);
+          err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],0),&newrule->trule[0]);dCHK(err);
+          break;
+        case dTOPO_QUAD:
+          err = dMemcpy(&newrule->ops,tnsr->ruleOpsQuad,sizeof(struct _dRuleOps));dCHK(err);
+          err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],0),&newrule->trule[0]);dCHK(err);
+          err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],1),&newrule->trule[1]);dCHK(err);
+          break;
+        case dTOPO_HEX:
+          err = dMemcpy(&newrule->ops,tnsr->ruleOpsHex,sizeof(struct _dRuleOps));dCHK(err);
+          err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],0),&newrule->trule[0]);dCHK(err);
+          err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],1),&newrule->trule[1]);dCHK(err);
+          err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],2),&newrule->trule[2]);dCHK(err);
+          break;
+        default: dERROR(1,"no rule available for given topology");
+      }
+      kh_val(tnsr->rules,kiter) = newrule;
     }
+    rules[i] = (dRule)kh_val(tnsr->rules,kiter);
   }
   dFunctionReturn(0);
 }
 
-static dErr dQuadratureGetRule_Tensor_FAST(Quadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
-{return dQuadratureGetRule_Tensor_Private(quad,n,topo,rsize,firstrule,dQUADRATURE_METHOD_FAST);}
-static dErr dQuadratureGetRule_Tensor_SPARSE(Quadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
-{return dQuadratureGetRule_Tensor_Private(quad,n,topo,rsize,firstrule,dQUADRATURE_METHOD_SPARSE);}
+static dErr dQuadratureGetRule_Tensor_FAST(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule rules[])
+{return dQuadratureGetRule_Tensor_Private(quad,n,topo,order,rules,dQUADRATURE_METHOD_FAST);}
+static dErr dQuadratureGetRule_Tensor_SPARSE(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule rules[])
+{return dQuadratureGetRule_Tensor_Private(quad,n,topo,order,rules,dQUADRATURE_METHOD_SPARSE);}
 
 static dErr dQuadratureDestroy_Tensor(dQuadrature quad)
 {
@@ -104,11 +108,18 @@ static dErr dQuadratureDestroy_Tensor(dQuadrature quad)
   khiter_t k;
 
   dFunctionBegin;
-  for (k=kh_begin(tnsr->rules); k!= kh_end(tnsr->rules); k++) {
+  /* Destroy all the cached (n-dimensional) rules */
+  for (k=kh_begin(tnsr->rules); k!=kh_end(tnsr->rules); k++) {
     if (!kh_exist(tnsr->rules,k)) continue;
-    err = TensorRuleDestroy(kh_val(tnsr->rules,k));dCHK(err);
+    err = dFree(kh_val(tnsr->rules,k));dCHK(err);
   }
   kh_destroy_rule(tnsr->rules);
+  /* Destroy all cached 1D tensor rules */
+  for (k=kh_begin(tnsr->tensor); k!= kh_end(tnsr->tensor); k++) {
+    if (!kh_exist(tnsr->tensor,k)) continue;
+    err = TensorRuleDestroy(kh_val(tnsr->tensor,k));dCHK(err);
+  }
+  kh_destroy_tensor(tnsr->tensor);
   if (tnsr->ruleOpsLine) { err = dFree(tnsr->ruleOpsLine);dCHK(err); }
   if (tnsr->ruleOpsQuad) { err = dFree(tnsr->ruleOpsQuad);dCHK(err); }
   if (tnsr->ruleOpsHex)  { err = dFree(tnsr->ruleOpsHex);dCHK(err); }
@@ -129,29 +140,54 @@ static dErr dQuadratureView_Tensor(dQuadrature quad,PetscViewer viewer)
   err = PetscViewerASCIIPrintf(viewer,"alpha %g  beta %g\n",tnsr->alpha,tnsr->beta);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Tensor rules:\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-  for (khiter_t k=kh_begin(tnsr->rules); k!= kh_end(tnsr->rules); k++) {
-    err = TensorRuleView(kh_val(tnsr->rules,k),viewer);dCHK(err);
+  for (khiter_t k=kh_begin(tnsr->tensor); k!= kh_end(tnsr->tensor); k++) {
+    err = TensorRuleView(kh_val(tnsr->tensor,k),viewer);dCHK(err);
   }
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   dFunctionReturn(0);
 }
 
-static dErr dQuadratureSetFromOptions_Tensor(dQuadrature quad)
+static dErr dQuadratureSetMethod_Tensor(dQuadrature quad,dQuadratureMethod method)
 {
   dQuadrature_Tensor *tnsr = quad->data;
 
   dFunctionBegin;
-  if (!tnsr) SETERRQ(1,"void");
+  tnsr->method = method;
+  switch (method) {
+    case dQUADRATURE_METHOD_FAST:
+      quad->ops->GetRule = dQuadratureGetRule_Tensor_FAST; break;
+    case dQUADRATURE_METHOD_SPARSE:
+      quad->ops->GetRule = dQuadratureGetRule_Tensor_SPARSE; break;
+    default: dERROR(PETSC_ERR_SUP,"Quadrature method '%s'",dQuadratureMethods[method]);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dQuadratureSetFromOptions_Tensor(dQuadrature quad)
+{
+  dQuadrature_Tensor *tnsr  = quad->data;
+  dQuadratureMethod  method = dQUADRATURE_METHOD_FAST;
+  dTruth             flg;
+  dErr               err;
+
+  dFunctionBegin;
+  err = PetscOptionsHead("Quadrature Tensor Options");dCHK(err);
+  err = PetscOptionsEnum("-dquad_tensor_method","Quadrature method","dQuadratureSetMethod",dQuadratureMethods,tnsr->method,(PetscEnum*)&method,&flg);dCHK(err);
+  if (flg || !quad->ops->GetRule) {
+    err = dQuadratureSetMethod(quad,method);dCHK(err);
+  }
+  err = PetscOptionsTail();dCHK(err);
   dFunctionReturn(0);
 }
 
 dErr dQuadratureCreate_Tensor(dQuadrature quad)
 {
   static const struct _dQuadratureOps myops = {
-    .View = dQuadratureView_Tensor,
-    .Destroy = dQuadratureDestroy_Tensor,
-    .GetRule = dQuadratureGetRule_Tensor,
+    .View           = dQuadratureView_Tensor,
+    .Destroy        = dQuadratureDestroy_Tensor,
+    .GetRule        = 0,        /* Does not exist until method is set */
     .SetFromOptions = dQuadratureSetFromOptions_Tensor,
+    .SetMethod      = dQuadratureSetMethod_Tensor,
   };
   dQuadrature_Tensor *tnsr;
   dErr err;
@@ -161,7 +197,8 @@ dErr dQuadratureCreate_Tensor(dQuadrature quad)
   err = dNewLog(quad,dQuadrature_Tensor,&tnsr);dCHK(err);
   quad->data = tnsr;
 
-  tnsr->rules = kh_init_rule();
+  tnsr->tensor = kh_init_tensor();
+  tnsr->rules  = kh_init_rule();
   tnsr->family = GAUSS;
   tnsr->alpha = 0.;
   tnsr->beta = 0.;

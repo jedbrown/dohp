@@ -1,4 +1,4 @@
-#include "tensor.h"
+#include "tensorimpl.h"
 #include <dohpmesh.h>
 #include <dohpgeom.h>
 
@@ -31,18 +31,6 @@ _F(dEFSApply_Tensor_Hex);
 //_F(dEFSGetGlobalCoordinates_Tensor_Quad);
 _F(dEFSGetGlobalCoordinates_Tensor_Hex);
 #undef _F
-#if 0
-# define _F(f) static dErr f(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
-_F(dEFSScatterInt_Tensor_Line);
-_F(dEFSScatterInt_Tensor_Quad);
-_F(dEFSScatterInt_Tensor_Hex);
-# undef _F
-# define _F(f) static dErr f(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterFacet */
-_F(dEFSScatterFacet_Tensor_Line);
-_F(dEFSScatterFacet_Tensor_Quad);
-_F(dEFSScatterFacet_Tensor_Hex);
-# undef _F
-#endif
 
 #define _F(f) static dErr f(dRule,const dReal[],dInt,const dScalar[],dScalar[],InsertMode)
 _F(dRuleMappingApply_Tensor_Line);
@@ -80,50 +68,44 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
   static const struct _dEFSOps efsOpsLine = { .view                 = dEFSView_Tensor_Line,
                                               .getSizes             = dEFSGetSizes_Tensor_Line,
                                               .getTensorNodes       = dEFSGetTensorNodes_Tensor_Line,
-                                              .apply                = dEFSApply_Tensor_Line,
-                                              .scatterInt           = 0,
-                                              .scatterFacet         = 0 };
+                                              .apply                = dEFSApply_Tensor_Line};
   static const struct _dEFSOps efsOpsQuad = { .view                 = dEFSView_Tensor_Quad,
                                               .getSizes             = dEFSGetSizes_Tensor_Quad,
                                               .getTensorNodes       = dEFSGetTensorNodes_Tensor_Quad,
-                                              .apply                = dEFSApply_Tensor_Quad,
-                                              .scatterInt           = 0,
-                                              .scatterFacet         = 0 };
+                                              .apply                = dEFSApply_Tensor_Quad};
   static const struct _dEFSOps efsOpsHex = { .view                 = dEFSView_Tensor_Hex,
                                              .getSizes             = dEFSGetSizes_Tensor_Hex,
                                              .getTensorNodes       = dEFSGetTensorNodes_Tensor_Hex,
                                              .apply                = dEFSApply_Tensor_Hex,
-                                             .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex,
-                                             .scatterInt           = 0,
-                                             .scatterFacet         = 0 };
-  Tensor this = (Tensor)jac->data;
+                                             .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex};
+  dJacobi_Tensor *tnsr = jac->data;
   dErr err;
 
   dFunctionBegin;
-  if (!this->efsOpsLine) {
-    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsLine);dCHK(err);
-    err = dMemcpy(this->efsOpsLine,&efsOpsLine,sizeof(struct _dEFSOps));
+  if (!tnsr->efsOpsLine) {
+    err = dMalloc(sizeof(struct _dEFSOps),&tnsr->efsOpsLine);dCHK(err);
+    err = dMemcpy(tnsr->efsOpsLine,&efsOpsLine,sizeof(struct _dEFSOps));
   }
-  if (!this->efsOpsQuad) {
-    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsQuad);dCHK(err);
-    err = dMemcpy(this->efsOpsQuad,&efsOpsQuad,sizeof(struct _dEFSOps));
+  if (!tnsr->efsOpsQuad) {
+    err = dMalloc(sizeof(struct _dEFSOps),&tnsr->efsOpsQuad);dCHK(err);
+    err = dMemcpy(tnsr->efsOpsQuad,&efsOpsQuad,sizeof(struct _dEFSOps));
   }
-  if (!this->efsOpsHex) {
-    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsHex);dCHK(err);
-    err = dMemcpy(this->efsOpsHex,&efsOpsHex,sizeof(struct _dEFSOps));
+  if (!tnsr->efsOpsHex) {
+    err = dMalloc(sizeof(struct _dEFSOps),&tnsr->efsOpsHex);dCHK(err);
+    err = dMemcpy(tnsr->efsOpsHex,&efsOpsHex,sizeof(struct _dEFSOps));
   }
   dFunctionReturn(0);
 }
 
 dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac)
 {
-  Tensor this = (Tensor)jac->data;
+  dJacobi_Tensor *tnsr = jac->data;
   dErr err;
 
   dFunctionBegin;
-  if (this->efsOpsLine) { err = dFree(this->efsOpsLine);dCHK(err); }
-  if (this->efsOpsQuad) { err = dFree(this->efsOpsQuad);dCHK(err); }
-  if (this->efsOpsHex)  { err = dFree(this->efsOpsHex);dCHK(err); }
+  err = dFree(tnsr->efsOpsLine);dCHK(err);
+  err = dFree(tnsr->efsOpsQuad);dCHK(err);
+  err = dFree(tnsr->efsOpsHex);dCHK(err);
   dFunctionReturn(0);
 }
 

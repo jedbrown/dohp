@@ -27,7 +27,7 @@ dErr dQuotientUpdate(dQuotient q)
   } else {
     dERROR(1,"No update function given");
   }
-  PetscObjectStateIncrease((PetscObject)q);
+  err = PetscObjectStateIncrease((PetscObject)q);dCHK(err);
   dFunctionReturn(0);
 }
 

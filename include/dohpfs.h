@@ -20,6 +20,7 @@ extern dCookie dFSROT_COOKIE;
 
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;
+typedef struct _n_dRuleSet *dRuleSet;
 
 /** User-provided constraint function.
 * @param ctx User context
@@ -68,18 +69,22 @@ extern dErr dFSExpandedToLocal(dFS,Vec,Vec,InsertMode);
 extern dErr dFSLocalToExpanded(dFS,Vec,Vec,InsertMode);
 extern dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc);
 extern dErr dFSRotateGlobal(dFS,Vec,dFSRotateMode,dFSHomogeneousMode);
-extern dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
-extern dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
+#if 0
+extern dErr dFSGetElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
+extern dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 extern dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
 extern dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
+#endif
 extern dErr dFSMatSetValuesBlockedExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
 extern dErr dFSGetMatrix(dFS,const MatType,Mat*);
 extern dErr dFSBuildSpace(dFS);
 extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
 extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
 
-extern dErr dFSRegisterGlobalQuadrature(dFS,const char[],dInt,dRule);
-extern dErr dFSGetPreferredQuadratureRules(dFS,dQuadratureMethod,dInt*,dRule*);
+extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dQuadratureMethod,dRuleSet*);
+extern dErr dFSGetEFS(dFS,dRuleSet,dInt*,dEFS**);
+extern dErr dFSRestoreEFS(dFS,dRuleSet,dInt*,dEFS**);
+extern dErr dRuleSetDestroy(dRuleSet);
 
 extern dErr dFSDestroy(dFS);
 extern dErr dFSView(dFS,dViewer);

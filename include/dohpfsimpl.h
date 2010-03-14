@@ -34,12 +34,19 @@ typedef struct {
   dScalar *u,*v,*du,*dv;
 } s_dFSWorkspace;
 
+struct _n_dRuleSet {
+  dMesh mesh;
+  dMeshESH set;
+  dInt n;
+  dRule *rules;
+};
 
 struct _dFSIntegrationLink {
+  char *name;
   dQuadrature quad;
-  s_dRule *rule;
-  s_dEFS  *efs;
-  struct _dFSIntegrationLink next;
+  dRule *rule;
+  dEFS  *efs;
+  struct _dFSIntegrationLink *next;
 };
 
 struct _dFSOps {

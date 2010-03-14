@@ -295,7 +295,7 @@ dErr dFSDestroy(dFS fs)
   err = ISLocalToGlobalMappingDestroy(fs->bmapping);dCHK(err);
   err = ISLocalToGlobalMappingDestroy(fs->mapping);dCHK(err);
   err = dFree(fs->off);dCHK(err);
-  for (struct _dFSIntegrationLink link=fs->integration,tmp; link; link=tmp) {
+  for (struct _dFSIntegrationLink *link=fs->integration,*tmp; link; link=tmp) {
     err = dFree(link->name);dCHK(err);
     err = dFree2(link->rule,link->efs);dCHK(err);
     tmp = link->next;
@@ -542,36 +542,6 @@ static dErr dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIntegratio
   dFunctionReturn(0);
 }
 
-/** Registers a quadrature to be used when integrating in this function space.  This registration enables an arbitrary
-* amount of caching by the dFS.
-*
-* @note It is common to register at least two quadratures, one for evaluating residuals using high-order basis functions
-* and an efficient Gauss quadrature, and one for assembling matrices on the Q_1 subelements.
-**/
-dErr dFSRegisterGlobalQuadrature(dFS fs,const char *name,dInt n,dRule rule)
-{
-  struct _dFSIntegrationLink *link;
-  dErr err;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidCharPointer(name,2);
-  if (n != fs->nelem) dERROR(PETSC_ERR_ARG_INCOMP,"sizes don't agree");
-  err = dFSIntegrationFindLink(fs,name,&link);dCHK(err);
-  for (link=fs->integration; link && link->next; link=link->next) {
-    if (!strcmp(name,link->name))
-      dERROR(1,"Integration \"%s\" already registered",name);
-  }
-  if (!link) dERROR(PETSC_ERR_PLIB,"unexpected");
-  err = dNew(struct _dFSIntegrationLink,&link->next);dCHK(err);
-  link = link->next;
-  err = PetscStrallocpy(name,&link->name);dCHK(err);
-  err = dMallocA2(n,&link->rule,n,&link->efs);dCHK(err);
-  err = dMemcpy(link->rule,rule,n*sizeof(rule[0]));dCHK(err);
-  err = dJacobiGetEFS(fs->jacobi,n,regTopo,regBDeg,link->rule,link->efs);dCHK(err);
-  dFunctionReturn(0);
-}
-
 /** This is a fairly high-level function to get the preferred quadrature for this FS.  Usually the FS with the highest
 * order elements, or the physics with the most aliasing problems, is used to define the quadrature on which all
 * components are integrated.
@@ -582,76 +552,89 @@ dErr dFSRegisterGlobalQuadrature(dFS fs,const char *name,dInt n,dRule rule)
 * @note This function should accept the "domain" (perhaps just a mesh set) on which the integration is being performed.
 *
 **/
-dErr dFSGetPreferredQuadratureRules(dFS fs,dQuadratureMethod method,dInt *nrules,dRule *rules)
+dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dQuadratureMethod method,dRuleSet *ruleset)
 {
-  dInt nregions = fs->nelem,*regTopo,*regBDeg,*regRDeg,ents_a=0,ents_s;
-  dQuadrature quad;
-  dMeshEH *ents;
-  dErr err;
+  dInt             ents_a,ents_s;
+  dEntTopology     *topo;
+  dPolynomialOrder *order;
+  dQuadrature      quad;
+  dRuleSet         rset;
+  dMeshEH          *ents;
+  dErr             err;
 
   dFunctionBegin;
-  err = dMallocA4(nregions,&ents,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg);dCHK(err);
-  err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-  err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions*3,dDATA_INT);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,regRDeg,nregions*3,dDATA_INT);dCHK(err);
-  for (dInt i=0; i<3*nregions; i++) {
-    regRDeg[i] = dMaxInt(regRDeg[i],regBDeg[i]+fs->ruleStrength);
+  *ruleset = NULL;
+  err = dMeshGetNumEnts(fs->mesh,set,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
+  err = dMallocA3(ents_a,&ents,ents_a,&topo,ents_a,&order);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,set,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetTopo(fs->mesh,ents_s,ents,topo);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->degreetag,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
+
+  /* Request exact integration of a mass matrix.  More generally, the required order should be based on the order of the
+   * adjacent elements, and perhaps also the physics.
+   */
+  for (dInt i=0; i<ents_s; i++) {
+    order[i] = dPolynomialOrderCreate(dSqrInt(dPolynomialOrderMax(order[i])),
+                                      dSqrInt(dPolynomialOrder1D(order[i],0)),
+                                      dSqrInt(dPolynomialOrder1D(order[i],1)),
+                                      dSqrInt(dPolynomialOrder1D(order[i],2)));
   }
-  /* Get the "native" quadrature Rule and EFS for this space */
-  *nrules = nregions;
-  err = dMallocA(nregions,rule);dCHK(err);
+
+  err = dNew(struct _n_dRuleSet,&rset);dCHK(err);
+  err = dFSGetMesh(fs,&rset->mesh);dCHK(err);
+  rset->set = set;
+  rset->n = ents_s;
   err = dJacobiGetQuadrature(fs->jacobi,method,&quad);dCHK(err);
-  switch (method) {
-    case dQUADRATURE_METHOD_FAST:
-      err = dQuadratureGetRule(quad,nregions,regTopo,regRDeg,*rules);dCHK(err);
-      break;
-    case dQUADRATURE_METHOD_SPARSE:
-      /* For sparse assembly, it doesn't matter what the preferred rule order was because we'll be integrating on Q_1
-      * subelements (typically with standard Gauss quadrature) in each subelement.  Thus the relevant value to be passed
-      * in is the basis degree since this allows creation of a rule that understands subelements. */
-      err = dQuadratureGetRule(quad,nregions,regTopo,regBDeg,*rules);dCHK(err);
-      break;
-    default: SETERRQ(PETSC_ERR_ARG_OUTOFRANGE,"unknown QuadratureMethod");
-  }
+  err = dQuadratureGetRules(quad,ents_s,topo,order,&rset->rules);dCHK(err);
+  err = dFree3(ents,topo,order);dCHK(err);
+  *ruleset = rset;
   dFunctionReturn(0);
 }
 
-dErr dFSGetElements(dFS fs,const char *name,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
+dErr dRuleSetDestroy(dRuleSet rset)
 {
-  struct _dFSIntegrationLink *link;
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidCharPointer(name,2);
-  err = dFSIntegrationFindLink(fs,name,&link);dCHK(err);
-  if (n)       *n       = fs->nelem;
-  if (off)     *off     = fs->off;
-  if (rule)    *rule    = link->rule;
-  if (efs)     *efs     = link->efs;
-  if (geomoff) *geomoff = fs->vtxoff;
-  if (geom)    *geom    = fs->vtx;
+  err = dFree(rset->rules);dCHK(err);
+  err = dFree(rset);dCHK(err);
   dFunctionReturn(0);
 }
 
-dErr dFSRestoreElements(dFS fs,const char *name,dInt *n,dInt *restrict*off,s_dRule *restrict*rule,s_dEFS *restrict*efs,dInt *restrict*geomoff,dReal (*restrict*geom)[3])
+dErr dFSGetEFS(dFS fs,dRuleSet rset,dInt *n,dEFS **efs)
 {
-  struct _dFSIntegrationLink *link;
+  dErr             err;
+  dInt             ents_a,ents_s;
+  dPolynomialOrder *order;
+  dEntTopology     *topo;
+  dMeshEH          *ents;
+  dJacobi          jac;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidCharPointer(name,2);
-  err = dFSIntegrationFindLink(fs,name,&link);dCHK(err);
-  if (n)       *n       = 0;
-  if (off)     *off     = NULL;
-  if (rule)    *rule    = NULL;
-  if (efs)     *efs     = NULL;
-  if (geomoff) *geomoff = NULL;
-  if (geom)    *geom    = NULL;
+  err = dMeshGetNumEnts(fs->mesh,rset->set,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
+  err = dMallocA3(ents_a,&ents,ents_a,&topo,ents_a,&order);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,rset->set,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetTopo(fs->mesh,ents_s,ents,topo);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->degreetag,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
+  /* @bug Only correct for volume integrals. */
+  *n = rset->n;
+  dFSGetJacobi(fs,&jac);dCHK(err);
+  err = dJacobiGetEFS(jac,ents_s,topo,order,rset->rules,efs);dCHK(err);
+  err = dFree3(ents,topo,order);dCHK(err);
   dFunctionReturn(0);
 }
 
+dErr dFSRestoreEFS(dFS dUNUSED fs,dRuleSet dUNUSED rset,dInt *n,dEFS **efs)
+{
+  dErr err;
+
+  dFunctionBegin;
+  *n = 0;
+  err = dFree(*efs);dCHK(err);
+  dFunctionReturn(0);
+}
+
+#if 0
 /** Get arrays sufficiently large to hold the necessary quantities on the highest order element present in the mesh.
 *
 * @param fs
@@ -745,6 +728,7 @@ dErr dFSRestoreWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (
 #undef dCHECK_NULLIFY
   dFunctionReturn(0);
 }
+#endif
 
 static dErr MatGetVecs_DohpFS(Mat A,Vec *x,Vec *y)
 {

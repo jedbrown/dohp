@@ -963,10 +963,10 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
 {
   dMeshTag rtag;
   dMeshEH *ents;
-  dInt nents,toff[dTYPE_ALL+1],*rdeg;
+  dInt nents,toff[dTYPE_ALL+1];
+  dPolynomialOrder *rdeg;
   dEntTopology *topo;
   dEntType firstType;
-  s_dRule *rules;
   dErr err;
 
   dFunctionBegin;
@@ -984,7 +984,7 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
     toff[type+1] = toff[type] + t;
   }
   nents = toff[dTYPE_ALL];
-  err = dMallocA4(nents,&ents,nents,&topo,3*nents,&rdeg,nents,&rules);dCHK(err);
+  err = dMallocA3(nents,&ents,nents,&topo,nents,&rdeg);dCHK(err);
   for (dEntType type=firstType; type<dTYPE_ALL; type++) {
     err = dMeshGetEnts(mesh,set,type,dTOPO_ALL,ents+toff[type],toff[type+1]-toff[type],NULL);dCHK(err);
   }
@@ -1001,7 +1001,7 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
   //err = dJacobiGetRule(jac,nents,topo,rdeg,rules);dCHK(err);
   //err = dMeshTagSetData(mesh,rtag,ents,nents,rules,nents*(dInt)sizeof(s_dRule),dDATA_BYTE);dCHK(err);
   err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,3,dDATA_INT);dCHK(err);
-  err = dFree4(ents,topo,rdeg,rules);dCHK(err);
+  err = dFree3(ents,topo,rdeg);dCHK(err);
   *inrtag = rtag;
   dFunctionReturn(0);
 }

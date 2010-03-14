@@ -11,9 +11,11 @@ typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
 extern const char *GaussFamilies[];
 
 /**
-* There is exactly one #dRule on each element.  The ops table is normally shared across the domain.
-*
-*/
+* The Ops table is directly included in the dRule struct.  There should only be one ops table for each quadrature order
+* (the dQuadrature object manages this), and it's common to have optimized versions of some of these operations.  Even
+* if generic functions are used for all the ops, there will never be huge numbers of distinct rule orders, and we'd
+* prefer to save the indirection.
+**/
 struct _dRuleOps {
   dErr (*view)(dRule,dViewer);
   dErr (*getSize)(dRule,dInt*,dInt*); /**< topological dimension of the space, total number of nodes */
@@ -23,6 +25,14 @@ struct _dRuleOps {
                                                                                * each direction.  Does not copy, may not
                                                                                * be implemented.  */
   dErr (*computeGeometry)(dRule,const dReal[restrict][3],dReal[restrict][3],dReal[restrict][3][3],dReal[restrict]);
+};
+
+#define dRuleHEADER                             \
+  struct _dRuleOps ops
+
+/** This struct is never instantiated. */
+struct s_dRule {
+  dRuleHEADER;
 };
 
 /**
@@ -35,13 +45,18 @@ struct _dEFSOps {
   dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,const dReal**);
   dErr (*apply)(dEFS,const dReal[],dInt,const dScalar[],dScalar[],dApplyMode,InsertMode);
   dErr (*getGlobalCoordinates)(dEFS,const dReal(*)[3],dInt*,dInt[],dReal(*)[3]);
-  /**< dofs/node, work length, work, modal values, nodal values */
-  dErr (*scatterInt)(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
-  /**
-  * @bug It's not yet clear to me how to implement this.
-  *
-  */
-  dErr (*scatterFacet)(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode);
+};
+
+/**
+* Like dRule, the ops table is inlined.
+*/
+#define dEFSHEADER                             \
+  struct _dEFSOps ops;                         \
+  dRule           rule
+
+/** This struct is never instantiated */
+struct s_dEFS {
+  dEFSHEADER;
 };
 
 /**
@@ -53,12 +68,12 @@ struct _dJacobiOps {
   dErr (*SetFromOptions)(dJacobi);
   dErr (*Destroy)(dJacobi);
   dErr (*View)(dJacobi,dViewer);
-  dErr (*PropogateDown)(dJacobi,dMeshAdjacency,dInt[]);
-  dErr (*GetEFS)(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
+  dErr (*PropogateDown)(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
+  dErr (*GetEFS)(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],const dRule[],dEFS[]);
   dErr (*GetNodeCount)(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
   dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,dInt[],dInt[]);
   dErr (*AddConstraints)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,Mat,Mat);
-  dErr (*GetQuadrature)(dJacobi,dQuadrature*);
+  dErr (*GetQuadrature)(dJacobi,dQuadratureMethod,dQuadrature*);
 };
 
 /**
@@ -76,8 +91,9 @@ struct p_dJacobi {
 
 struct _dQuadratureOps {
   dErr (*View)(dQuadrature,PetscViewer);
-  dErr (*GetRule)(dQuadrature,dInt,const dEntTopology[],const dInt[],dRule);
+  dErr (*GetRule)(dQuadrature,dInt,const dEntTopology[],const dPolynomialOrder[],dRule[]);
   dErr (*SetFromOptions)(dQuadrature);
+  dErr (*SetMethod)(dQuadrature,dQuadratureMethod);
   dErr (*Destroy)(dQuadrature);
 };
 

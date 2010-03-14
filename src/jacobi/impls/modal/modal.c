@@ -199,7 +199,9 @@ static dErr dJacobiDestroy_Modal(dJacobi jac)
     }
     kh_destroy_modal(bases);
   }
-  if (jac->quad) {err = dQuadratureDestroy(jac->quad);dCHK(err);}
+  for (dQuadratureMethod m=0; m<dQUADRATURE_METHOD_INVALID; m++) {
+    if (jac->quad[m]) {err = dQuadratureDestroy(jac->quad[m]);dCHK(err);}
+  }
   err = dFree3(modal->efsOpsLine,modal->efsOpsQuad,modal->efsOpsHex);dCHK(err);
   err = dFree(modal);dCHK(err);
   dFunctionReturn(0);
@@ -308,52 +310,47 @@ static dErr dJacobiAddConstraints_Modal(dJacobi dUNUSED jac,dInt nx,const dInt x
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetEFS_Modal(dJacobi jac,dInt n,const dEntTopology topo[],const dInt bsize[],dRule rules,dEFS firstefs)
+static dErr dJacobiGetEFS_Modal(dJacobi jac,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],const dRule rules[],dEFS efs[])
 {
   dJacobi_Modal *modal = jac->data;
-  dEFS_Modal    *efs   = (dEFS_Modal*)firstefs;
-  dInt          rdim,rsize;
-  dReal         rcoord[256][3];
-  int           key,new;
-  khiter_t      k;
   dErr          err;
 
   dFunctionBegin;
   for (dInt i=0; i<n; i++) {
-    khash_t(modal) *efshash = modal->topo[topo[i]];
-    err = dRuleGetSize(&rules[i],&rdim,&rsize);dCHK(err);
-    if (rsize > 256) dERROR(PETSC_ERR_SUP,"rule is too big");
-    key = ((unsigned)topo[i] << 16) | bsize[3*i+0];
-    k = kh_put_modal(efshash,key,&new);dCHK(err);
-    err = dRuleGetNodeWeight(&rules[i],&rcoord[0][0],NULL);dCHK(err);
-    err = dMemzero(&efs[i],sizeof(dEFS_Modal));dCHK(err);
-    switch (topo[i]) {
-      case dTOPO_LINE:
-        if (rdim != 1) dERROR(1,"Incompatible Rule dim %d, expected 1",rdim);
-        efs[i].ops = modal->efsOpsLine;
-        efs[i].rule = &rules[i];
-        err = dJacobiModalGetBasis(jac,dTOPO_LINE,rsize,rcoord[0],bsize[3*i+0]-1,&efs[i].basis);dCHK(err);
-        if (bsize[3*i+1] != 1 || bsize[3*i+2] != 1)
-          dERROR(1,"Invalid basis size for Line");
-        break;
-      case dTOPO_QUAD:
-        if (rdim != 2) dERROR(1,"Incompatible Rule dim %d, expected 2",rdim);
-        efs[i].ops = modal->efsOpsQuad;
-        efs[i].rule = &rules[i];
-        err = dJacobiModalGetBasis(jac,dTOPO_QUAD,rsize,rcoord[0],bsize[3*i+0]-1,&efs[i].basis);dCHK(err);
-        if (bsize[3*i+0] != bsize[3*i+1]) dERROR(PETSC_ERR_SUP,"anisotropic modal bases");
-        if (bsize[3*i+2] != 1) dERROR(1,"Invalid basis size for Quad");
-        break;
-      case dTOPO_HEX:
-        if (rdim != 3) dERROR(1,"Incompatible Rule size %d, expected 3",rdim);
-        efs[i].ops = modal->efsOpsHex;
-        efs[i].rule = &rules[i];
-        err = dJacobiModalGetBasis(jac,dTOPO_HEX,rsize,rcoord[0],bsize[3*i+0]-1,&efs[i].basis);dCHK(err);
-        if (bsize[3*i+0] != bsize[3*i+1] || bsize[3*i+0] != bsize[3*i+2]) dERROR(PETSC_ERR_SUP,"anisotropic modal bases");
-        break;
-      default:
-        dERROR(1,"no basis available for given topology");
+    int new;
+    khint64_t key = 1;          /* FIXME */
+    khiter_t kiter = kh_put_efs(modal->efs,key,&new);
+    if (new) {
+      dEFS_Modal *newefs;
+      dReal      rcoord[256][3];
+      dInt       rdim,rsize;
+      err = dRuleGetSize(rules[i],&rdim,&rsize);dCHK(err);
+      err = dRuleGetNodeWeight(rules[i],&rcoord[0][0],NULL);dCHK(err);
+      err = dNewLog(jac,dEFS_Modal,&newefs);dCHK(err);
+      newefs->topo = topo[i];
+      newefs->rule = rules[i];
+      switch (topo[i]) {
+        case dTOPO_LINE:
+          if (rdim != 1) dERROR(1,"Incompatible Rule dim %d, expected 1",rdim);
+          newefs->ops = *modal->efsOpsLine;
+          err = dJacobiModalGetBasis(jac,dTOPO_LINE,rsize,rcoord[0],dPolynomialOrderMax(order[i]),&newefs->basis);dCHK(err);
+          break;
+        case dTOPO_QUAD:
+          if (rdim != 2) dERROR(1,"Incompatible Rule dim %d, expected 2",rdim);
+          newefs->ops = *modal->efsOpsQuad;
+          err = dJacobiModalGetBasis(jac,dTOPO_QUAD,rsize,rcoord[0],dPolynomialOrderMax(order[i]),&newefs->basis);dCHK(err);
+          break;
+        case dTOPO_HEX:
+          if (rdim != 3) dERROR(1,"Incompatible Rule size %d, expected 3",rdim);
+          newefs->ops = *modal->efsOpsHex;
+          err = dJacobiModalGetBasis(jac,dTOPO_HEX,rsize,rcoord[0],dPolynomialOrderMax(order[i]),&newefs->basis);dCHK(err);
+          break;
+        default:
+          dERROR(1,"no basis available for given topology");
+      }
+      kh_val(modal->efs,kiter) = newefs;
     }
+    efs[i] = (dEFS)kh_val(modal->efs,kiter);
   }
   dFunctionReturn(0);
 }
@@ -374,9 +371,6 @@ dErr dJacobiCreate_Modal(dJacobi jac)
   dErr err;
 
   dFunctionBegin;
-  if (sizeof(dEFS_Modal) != sizeof(s_dEFS))
-    dERROR(PETSC_ERR_PLIB,"sizeof(dEFS_Modal) %zd != sizeof(s_dEFS) %zd",sizeof(dEFS_Modal),sizeof(s_dEFS));
-
   err = dMemcpy(jac->ops,&myops,sizeof myops);dCHK(err);
   err = dNewLog(jac,dJacobi_Modal,&modal);dCHK(err);
   jac->data = modal;

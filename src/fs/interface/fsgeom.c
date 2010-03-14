@@ -8,13 +8,14 @@
 **/
 dErr dFSGetCoordinates(dFS fs,Vec *inx)
 {
-  dErr          err;
-  dInt          n,*off,*geomoff;
-  Mat           E1,Ebs;
-  Vec           xc,xx,xc1,xx1;
-  dScalar      *count,*x;
-  dReal       (*qx)[3],(*geom)[3];
-  s_dEFS       *efs;
+  dErr    err;
+  dInt    n,*off,*geomoff,nelems;
+  Mat     E1,Ebs;
+  Vec     xc,xx,xc1,xx1;
+  dScalar *count,*x;
+  dReal   (*qx)[3],(*geom)[3];
+  dEFS    *efs;
+  dRuleSet ruleset;
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
@@ -30,6 +31,10 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
   err = MatMAIJRedimension(E1,3,&Ebs);dCHK(err);
   err = MatGetVecs(Ebs,&xc,&xx);dCHK(err);
 
+  err = dFSGetPreferredQuadratureRuleSet(fs,fs->activeSet,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
+  err = dFSGetEFS(fs,ruleset,&nelems,&efs);dCHK(err);
+  dERROR(1,"In flux");
+#if 0
   err = dFSGetElements(fs,&n,&off,NULL,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&qx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   err = VecGetArray(xx1,&count);dCHK(err);
@@ -39,7 +44,7 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
     const dScalar *counte = count + off[e];
     dScalar       *xe     = x + 3*off[e];
     dInt           three,P[3];
-    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,qx);dCHK(err);
+    err = dEFSGetGlobalCoordinates(efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,qx);dCHK(err);
     if (three != 3) dERROR(1,"element dimension unexpected");
     for (dInt i=0; i<P[0]*P[1]*P[2]; i++) {
       for (dInt j=0; j<3; j++) xe[i*3+j] = qx[i][j] / counte[i];
@@ -47,6 +52,7 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
   }
   err = dFSRestoreElements(fs,&n,&off,NULL,&efs,&geomoff,&geom);dCHK(err);
   err = dFSRestoreWorkspace(fs,__func__,&qx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
+#endif
   err = VecRestoreArray(xx1,&count);dCHK(err);
   err = VecRestoreArray(xx,&x);dCHK(err);
 

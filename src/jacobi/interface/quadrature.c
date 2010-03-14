@@ -3,24 +3,27 @@
 
 static PetscFList dQuadratureList;
 
-/** Fill an array of dRule starting at \a firstrule.
+const char *const dQuadratureMethods[] = {"FAST","SPARSE","dQuadratureMethod","dQUADRATURE_METHOD_",0};
+
+/** Create an array of rules for integrating functions of given order.
 *
 * @param quad the context
 * @param n number of elements
 * @param topo topology of the element
-* @param rsize number of points in each Cartesian direction
-* @param firstrule place to put the newly constructed dRule, normally this will be \c s_dRule[]
+* @param order order of polynomial to be integrated exactly
+* @param rules pointer to new array of rules
 */
-dErr dQuadratureGetRule(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
+dErr dQuadratureGetRules(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule **rules)
 {
   dErr err;
 
   dFunctionBegin;
   dValidHeader(quad,dQUADRATURE_COOKIE,1);
   dValidPointer(topo,3);
-  dValidPointer(rsize,4);
-  dValidPointer(firstrule,5);
-  err = quad->ops->GetRule(quad,n,topo,rsize,firstrule);dCHK(err);
+  dValidPointer(order,4);
+  dValidPointer(rules,5);
+  err = dMallocA(n,rules);dCHK(err);
+  err = quad->ops->GetRule(quad,n,topo,order,*rules);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -35,16 +38,22 @@ dErr dQuadratureSetFromOptions(dQuadrature quad)
   err = PetscOptionsBegin(((PetscObject)quad)->comm,((PetscObject)quad)->prefix,"Quadrature options","dQuadrature");dCHK(err);
   err = PetscOptionsList("-dquad_type","Quadrature type","dQuadratureSetType",dQuadratureList,
                           (((PetscObject)quad)->type_name?((PetscObject)quad)->type_name:type),type,dNAME_LEN,&typeSet);dCHK(err);
-  if (typeSet) {
-    err = dQuadratureSetType(quad,type);dCHK(err);
-  }
-  if (!((PetscObject)quad)->type_name) {
+  if (typeSet || !((PetscObject)quad)->type_name) {
     err = dQuadratureSetType(quad,type);dCHK(err);
   }
   if (quad->ops->SetFromOptions) {
     err = quad->ops->SetFromOptions(quad);dCHK(err);
   }
   err = PetscOptionsEnd();dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dQuadratureSetMethod(dQuadrature quad,dQuadratureMethod method)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = (*quad->ops->SetMethod)(quad,method);dCHK(err);
   dFunctionReturn(0);
 }
 

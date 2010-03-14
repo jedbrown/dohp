@@ -40,33 +40,22 @@ typedef struct s_dEFS *dEFS;
 typedef struct s_dRule *dRule;
 
 /**
-* The vtable is allocated by the dJacobi, one for each element topology and amount of unrolling.  We could move the
-* vtable here if we were worried about inlining, but performance studies show that it doesn't actually matter.
-*/
-#define dEFSHEADER                              \
-  struct _dEFSOps *ops;                         \
-  dRule            rule
+*  Holds a polynomial order in 3D.  For polynomials with maximum degree, only the field max will be set, otherwise full
+*  polynomials are in the space.  These orders are used to prescribe internal variation in function spaces, and to
+*  choose adequate quadratures.
+**/
+typedef uint32_t dPolynomialOrder;
 
-/** This struct should only be referenced in code that holds the array. */
-typedef struct s_dEFS {
-  dEFSHEADER;
-  void *opaque[3];
-} s_dEFS;
-
-
-#define dRuleHEADER                             \
-  struct _dRuleOps *ops
-
-/** This struct should only be referenced in code that holds the array. */
-typedef struct s_dRule {
-  dRuleHEADER;
-  void *opaque[3];
-} s_dRule;
+static inline dPolynomialOrder dPolynomialOrderCreate(dInt max,dInt x,dInt y,dInt z)
+{return ((uint32_t)max) << 24 | ((uint32_t)x) << 16 | ((uint32_t)y) << 8 | ((uint32_t)z);}
+static inline dInt dPolynomialOrder1D(dPolynomialOrder order,dInt direction)
+{uint32_t max = order>>24,dir=(order>>(16-8*direction))&0xff; return max > dir ? max : dir;}
+static inline dInt dPolynomialOrderMax(dPolynomialOrder order)
+{uint32_t max = order>>24,xyz = ((order>>16)&0xff) + ((order>>8)&0xff) + ((order>>0)&0xff); return max > xyz ? max : xyz;}
 
 /**
 * Indicates whether or not to apply the transpose of a interpolation/derivative matrix.
-*
-*/
+**/
 typedef enum {
   dTRANSPOSE_NO=30001,
   dTRANSPOSE_YES
@@ -124,6 +113,8 @@ typedef enum {
   dQUADRATURE_METHOD_INVALID
 } dQuadratureMethod;
 
+extern const char *const dQuadratureMethods[];
+
 extern dErr dJacobiCreate(MPI_Comm,dJacobi*);
 extern dErr dJacobiSetType(dJacobi,dJacobiType);
 extern dErr dJacobiSetFromOptions(dJacobi);
@@ -134,15 +125,8 @@ extern dErr dJacobiRegister(const char[],const char[],const char[],dErr(*)(dJaco
 extern dErr dJacobiRegisterAll(const char[]);
 extern dErr dJacobiInitializePackage(const char[]);
 
-extern dErr dJacobiSetDegrees(dJacobi,dInt,dInt);
-extern dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
+extern dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],const dRule[],dEFS**);
 extern dErr dJacobiGetQuadrature(dJacobi,dQuadratureMethod,dQuadrature*);
-
-extern dErr dRuleView(dRule rule,dViewer);
-extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
-extern dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
-extern dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
-extern dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
 
 extern dErr dEFSView(dEFS efs,dViewer viewer);
 extern dErr dEFSGetSizes(dEFS efs,dInt*,dInt *inodes,dInt *total);
@@ -152,11 +136,17 @@ extern dErr dEFSGetRule(dEFS efs,dRule *rule);
 extern dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
 extern dErr dEFSGetExplicit(dEFS,dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
 
-extern dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dInt[]);
+extern dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
 extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
 
 extern dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,dInt[],dInt[]);
 extern dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,Mat,Mat);
+
+extern dErr dRuleView(dRule rule,dViewer);
+extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
+extern dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
+extern dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
+extern dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
 
 #define dQuadratureRegisterDynamic(a,b,c,d) dQuadratureRegister(a,b,c,d)
 extern dErr dQuadratureRegister(const char[],const char[],const char[],dErr(*)(dQuadrature));
@@ -166,8 +156,9 @@ extern dErr dQuadratureCreate(MPI_Comm,dQuadrature*);
 extern dErr dQuadratureView(dQuadrature,PetscViewer);
 extern dErr dQuadratureSetType(dQuadrature,dQuadratureType);
 extern dErr dQuadratureSetFromOptions(dQuadrature);
+extern dErr dQuadratureSetMethod(dQuadrature,dQuadratureMethod);
 extern dErr dQuadratureDestroy(dQuadrature);
-extern dErr dQuadratureGetRule(dQuadrature,dInt,const dEntTopology[],const dInt[],dRule);
+extern dErr dQuadratureGetRules(dQuadrature,dInt,const dEntTopology[],const dPolynomialOrder[],dRule**);
 
 typedef enum {
   dJACOBI_MODAL_P_CONFORMING,

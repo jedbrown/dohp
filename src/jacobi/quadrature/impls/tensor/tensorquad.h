@@ -16,15 +16,19 @@ struct s_TensorRule {
 
 typedef struct {
   dRuleHEADER;
+  dEntTopology topo;
   TensorRule trule[3];
 } dRule_Tensor;
 
-KHASH_MAP_INIT_INT(rule,TensorRule)
+KHASH_MAP_INIT_INT(tensor,TensorRule)  /* Holds the 1D pieces */
+KHASH_MAP_INIT_INT64(rule,dRule_Tensor*) /* Holds n-dimensional rules (basically just aggregates of 1D rules) */
 
 typedef struct {
   dReal alpha,beta;
   GaussFamily family;
-  khash_t(rule) *rules;
+  dQuadratureMethod method;
+  khash_t(tensor) *tensor;
+  khash_t(rule)   *rules;
   struct _dRuleOps *ruleOpsLine,*ruleOpsQuad,*ruleOpsHex;
 } dQuadrature_Tensor;
 

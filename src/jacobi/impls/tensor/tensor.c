@@ -9,7 +9,7 @@
 *
 */
 
-#include "tensor.h"
+#include "tensorimpl.h"
 #include "polylib.h"
 #include "optimalscale.h"
 #include <dohpgeom.h>
@@ -18,11 +18,11 @@
 static dErr dJacobiDestroy_Tensor(dJacobi);
 static dErr dJacobiView_Tensor(dJacobi,PetscViewer);
 
-static dErr TensorBasisCreate(Tensor tnsr,dInt rsize,const dReal rcoord[],dInt P,TensorBasis *basis)
+static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord[],dInt P,TensorBasis *basis)
 {
   TensorBasis b;
-  const dInt Q=rsize;
-  dErr err;
+  const dInt  Q = rsize;
+  dErr        err;
 
   dFunctionBegin;
   if (!(0 < P && P <= Q)) dERROR(1,"Requested TensorBasis size %d out of bounds.",P);
@@ -132,15 +132,15 @@ dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so 
 
 static dErr dJacobiSetFromOptions_Tensor(dJacobi jac)
 {
-  Tensor this = jac->data;
+  dJacobi_Tensor *tnsr = jac->data;
   dErr err;
 
   dFunctionBegin;
   err = PetscOptionsHead("Tensor options");dCHK(err);
   {
-    err = PetscOptionsTruth("-djac_tensor_mass_scale","Use optimal scaling for Q1 mass matrices","Jacobi",this->usemscale,&this->usemscale,NULL);dCHK(err);
-    err = PetscOptionsTruth("-djac_tensor_laplace_scale","Use optimal scaling for Q1 Laplacian matrices","Jacobi",this->uselscale,&this->uselscale,NULL);dCHK(err);
-    err = PetscOptionsTruth("-djac_tensor_no_unroll","Do not use unrolled versions of tensor operations","Jacobi",this->nounroll,&this->nounroll,NULL);dCHK(err);
+    err = PetscOptionsTruth("-djac_tensor_mass_scale","Use optimal scaling for Q1 mass matrices","Jacobi",tnsr->usemscale,&tnsr->usemscale,NULL);dCHK(err);
+    err = PetscOptionsTruth("-djac_tensor_laplace_scale","Use optimal scaling for Q1 Laplacian matrices","Jacobi",tnsr->uselscale,&tnsr->uselscale,NULL);dCHK(err);
+    err = PetscOptionsTruth("-djac_tensor_no_unroll","Do not use unrolled versions of tensor operations","Jacobi",tnsr->nounroll,&tnsr->nounroll,NULL);dCHK(err);
   }
   err = PetscOptionsTail();dCHK(err);
   dFunctionReturn(0);
@@ -148,17 +148,18 @@ static dErr dJacobiSetFromOptions_Tensor(dJacobi jac)
 
 static dErr dJacobiDestroy_Tensor(dJacobi jac)
 {
-  Tensor tnsr = (Tensor)jac->data;
-  khash_t(basis) *bases = tnsr->bases;
+  dJacobi_Tensor *tnsr = jac->data;
   dErr err;
 
   dFunctionBegin;
-  for (khiter_t k=kh_begin(bases); k!=kh_end(bases); k++) {
-    if (!kh_exist(bases,k)) continue;
-    err = TensorBasisDestroy(kh_val(bases,k));dCHK(err);
+  for (khiter_t k=kh_begin(tnsr->tensor); k!=kh_end(tnsr->tensor); k++) {
+    if (!kh_exist(tnsr->tensor,k)) continue;
+    err = TensorBasisDestroy(kh_val(tnsr->tensor,k));dCHK(err);
   }
-  kh_destroy_basis(bases);
-  if (jac->quad) {err = dQuadratureDestroy(jac->quad);dCHK(err);}
+  kh_destroy_tensor(tnsr->tensor);
+  for (dQuadratureMethod m=0; m<dQUADRATURE_METHOD_INVALID; m++) {
+    if (jac->quad[m]) {err = dQuadratureDestroy(jac->quad[m]);dCHK(err);}
+  }
   err = dJacobiEFSOpsDestroy_Tensor(jac);dCHK(err);
   err = dFree(tnsr);dCHK(err);
   dFunctionReturn(0);
@@ -166,7 +167,7 @@ static dErr dJacobiDestroy_Tensor(dJacobi jac)
 
 static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
 {
-  Tensor tnsr = (Tensor)jac->data;
+  dJacobi_Tensor *tnsr = jac->data;
   dTruth ascii;
   dErr err;
 
@@ -176,15 +177,15 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
   err = PetscViewerASCIIPrintf(viewer,"Tensor based Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis database.\n");dCHK(err);
-  for (khiter_t k=kh_begin(tnsr->bases); k!=kh_end(tnsr->bases); k++) {
-    if (!kh_exist(tnsr->bases,k)) continue;
-    err = TensorBasisView(kh_val(tnsr->bases,k),viewer);dCHK(err);
+  for (khiter_t k=kh_begin(tnsr->tensor); k!=kh_end(tnsr->tensor); k++) {
+    if (!kh_exist(tnsr->tensor,k)) continue;
+    err = TensorBasisView(kh_val(tnsr->tensor,k),viewer);dCHK(err);
   }
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   dFunctionReturn(0);
 }
 
-static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dInt deg[])
+static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dPolynomialOrder order[])
 {
   static const dInt quadperm[4] = {0,1,0,1};
   static const dInt hexperm[6][2] = {{0,2},{1,2},{0,2},{1,2},{1,0},{0,1}}; /* map natural axis of Quad to natural axis of Hex */
@@ -199,9 +200,10 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dIn
       case dTOPO_HEX:
         for (i=0; i<6; i++) {
           ai = a->adjoff[e]+i; aind = a->adjind[ai]; match = a->adjperm[ai];
-          deg[aind*3+0] = dMinInt(deg[aind*3+0],deg[e*3+hexperm[i][orient[match][0]]]);
-          deg[aind*3+1] = dMinInt(deg[aind*3+1],deg[e*3+hexperm[i][orient[match][1]]]);
-          deg[aind*3+2] = 1;
+          order[aind] = dPolynomialOrderCreate(0,
+                                               dMinInt(dPolynomialOrder1D(order[aind],0),dPolynomialOrder1D(order[e],hexperm[i][orient[match][0]])),
+                                               dMinInt(dPolynomialOrder1D(order[aind],1),dPolynomialOrder1D(order[e],hexperm[i][orient[match][1]])),
+                                               0);
           if (a->topo[aind] != dTOPO_QUAD) dERROR(1,"corrupt adjacency");
         }
         break;
@@ -213,8 +215,10 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dIn
       case dTOPO_QUAD:
         for (i=0; i<4; i++) {
           ai = a->adjoff[e]+i; aind = a->adjind[ai];
-          deg[aind*3+0] = dMinInt(deg[aind*3+0],deg[e*3+quadperm[i]]);
-          deg[aind*3+1] = deg[aind*3+2] = 1;
+          order[aind] = dPolynomialOrderCreate(0,
+                                               dMinInt(dPolynomialOrder1D(order[aind],0),dPolynomialOrder1D(order[e],quadperm[i])),
+                                               0,
+                                               0);
           if (a->topo[aind] != dTOPO_LINE) dERROR(1,"corrupt adjacency");
         }
         break;
@@ -224,7 +228,7 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dIn
   for (e=a->toff[dTYPE_EDGE]; e<a->toff[dTYPE_EDGE+1]; e++) {
     for (i=0; i<2; i++) {
       ai = a->adjoff[e]+i; aind = a->adjind[ai];
-      deg[aind*3+0] = deg[aind*3+1] = deg[aind*3+2] = 1; /* should always be vertices */
+      order[aind] = dPolynomialOrderCreate(0,0,0,0); /* Just one node at points */
       if (a->topo[aind] != dTOPO_POINT) dERROR(1,"corrupt adjacency");
     }
   }
@@ -452,9 +456,10 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
   dFunctionReturn(0);
 }
 
-static dErr TensorGetBasis(Tensor tnsr,dInt rsize,const dReal rcoord[],dInt bsize,TensorBasis *out)
+static dErr TensorGetBasis(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord[],dInt order,TensorBasis *out)
 {
   dErr err;
+  dInt bsize = order+1;
   int key,new;
   khiter_t k;
 
@@ -463,7 +468,7 @@ static dErr TensorGetBasis(Tensor tnsr,dInt rsize,const dReal rcoord[],dInt bsiz
   if (bsize <= 0) dERROR(1,"Basis size %d must be positive",bsize);
   *out = 0;
   key = ((int)tnsr->family << 24) | (rsize << 16) | bsize;
-  k = kh_put_basis(tnsr->bases,key,&new);
+  k = kh_put_tensor(tnsr->tensor,key,&new);
   if (new) {
     TensorBasis b;
     err = TensorBasisCreate(tnsr,rsize,rcoord,bsize,&b);dCHK(err);
@@ -474,53 +479,55 @@ static dErr TensorGetBasis(Tensor tnsr,dInt rsize,const dReal rcoord[],dInt bsiz
       b->multhex[1] = TensorMult_Hex_nounroll;
       b->multhex[2] = TensorMult_Hex_nounroll;
     }
-    kh_val(tnsr->bases,k) = b;
+    kh_val(tnsr->tensor,k) = b;
   }
-  *out = kh_val(tnsr->bases,k);
+  *out = kh_val(tnsr->tensor,k);
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],const dInt bsize[],dRule rules,dEFS firstefs)
+static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],const dRule rules[],dEFS efs[])
 {
-  Tensor       this = jac->data;
-  dEFS_Tensor  *efs  = (dEFS_Tensor*)firstefs;
-  dInt rdim,rsize[3];
-  const dReal *rcoord[3];
-  dErr err;
+  dJacobi_Tensor *tnsr = jac->data;
+  dErr           err;
 
   dFunctionBegin;
   for (dInt i=0; i<n; i++) {
-    err = dRuleGetTensorNodeWeight(&rules[i],&rdim,rsize,rcoord,NULL);dCHK(err);
-    switch (topo[i]) {
-      case dTOPO_LINE:
-        if (rdim != 1) dERROR(1,"Incompatible Rule dim %d, expected 1",rdim);
-        efs[i].ops = this->efsOpsLine;
-        efs[i].rule = &rules[i];
-        err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
-        if (bsize[3*i+1] != 1 || bsize[3*i+2] != 1)
-          dERROR(1,"Invalid basis size for Line");
-        efs[i].basis[1] = efs[i].basis[2] = NULL;
-        break;
-      case dTOPO_QUAD:
-        if (rdim != 2) dERROR(1,"Incompatible Rule dim %d, expected 2",rdim);
-        efs[i].ops = this->efsOpsQuad;
-        efs[i].rule = &rules[i];
-        err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
-        err = TensorGetBasis(this,rsize[1],rcoord[1],bsize[3*i+1],&efs[i].basis[1]);dCHK(err);
-        if (bsize[3*i+2] != 1) dERROR(1,"Invalid basis size for Quad");
-        efs[i].basis[2] = NULL;
-        break;
-      case dTOPO_HEX:
-        if (rdim != 3) dERROR(1,"Incompatible Rule dim %d, expected 3",rdim);
-        efs[i].ops = this->efsOpsHex;
-        efs[i].rule = &rules[i];
-        err = TensorGetBasis(this,rsize[0],rcoord[0],bsize[3*i+0],&efs[i].basis[0]);dCHK(err);
-        err = TensorGetBasis(this,rsize[1],rcoord[1],bsize[3*i+1],&efs[i].basis[1]);dCHK(err);
-        err = TensorGetBasis(this,rsize[2],rcoord[2],bsize[3*i+2],&efs[i].basis[2]);dCHK(err);
-        break;
-      default:
-        dERROR(1,"no basis available for given topology");
+    int new;
+    khint64_t key = 1;          /* FIXME */
+    khiter_t kiter = kh_put_efs(tnsr->efs,key,&new);
+    if (new) {
+      dEFS_Tensor *newefs;
+      const dReal *rcoord[3];
+      dInt        rdim,rsize[3];
+      err = dRuleGetTensorNodeWeight(rules[i],&rdim,rsize,rcoord,NULL);dCHK(err);
+      err = dNewLog(jac,dEFS_Tensor,&newefs);dCHK(err);
+      newefs->topo = topo[i];
+      newefs->rule = rules[i];
+      switch (topo[i]) {
+        case dTOPO_LINE:
+          if (rdim != 1) dERROR(1,"Incompatible Rule dim %d, expected 1",rdim);
+          newefs->ops = *tnsr->efsOpsLine;
+          err = TensorGetBasis(tnsr,rsize[0],rcoord[0],dPolynomialOrder1D(order[i],0),&newefs->basis[0]);dCHK(err);
+          break;
+        case dTOPO_QUAD:
+          if (rdim != 2) dERROR(1,"Incompatible Rule dim %d, expected 2",rdim);
+          newefs->ops = *tnsr->efsOpsQuad;
+          err = TensorGetBasis(tnsr,rsize[0],rcoord[0],dPolynomialOrder1D(order[i],0),&newefs->basis[0]);dCHK(err);
+          err = TensorGetBasis(tnsr,rsize[1],rcoord[1],dPolynomialOrder1D(order[i],1),&newefs->basis[1]);dCHK(err);
+          break;
+        case dTOPO_HEX:
+          if (rdim != 3) dERROR(1,"Incompatible Rule dim %d, expected 3",rdim);
+          newefs->ops = *tnsr->efsOpsHex;
+          err = TensorGetBasis(tnsr,rsize[0],rcoord[0],dPolynomialOrder1D(order[i],0),&newefs->basis[0]);dCHK(err);
+          err = TensorGetBasis(tnsr,rsize[1],rcoord[1],dPolynomialOrder1D(order[i],1),&newefs->basis[1]);dCHK(err);
+          err = TensorGetBasis(tnsr,rsize[2],rcoord[2],dPolynomialOrder1D(order[i],2),&newefs->basis[2]);dCHK(err);
+          break;
+        default:
+          dERROR(1,"no basis available for given topology");
+      }
+      kh_val(tnsr->efs,kiter) = newefs;
     }
+    efs[i] = (dEFS)kh_val(tnsr->efs,kiter);
   }
   dFunctionReturn(0);
 }
@@ -544,24 +551,24 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
     .GetConstraintCount = dJacobiGetConstraintCount_Tensor,
     .AddConstraints     = dJacobiAddConstraints_Tensor
   };
-  Tensor tensor;
+  dJacobi_Tensor *tnsr;
   dErr err;
 
   dFunctionBegin;
-  if (sizeof(dEFS_Tensor) != sizeof(s_dEFS))
-    dERROR(PETSC_ERR_PLIB,"sizeof(dEFS_Tensor) %zd != sizeof(s_dEFS) %zd",sizeof(dEFS_Tensor),sizeof(s_dEFS));
   err = dMemcpy(jac->ops,&myops,sizeof(struct _dJacobiOps));dCHK(err);
-  err = dNew(struct s_Tensor,&tensor);dCHK(err);
+  err = dNew(dJacobi_Tensor,&tnsr);dCHK(err);
 
-  tensor->usemscale = dFALSE;
-  tensor->uselscale = dFALSE;
+  tnsr->usemscale = dFALSE;
+  tnsr->uselscale = dFALSE;
 
-  tensor->alpha  = 0.0;
-  tensor->beta   = 0.0;
-  tensor->family = GAUSS_LOBATTO;
-  tensor->bases  = kh_init_basis();
+  tnsr->alpha  = 0.0;
+  tnsr->beta   = 0.0;
+  tnsr->family = GAUSS_LOBATTO;
 
-  jac->data = tensor;
+  tnsr->tensor = kh_init_tensor();
+  tnsr->efs    = kh_init_efs();
+
+  jac->data = tnsr;
 
   err = dJacobiEFSOpsSetUp_Tensor(jac);dCHK(err);
   dFunctionReturn(0);

@@ -22,9 +22,15 @@ struct _TensorBasis {
   const dReal *mscale,*lscale;  /**< Used to produce optimal scaling of sparse mass and Laplacian matrices */
 };
 
-KHASH_MAP_INIT_INT(basis,TensorBasis)
+typedef struct {
+  dEFSHEADER;
+  dEntTopology topo;
+  TensorBasis  basis[3];
+} dEFS_Tensor;
 
-typedef struct s_Tensor *Tensor;
+KHASH_MAP_INIT_INT(tensor,TensorBasis)
+KHASH_MAP_INIT_INT64(efs,dEFS_Tensor*)
+
 /**
 * There are several factors in play which justify the storage method used.  First, we would like rapid lookup of
 * TensorRule and TensorBasis objects since many lookups are needed any time the approximation order changes.  More
@@ -39,10 +45,10 @@ typedef struct s_Tensor *Tensor;
 * TensorRule or TensorBasis fails, we just get a new base pointer from dBufferList and retry.
 *
 */
-struct s_Tensor {
+typedef struct {
   dReal       alpha,beta;
   GaussFamily family;
-  khash_t(basis) *bases;  /**< Hash of bases.  Consider basis with \a m quadrature
+  khash_t(tensor) *tensor;  /**< Hash of bases.  Consider basis with \a m quadrature
                                   * points and \a n basis functions.
                                   *
                                   * If the quadrature points are \f$ q_i, i = 0,1,\dotsc,m-1 \f$
@@ -50,15 +56,11 @@ struct s_Tensor {
                                   * and the nodes are \f$ x_j, j=0,1,\dotsc,n-1 \f$
                                   *
                                   * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
+  khash_t(efs) *efs;
   PetscTruth usemscale,uselscale,nounroll;
   /* dBufferList data; */
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
-};
-
-typedef struct {
-  dEFSHEADER;
-  TensorBasis basis[3];
-} dEFS_Tensor;
+} dJacobi_Tensor;
 
 extern dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);
 extern dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac);

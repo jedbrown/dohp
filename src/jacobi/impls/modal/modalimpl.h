@@ -13,16 +13,18 @@ struct _ModalBasis {
   dReal *deriv;
 };
 
-KHASH_MAP_INIT_INT(modal,ModalBasis)
-
 typedef struct {
   dEFSHEADER;
+  dEntTopology topo;
   ModalBasis basis;
-  void *unused[2];
 } dEFS_Modal;
+
+KHASH_MAP_INIT_INT(modal,ModalBasis)
+KHASH_MAP_INIT_INT64(efs,dEFS_Modal*)
 
 typedef struct {
   khash_t(modal) *topo[dTOPO_ALL];
+  khash_t(efs) *efs;
   dJacobiModalFamily family;
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
 } dJacobi_Modal;

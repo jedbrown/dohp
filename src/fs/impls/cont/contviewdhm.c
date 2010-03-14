@@ -396,6 +396,8 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = dMeshGetVertexCoords(mesh,ents_s,ents,&fs->vtxoff,&fs->vtx);dCHK(err);
 
     fs->nelem = ents_s;
+    dERROR(1,"In flux");
+#if 0
     err = dMallocA3(ents_s,&fs->rule,ents_s,&fs->efs,ents_s+1,&fs->off);dCHK(err); /* Owned by FS */
 
     {
@@ -416,11 +418,11 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     for (i=0; i<ents_s; i++) fs->off[i+1] = (xcnt += xnodes[idx[i]]);
 
     err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
+#endif
 
     err = dMeshRestoreAdjacency(mesh,fs->activeSet,&meshadj);dCHK(err);
     err = dFree5(ents,topo,bdeg,xnodes,idx);dCHK(err);
   }
-
 
   herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   herr = H5Oclose(fsobj);dH5CHK(herr,H5Oclose);
