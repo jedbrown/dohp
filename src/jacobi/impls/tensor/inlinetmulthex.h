@@ -95,7 +95,7 @@ static dErr TensorMult_Hex_nounroll(dInt D,const dInt P[3],const dInt Q[3],const
         }
       }
   }
-  PetscLogFlops((Q[0]*P[0]*P[1]*P[2] + Q[0]*Q[1]*P[1]*P[2] + Q[0]*Q[1]*Q[2]*P[2])*D*2);
+  err = PetscLogFlops((Q[0]*P[0]*P[1]*P[2] + Q[0]*Q[1]*P[1]*P[2] + Q[0]*Q[1]*Q[2]*P[2])*D*2);dCHK(err);
   dFunctionReturn(0);
 }
 
