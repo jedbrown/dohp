@@ -193,8 +193,6 @@ void zwgj (double *z, double *w, int np, double alpha, double beta){
   fac /= gammaF(np + one)*gammaF(apb + np + one);
 
   for(i = 0; i < np; ++i) w[i] = fac/(w[i]*w[i]*(one-z[i]*z[i]));
-
-  return;
 }
 
 
@@ -228,8 +226,6 @@ void zwgrjm(double *z, double *w, int np, double alpha, double beta){
     for(i = 0; i < np; ++i) w[i] = fac*(1-z[i])/(w[i]*w[i]);
     w[0] *= (beta + one);
   }
-
-  return;
 }
 
 
@@ -264,8 +260,6 @@ void zwgrjp(double *z, double *w, int np, double alpha, double beta){
     for(i = 0; i < np; ++i) w[i] = fac*(1+z[i])/(w[i]*w[i]);
     w[np-1] *= (alpha + one);
   }
-
-  return;
 }
 
 
@@ -300,8 +294,6 @@ void zwglj(double *z, double *w, int np, double alpha, double beta){
     w[0]    *= (beta  + one);
     w[np-1] *= (alpha + one);
   }
-
-  return;
 }
 
 
@@ -345,7 +337,6 @@ void Dgj(double *D, double *Dt, double *z, int np,double alpha, double beta){
     }
     free(pd);
   }
-  return;
 }
 
 
@@ -396,8 +387,6 @@ void Dgrjm(double *D, double *Dt, double *z, int np,
       }
     free(pd);
   }
-
-  return;
 }
 
 
@@ -449,8 +438,6 @@ void Dgrjp(double *D, double *Dt, double *z, int np,
       }
     free(pd);
   }
-
-  return;
 }
 
 /**
@@ -503,8 +490,6 @@ void Dglj(double *D, double *Dt, double *z, int np,
       }
     free(pd);
   }
-
-  return;
 }
 
 
@@ -690,8 +675,6 @@ void Imgj(double *im,double *zgj, double *zm, int nz, int mz,
     for (j = 0; j < nz; ++j)
       im [i*nz+j] = hgj(j, zp, zgj, nz, alpha, beta);
   }
-
-  return;
 }
 
 /**
@@ -717,8 +700,6 @@ void Imgrjm(double *im,double *zgrj, double *zm, int nz, int mz,
     for (j = 0; j < nz; j++)
       im [i*nz+j] = hgrjm(j, zp, zgrj, nz, alpha, beta);
   }
-
-  return;
 }
 
 /**
@@ -744,8 +725,6 @@ void Imgrjp(double *im,double *zgrj, double *zm, int nz, int mz,
     for (j = 0; j < nz; j++)
       im [i*nz+j] = hgrjp(j, zp, zgrj, nz, alpha, beta);
   }
-
-  return;
 }
 
 
@@ -773,8 +752,6 @@ void Imglj(double *im, double *zglj, const double *zm, int nz, int mz,
     for (j = 0; j < nz; j++)
       im[i*nz+j] = hglj(j, zp, zglj, nz, alpha, beta);
   }
-
-  return;
 }
 
 /**
@@ -896,8 +873,6 @@ void jacobfd(int np, double *z, double *poly_in, double *polyd, int n,
 
     free(polyn1);
   }
-
-  return;
 }
 
 
@@ -928,7 +903,6 @@ void jacobd(int np, double *z, double *polyd, int n, double alpha, double beta)
     jacobfd(np,z,polyd,NULL,n-1,alpha+one,beta+one);
     for(i = 0; i < np; ++i) polyd[i] *= 0.5*(alpha + beta + (double)n + one);
   }
-  return;
 }
 
 
@@ -1006,7 +980,6 @@ static void Jacobz(int n, double *z, double alpha, double beta){
     z[k]  = r;
     rlast = r;
   }
-  return;
 }
 #endif
 
@@ -1067,7 +1040,6 @@ static void JacZeros(int n, double *a, double alpha, double beta){
   TriQL(n, a, b);
 
   free(b);
-  return;
 }
 
 
