@@ -25,7 +25,8 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
   dErr        err;
 
   dFunctionBegin;
-  if (!(0 < P && P <= Q)) dERROR(1,"Requested TensorBasis size %d out of bounds.",P);
+  if (P <= 0) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"A TensorBasis must be at least first order, given %d",P);
+  if (P > Q) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Trying to evaluate a basis on a rule with fewer nodes, this will make the mass matrix singular");
   if (tnsr->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %s not supported",GaussFamilies[tnsr->family]);
   err = dNew(struct _TensorBasis,&b);dCHK(err);
   err = dMallocA6(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node,P,&b->weight);dCHK(err);
@@ -157,6 +158,11 @@ static dErr dJacobiDestroy_Tensor(dJacobi jac)
     err = TensorBasisDestroy(kh_val(tnsr->tensor,k));dCHK(err);
   }
   kh_destroy_tensor(tnsr->tensor);
+  for (khiter_t k=kh_begin(tnsr->efs); k!=kh_end(tnsr->efs); k++) {
+    if (!kh_exist(tnsr->efs,k)) continue;
+    err = dFree(kh_val(tnsr->efs,k));dCHK(err);
+  }
+  kh_destroy_efs(tnsr->efs);
   for (dQuadratureMethod m=0; m<dQUADRATURE_METHOD_INVALID; m++) {
     if (jac->quad[m]) {err = dQuadratureDestroy(jac->quad[m]);dCHK(err);}
   }
@@ -493,7 +499,7 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
   dFunctionBegin;
   for (dInt i=0; i<n; i++) {
     int new;
-    khint64_t key = 1;          /* FIXME */
+    khu_efskey_t key = {topo[i],order[i],rules[i]};
     khiter_t kiter = kh_put_efs(tnsr->efs,key,&new);
     if (new) {
       dEFS_Tensor *newefs;

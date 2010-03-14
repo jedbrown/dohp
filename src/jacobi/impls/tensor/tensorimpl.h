@@ -29,7 +29,17 @@ typedef struct {
 } dEFS_Tensor;
 
 KHASH_MAP_INIT_INT(tensor,TensorBasis)
-KHASH_MAP_INIT_INT64(efs,dEFS_Tensor*)
+
+typedef struct {
+  dEntTopology topo;
+  dPolynomialOrder degree;
+  dRule rule;
+} khu_efskey_t;
+static inline khint_t khu_efskey_hash_func(khu_efskey_t key)
+{ return kh_int_hash_func((khint32_t)key.topo) ^ kh_int_hash_func((khint32_t)key.degree) ^ kh_int64_hash_func((khint64_t)(uintptr_t)key.rule); }
+static inline bool khu_efskey_hash_equal(khu_efskey_t a,khu_efskey_t b)
+{ return (a.topo == b.topo) && (a.degree == b.degree) && (a.rule == b.rule); }
+KHASH_INIT(efs, khu_efskey_t, dEFS_Tensor*, 1, khu_efskey_hash_func, khu_efskey_hash_equal)
 
 /**
 * There are several factors in play which justify the storage method used.  First, we would like rapid lookup of
