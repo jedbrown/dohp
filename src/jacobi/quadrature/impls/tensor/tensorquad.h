@@ -25,7 +25,7 @@ KHASH_MAP_INIT_INT64(rule,dRule_Tensor*) /* Holds n-dimensional rules (basically
 
 typedef struct {
   dReal alpha,beta;
-  GaussFamily family;
+  dGaussFamily family;
   dQuadratureMethod method;
   khash_t(tensor) *tensor;
   khash_t(rule)   *rules;

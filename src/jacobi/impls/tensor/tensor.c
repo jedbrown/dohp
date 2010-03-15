@@ -26,8 +26,8 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
 
   dFunctionBegin;
   if (P <= 0) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"A TensorBasis must be at least first order, given %d",P);
-  if (P > Q) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Trying to evaluate a basis on a rule with fewer nodes, this will make the mass matrix singular");
-  if (tnsr->family != GAUSS_LOBATTO) dERROR(1,"GaussFamily %s not supported",GaussFamilies[tnsr->family]);
+  //if (P > Q) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Trying to evaluate a basis on a rule with fewer nodes, this will make the mass matrix singular");
+  if (tnsr->family != dGAUSS_LOBATTO) dERROR(1,"GaussFamily %s not supported",dGaussFamilies[tnsr->family]);
   err = dNew(struct _TensorBasis,&b);dCHK(err);
   err = dMallocA6(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node,P,&b->weight);dCHK(err);
   b->Q = Q;
@@ -45,7 +45,7 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
     dReal *interp = b->interp;
     dReal *node = b->node;
     dReal *weight = b->weight;
-    err = dMallocA2(P*Q,&cDeriv,P*Q,&cDerivT);dCHK(err);
+    err = dMallocA2(P*P,&cDeriv,P*P,&cDerivT);dCHK(err);
     zwglj(node,weight,P,alpha,beta);               /* Gauss-Lobatto nodes */
     Imglj(interp,node,rcoord,P,Q,alpha,beta);      /* interpolation matrix */
     Dglj(cDeriv,cDerivT,node,P,alpha,beta);        /* collocation derivative matrix */
@@ -126,7 +126,7 @@ dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so 
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis with rule=%d basis=%d.\n",basis->Q,basis->P);dCHK(err);
   err = dRealTableView(basis->Q,basis->P,basis->interp,"interp",viewer);dCHK(err);
-  err = dRealTableView(basis->Q,basis->P,basis->deriv,"deriv",viewer);dCHK(err);
+  err = dRealTableView(basis->Q,3*basis->P,basis->deriv,"deriv",viewer);dCHK(err);
   err = dRealTableView(1,basis->P,basis->node,"node",viewer);dCHK(err);
   dFunctionReturn(0);
 }
@@ -569,7 +569,7 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
 
   tnsr->alpha  = 0.0;
   tnsr->beta   = 0.0;
-  tnsr->family = GAUSS_LOBATTO;
+  tnsr->family = dGAUSS_LOBATTO;
 
   tnsr->tensor = kh_init_tensor();
   tnsr->efs    = kh_init_efs();

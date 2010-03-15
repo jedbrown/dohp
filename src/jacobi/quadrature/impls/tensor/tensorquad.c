@@ -27,7 +27,7 @@ static dErr TensorRuleDestroy(TensorRule rule)
   dFunctionReturn(0);
 }
 
-static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt size,TensorRule *rule)
+static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt order,TensorRule *rule)
 {
   dErr err;
   int key,new;
@@ -35,13 +35,26 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
 
   dFunctionBegin;
   *rule = 0;
-  if (!(0 < size && size < 50)) dERROR(1,"rule size out of bounds.");
-  if (tnsr->family != GAUSS) dERROR(1,"GaussFamily %d not supported",tnsr->family);
-  key = ((uint32_t)method) << 8 | size;
+  if (!(0 <= order && order < 50)) dERROR(1,"rule order %d out of bounds",order);
+  key = ((uint32_t)method) << 8 | order;
   kiter = kh_put_tensor(tnsr->tensor,key,&new);
   if (new) {
     TensorRule r;
+    void (*nodes_and_weights)(double[],double[],int,double,double);
+    dInt size;
 
+    switch (tnsr->family) {
+      case dGAUSS_GAUSS:
+        size = 1 + order/2;       /* Gauss integrates a polynomial of order 2*size-1 exactly */
+        nodes_and_weights = zwgj;
+        break;
+      case dGAUSS_LOBATTO:
+        size = 2 + order/2;     /* Lobatto integrates a polynomial of order 2*size-3 exactly */
+        nodes_and_weights = zwglj;
+        break;
+      default:
+        dERROR(1,"GaussFamily %d not supported",tnsr->family);
+    }
     err = dNew(struct s_TensorRule,&r);dCHK(err);
     err = dMallocA2(size,&r->weight,size,&r->coord);dCHK(err);
     r->size = size;
@@ -49,7 +62,7 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
       r->weight[0] = 2.0;
       r->coord[0] = 0.0;
     } else {
-      zwgj(r->coord,r->weight,size,tnsr->alpha,tnsr->beta); /* polylib function */
+      nodes_and_weights(r->coord,r->weight,size,tnsr->alpha,tnsr->beta); /* polylib function */
     }
     kh_val(tnsr->tensor,kiter) = r;
   }
@@ -136,7 +149,7 @@ static dErr dQuadratureView_Tensor(dQuadrature quad,PetscViewer viewer)
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
   if (!iascii) SETERRQ(PETSC_ERR_SUP,"only ASCII");
-  err = PetscViewerASCIIPrintf(viewer,"Tensor Quadrature: %s\n",GaussFamilies[tnsr->family]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"Tensor Quadrature: %s\n",dGaussFamilies[tnsr->family]);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"alpha %g  beta %g\n",tnsr->alpha,tnsr->beta);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Tensor rules:\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
@@ -176,6 +189,7 @@ static dErr dQuadratureSetFromOptions_Tensor(dQuadrature quad)
   if (flg || !quad->ops->GetRule) {
     err = dQuadratureSetMethod(quad,method);dCHK(err);
   }
+  err = PetscOptionsEnum("-dquad_tensor_gauss_family","Gauss type","None",dGaussFamilies,tnsr->family,(PetscEnum*)&tnsr->family,NULL);dCHK(err);
   err = PetscOptionsTail();dCHK(err);
   dFunctionReturn(0);
 }
@@ -199,7 +213,7 @@ dErr dQuadratureCreate_Tensor(dQuadrature quad)
 
   tnsr->tensor = kh_init_tensor();
   tnsr->rules  = kh_init_rule();
-  tnsr->family = GAUSS;
+  tnsr->family = dGAUSS_GAUSS;
   tnsr->alpha = 0.;
   tnsr->beta = 0.;
 

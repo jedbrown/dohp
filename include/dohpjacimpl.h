@@ -7,8 +7,8 @@ dEXTERN_C_BEGIN
 
 extern dLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 
-typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
-extern const char *GaussFamilies[];
+typedef enum { dGAUSS_GAUSS, dGAUSS_LOBATTO, dGAUSS_RADAU } dGaussFamily;
+extern const char *dGaussFamilies[];
 
 /**
 * The Ops table is directly included in the dRule struct.  There should only be one ops table for each quadrature order

@@ -1,7 +1,22 @@
 #include "modalimpl.h"
 #include <dohp.h>
+#include <dohpmesh.h>           /* iMesh_TypeFromTopology */
 
-static dErr dEFSView_Modal_Private(const char *name,dRule rule,ModalBasis basis,PetscViewer viewer)
+static dErr ModalBasisView(dInt Q,dInt P,const dReal interp[],const dReal deriv[],PetscViewer viewer)
+{
+  dTruth ascii;
+  dErr   err;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  if (!ascii) dFunctionReturn(0);
+  err = PetscViewerASCIIPrintf(viewer,"Modal basis with %d point rule and %d point basis.\n",Q,P);dCHK(err);
+  err = dRealTableView(Q,P,interp,"interp",viewer);dCHK(err);
+  err = dRealTableView(Q,3*P,deriv,"deriv",viewer);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr dEFSView_Modal_Private(const dEFS_Modal *modal,const char *name,PetscViewer viewer)
 {
   dTruth ascii;
   dErr   err;
@@ -12,9 +27,9 @@ static dErr dEFSView_Modal_Private(const char *name,dRule rule,ModalBasis basis,
     err = PetscViewerASCIIPrintf(viewer,"dEFS type %s\n",name);dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"based on dRule:\n");dCHK(err);
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-    err = dRuleView(rule,viewer);dCHK(err);
+    err = dRuleView(modal->rule,viewer);dCHK(err);
     err = PetscViewerASCIIPopTab(viewer);
-    err = ModalBasisView(basis,viewer);
+    err = ModalBasisView(modal->Q,modal->P,modal->interp,modal->deriv,viewer);
   }
   dFunctionReturn(0);
 }
@@ -24,7 +39,7 @@ static dErr dEFSView_Modal_Line(dEFS efs,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Modal_Private("Modal_Line",efs->rule,((dEFS_Modal*)efs)->basis,viewer);dCHK(err);
+  err = dEFSView_Modal_Private((dEFS_Modal*)efs,"Modal_Line",viewer);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr dEFSView_Modal_Quad(dEFS efs,PetscViewer viewer)
@@ -32,7 +47,7 @@ static dErr dEFSView_Modal_Quad(dEFS efs,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Modal_Private("Modal_Quad",efs->rule,((dEFS_Modal*)efs)->basis,viewer);dCHK(err);
+  err = dEFSView_Modal_Private((dEFS_Modal*)efs,"Modal_Quad",viewer);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr dEFSView_Modal_Hex(dEFS efs,PetscViewer viewer)
@@ -40,26 +55,27 @@ static dErr dEFSView_Modal_Hex(dEFS efs,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = dEFSView_Modal_Private("Modal_Hex",efs->rule,((dEFS_Modal*)efs)->basis,viewer);dCHK(err);
+  err = dEFSView_Modal_Private((dEFS_Modal*)efs,"Modal_Hex",viewer);dCHK(err);
   dFunctionReturn(0);
 }
 
 static dErr dEFSGetSizes_Modal_All(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 {
-  ModalBasis basis = ((dEFS_Modal*)efs)->basis;
+  const dEFS_Modal *e = (dEFS_Modal*)efs;
 
   dFunctionBegin;
-  if (dim)    *dim = basis->dim;
-  if (inodes) *inodes = basis->P;
-  if (total)  *total = basis->P;
+  if (dim)    *dim    = iMesh_TypeFromTopology[e->topo];
+  if (inodes) *inodes = e->P;
+  if (total)  *total  = e->P;
   dFunctionReturn(0);
 }
 
-static dErr dEFSApply_Modal_All(dEFS efs,const dReal dUNUSED jinv[restrict],dInt D,const dScalar in_flat[],dScalar out_flat[],dApplyMode amode,InsertMode imode)
+static dErr dEFSApply_Modal_All(dEFS efs_generic,const dReal dUNUSED jinv[restrict],dInt D,const dScalar in_flat[],dScalar out_flat[],dApplyMode amode,InsertMode imode)
 {
-  ModalBasis basis = ((dEFS_Modal*)efs)->basis;
-  dInt       P = basis->P,Q = basis->Q,dUNUSED dim=basis->dim,i,j,c;
-  const dScalar (*interp)[P] = (const dScalar(*)[P])basis->interp;
+  dEFS_Modal *efs = (dEFS_Modal*)efs_generic;
+  dInt       P = efs->P,Q = efs->Q,i,j,c;
+  const dReal (*interp)[P] = (const dReal(*)[P])efs->interp;
+  //const dReal (*deriv)[P][3] = (const dReal(*)[P][3])efs->deriv;
   dErr err;
 
   dFunctionBegin;

@@ -260,8 +260,8 @@ static dErr checkRulesAndEFS(dJacobi jac)
   dErr         err;
 
   dFunctionBegin;
-  minrdeg = 19;                 /* 10-point Gauss quadrature is order 19 */
-  maxrdeg = 19;
+  minrdeg = 10;                 /* order for which we want to exactly integrate the mass matrix */
+  maxrdeg = 10;
   minbdeg = 1;
   maxbdeg = 5;
   showrules = dFALSE;
@@ -275,11 +275,11 @@ static dErr checkRulesAndEFS(dJacobi jac)
   err = PetscOptionsTruth("-show_efs","Show EFS",NULL,showefs,&showefs,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
   N = (maxrdeg-minrdeg+1) * (maxbdeg-minbdeg+1);
-  err = dMallocA5(N,&topo,N,&rdeg,N,&bdeg,N,&rule,N,&efs);dCHK(err);
+  err = dMallocA3(N,&topo,N,&rdeg,N,&bdeg);dCHK(err);
   for (dInt i=minrdeg; i<=maxrdeg; i++) {
     for (dInt j=minbdeg; j<=maxbdeg; j++) {
       const dInt e = (i-minrdeg)*(maxbdeg-minbdeg+1) + j-minbdeg;
-      rdeg[e] = dPolynomialOrderCreate(0,i,i,i);
+      rdeg[e] = dPolynomialOrderCreate(0,2*i,2*i,2*i);
       bdeg[e] = dPolynomialOrderCreate(0,j,j,j);
       topo[e] = dTOPO_HEX;
     }
@@ -305,7 +305,9 @@ static dErr checkRulesAndEFS(dJacobi jac)
   err = createFS(comm,dim,N,efs,&u);dCHK(err);
   err = checkInterp(N,efs,u);dCHK(err);
 
-  err = dFree5(topo,rdeg,bdeg,rule,efs);dCHK(err);
+  err = dFree3(topo,rdeg,bdeg);dCHK(err);
+  err = dFree(rule);dCHK(err);
+  err = dFree(efs);dCHK(err);
   err = VecDestroy(u);dCHK(err);
   dFunctionReturn(0);
 }

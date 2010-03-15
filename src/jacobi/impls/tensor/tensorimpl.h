@@ -57,7 +57,7 @@ KHASH_INIT(efs, khu_efskey_t, dEFS_Tensor*, 1, khu_efskey_hash_func, khu_efskey_
 */
 typedef struct {
   dReal       alpha,beta;
-  GaussFamily family;
+  dGaussFamily family;
   khash_t(tensor) *tensor;  /**< Hash of bases.  Consider basis with \a m quadrature
                                   * points and \a n basis functions.
                                   *

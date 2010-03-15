@@ -5,7 +5,7 @@
 dCookie dJACOBI_COOKIE,dQUADRATURE_COOKIE;
 PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 
-const char *GaussFamilies[] = {"gauss","lobatto","radau"};
+const char *dGaussFamilies[] = {"gauss","lobatto","radau","dGaussFamily","dGAUSS_",0};
 
 static PetscFList dJacobiList = 0;
 
@@ -174,6 +174,7 @@ dErr dJacobiRegisterAll(const char path[])
 
   dFunctionBegin;
   err = dJacobiRegisterDynamic(dJACOBI_TENSOR,path,"dJacobiCreate_Tensor",dJacobiCreate_Tensor);dCHK(err);
+  err = dJacobiRegisterDynamic(dJACOBI_MODAL ,path,"dJacobiCreate_Modal" ,dJacobiCreate_Modal);dCHK(err);
   called = PETSC_TRUE;
   dFunctionReturn(0);
 }
@@ -317,6 +318,7 @@ dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight)
             }
           }
         }
+        break;
       default:
         dERROR(PETSC_ERR_SUP,"dimension %d",dim);
     }
