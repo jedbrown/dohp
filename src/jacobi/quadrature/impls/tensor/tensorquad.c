@@ -27,6 +27,26 @@ static dErr TensorRuleDestroy(TensorRule rule)
   dFunctionReturn(0);
 }
 
+/* This helper is really a hack. */
+static void two_point_private(double nodes[],double weights[],int npoints,double dUNUSED alpha,double dUNUSED beta,double x0,double x1)
+{
+  int nelems = npoints/2;
+  double intervals[nelems+1],unused[nelems+1];
+  zwglj(intervals,unused,nelems+1,0,0); /* Get Gauss-Lobatto points (this part is the horrible hack) */
+  for (int i=0; i<nelems; i++) {
+    double h = intervals[i+1] - intervals[i];
+    nodes[2*i+0] = intervals[i] + (x0 - (-1))*h/2.;
+    nodes[2*i+1] = intervals[i] + (x1 - (-1))*h/2.;
+    weights[2*i+0] = h/2.;
+    weights[2*i+1] = h/2.;
+  }
+}
+
+static void two_point_gauss(double nodes[],double weights[],int npoints,double alpha,double beta)
+{two_point_private(nodes,weights,npoints,alpha,beta,-0.57735026918962573,0.57735026918962573);}
+static void two_point_lobatto(double nodes[],double weights[],int npoints,double alpha,double beta)
+{two_point_private(nodes,weights,npoints,alpha,beta,-1,1);}
+
 static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt order,TensorRule *rule)
 {
   dErr err;
@@ -35,7 +55,7 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
 
   dFunctionBegin;
   *rule = 0;
-  if (!(0 <= order && order < 50)) dERROR(1,"rule order %d out of bounds",order);
+  if (!(0 <= order && order < 100)) dERROR(1,"rule order %d out of bounds",order);
   key = ((uint32_t)method) << 8 | order;
   kiter = kh_put_tensor(tnsr->tensor,key,&new);
   if (new) {
@@ -43,17 +63,35 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
     void (*nodes_and_weights)(double[],double[],int,double,double);
     dInt size;
 
-    switch (tnsr->family) {
-      case dGAUSS_GAUSS:
-        size = 1 + order/2;       /* Gauss integrates a polynomial of order 2*size-1 exactly */
-        nodes_and_weights = zwgj;
+    switch (method) {
+      case dQUADRATURE_METHOD_SPARSE:
+        /* The meaning of this option is somewhat unfortunate, but I don't see a clearly better API at the moment.  Here
+         * we just assume a Legendre-Gauss-Lobatto tensor product basis, and construct a quadrature (either Gauss or
+         * Lobatto) on the subelements.  A better system would somehow have the subelement details available explicitly.
+         */
+        size = order;
+        if (tnsr->alpha != 0 || tnsr->beta != 0) dERROR(PETSC_ERR_SUP,"only alpha=0, beta=0 (Legendre)");
+        switch (tnsr->family) {
+          case dGAUSS_GAUSS: nodes_and_weights = two_point_gauss; break;
+          case dGAUSS_LOBATTO: nodes_and_weights = two_point_lobatto; break;
+          default: dERROR(PETSC_ERR_SUP,"GaussFamily %d",tnsr->family);
+        }
         break;
-      case dGAUSS_LOBATTO:
-        size = 2 + order/2;     /* Lobatto integrates a polynomial of order 2*size-3 exactly */
-        nodes_and_weights = zwglj;
+      case dQUADRATURE_METHOD_FAST:
+        switch (tnsr->family) {
+          case dGAUSS_GAUSS:
+            size = 1 + order/2;       /* Gauss integrates a polynomial of order 2*size-1 exactly */
+            nodes_and_weights = zwgj;
+            break;
+          case dGAUSS_LOBATTO:
+            size = 2 + order/2;     /* Lobatto integrates a polynomial of order 2*size-3 exactly */
+            nodes_and_weights = zwglj;
+            break;
+          default:
+            dERROR(1,"GaussFamily %d not supported",tnsr->family);
+        }
         break;
-      default:
-        dERROR(1,"GaussFamily %d not supported",tnsr->family);
+      default: dERROR(PETSC_ERR_SUP,"quadrature method %d",method);
     }
     err = dNew(struct s_TensorRule,&r);dCHK(err);
     err = dMallocA2(size,&r->weight,size,&r->coord);dCHK(err);

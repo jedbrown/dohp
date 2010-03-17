@@ -7,20 +7,19 @@ static const char help[] = "Tests modal bases for dJacobi.";
 static dErr TestModalBases(dJacobi jac,PetscViewer viewer)
 {
   dEntTopology topo[] = {dTOPO_HEX,dTOPO_HEX,dTOPO_HEX,dTOPO_HEX};
-  dPolynomialOrder rdegree[] = {dPolynomialOrderCreate(6,0,0,0),
-                                dPolynomialOrderCreate(6,0,0,0),
-                                dPolynomialOrderCreate(6,0,0,0),
-                                dPolynomialOrderCreate(6,0,0,0)};
-  dPolynomialOrder bdegree[] = {dPolynomialOrderCreate(0,0,0,0),
-                                dPolynomialOrderCreate(1,0,0,0),
-                                dPolynomialOrderCreate(2,0,0,0),
-                                dPolynomialOrderCreate(3,0,0,0)};
+  dPolynomialOrder rdegree[4],bdegree[4];
   dRule *rules;
   dEFS *efs;
   dQuadrature quad;
+  dInt rp = 6;
   dErr err;
 
   dFunctionBegin;
+  err = PetscOptionsGetInt(NULL,"-rule_degree",&rp,NULL);dCHK(err);
+  for (dInt i=0; i<4; i++) {
+    rdegree[i] = dPolynomialOrderCreate(rp,0,0,0);
+    bdegree[i] = dPolynomialOrderCreate(i,0,0,0);
+  }
   err = dJacobiGetQuadrature(jac,dQUADRATURE_METHOD_FAST,&quad);dCHK(err);
   err = dQuadratureGetRules(quad,4,topo,rdegree,&rules);dCHK(err);
   err = dJacobiGetEFS(jac,4,topo,bdegree,rules,&efs);dCHK(err);
