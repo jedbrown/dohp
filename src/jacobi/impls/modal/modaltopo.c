@@ -73,9 +73,9 @@ static dErr dEFSGetSizes_Modal_All(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
 static dErr dEFSApply_Modal_All(dEFS efs_generic,const dReal dUNUSED jinv[restrict],dInt D,const dScalar in_flat[],dScalar out_flat[],dApplyMode amode,InsertMode imode)
 {
   dEFS_Modal *efs = (dEFS_Modal*)efs_generic;
-  dInt       P = efs->P,Q = efs->Q,i,j,c;
+  dInt       P = efs->P,Q = efs->Q,i,j,c,d;
   const dReal (*interp)[P] = (const dReal(*)[P])efs->interp;
-  //const dReal (*deriv)[P][3] = (const dReal(*)[P][3])efs->deriv;
+  const dReal (*deriv)[P][3] = (const dReal(*)[P][3])efs->deriv;
   dErr err;
 
   dFunctionBegin;
@@ -100,6 +100,20 @@ static dErr dEFSApply_Modal_All(dEFS efs_generic,const dReal dUNUSED jinv[restri
         for (j=0; j<P; j++) {
           for (c=0; c<D; c++) {
             out[j][c] += interp[i][j] * in[i][c];
+          }
+        }
+      }
+    } break;
+    case dAPPLY_GRAD: {
+      const dScalar (*in)[D] = (const dScalar(*)[D])in_flat;
+      dScalar (*restrict out)[D][3] = (dScalar(*)[D][3])out_flat;
+      if (imode == INSERT_VALUES) {err = dMemzero(&out[0][0],Q*D*3*sizeof(dScalar));dCHK(err);}
+      for (i=0; i<Q; i++) {
+        for (j=0; j<P; j++) {
+          for (c=0; c<D; c++) {
+            for (d=0; d<3; d++) {
+              out[i][c][d] += deriv[i][j][d] * in[j][c];
+            }
           }
         }
       }
