@@ -452,6 +452,80 @@ dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScal
   dFunctionReturn(0);
 }
 
+dErr dEFSGetExplicit(dEFS efs,const dReal jinv[],dInt *inQ,dInt *inP,const dReal **inbasis,const dReal **inderiv)
+{
+  dReal *newbasis,*newderiv;
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  if (jinv) dValidPointer(jinv,2);
+  dValidPointer(inQ,3);
+  dValidPointer(inP,4);
+  dValidPointer(inbasis,5);
+  dValidPointer(inderiv,6);
+  if (efs->ops.getExplicit) {
+    err = (*efs->ops.getExplicit)(efs,jinv,inQ,inP,inbasis,inderiv);dCHK(err);
+  } else if (efs->ops.apply) {
+    dRule rule;
+    dScalar *tmp,*basis,*deriv;
+    dInt P,Q;
+    err = dEFSGetSizes(efs,NULL,NULL,&P);dCHK(err);
+    err = dEFSGetRule(efs,&rule);dCHK(err);
+    err = dRuleGetSize(rule,NULL,&Q);dCHK(err);
+    err = dMallocA(P,&tmp);dCHK(err);
+    err = dMallocA2(P*Q,&basis,P*Q*3,&deriv);dCHK(err);
+    for (dInt i=0; i<P; i++) {
+      err = dMemzero(tmp,P*sizeof(tmp[0]));dCHK(err);
+      tmp[i] = 1.;
+      err = dEFSApply(efs,jinv,1,tmp,basis+i*Q,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+      err = dEFSApply(efs,jinv,1,tmp,deriv+i*Q*3,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    }
+    err = dFree(tmp);dCHK(err);
+    err = dMallocA2(P*Q,&newbasis,P*Q*3,&newderiv);dCHK(err);
+    /* Transpose and place in user vectors */
+    for (dInt i=0; i<Q; i++) {
+      const PetscReal *ji = jinv ? &jinv[9*i] : ((const PetscReal[]){1,0,0,0,1,0,0,0,1});
+      for (dInt j=0; j<P; j++) {
+        PetscReal ux,uy,uz;
+        newbasis[i*P+j] = PetscRealPart(basis[i+j*Q]);
+        ux = PetscRealPart(deriv[(i+j*Q)*3+0]);
+        uy = PetscRealPart(deriv[(i+j*Q)*3+1]);
+        uz = PetscRealPart(deriv[(i+j*Q)*3+2]);
+        /* chain rule: (\grad u)^T J^{-1} */
+        newderiv[(i*P+j)*3+0] = ux*ji[0] + uy*ji[3] + uz*ji[6];
+        newderiv[(i*P+j)*3+1] = ux*ji[1] + uy*ji[4] + uz*ji[7];
+        newderiv[(i*P+j)*3+2] = ux*ji[2] + uy*ji[5] + uz*ji[8];
+      }
+    }
+    err = dFree2(basis,deriv);dCHK(err);
+    *inQ = Q;
+    *inP = P;
+    *inbasis = newbasis;
+    *inderiv = newderiv;
+  } else dERROR(PETSC_ERR_SUP,"this EFS is deficient");
+  dFunctionReturn(0);
+}
+
+dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  if (jinv) dValidPointer(jinv,2);
+  dValidPointer(Q,3);
+  dValidPointer(P,4);
+  dValidPointer(basis,5);
+  dValidPointer(deriv,6);
+  err = dFree2(*basis,*deriv);dCHK(err);
+  *Q = 0;
+  *P = 0;
+  *basis = 0;
+  *deriv = 0;
+  dFunctionReturn(0);
+}
+
 /** Get constraint counts for element assembly matrices.
 *
 * @note This function (and dJacobiAddConstraints()) will be difficult to implement on mixed spaces.  Looking for a

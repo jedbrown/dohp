@@ -45,6 +45,7 @@ struct _dEFSOps {
   dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,const dReal**);
   dErr (*apply)(dEFS,const dReal[],dInt,const dScalar[],dScalar[],dApplyMode,InsertMode);
   dErr (*getGlobalCoordinates)(dEFS,const dReal(*)[3],dInt*,dInt[],dReal(*)[3]);
+  dErr (*getExplicit)(dEFS,const dReal[],dInt*,dInt*,const dReal**,const dReal**);
 };
 
 /**

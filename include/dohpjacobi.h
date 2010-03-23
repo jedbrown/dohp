@@ -135,7 +135,8 @@ extern dErr dEFSGetTensorNodes(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,co
 extern dErr dEFSGetGlobalCoordinates(dEFS,const dReal vtx[restrict][3],dInt*,dInt[3],dReal(*)[3]);
 extern dErr dEFSGetRule(dEFS efs,dRule *rule);
 extern dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
-extern dErr dEFSGetExplicit(dEFS,dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
+extern dErr dEFSGetExplicit(dEFS,const dReal geom[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
+extern dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
 
 extern dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
 extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
