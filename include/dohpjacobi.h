@@ -116,7 +116,8 @@ typedef enum {
 extern const char *const dQuadratureMethods[];
 
 extern dErr dJacobiCreate(MPI_Comm,dJacobi*);
-extern dErr dJacobiSetType(dJacobi,dJacobiType);
+extern dErr dJacobiSetType(dJacobi,const dJacobiType);
+extern dErr dJacobiGetType(dJacobi,const dJacobiType*);
 extern dErr dJacobiSetFromOptions(dJacobi);
 extern dErr dJacobiDestroy(dJacobi);
 extern dErr dJacobiView(dJacobi,dViewer);

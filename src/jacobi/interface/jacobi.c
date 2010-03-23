@@ -39,7 +39,7 @@ dErr dJacobiCreate(MPI_Comm comm,dJacobi *injacobi)
   dFunctionReturn(0);
 }
 
-dErr dJacobiSetType(dJacobi jac,dJacobiType type)
+dErr dJacobiSetType(dJacobi jac,const dJacobiType type)
 {
   dErr err,(*r)(dJacobi);
   dTruth     match;
@@ -56,6 +56,16 @@ dErr dJacobiSetType(dJacobi jac,dJacobiType type)
   jac->setupcalled = 0;
   err = (*r)(jac);dCHK(err);
   err = PetscObjectChangeTypeName((PetscObject)jac,type);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dJacobiGetType(dJacobi jac,const dJacobiType *type)
+{
+
+  dFunctionBegin;
+  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidPointer(type,2);
+  *type = ((PetscObject)jac)->type_name;
   dFunctionReturn(0);
 }
 
