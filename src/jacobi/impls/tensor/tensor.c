@@ -71,6 +71,7 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
 
   matrices_computed:
   switch (P) {
+    case 1: dERROR(PETSC_ERR_SUP,"Zeroth order Tensor basis not available, use a Modal basis for P_0 elements");
 #define _C(p) case p: b->mscale = optimal_mscale_ ## p; b->lscale = optimal_lscale_ ## p; break
     _C(2);
     _C(3);
