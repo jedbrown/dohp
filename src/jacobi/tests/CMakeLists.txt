@@ -1,4 +1,4 @@
-foreach (i 1 3)
+foreach (i RANGE 1 3)
   dohp_link_executable("jacobi-ex${i}" "ex${i}.c")
 endforeach ()
 
