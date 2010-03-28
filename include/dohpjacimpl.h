@@ -93,6 +93,7 @@ struct p_dJacobi {
 struct _dQuadratureOps {
   dErr (*View)(dQuadrature,PetscViewer);
   dErr (*GetRule)(dQuadrature,dInt,const dEntTopology[],const dPolynomialOrder[],dRule[]);
+  dErr (*GetFacetRule)(dQuadrature,dInt,const dEntTopology[],const dInt[],const dPolynomialOrder[],dRule[]);
   dErr (*SetFromOptions)(dQuadrature);
   dErr (*SetMethod)(dQuadrature,dQuadratureMethod);
   dErr (*Destroy)(dQuadrature);

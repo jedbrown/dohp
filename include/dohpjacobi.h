@@ -161,6 +161,7 @@ extern dErr dQuadratureSetFromOptions(dQuadrature);
 extern dErr dQuadratureSetMethod(dQuadrature,dQuadratureMethod);
 extern dErr dQuadratureDestroy(dQuadrature);
 extern dErr dQuadratureGetRules(dQuadrature,dInt,const dEntTopology[],const dPolynomialOrder[],dRule**);
+extern dErr dQuadratureGetFacetRules(dQuadrature,dInt,const dEntTopology[],const dInt[],const dPolynomialOrder[],dRule**);
 
 typedef enum {
   dJACOBI_MODAL_P_CONFORMING,

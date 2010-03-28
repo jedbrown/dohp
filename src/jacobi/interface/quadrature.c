@@ -5,7 +5,7 @@ static PetscFList dQuadratureList;
 
 const char *const dQuadratureMethods[] = {"FAST","SPARSE","dQuadratureMethod","dQUADRATURE_METHOD_",0};
 
-/** Create an array of rules for integrating functions of given order.
+/** Create an array of rules for integrating functions of given order on the reference element
 *
 * @param quad the context
 * @param n number of elements
@@ -24,6 +24,30 @@ dErr dQuadratureGetRules(dQuadrature quad,dInt n,const dEntTopology topo[],const
   dValidPointer(rules,5);
   err = dMallocA(n,rules);dCHK(err);
   err = quad->ops->GetRule(quad,n,topo,order,*rules);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** Create an array of rules for integrating functions of given order on a facet of the reference element
+*
+* @param quad the context
+* @param n number of elements
+* @param topo topology of the element relative to which we will integrate
+* @param facet index of lower-dimensional entity upon which to integrate
+* @param order order of polynomial to be integrated exactly (in the reference frame of the element)
+* @param rules pointer to new array of rules
+*/
+dErr dQuadratureGetFacetRules(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt facet[],const dPolynomialOrder order[],dRule **rules)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(quad,dQUADRATURE_COOKIE,1);
+  dValidPointer(topo,3);
+  dValidPointer(facet,4);
+  dValidPointer(order,5);
+  dValidPointer(rules,6);
+  err = dMallocA(n,rules);dCHK(err);
+  err = quad->ops->GetFacetRule(quad,n,topo,facet,order,*rules);dCHK(err);
   dFunctionReturn(0);
 }
 
