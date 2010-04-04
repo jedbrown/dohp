@@ -294,7 +294,7 @@ static dErr dJacobiGetNodeCount_Modal(dJacobi dUNUSED jac,dInt count,const dEntT
 }
 
 static dErr dJacobiGetConstraintCount_Modal(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dUNUSED dInt xs[],const dInt dUNUSED is[],
-                                             const dInt dUNUSED deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
+                                             const dPolynomialOrder dUNUSED deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
 {
 
   dFunctionBegin;
@@ -310,7 +310,7 @@ static dErr dJacobiGetConstraintCount_Modal(dUNUSED dJacobi jac,dInt nx,const dI
   dFunctionReturn(0);
 }
 
-static dErr dJacobiAddConstraints_Modal(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt dUNUSED deg[],dMeshAdjacency dUNUSED ma,Mat matE,Mat matEp)
+static dErr dJacobiAddConstraints_Modal(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dPolynomialOrder dUNUSED deg[],dMeshAdjacency dUNUSED ma,Mat matE,Mat matEp)
 {
   dErr err;
 

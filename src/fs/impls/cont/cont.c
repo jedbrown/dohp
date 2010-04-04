@@ -77,7 +77,7 @@ static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
 
   dFunctionBegin;
   dValidHeader(fs,DM_COOKIE,1);
-  err = dMallocA(3*ma->nents,&deg);dCHK(err);
+  err = dMallocA(ma->nents,&deg);dCHK(err);
   err = dMeshTagGetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
   err = dJacobiPropogateDown(fs->jacobi,ma,deg);dCHK(err);
   err = dMeshTagSetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err);
@@ -196,7 +196,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 *
 * These are preallocated using \a nnz and \a pnnz respectively.
 **/
-dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp)
+dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMeshAdjacency ma,const dPolynomialOrder deg[],Mat *inE,Mat *inEp)
 {
   dErr err;
   const dInt *xstart = fs->off;
@@ -257,8 +257,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dMesh                  mesh;
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
-  dInt                  *inodes,*xnodes,*deg,*rdeg,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
-  dInt                  *xstart,xcnt,*regBDeg;
+  dPolynomialOrder      *deg,*rdeg,*regBDeg;
+  dInt                  *inodes,*xnodes,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
+  dInt                  *xstart,xcnt;
   dInt                   bs,n,ngh,ndirichlet,nc,rstart,crstart;
   dIInt                  ierr;
   dMeshEH               *ents,*ghents;
@@ -330,9 +331,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
 
   /* Get number of nodes for all entities, and parallel status */
-  err = dMallocA4(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,3*ma.nents,dDATA_INT);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->ruletag,ma.ents,ma.nents,rdeg,3*ma.nents,dDATA_INT);dCHK(err);
+  err = dMallocA4(ma.nents,&deg,ma.nents,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,ma.nents,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->ruletag,ma.ents,ma.nents,rdeg,ma.nents,dDATA_INT);dCHK(err);
   /* Fill the arrays \a inodes and \a xnodes with the number of interior and expanded nodes for each
   * (topology,degree) pair */
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
@@ -437,9 +438,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
   nregions = ents_s;
-  err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions*3,&regBDeg,nregions,&xnodes);dCHK(err);
+  err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions,&regBDeg,nregions,&xnodes);dCHK(err);
   err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions*3,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions,dDATA_INT);dCHK(err);
   err = dJacobiGetNodeCount(fs->jacobi,ents_s,regTopo,regBDeg,NULL,xnodes);dCHK(err);
 
   xcnt = xstart[0] = 0;

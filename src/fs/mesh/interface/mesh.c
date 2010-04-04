@@ -999,7 +999,7 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
   dValidPointer(inrtag,2);
   *inrtag = 0;
   //err = dMeshTagCreate(mesh,name,sizeof(dRule),dDATA_BYTE,&rtag);dCHK(err);
-  err = dMeshTagCreate(mesh,name,3,dDATA_INT,&rtag);dCHK(err);
+  err = dMeshTagCreate(mesh,name,1,dDATA_INT,&rtag);dCHK(err);
 
   firstType = dTYPE_VERTEX;  /* Hack: Get vertices as well (we should not need to label them) */
   toff[dTYPE_VERTEX] = toff[dTYPE_EDGE] = 0;
@@ -1016,16 +1016,16 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
   err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
   for (dInt i=0; i<nents; i++) {
     switch (topo[i]) {
-      case dTOPO_POINT: rdeg[3*i+0] = rdeg[3*i+1] = rdeg[3*i+2] = 1; break;
-      case dTOPO_LINE: rdeg[3*i+0] = degree; rdeg[3*i+1] = rdeg[3*i+2] = 1; break;
-      case dTOPO_QUAD: rdeg[3*i+0] = rdeg[3*i+1] = degree; rdeg[3*i+2] = 1; break;
-      case dTOPO_HEX:  rdeg[3*i+0] = rdeg[3*i+1] = rdeg[3*i+2] = degree; break;
+      case dTOPO_POINT: rdeg[i] = dPolynomialOrderCreate(0,0,0,0); break;
+      case dTOPO_LINE: rdeg[i] = dPolynomialOrderCreate(0,degree,0,0); break;
+      case dTOPO_QUAD: rdeg[i] = dPolynomialOrderCreate(0,degree,degree,0); break;
+      case dTOPO_HEX:  rdeg[i] = dPolynomialOrderCreate(0,degree,degree,degree); break;
       default: dERROR(1,"Topology %d not supported",topo[i]);
     }
   }
   //err = dJacobiGetRule(jac,nents,topo,rdeg,rules);dCHK(err);
   //err = dMeshTagSetData(mesh,rtag,ents,nents,rules,nents*(dInt)sizeof(s_dRule),dDATA_BYTE);dCHK(err);
-  err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,3,dDATA_INT);dCHK(err);
+  err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,nents,dDATA_INT);dCHK(err);
   err = dFree3(ents,topo,rdeg);dCHK(err);
   *inrtag = rtag;
   dFunctionReturn(0);

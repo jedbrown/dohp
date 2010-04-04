@@ -245,7 +245,7 @@ dErr dJacobiGetEFS(dJacobi jac,dInt n,const dEntTopology topo[],const dPolynomia
 *
 * @return err
 */
-dErr dJacobiGetNodeCount(dJacobi jac,dInt count,const dEntTopology top[],const dInt deg[],dInt inode[],dInt xnode[])
+dErr dJacobiGetNodeCount(dJacobi jac,dInt count,const dEntTopology top[],const dPolynomialOrder deg[],dInt inode[],dInt xnode[])
 {
   dErr err;
 
@@ -541,7 +541,7 @@ dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal
 * @param nnz Number of nonzeros per row of element assembly matrix
 * @param pnnz Number of nonzeros per row of preconditioning element assembly matrix
 */
-dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
+dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dPolynomialOrder deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
 {
   dErr err;
 
@@ -562,7 +562,7 @@ dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs
 *
 * @note This interface sucks for mixed spaces.  Looking for something better.
 **/
-dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],dMeshAdjacency ma,Mat E,Mat Ep)
+dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dPolynomialOrder deg[],dMeshAdjacency ma,Mat E,Mat Ep)
 {
   dErr err;
 

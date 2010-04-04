@@ -139,10 +139,10 @@ extern dErr dEFSGetExplicit(dEFS,const dReal geom[],dInt *Q,dInt *P,const dReal 
 extern dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
 
 extern dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
-extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
+extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],dInt[],dInt[]);
 
-extern dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,dInt[],dInt[]);
-extern dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],const dMeshAdjacency,Mat,Mat);
+extern dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dPolynomialOrder[],const dMeshAdjacency,dInt[],dInt[]);
+extern dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dPolynomialOrder[],const dMeshAdjacency,Mat,Mat);
 
 extern dErr dRuleView(dRule rule,dViewer);
 extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);

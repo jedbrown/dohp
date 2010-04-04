@@ -242,32 +242,31 @@ static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dPo
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEntTopology top[],const dInt deg[],dInt inode[],dInt xnode[])
+static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEntTopology top[],const dPolynomialOrder deg[],dInt inode[],dInt xnode[])
 {
-  dInt ideg[3];
-  const dInt *xdeg;
+  dInt icnt[3],xcnt[3];
 
   dFunctionBegin;
   for (dInt i=0; i<count; i++) {
     for (dInt j=0; j<3; j++) {
-      ideg[j] = dMaxInt(0,deg[3*i+j]-2);
+      icnt[j] = dMaxInt(0,dPolynomialOrder1D(deg[i],j)-1);
+      xcnt[j] = dPolynomialOrder1D(deg[i],j)+1;
     }
-    xdeg = deg+3*i;
     switch (top[i]) {
       case dTOPO_HEX:
-        if (inode) inode[i] = ideg[0]*ideg[1]*ideg[2];
-        if (xnode) xnode[i] = xdeg[0]*xdeg[1]*xdeg[2];
+        if (inode) inode[i] = icnt[0]*icnt[1]*icnt[2];
+        if (xnode) xnode[i] = xcnt[0]*xcnt[1]*xcnt[2];
         break;
       case dTOPO_QUAD:
-        if (inode) inode[i] = ideg[0]*ideg[1];
-        if (xnode) xnode[i] = xdeg[0]*xdeg[1];
+        if (inode) inode[i] = icnt[0]*icnt[1];
+        if (xnode) xnode[i] = xcnt[0]*xcnt[1];
         break;
       case dTOPO_LINE:
-        if (inode) inode[i] = ideg[0];
-        if (xnode) xnode[i] = xdeg[0];
+        if (inode) inode[i] = icnt[0];
+        if (xnode) xnode[i] = xcnt[0];
         break;
       case dTOPO_POINT:
-        if (inode) inode[i] = 1;
+        if (inode) inode[i] = 0;
         if (xnode) xnode[i] = 1;
         break;
       default:
@@ -278,7 +277,7 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
 }
 
 static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],const dInt dUNUSED is[],
-                                             const dInt dUNUSED deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
+                                             const dPolynomialOrder dUNUSED deg[],dMeshAdjacency ma,dInt nnz[],dInt pnnz[])
 {
 
   dFunctionBegin;
@@ -354,7 +353,7 @@ static dErr PrivateMatSetValue(Mat E,Mat Ep,dInt row,dInt col,MatScalar v,Insert
   dFunctionReturn(0);
 }
 
-static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dInt deg[],dMeshAdjacency ma,Mat matE,Mat matEp)
+static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt xi[],const dInt xs[],const dInt is[],const dPolynomialOrder deg[],dMeshAdjacency ma,Mat matE,Mat matEp)
 {
   dInt elem,i,j,k,l,e[12],eP[12],v[8];
   dInt nrow,ncol,irow[10],icol[30];
@@ -366,7 +365,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
   dFunctionBegin;
   for (elem=0; elem<nx; elem++) {
     const dInt ei = xi[elem]; /* Element index, \a is, \a deg and everything in \a ma is addressed by \a ei. */
-    const dInt *d = deg+3*ei,d0 = d[0],d1 = d[1],d2 = d[2];
+    const dInt d0 = dPolynomialOrder1D(deg[ei],0),d1 = dPolynomialOrder1D(deg[ei],1),d2 = dPolynomialOrder1D(deg[ei],2),d[3]={d0,d1,d2};
     const dInt scan[3] = {d1*d2,d2,1};
     switch (ma->topo[ei]) {
       case dTOPO_HEX:                              /* ****************************** HEX ************************** */
@@ -411,7 +410,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             {{1,0,d2-1},0,1,d0-1}, {{d0-1,1,d2-1},1,1,d1-1}, {{d0-2,d1-1,d2-1},0,-1,0}, {{0,d1-2,d2-1},1,-1,0},
             {{0,0,1},2,1,d2-1}, {{d0-1,0,1},2,1,d2-1}, {{d0-1,d1-1,1},2,1,d2-1}, {{0,d1-1,1},2,1,d2-1}};
           const dInt *start = E[i].start,incd = E[i].incd,inci = E[i].inci,end = E[i].end;
-          if (deg[3*e[i]] != deg[3*ei+E[i].incd]) dERROR(1,"degree does not agree, p-nonconforming");
+          if (dPolynomialOrder1D(deg[e[i]],0) != dPolynomialOrder1D(deg[ei],E[i].incd)) dERROR(1,"degree does not agree, p-nonconforming");
           for (j=start[incd]; j!=end; j += inci) {
             nrow = 0; ncol = 0;
             irow[nrow++] = xs[elem] + (start[0]*d1+start[1])*d2+start[2] + (j-start[incd])*scan[incd];
