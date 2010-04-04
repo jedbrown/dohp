@@ -12,14 +12,30 @@ const char *const dJacobiModalFamilies[] = {
   0
 };
 
-static dErr ModalPCount(dInt order,dInt *count) {
+static dErr ModalPCount(dEntType type,dInt order,dInt *count) {
   dFunctionBegin;
-  switch (order) {
-    case 0: *count = 1; break;
-    case 1: *count = 4; break;
-    case 2: *count = 10; break;
-    case 3: *count = 18; break;
-    default: dERROR(PETSC_ERR_SUP,"Cannot do order %d\n",order);
+  switch (type) {
+    case dTYPE_EDGE:
+      *count = order+1; break;
+    case dTYPE_FACE:
+      switch (order) {
+        case 0: *count = 1; break;
+        case 1: *count = 3; break;
+        case 2: *count = 6; break;
+        case 3: *count = 10; break;
+        default: dERROR(PETSC_ERR_SUP,"Order %D for type %s",order,dMeshEntTypeName(type));
+      }
+      break;
+    case dTYPE_REGION:
+      switch (order) {
+        case 0: *count = 1; break;
+        case 1: *count = 4; break;
+        case 2: *count = 10; break;
+        case 3: *count = 18; break;
+        default: dERROR(PETSC_ERR_SUP,"Order %D for type %s",order,dMeshEntTypeName(type));
+      }
+      break;
+    default: dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Unknown type %s",dMeshEntTypeName(type));
   }
   dFunctionReturn(0);
 }
@@ -37,7 +53,7 @@ static dErr dEFSModalSetUp(dEFS_Modal *modal,dEntTopology topo,dRule rule,dInt o
   err = dRuleGetNodeWeight(rule,rcoord,NULL);dCHK(err);
   modal->topo = topo;
   modal->rule = rule;
-  err = ModalPCount(order,&P);dCHK(err);
+  err = ModalPCount(dMeshEntTypeFromTopology(topo),order,&P);dCHK(err);
   modal->P   = P;
   modal->Q   = Q;
   err = dMallocA2(P*Q,&modal->interp,3*P*Q,&modal->deriv);dCHK(err);
@@ -277,16 +293,14 @@ static dErr dJacobiSetFromOptions_Modal(dJacobi jac)
   dFunctionReturn(0);
 }
 
-static dErr dJacobiGetNodeCount_Modal(dJacobi dUNUSED jac,dInt count,const dEntTopology top[],const dInt deg[],dInt inode[],dInt xnode[])
+static dErr dJacobiGetNodeCount_Modal(dJacobi dUNUSED jac,dInt count,const dEntTopology top[],const dPolynomialOrder deg[],dInt inode[],dInt xnode[])
 {
   dErr err;
 
   dFunctionBegin;
   for (dInt i=0; i<count; i++) {
-    dInt n,dd = dMaxInt(0,deg[3*i+0]-1),type = iMesh_TypeFromTopology[top[i]];
-    if ((type > 1 && deg[3*i+1] != dd) || (type > 2 && deg[3*i+2] != dd))
-      dERROR(PETSC_ERR_ARG_INCOMP,"Degree must be isotropic for P-family elements");
-    err = ModalPCount(deg[i]-1,&n);dCHK(err);
+    dInt n,type = dMeshEntTypeFromTopology(top[i]);
+    err = ModalPCount(type,dPolynomialOrderMax(deg[i]),&n);dCHK(err);
     if (inode) inode[i] = n;
     if (xnode) xnode[i] = n;
   }
