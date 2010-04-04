@@ -202,7 +202,7 @@ static dErr dEFSModalSetUp(dEFS_Modal *modal,dEntTopology topo,dRule rule,dInt o
             deriv[0][2] = 0;
         }
         break;
-      default: dERROR(PETSC_ERR_SUP,"topology %s",iMesh_TopologyName[topo]);
+      default: dERROR(PETSC_ERR_SUP,"topology %s",dMeshEntTopologyName(topo));
     }
   }
   err = dFree(rcoord);dCHK(err);

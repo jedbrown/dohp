@@ -139,7 +139,7 @@ static dErr dQuadratureGetRules_Tensor_Private(dQuadrature quad,dInt n,const dEn
           err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],1),&newrule->trule[1]);dCHK(err);
           err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],2),&newrule->trule[2]);dCHK(err);
           break;
-        default: dERROR(1,"no rule available for given topology");
+        default: dERROR(1,"no rule available for given topology %s",dMeshEntTopologyName(topo[i]));
       }
       kh_val(tnsr->rules,kiter) = newrule;
     }
@@ -282,7 +282,7 @@ static dErr dQuadratureGetFacetRules_Tensor_Private(dQuadrature quad,dInt n,cons
           err = dQuadratureGetRules_Tensor_Private(quad,1,&topoquad,&rotdeg,&refrule,method);dCHK(err);
           err = dQuadratureCreateTransformedRule(quad,refrule,&t.jac[0][0],t.translation,&newrule);dCHK(err);
         } break;
-        default: dERROR(PETSC_ERR_SUP,"Unsupported topology type '%s'",iMesh_TopologyName[topo[i]]);
+        default: dERROR(PETSC_ERR_SUP,"Unsupported topology type '%s'",dMeshEntTopologyName(topo[i]));
       }
       kh_val(tnsr->facetrules,kiter) = newrule;
     }

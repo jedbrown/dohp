@@ -179,7 +179,7 @@ static dErr examine(dMesh mesh,dMeshTag tag)
         case dTOPO_LINE: nv = 2; break;
         default: dERROR(1,"unsupported topology");
       }
-      err = dPrintf(PETSC_COMM_WORLD,"%30s %d %d %d   [",iMesh_TopologyName[topo[i]],data[3*i],data[3*i+1],data[3*i+2]);dCHK(err);
+      err = dPrintf(PETSC_COMM_WORLD,"%30s %d %d %d   [",dMeshEntTopologyName(topo[i]),data[3*i],data[3*i+1],data[3*i+2]);dCHK(err);
       for (dInt j=0; j<nv; j++) { err = dPrintf(PETSC_COMM_WORLD," %p",conn.v[connoff.v[i]+j]);dCHK(err); }
       err = dPrintf(PETSC_COMM_WORLD," ]\n");dCHK(err);
     }

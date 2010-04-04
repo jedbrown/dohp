@@ -36,43 +36,58 @@ const char *const iBase_ErrorString[] = {
   "iBase_FAILURE"
 };
 
-const char *const iMesh_TopologyName[12] = {
-  "iMesh_POINT",
-  "iMesh_LINE_SEGMENT",
-  "iMesh_POLYGON",
-  "iMesh_TRIANGLE",
-  "iMesh_QUADRILATERAL",
-  "iMesh_POLYHEDRON",
-  "iMesh_TETRAHEDRON",
-  "iMesh_HEXAHEDRON",
-  "iMesh_PRISM",
-  "iMesh_PYRAMID",
-  "iMesh_SEPTAHEDRON",
-  "iMesh_ALL_TOPOLOGIES"
-};
+const char *dMeshEntTopologyName(dEntTopology topo) {
+  static const char *const iMesh_TopologyName[12] = {
+    "iMesh_POINT",
+    "iMesh_LINE_SEGMENT",
+    "iMesh_POLYGON",
+    "iMesh_TRIANGLE",
+    "iMesh_QUADRILATERAL",
+    "iMesh_POLYHEDRON",
+    "iMesh_TETRAHEDRON",
+    "iMesh_HEXAHEDRON",
+    "iMesh_PRISM",
+    "iMesh_PYRAMID",
+    "iMesh_SEPTAHEDRON",
+    "iMesh_ALL_TOPOLOGIES"
+  };
+  return (topo <= sizeof(iMesh_TopologyName)/sizeof(iMesh_TopologyName[0]))
+    ? iMesh_TopologyName[topo]
+    : "iMesh_TOPOLOGY_OUT_OF_RANGE";
+}
 
-const int iMesh_TypeFromTopology[12] = {
-  iBase_VERTEX,                 /* POINT */
-  iBase_EDGE,                   /* LINE_SEGMENT */
-  iBase_FACE,                   /* POLYGON */
-  iBase_FACE,                   /* TRIANGLE */
-  iBase_FACE,                   /* QUADRILATERAL */
-  iBase_REGION,                 /* POLYHEDRON */
-  iBase_REGION,                 /* TETRAHEDRON */
-  iBase_REGION,                 /* HEXAHEDRON */
-  iBase_REGION,                 /* PRISM */
-  iBase_REGION,                 /* PYRAMID */
-  iBase_REGION,                 /* SEPTAHEDRON */
-  iBase_ALL_TYPES,              /* ALL_TOPOLOGIES */
-};
+dEntType dMeshEntTypeFromTopology(dEntTopology topo) {
+  static const int iMesh_TypeFromTopology[12] = {
+    iBase_VERTEX,                 /* POINT */
+    iBase_EDGE,                   /* LINE_SEGMENT */
+    iBase_FACE,                   /* POLYGON */
+    iBase_FACE,                   /* TRIANGLE */
+    iBase_FACE,                   /* QUADRILATERAL */
+    iBase_REGION,                 /* POLYHEDRON */
+    iBase_REGION,                 /* TETRAHEDRON */
+    iBase_REGION,                 /* HEXAHEDRON */
+    iBase_REGION,                 /* PRISM */
+    iBase_REGION,                 /* PYRAMID */
+    iBase_REGION,                 /* SEPTAHEDRON */
+    iBase_ALL_TYPES,              /* ALL_TOPOLOGIES */
+  };
+  return (topo <= dTOPO_ALL)
+    ? iMesh_TypeFromTopology[topo]
+    : dTYPE_ALL;
+}
 
-const char *const iBase_TypeName[] = {
-  "iBase_VERTEX",
-  "iBase_EDGE",
-  "iBase_FACE",
-  "iBase_REGION",
-  "iBase_ALL_TYPES"
-};
+const char *dMeshEntTypeName(dEntType type) {
+  static const char *const iBase_TypeName[] = {
+    "iBase_VERTEX",
+    "iBase_EDGE",
+    "iBase_FACE",
+    "iBase_REGION",
+    "iBase_ALL_TYPES"
+  };
+  return (type <= sizeof(iBase_TypeName)/sizeof(iBase_TypeName[0]))
+    ? iBase_TypeName[type]
+    : "iBase_TYPE_OUT_OF_RANGE";
+}
 
 const char *const iBase_TagValueTypeName[] = {
   "iBase_INTEGER",
@@ -828,7 +843,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
     for (i=iMesh_POINT; i<iMesh_ALL_TOPOLOGIES; i++) {
     iMesh_getNumOfTopo(mi,root,i,&ntopo,&err);dICHK(mi,err);
       if (ntopo) {
-        err = PetscViewerASCIIPrintf(viewer,"%20s : %d\n",iMesh_TopologyName[i],ntopo);dCHK(err);
+        err = PetscViewerASCIIPrintf(viewer,"%20s : %d\n",dMeshEntTopologyName(i),ntopo);dCHK(err);
       }
     }
   }
@@ -1046,7 +1061,7 @@ static dErr dMeshAdjacencyPermutations_Private(dMeshAdjacency ma,const dInt conn
           ma->adjperm[ai] = 0;  /* Vertices cannot be permuted */
         }
         break;
-      default: dERROR(1,"Topology %s not supported",iMesh_TopologyName[ma->topo[e]]);
+      default: dERROR(1,"Topology %s not supported",dMeshEntTopologyName(ma->topo[e]));
     }
   }
   dFunctionReturn(0);

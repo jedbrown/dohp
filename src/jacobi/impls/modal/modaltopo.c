@@ -64,7 +64,7 @@ static dErr dEFSGetSizes_Modal_All(dEFS efs,dInt *dim,dInt *inodes,dInt *total)
   const dEFS_Modal *e = (dEFS_Modal*)efs;
 
   dFunctionBegin;
-  if (dim)    *dim    = iMesh_TypeFromTopology[e->topo];
+  if (dim)    *dim    = dMeshEntTypeFromTopology(e->topo);
   if (inodes) *inodes = e->P;
   if (total)  *total  = e->P;
   dFunctionReturn(0);

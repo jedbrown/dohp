@@ -15,10 +15,10 @@ typedef struct _p_dMesh *dMesh;
 extern dCookie dMESH_COOKIE;
 
 extern const char *const iBase_ErrorString[];
-extern const char *const iMesh_TopologyName[];
-extern const char *const iBase_TypeName[];
+extern const char *dMeshEntTopologyName(dEntTopology);
+extern const char *dMeshEntTypeName(dEntType);
 extern const char *const iBase_TagValueTypeName[];
-extern const int iMesh_TypeFromTopology[];
+extern dEntType dMeshEntTypeFromTopology(dEntTopology);
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
 #define dICHK(mesh,err) do {                                            \
