@@ -63,7 +63,6 @@ static dErr BUSetFromOptions(BU bu)
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(bu->comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   bu->jac = jac;
 
