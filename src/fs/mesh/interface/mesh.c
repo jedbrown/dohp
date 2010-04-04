@@ -335,7 +335,6 @@ dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy)
   dIInt   ierr,islist;
   dInt    size;
   dMeshEH *ents;
-  dMeshESH root;
   dErr    err;
 
   dFunctionBegin;
@@ -344,12 +343,7 @@ dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy)
   err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&size);dCHK(err);
   err = dMallocA(size,&ents);dCHK(err);
   err = dMeshGetEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,ents,size,NULL);dCHK(err);
-  err = dMeshGetRoot(mesh,&root);dCHK(err);
-  if (set == root) {            /* MOAB made it an error to call isList on the root set  */
-    islist = 0;
-  } else {
-    iMesh_isList(mi,set,&islist,&ierr);dICHK(mi,ierr);
-  }
+  iMesh_isList(mi,set,&islist,&ierr);dICHK(mi,ierr);
   err = dMeshSetCreate(mesh,islist?dMESHSET_ORDERED:dMESHSET_UNORDERED,copy);dCHK(err);
   err = dMeshSetAddEnts(mesh,*copy,ents,size);dCHK(err);
   err = dFree(ents);dCHK(err);
