@@ -449,7 +449,6 @@ dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag)
 dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type)
 {
   iMesh_Instance mi = mesh->mi;
-  dMeshEH *ments;
   const char *dptr = data;
   dIInt size,ierr;
 
@@ -457,9 +456,14 @@ dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,co
   dValidHeader(mesh,dMESH_COOKIE,1);
   dValidPointer(ents,3);
   dValidPointer(data,5);
-  ments = (dMeshEH*)(intptr_t)ents;       /* Cast away const, pretty sure iMesh will never modify the handles */
   size = count * iBase_SizeFromType[type];
-  iMesh_setArrData(mi,ments,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
+  if (1) {
+    dIInt bytes;
+    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    if (size != ecount * (dInt)bytes)
+      dERROR(PETSC_ERR_ARG_SIZ,"Trying to tag %D entities with %D byte tags, but only requested %D bytes",ecount,bytes,size);
+  }
+  iMesh_setArrData(mi,ents,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
   dFunctionReturn(0);
 }
 
