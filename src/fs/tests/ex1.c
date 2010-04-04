@@ -256,8 +256,8 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   struct ProjContext *proj = ctx;
   dFS fs = proj->fs;
   dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
   dScalar *x,*y,*u,*v;
   dErr err;
@@ -271,9 +271,9 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dRuleComputeGeometry(rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
+    err = dRuleGetSize(rule[e],0,&Q);dCHK(err);
+    err = dEFSApply(efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar f[1];             /* Scalar problem */
       err = exact.function(q[i],f);dCHK(err);
@@ -284,7 +284,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
       for (dInt i=0; i<Q; i++) sum += jw[i];
       printf("sum of %d quadrature weights times Jdet = %g\n",Q,sum);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
   }
   err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
   err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
@@ -297,8 +297,8 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
   struct ProjContext *proj = ctx;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*nx)[3];
   dScalar *x;
   dFS fs = proj->fs;
@@ -314,7 +314,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
   err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
-    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    err = dEFSGetGlobalCoordinates(efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
     if (three != 3) dERROR(1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
@@ -359,8 +359,8 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
 {
   dFS fs = proj->fs;
   dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
   dScalar *x,*u,(*du)[1][3];
   dErr err;

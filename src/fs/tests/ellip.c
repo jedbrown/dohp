@@ -257,13 +257,13 @@ static dErr EllipSetFromOptions(Ellip elp)
 
   {                             /* Allocate space for stored values */
     dInt n;
-    s_dRule *rule;
+    dRule *rule;
     err = dFSGetElements(fs,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
     err = dMallocA(n+1,&elp->storeoff);dCHK(err);
     elp->storeoff[0] = 0;
     for (dInt i=0; i<n; i++) {
       dInt q;
-      err = dRuleGetSize(&rule[i],NULL,&q);dCHK(err);
+      err = dRuleGetSize(rule[i],NULL,&q);dCHK(err);
       elp->storeoff[i+1] = elp->storeoff[i] + q;
     }
     err = dMallocA(elp->storeoff[n],&elp->store);dCHK(err);
