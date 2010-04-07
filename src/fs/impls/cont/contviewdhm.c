@@ -359,7 +359,8 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 
   /* @todo Call private dFSBuildSpace pieces (once they exist) */
   {
-    dInt           i,n,bs,ents_a,ents_s,*bdeg,*inodes,*xnodes,*idx,xcnt,*loffset;
+    dInt           i,n,bs,ents_a,ents_s,*inodes,*xnodes,*idx,xcnt,*loffset;
+    dPolynomialOrder *bdeg;
     dEntTopology   *topo;
     dMeshEH        *ents;
     dMesh          mesh;
@@ -367,12 +368,12 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 
     err = dFSGetMesh(fs,&mesh);dCHK(err);
     err = dMeshGetNumEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
-    err = dMallocA5(ents_a,&ents,ents_a,&topo,3*ents_a,&bdeg,ents_a,&xnodes,ents_a,&idx);dCHK(err);
+    err = dMallocA5(ents_a,&ents,ents_a,&topo,ents_a,&bdeg,ents_a,&xnodes,ents_a,&idx);dCHK(err);
 
     err = dMeshGetEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
     dASSERT(ents_a == ents_s);
     err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
-    err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,3*ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
 
     err = dMallocA2(ents_s,&inodes,ents_s,&loffset);dCHK(err);
     err = dJacobiGetNodeCount(fs->jacobi,ents_s,topo,bdeg,inodes,xnodes);dCHK(err);
@@ -401,12 +402,12 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = dMallocA3(ents_s,&fs->rule,ents_s,&fs->efs,ents_s+1,&fs->off);dCHK(err); /* Owned by FS */
 
     {
-      dInt *rdeg;
+      dPolynomialOrder *rdeg;
       dQuadrature quad;
       err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
       err = dMallocA(ents_s*3,&rdeg);dCHK(err);
-      err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,ents_s*3,dDATA_INT);dCHK(err);
-      err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,rdeg,ents_s*3,dDATA_INT);dCHK(err);
+      err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
+      err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,rdeg,ents_s,dDATA_INT);dCHK(err);
       err = dJacobiGetQuadrature(fs->jacobi,&quad);dCHK(err);
       err = dQuadratureGetRule(quad,ents_s,topo,rdeg,fs->rule);dCHK(err);
       err = dJacobiGetEFS(fs->jacobi,ents_s,topo,bdeg,fs->rule,fs->efs);dCHK(err);
