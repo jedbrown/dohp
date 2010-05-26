@@ -16,7 +16,7 @@
 
 dEXTERN_C_BEGIN
 
-extern dCookie dFSROT_COOKIE;
+extern dClassId dFSROT_CLASSID;
 
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;

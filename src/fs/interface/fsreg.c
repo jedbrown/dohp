@@ -3,7 +3,7 @@
 #include <dohpstring.h>
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
-dCookie dFSROT_COOKIE;
+dClassId dFSROT_CLASSID;
 static PetscFList FSList = 0;
 
 /**
@@ -40,7 +40,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dFSInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,DM_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
+  err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,DM_CLASSID,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
 
   err = dMemcpy(fs->ops,&defaultFSOps,sizeof defaultFSOps);dCHK(err);
   err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);dCHK(err);
@@ -61,7 +61,7 @@ dErr dFSSetType(dFS fs,const dFSType type)
   dBool     match;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(fs,DM_COOKIE,1);
+  PetscValidHeaderSpecific(fs,DM_CLASSID,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
@@ -83,7 +83,7 @@ dErr dFSSetFromOptions(dFS fs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space (dFS) options","dFS");dCHK(err);
   err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",FSList,deft,type,256,&flg);dCHK(err);
   if (flg) {
@@ -131,10 +131,10 @@ dErr dFSInitializePackage(const char path[])
   initialized = PETSC_TRUE;
   err = MatInitializePackage(path);dCHK(err);
   err = DMInitializePackage(path);dCHK(err);
-  err = PetscCookieRegister("dFS Rotation",&dFSROT_COOKIE);dCHK(err);
+  err = PetscClassIdRegister("dFS Rotation",&dFSROT_CLASSID);dCHK(err);
 
-  err = PetscLogEventRegister("dQ1HexComputQuad",DM_COOKIE,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
-  err = PetscLogEventRegister("dFSMatSetVExpand",DM_COOKIE,&dLOG_FSMatSetValuesExpanded);dCHK(err);
+  err = PetscLogEventRegister("dQ1HexComputQuad",DM_CLASSID,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
+  err = PetscLogEventRegister("dFSMatSetVExpand",DM_CLASSID,&dLOG_FSMatSetValuesExpanded);dCHK(err);
   err = dFSRegisterAll(path);dCHK(err);
   dFunctionReturn(0);
 }

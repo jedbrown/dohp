@@ -18,7 +18,7 @@ dErr dQuadratureGetRules(dQuadrature quad,dInt n,const dEntTopology topo[],const
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(quad,dQUADRATURE_COOKIE,1);
+  dValidHeader(quad,dQUADRATURE_CLASSID,1);
   dValidPointer(topo,3);
   dValidPointer(order,4);
   dValidPointer(rules,5);
@@ -41,7 +41,7 @@ dErr dQuadratureGetFacetRules(dQuadrature quad,dInt n,const dEntTopology topo[],
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(quad,dQUADRATURE_COOKIE,1);
+  dValidHeader(quad,dQUADRATURE_CLASSID,1);
   dValidPointer(topo,3);
   dValidPointer(facet,4);
   dValidPointer(order,5);
@@ -58,7 +58,7 @@ dErr dQuadratureSetFromOptions(dQuadrature quad)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(quad,dQUADRATURE_COOKIE,1);
+  PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);
   err = PetscOptionsBegin(((PetscObject)quad)->comm,((PetscObject)quad)->prefix,"Quadrature options","dQuadrature");dCHK(err);
   err = PetscOptionsList("-dquad_type","Quadrature type","dQuadratureSetType",dQuadratureList,
                           (((PetscObject)quad)->type_name?((PetscObject)quad)->type_name:type),type,dNAME_LEN,&typeSet);dCHK(err);
@@ -86,7 +86,7 @@ dErr dQuadratureDestroy(dQuadrature quad)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(quad,dQUADRATURE_COOKIE,1);
+  dValidHeader(quad,dQUADRATURE_CLASSID,1);
   if (--((PetscObject)quad)->refct > 0) dFunctionReturn(0);
   if (quad->ops->Destroy) {
     err = quad->ops->Destroy(quad);dCHK(err);
@@ -101,11 +101,11 @@ dErr dQuadratureView(dQuadrature quad,PetscViewer viewer)
   dErr   err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(quad,dQUADRATURE_COOKIE,1);
+  PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((PetscObject)quad)->comm,&viewer);dCHK(err);
   }
-  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_COOKIE,2);
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(quad,1,viewer,2);
 
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
@@ -133,7 +133,7 @@ dErr dQuadratureSetType(dQuadrature quad,dQuadratureType type)
   dTruth match;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(quad,dQUADRATURE_COOKIE,1);
+  PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)quad,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
@@ -180,7 +180,7 @@ dErr dQuadratureCreate(MPI_Comm comm,dQuadrature *inquad)
 #if !defined PETSC_USE_DYNAMIC_LIBRARIES
   err = dJacobiInitializePackage(NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(quad,p_dQuadrature,struct _dQuadratureOps,dQUADRATURE_COOKIE,0,"dQuadrature",comm,dQuadratureDestroy,dQuadratureView);dCHK(err);
+  err = PetscHeaderCreate(quad,p_dQuadrature,struct _dQuadratureOps,dQUADRATURE_CLASSID,0,"dQuadrature",comm,dQuadratureDestroy,dQuadratureView);dCHK(err);
 
   *inquad = quad;
   dFunctionReturn(0);

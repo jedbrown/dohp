@@ -12,7 +12,7 @@ dEXTERN_C_BEGIN
 typedef struct _p_dMeshPacker *dMeshPacker;
 typedef struct _p_dMesh *dMesh;
 
-extern dCookie dMESH_COOKIE;
+extern dClassId dMESH_CLASSID;
 
 extern const char *const iBase_ErrorString[];
 extern const char *dMeshEntTopologyName(dEntTopology);

@@ -32,7 +32,7 @@ static dErr dQuotientSetUp_Gauss(dQuotient quot)
   dInt nelems;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(quot,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(quot,dQUOTIENT_CLASSID,1);
   nelems = quot->nelems;
   dERROR(1,"This is broken");
   //err = PetscMalloc2(nelems,EQuad_Hex,&quot->quad,nelems,EMap_Affine3,&quot->emap);dCHK(err);

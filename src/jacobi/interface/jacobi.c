@@ -2,7 +2,7 @@
 #include <dohpjacimpl.h>
 #include <dohp.h>
 
-dCookie dJACOBI_COOKIE,dQUADRATURE_COOKIE;
+dClassId dJACOBI_CLASSID,dQUADRATURE_CLASSID;
 PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 
 const char *dGaussFamilies[] = {"gauss","lobatto","radau","dGaussFamily","dGAUSS_",0};
@@ -27,7 +27,7 @@ dErr dJacobiCreate(MPI_Comm comm,dJacobi *injacobi)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dJacobiInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(jac,p_dJacobi,struct _dJacobiOps,dJACOBI_COOKIE,0,"dJacobi",comm,dJacobiDestroy,dJacobiView);dCHK(err);
+  err = PetscHeaderCreate(jac,p_dJacobi,struct _dJacobiOps,dJACOBI_CLASSID,0,"dJacobi",comm,dJacobiDestroy,dJacobiView);dCHK(err);
 
   jac->basisdegree = 10;
   jac->ruleexcess  = 5;
@@ -45,7 +45,7 @@ dErr dJacobiSetType(dJacobi jac,const dJacobiType type)
   dTruth     match;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
+  PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)jac,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
@@ -63,7 +63,7 @@ dErr dJacobiGetType(dJacobi jac,const dJacobiType *type)
 {
 
   dFunctionBegin;
-  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(type,2);
   *type = ((PetscObject)jac)->type_name;
   dFunctionReturn(0);
@@ -76,7 +76,7 @@ dErr dJacobiSetFromOptions(dJacobi jac)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
+  PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
   err = PetscOptionsBegin(((PetscObject)jac)->comm,((PetscObject)jac)->prefix,"Jacobi options (type and size of basis)","dJacobi");dCHK(err);
   err = PetscOptionsList("-djac_type","Basis type","dJacobiSetType",dJacobiList,
                           (((PetscObject)jac)->type_name?((PetscObject)jac)->type_name:type),type,dNAME_LEN,&typeSet);dCHK(err);
@@ -100,7 +100,7 @@ dErr dJacobiDestroy(dJacobi jac)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
+  PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
   if (--((PetscObject)jac)->refct > 0) dFunctionReturn(0);
   if (jac->ops->Destroy) {
     err = jac->ops->Destroy(jac);dCHK(err);
@@ -115,11 +115,11 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(jac,dJACOBI_COOKIE,1);
+  PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((PetscObject)jac)->comm,&viewer);dCHK(err);
   }
-  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_COOKIE,2);
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(jac,1,viewer,2);
 
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
@@ -158,7 +158,7 @@ dErr dJacobiPropogateDown(dJacobi jac,dMeshAdjacency a,dPolynomialOrder deg[])
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(a,2);
   dValidPointer(deg,3);
   err = jac->ops->PropogateDown(jac,a,deg);dCHK(err);
@@ -196,10 +196,10 @@ dErr dJacobiInitializePackage(const char path[])
 
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
-  err = PetscCookieRegister("Jacobi context",&dJACOBI_COOKIE);dCHK(err);
-  err = PetscCookieRegister("Quadrature context",&dQUADRATURE_COOKIE);dCHK(err);
-  err = PetscLogEventRegister("dEFSApply",       dJACOBI_COOKIE,&dLOG_EFSApply);dCHK(err);
-  err = PetscLogEventRegister("dRuleComputeGeom",dJACOBI_COOKIE,&dLOG_RuleComputeGeometry);dCHK(err);
+  err = PetscClassIdRegister("Jacobi context",&dJACOBI_CLASSID);dCHK(err);
+  err = PetscClassIdRegister("Quadrature context",&dQUADRATURE_CLASSID);dCHK(err);
+  err = PetscLogEventRegister("dEFSApply",       dJACOBI_CLASSID,&dLOG_EFSApply);dCHK(err);
+  err = PetscLogEventRegister("dRuleComputeGeom",dJACOBI_CLASSID,&dLOG_RuleComputeGeometry);dCHK(err);
   err = dJacobiRegisterAll(path);dCHK(err);
   err = dQuadratureRegisterAll(path);dCHK(err);
   initialized = PETSC_TRUE;
@@ -223,7 +223,7 @@ dErr dJacobiGetEFS(dJacobi jac,dInt n,const dEntTopology topo[],const dPolynomia
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(topo,3)
   dValidPointer(order,4);
   dValidPointer(rules,5);
@@ -250,7 +250,7 @@ dErr dJacobiGetNodeCount(dJacobi jac,dInt count,const dEntTopology top[],const d
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(top,3);
   dValidPointer(deg,4);
   err = jac->ops->GetNodeCount(jac,count,top,deg,inode,xnode);dCHK(err);
@@ -264,7 +264,7 @@ dErr dJacobiGetQuadrature(dJacobi jac,dQuadratureMethod method,dQuadrature *quad
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(quad,3);
   if (!jac->quad[method]) {
     if (jac->ops->GetQuadrature) {
@@ -284,7 +284,7 @@ dErr dRuleView(dRule rule,PetscViewer viewer)
 
   dFunctionBegin;
   dValidPointer(rule,1);
-  dValidHeader(viewer,PETSC_VIEWER_COOKIE,2);
+  dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   err = (*rule->ops.view)(rule,viewer);dCHK(err);
   dFunctionReturn(0);
 }
@@ -374,7 +374,7 @@ dErr dEFSView(dEFS efs,PetscViewer viewer)
 
   dFunctionBegin;
   dValidPointer(efs,1);
-  dValidHeader(viewer,PETSC_VIEWER_COOKIE,2);
+  dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   err = (*efs->ops.view)(efs,viewer);dCHK(err);
   dFunctionReturn(0);
 }
@@ -546,7 +546,7 @@ dErr dJacobiGetConstraintCount(dJacobi jac,dInt nx,const dInt xi[],const dInt xs
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(xi,3);
   dValidPointer(xs,4);
   dValidPointer(is,5);
@@ -567,14 +567,14 @@ dErr dJacobiAddConstraints(dJacobi jac,dInt nx,const dInt xi[],const dInt xs[],c
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(jac,dJACOBI_COOKIE,1);
+  dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(xi,3);
   dValidPointer(xs,4);
   dValidPointer(is,5);
   dValidPointer(deg,6);
   dValidPointer(ma,7);
-  dValidHeader(E,MAT_COOKIE,8);
-  dValidHeader(Ep,MAT_COOKIE,9);
+  dValidHeader(E,MAT_CLASSID,8);
+  dValidHeader(Ep,MAT_CLASSID,9);
   err = (*jac->ops->AddConstraints)(jac,nx,xi,xs,is,deg,ma,E,Ep);dCHK(err);
   dFunctionReturn(0);
 }

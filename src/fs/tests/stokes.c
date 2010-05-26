@@ -1409,7 +1409,7 @@ int main(int argc,char *argv[])
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
-  err = PetscLogEventRegister("StokesShellMult",MAT_COOKIE,&LOG_StokesShellMult);dCHK(err);
+  err = PetscLogEventRegister("StokesShellMult",MAT_CLASSID,&LOG_StokesShellMult);dCHK(err);
 
   err = StokesCreate(comm,&stk);dCHK(err);
   err = StokesSetFromOptions(stk);dCHK(err);

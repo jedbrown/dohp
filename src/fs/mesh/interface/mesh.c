@@ -300,7 +300,7 @@ dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   if (fname) {
     err = PetscStrfree(mesh->infile);dCHK(err);
     err = PetscStrallocpy(fname,&mesh->infile);dCHK(err);
@@ -318,7 +318,7 @@ dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inroot,2);
   *inroot = 0;
   if (!mesh->root) {
@@ -338,7 +338,7 @@ dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy)
   dErr    err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(copy,3);
   err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&size);dCHK(err);
   err = dMallocA(size,&ents);dCHK(err);
@@ -359,7 +359,7 @@ dErr dMeshGetTagName(dMesh mesh,dMeshTag tag,char **name)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(mesh,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(mesh,dMESH_CLASSID,1);
   dValidPointer(name,2);
   err = PetscMalloc(dNAME_LEN,name);dCHK(err);
   iMesh_getTagName(mi,tag,*name,&err,dNAME_LEN);dICHK(mi,err);
@@ -374,7 +374,7 @@ dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidCharPointer(name,2);
   dValidPointer(intag,3);
   *intag = 0;
@@ -391,7 +391,7 @@ dErr dMeshTagCreateTemp(dMesh mesh,const char template[],dInt count,dDataType ty
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(intag,4);
   err = PetscSNPrintf(name,sizeof(name),"__DOHP_%s_%d",template,unique_id++);dCHK(err);
   err = dMeshTagCreate(mesh,name,count,type,intag);dCHK(err);
@@ -407,7 +407,7 @@ dErr dMeshTagCreate(dMesh mesh,const char name[],dInt count,dDataType type,dMesh
   dErr           err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(intag,4);
   *intag = 0;
   mi = mesh->mi;
@@ -435,7 +435,7 @@ dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   iMesh_destroyTag(mesh->mi,tag,1,&ierr);dICHK(mesh->mi,ierr);
   dFunctionReturn(0);
 }
@@ -447,7 +447,7 @@ dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,co
   dIInt size,ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(data,5);
   size = count * iBase_SizeFromType[type];
@@ -468,7 +468,7 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   dIInt size,alloc,ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(data,5);
   alloc = count * iBase_SizeFromType[type];
@@ -497,7 +497,7 @@ dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
   dIInt ierr,alloc=1,size;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(set,4);
   *set = 0;
   iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,value?(const char*const*)&value:NULL,1,0,&set,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
@@ -509,7 +509,7 @@ dErr dMeshGetNumEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dIn
   dIInt ierr,n;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(num,5);
   if (topo == dTOPO_ALL) {
     iMesh_getNumOfType(mesh->mi,set,type,&n,&ierr);dICHK(mesh->mi,ierr);
@@ -526,7 +526,7 @@ dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshE
   dIInt ea,es,ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,5);
   e = ents; ea = esize;
   iMesh_getEntities(mesh->mi,set,type,topo,&e,&ea,&es,&ierr);dICHK(mesh->mi,ierr);
@@ -540,7 +540,7 @@ dErr dMeshGetNumSubsets(dMesh mesh,dMeshESH set,dInt hops,dInt *nsubsets)
   dIInt ierr,n;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(nsubsets,4);
   iMesh_getNumEntSets(mesh->mi,set,hops,&n,&ierr);dICHK(mesh->mi,ierr);
   *nsubsets = n;
@@ -552,7 +552,7 @@ dErr dMeshGetSubsets(dMesh mesh,dMeshESH set,dInt hops,dMeshESH subsets[],dInt a
   dIInt ierr,s;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(subsets,4);
   s = 0;
   iMesh_getEntSets(mesh->mi,set,hops,&subsets,&alloc,&s,&ierr);dICHK(mesh->mi,ierr);
@@ -573,7 +573,7 @@ dErr dMeshGetEntsOff(dMesh mesh,dMeshESH set,dInt toff[],dMeshEH **inents)
   dErr     err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(toff,3);
   dValidPointer(inents,4);
   *inents = 0;
@@ -607,7 +607,7 @@ dErr dMeshGetStatus(dMesh mesh,const dMeshEH ents[],dInt count,dEntStatus status
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,2);
   dValidPointer(status,4);
   err = MPI_Comm_size(((dObject)mesh)->comm,&size);dCHK(err);
@@ -625,7 +625,7 @@ dErr dMeshGetTopo(dMesh mesh,dInt count,const dMeshEH ents[],dEntTopology topo[]
   dIInt ierr,talloc,tsize,*ttopo;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   if (!count) dFunctionReturn(0);
   dValidPointer(ents,2);
   dValidPointer(topo,4);
@@ -640,7 +640,7 @@ dErr dMeshTagBcast(dMesh m,dMeshTag tag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(m,dMESH_COOKIE,1);
+  dValidHeader(m,dMESH_CLASSID,1);
   if (m->ops->tagbcast) {
     err = (*m->ops->tagbcast)(m,tag);dCHK(err);
   }
@@ -652,7 +652,7 @@ dErr dMeshSetCreate(dMesh mesh,dMeshSetOrdering ordering,dMeshESH *inset)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inset,3);
   *inset = 0;
   iMesh_createEntSet(mesh->mi,ordering,inset,&ierr);dICHK(mesh->mi,ierr);
@@ -664,7 +664,7 @@ dErr dMeshSetDestroy(dMesh mesh,dMeshESH set)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   iMesh_destroyEntSet(mesh->mi,set,&ierr);dICHK(mesh->mi,ierr);
   dFunctionReturn(0);
 }
@@ -674,7 +674,7 @@ dErr dMeshSetAddEnts(dMesh mesh,dMeshESH set,const dMeshEH *ents,dInt nents)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   if (!nents) dFunctionReturn(0);
   dValidPointer(ents,3);
   iMesh_addEntArrToSet(mesh->mi,ents,nents,set,&ierr);dICHK(mesh->mi,ierr);
@@ -685,7 +685,7 @@ dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,const dMeshESH 
 {
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(sets,4);
   dValidPointer(member,5);
   *member = -1;
@@ -789,13 +789,13 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   mi = m->mi;
   if (!viewer) {
     printf("Changing Viewer.");
     err = PetscViewerASCIIGetStdout(((PetscObject)m)->comm,&viewer);dCHK(err);
   }
-  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_COOKIE,2);
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(m,1,viewer,2);
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
   if (iascii) {
@@ -936,7 +936,7 @@ dErr dMeshGetInstance(dMesh m,iMesh_Instance *mi)
 {
 
   dFunctionBegin;
-  dValidHeader(m,dMESH_COOKIE,1);
+  dValidHeader(m,dMESH_CLASSID,1);
   dValidPointer(mi,2);
   *mi = m->mi;
   dFunctionReturn(0);
@@ -947,7 +947,7 @@ dErr dMeshDestroy(dMesh m)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   if (--((PetscObject)m)->refct > 0) dFunctionReturn(0);
   if (m->ops->destroy) {
     err = (*m->ops->destroy)(m);dCHK(err);
@@ -989,7 +989,7 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inrtag,2);
   *inrtag = 0;
   //err = dMeshTagCreate(mesh,name,sizeof(dRule),dDATA_BYTE,&rtag);dCHK(err);
@@ -1033,7 +1033,7 @@ dErr dMeshDestroyRuleTag(dMesh mesh,dMeshTag rtag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   iMesh_getEntSetData(mi,mesh->root,rtag,(char**)&base,&balloc,&bsize,&err);dICHK(mi,err);
   err = dFree(base);dCHK(err);
   dFunctionReturn(0);
@@ -1085,7 +1085,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inadj,3);
   *inadj = 0;
 
@@ -1200,7 +1200,7 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
   dMeshAdjacency ma = *inma;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inma,3);
   ma = *inma;
   *inma = 0;
@@ -1237,7 +1237,7 @@ dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,d
   dErr           err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(inxoff,4);
   dValidPointer(inx,5);
@@ -1270,7 +1270,7 @@ dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dM
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inxoff,4);
   dValidPointer(inx,5);
   err = dFree2(*inx,*inxoff);dCHK(err);
@@ -1308,7 +1308,7 @@ dErr dMeshMorph(dMesh mesh,void (*morph)(void*,double*),void *ctx)
   dIInt          ierr,ents_a=0,ents_s,coords_a=0,coords_s;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidCharPointer(morph,2);   /* It's actually a function pointer */
   dValidPointer(ctx,3);
   mi = mesh->mi;

@@ -76,7 +76,7 @@ static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   err = dMallocA(ma->nents,&deg);dCHK(err);
   err = dMeshTagGetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
   err = dJacobiPropogateDown(fs->jacobi,ma,deg);dCHK(err);
@@ -267,7 +267,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dErr                   err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   bs   = fs->bs;
   mesh = fs->mesh;
   err = dMeshGetInstance(mesh,&mi);dCHK(err);

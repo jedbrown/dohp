@@ -808,7 +808,7 @@ int main(int argc,char *argv[])
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
 
-  err = PetscLogEventRegister("EllipShellMult",MAT_COOKIE,&LOG_EllipShellMatMult);dCHK(err);
+  err = PetscLogEventRegister("EllipShellMult",MAT_CLASSID,&LOG_EllipShellMatMult);dCHK(err);
 
   err = EllipCreate(comm,&elp);dCHK(err);
   err = EllipSetFromOptions(elp);dCHK(err);

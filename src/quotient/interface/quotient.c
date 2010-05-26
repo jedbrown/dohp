@@ -8,7 +8,7 @@ static const struct _dQuotientOps dQuotientDefaultOps = {
   .destroy = 0
 };
 
-dCookie dQUOTIENT_COOKIE;
+dClassId dQUOTIENT_CLASSID;
 static PetscFList dQuotientList = 0;
 
 static dErr dQuotientSetUp_Private(dQuotient q);
@@ -21,7 +21,7 @@ dErr dQuotientUpdate(dQuotient q)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   if (q->ops->update) {
     err = (*q->ops->update)(q);dCHK(err);
   } else {
@@ -45,7 +45,7 @@ dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
   dErr      err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   dValidPointer(inq,4);
   SETERRQ(1,"boo");
   *inq = 0;
@@ -53,7 +53,7 @@ dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dQuotientInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(q,p_dQuotient,struct _dQuotientOps,dQUOTIENT_COOKIE,0,"dQuotient",comm,dQuotientDestroy,dQuotientView);dCHK(err);
+  err = PetscHeaderCreate(q,p_dQuotient,struct _dQuotientOps,dQUOTIENT_CLASSID,0,"dQuotient",comm,dQuotientDestroy,dQuotientView);dCHK(err);
 
   q->mesh          = m;
   q->loc           = loc;
@@ -73,7 +73,7 @@ dErr dQuotientSetType(dQuotient q,const dQuotientType type)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)q,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
@@ -103,7 +103,7 @@ dErr dQuotientSetFromOptions(dQuotient q)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   err = PetscOptionsBegin(((PetscObject)q)->comm,((PetscObject)q)->prefix,"Quotient (quadrature rule and element map) options","dQuotient");dCHK(err);
   err = dQuotientRegisterAll(PETSC_NULL);dCHK(err);
   if (((PetscObject)q)->type_name) { deft = ((PetscObject)q)->type_name; }
@@ -131,7 +131,7 @@ dErr dQuotientSetUp(dQuotient q)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   err = dQuotientSetUp_Private(q);dCHK(err);
   if (!q->setupcalled) {
     err = (*q->ops->setup)(q);dCHK(err);
@@ -201,7 +201,7 @@ dErr dQuotientDestroy(dQuotient q)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   if (q->ops->destroy) {
     err = (*q->ops->destroy)(q);dCHK(err);
   }
@@ -215,7 +215,7 @@ dErr dQuotientGetType(dQuotient q,const dQuotientType *type)
 {
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   dValidPointer(type,2);
   *type = ((PetscObject)q)->type_name;
   dFunctionReturn(0);
@@ -229,11 +229,11 @@ dErr dQuotientView(dQuotient q,PetscViewer viewer)
   dErr          err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((PetscObject)q)->comm,&viewer);dCHK(err);
   }
-  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_COOKIE,2);
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(q,1,viewer,2);
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
   if (iascii) {
@@ -270,7 +270,7 @@ dErr dQuotientInitializePackage(const char path[])
 
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
-  err = PetscCookieRegister("Quotient map",&dQUOTIENT_COOKIE);dCHK(err);
+  err = PetscClassIdRegister("Quotient map",&dQUOTIENT_CLASSID);dCHK(err);
   err = dQuotientRegisterAll(path);dCHK(err);
   initialized = PETSC_TRUE;
   dFunctionReturn(0);
@@ -281,7 +281,7 @@ dErr dQuotientSetSetDegree(dQuotient q,dQuotientSetDegreeFunc func,void *ctx)
   //dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(q,dQUOTIENT_COOKIE,1);
+  PetscValidHeaderSpecific(q,dQUOTIENT_CLASSID,1);
   dValidPointer(func,2);
   dValidPointer(ctx,3);
   q->setdegreefunc = func;
@@ -304,7 +304,7 @@ dErr dQuotientGetMesh(dQuotient quot,dMesh *mesh)
 {
 
   dFunctionBegin;
-  dValidHeader(quot,dQUOTIENT_COOKIE,1);
+  dValidHeader(quot,dQUOTIENT_CLASSID,1);
   dValidPointer(mesh,2);
   *mesh = quot->mesh;
   dFunctionReturn(0);

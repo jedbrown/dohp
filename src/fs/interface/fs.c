@@ -10,8 +10,8 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   dErr  err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(mesh,dMESH_COOKIE,2);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(mesh,dMESH_CLASSID,2);
   if (fs->quotient) {
     err = dQuotientGetMesh(fs->quotient,&qmesh);dCHK(err);
     if (mesh != qmesh) fs->quotient = 0; /* The Quotient is stale */
@@ -39,7 +39,7 @@ dErr dFSGetMesh(dFS fs,dMesh *mesh)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(mesh,2);
   if (!fs->mesh) {
     err = dMeshCreate(((dObject)fs)->comm,&fs->mesh);dCHK(err);
@@ -55,7 +55,7 @@ dErr dFSGetJacobi(dFS fs,dJacobi *jacobi)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(jacobi,2);
   if (!fs->jacobi) {
     err = dJacobiCreate(((dObject)fs)->comm,&fs->jacobi);dCHK(err);
@@ -72,7 +72,7 @@ dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
   char *name;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   fs->ruletag = rtag;
   if (fs->jacobi && fs->jacobi != jac) dERROR(PETSC_ERR_ARG_WRONGSTATE,"cannot change dJacobi");
   if (!fs->mesh) dERROR(PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
@@ -93,8 +93,8 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
   char *name;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(jac,dJACOBI_COOKIE,2);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(jac,dJACOBI_CLASSID,2);
   fs->degreetag = deg;
   if (fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
   if (!fs->mesh) dERROR(PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
@@ -119,7 +119,7 @@ dErr dFSSetBlockSize(dFS fs,dInt bs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   for (dInt i=0; i<fs->bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
   err = dFree(fs->fieldname);dCHK(err);
   err = dCallocA(bs,&fs->fieldname);dCHK(err);
@@ -140,7 +140,7 @@ dErr dFSSetFieldName(dFS fs,dInt fn,const char *fname)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   if (fn < 0 || fs->bs <= fn) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
   if (fs->fieldname[fn]) {err = dFree(fs->fieldname[fn]);dCHK(err);}
   err = PetscStrallocpy(fname,&fs->fieldname[fn]);dCHK(err);
@@ -173,7 +173,7 @@ dErr dFSRegisterBoundary(dFS fs,dInt mid,dFSBStatus bstat,dFSConstraintFunction 
   dIInt            ierr;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   if (!dFSBStatusValid(bstat)) dERROR(1,"Boundary status %x invalid",bstat);
   if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(1,"Cannot impose strong conditions on more dofs than the block size");
   err = dMeshGetTaggedSet(fs->mesh,fs->bdyTag,&mid,&bset);dCHK(err);
@@ -195,11 +195,11 @@ dErr dFSView(dFS fs,dViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((dObject)fs)->comm,&viewer);dCHK(err);
   }
-  dValidHeader(viewer,PETSC_VIEWER_COOKIE,2);
+  dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(fs,1,viewer,2);
 
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
@@ -255,9 +255,9 @@ dErr dFSLoadIntoFS(PetscViewer viewer,const char fieldname[],dFS fs)
   dErr              err;
 
   dFunctionBegin;
-  dValidHeader(viewer,PETSC_VIEWER_COOKIE,1);
+  dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
   dValidCharPointer(fieldname,2);
-  dValidHeader(fs,DM_COOKIE,3);
+  dValidHeader(fs,DM_CLASSID,3);
   if (!fs->ops->loadintofs) dERROR(PETSC_ERR_SUP,"FS does not support load");
   err = (*fs->ops->loadintofs)(viewer,fieldname,fs);dCHK(err);
   dFunctionReturn(0);
@@ -268,7 +268,7 @@ dErr dFSDestroy(dFS fs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   if (--((PetscObject)fs)->refct > 0) dFunctionReturn(0);
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
@@ -321,7 +321,7 @@ dErr dFSBuildSpace(dFS fs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   if (fs->spacebuilt) dERROR(1,"The space is already built, rebuilding is not implemented");
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
@@ -351,7 +351,7 @@ dErr dFSCreateExpandedVector(dFS fs,Vec *x)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(x,2);
   err = MatGetVecs(fs->E,NULL,x);dCHK(err);
   dFunctionReturn(0);
@@ -362,7 +362,7 @@ dErr dFSCreateGlobalVector(dFS fs,Vec *g)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(g,2);
   /* \todo Could give away gvec if it is only referenced once, but this make handling the composition below very
   * tricky */
@@ -377,9 +377,9 @@ dErr dFSExpandedToLocal(dFS fs,Vec x,Vec l,InsertMode imode)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(x,VEC_COOKIE,2);
-  dValidHeader(l,VEC_COOKIE,3);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(x,VEC_CLASSID,2);
+  dValidHeader(l,VEC_CLASSID,3);
   switch (imode) {
     case INSERT_VALUES:
       err = MatMultTranspose(fs->E,x,l);dCHK(err);
@@ -398,9 +398,9 @@ dErr dFSLocalToExpanded(dFS fs,Vec l,Vec x,InsertMode imode)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(l,VEC_COOKIE,2);
-  dValidHeader(x,VEC_COOKIE,3);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(l,VEC_CLASSID,2);
+  dValidHeader(x,VEC_CLASSID,3);
   switch (imode) {
     case INSERT_VALUES:
       err = MatMult(fs->E,l,x);dCHK(err);
@@ -426,8 +426,8 @@ dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(gc,VEC_COOKIE,2);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(gc,VEC_CLASSID,2);
   /* \todo rotate closure vector */
   err = VecScatterBegin(fs->dscat,gc,fs->dcache,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecScatterEnd  (fs->dscat,gc,fs->dcache,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
@@ -440,9 +440,9 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
   Vec  gc,lf;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(g,VEC_COOKIE,2);
-  dValidHeader(x,VEC_COOKIE,3);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(g,VEC_CLASSID,2);
+  dValidHeader(x,VEC_CLASSID,3);
   err = VecDohpGetClosure(g,&gc);dCHK(err);
   switch (hmode) {
     case dFS_HOMOGENEOUS: {     /* project into homogeneous space */
@@ -480,9 +480,9 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode 
   Vec  gc,lf;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(g,VEC_COOKIE,2);
-  dValidHeader(x,VEC_COOKIE,3);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(g,VEC_CLASSID,2);
+  dValidHeader(x,VEC_CLASSID,3);
   err = VecDohpGetClosure(g,&gc);dCHK(err);
   err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
   if (imode == ADD_VALUES) {    /* If we want to add, we have to kill off the ghost values otherwise they will be assembled twice */
@@ -520,8 +520,8 @@ dErr dFSRotateGlobal(dFS fs,Vec g,dFSRotateMode rmode,dFSHomogeneousMode hmode)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(g,VEC_CLASSID,2);
   err = dFSRotationApply(fs->rot,g,rmode,hmode);dCHK(err);
   dFunctionReturn(0);
 }
@@ -653,7 +653,7 @@ dErr dFSGetWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (*res
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   if (!fs->maxQ) {
     Q = 0;
     for (dInt i=0; i<fs->nelem; i++) {
@@ -700,7 +700,7 @@ dErr dFSRestoreWorkspace(dFS fs,const char name[],dReal (*restrict*q)[3],dReal (
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
 #define dCHECK_NULLIFY(var) do {                                        \
     if (var) {                                                          \
       if (*var == fs->workspace->var) *var = NULL;                      \
@@ -750,7 +750,7 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
   dErr   err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidCharPointer(mtype,2);
   dValidPointer(inJ,3);
   *inJ = 0;
@@ -798,8 +798,8 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(A,MAT_COOKIE,2);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(A,MAT_CLASSID,2);
   dValidPointer(idxm,4);
   dValidPointer(idxn,6);
   dValidPointer(v,7);

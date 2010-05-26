@@ -1,7 +1,7 @@
 #include <dohpmeshimpl.h>
 #include <dohp.h>
 
-dCookie dMESH_COOKIE;
+dClassId dMESH_CLASSID;
 static PetscFList MeshList = 0;
 
 dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
@@ -15,7 +15,7 @@ dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
   err = dMeshInitializePackage(PETSC_NULL);dCHK(err);
 #endif
   *inm = 0;
-  err = PetscHeaderCreate(m,_p_dMesh,struct _dMeshOps,dMESH_COOKIE,0,"dMesh",comm,dMeshDestroy,dMeshView);dCHK(err);
+  err = PetscHeaderCreate(m,_p_dMesh,struct _dMeshOps,dMESH_CLASSID,0,"dMesh",comm,dMeshDestroy,dMeshView);dCHK(err);
   *inm = m;
   dFunctionReturn(0);
 }
@@ -28,7 +28,7 @@ dErr dMeshSetFromOptions(dMesh mesh)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   err = MPI_Comm_size(((dObject)mesh)->comm,&size);dCHK(err);
   err = PetscStrncpy(type,size>1 ? dMESHPACK : dMESHSERIAL,sizeof(type));dCHK(err);
   err = PetscOptionsBegin(((PetscObject)mesh)->comm,((PetscObject)mesh)->prefix,"Mesh (dMesh) options","dMesh");dCHK(err);
@@ -53,7 +53,7 @@ dErr dMeshSetType(dMesh mesh,const dMeshType type)
   dBool     match;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(mesh,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(mesh,dMESH_CLASSID,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)mesh,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
@@ -84,7 +84,7 @@ dErr dMeshInitializePackage(const char path[])
   dFunctionBegin;
   if (initialized) dFunctionReturn(0);
   initialized = PETSC_TRUE;
-  err = PetscCookieRegister("Mesh",&dMESH_COOKIE);dCHK(err);
+  err = PetscClassIdRegister("Mesh",&dMESH_CLASSID);dCHK(err);
   err = dMeshRegisterAll(path);dCHK(err);
   dFunctionReturn(0);
 }

@@ -42,14 +42,14 @@ dErr dFSRotationCreate(dFS fs,IS is,dReal rmat[],dInt ns[],Vec v,dFSRotation *in
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(is,IS_COOKIE,2);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(is,IS_CLASSID,2);
   dValidRealPointer(rmat,3);
   dValidIntPointer(ns,4);
-  dValidHeader(v,VEC_COOKIE,5);
+  dValidHeader(v,VEC_CLASSID,5);
   dValidPointer(inrot,6);
   *inrot = 0;
-  err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_COOKIE,0,"dFSRotation",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
+  err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_CLASSID,0,"dFSRotation",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
 
   bs = rot->bs = fs->bs;
   err = ISGetSize(is,&n);dCHK(err);
@@ -86,11 +86,11 @@ dErr dFSRotationView(dFSRotation rot,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(rot,dFSROT_COOKIE,1);
+  dValidHeader(rot,dFSROT_CLASSID,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((dObject)rot)->comm,&viewer);dCHK(err);
   }
-  dValidHeader(viewer,PETSC_VIEWER_COOKIE,2);
+  dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(rot,1,viewer,2);
 
   dERROR(1,"not implemented");
@@ -108,8 +108,8 @@ dErr dFSRotationApply(dFSRotation rot,Vec g,dFSRotateMode rmode,dFSHomogeneousMo
 
   dFunctionBegin;
   if (!rot) dFunctionReturn(0);
-  dValidHeader(rot,dFSROT_COOKIE,1);
-  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(rot,dFSROT_CLASSID,1);
+  dValidHeader(g,VEC_CLASSID,2);
   if (rot->ops->apply) {
     err = rot->ops->apply(rot,g,rmode,hmode);dCHK(err);
   } else {
@@ -132,8 +132,8 @@ dErr dFSRotationApplyLocal(dFSRotation rot,Vec l,dFSRotateMode rmode,dFSHomogene
 
   dFunctionBegin;
   if (!rot) dFunctionReturn(0);
-  dValidHeader(rot,dFSROT_COOKIE,1);
-  dValidHeader(l,VEC_COOKIE,2);
+  dValidHeader(rot,dFSROT_CLASSID,1);
+  dValidHeader(l,VEC_CLASSID,2);
   if (rot->ops->applylocal) {
     err = rot->ops->applylocal(rot,l,rmode,hmode);dCHK(err);
   } else {

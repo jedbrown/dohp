@@ -24,7 +24,7 @@
 
 dEXTERN_C_BEGIN
 
-extern PetscCookie dJACOBI_COOKIE,dQUADRATURE_COOKIE;
+extern PetscClassId dJACOBI_CLASSID,dQUADRATURE_CLASSID;
 
 /**
 * Handle for manipulating EFS objects.  The EFS are stored directly in arrays so other components (like dFS) will have

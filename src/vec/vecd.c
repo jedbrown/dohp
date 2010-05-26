@@ -9,8 +9,8 @@ static dErr VecStateSync_Private(Vec x,Vec y)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(x,VEC_COOKIE,1);
-  dValidHeader(y,VEC_COOKIE,2);
+  dValidHeader(x,VEC_CLASSID,1);
+  dValidHeader(y,VEC_CLASSID,2);
   err = PetscObjectStateQuery((dObject)x,&xstate);dCHK(err);
   err = PetscObjectStateQuery((dObject)y,&ystate);dCHK(err);
   err = PetscObjectSetState((dObject)x,dMaxInt(xstate,ystate));dCHK(err);
@@ -32,7 +32,7 @@ dErr VecDohpGetClosure(Vec v,Vec *c)
   dErr     err;
 
   dFunctionBegin;
-  dValidHeader(v,VEC_COOKIE,1);
+  dValidHeader(v,VEC_CLASSID,1);
   dValidPointer(c,2);
   err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(1,"Vector type %s does not have closure",((dObject)v)->type_name);
@@ -50,7 +50,7 @@ dErr VecDohpRestoreClosure(Vec v,Vec *c)
   dTruth isdohp;
 
   dFunctionBegin;
-  dValidHeader(v,VEC_COOKIE,1);
+  dValidHeader(v,VEC_CLASSID,1);
   dValidPointer(c,2);
   err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(1,"Vector type %s does not have closure",((dObject)v)->type_name);
@@ -68,7 +68,7 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
   dErr     err;
 
   dFunctionBegin;
-  dValidHeader(x,VEC_COOKIE,1);
+  dValidHeader(x,VEC_CLASSID,1);
   dValidPointer(iny,2);
   *iny = 0;
   err = VecDohpGetClosure(x,&xc);dCHK(err);
@@ -169,7 +169,7 @@ dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat)
   dInt     n,nc,crstart;
 
   dFunctionBegin;
-  dValidHeader(gvec,VEC_COOKIE,1);
+  dValidHeader(gvec,VEC_CLASSID,1);
   dValidPointer(dcache,2);
   dValidPointer(dscat,3);
   err = PetscTypeCompare((PetscObject)gvec,VECDOHP,&isdohp);dCHK(err);

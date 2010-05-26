@@ -56,7 +56,7 @@ typedef double dScalar;
 
 /* Do not define a boolean type */
 typedef int dErr;               /* PetscErrorCode */
-typedef int dCookie;            /* PetscCookie */
+typedef int dClassId;            /* PetscClassId */
 typedef int dLogEvent;          /* PetscLogEvent */
 typedef struct _n_PetscFList  *dFList;
 typedef struct _p_PetscObject *dObject;

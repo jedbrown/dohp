@@ -297,7 +297,7 @@ static dErr MeshPackDataPrepare(dMesh mesh,PackData *pd,dMeshTag tag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(pd,2);
   if (pd->tag == tag) dFunctionReturn(0);  /* If the tag has not changed, there is nothing to do */
   iMesh_getTagSizeValues(mi,tag,&tlen,&err);dICHK(mi,err);

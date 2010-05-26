@@ -18,7 +18,7 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
   dRuleSet ruleset;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(inx,2);
   *inx = 0;
 
@@ -82,7 +82,7 @@ dErr dFSGetGeometryVector(dFS dUNUSED fs,Vec *ingeom)
 {
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(ingeom,2);
   *ingeom = 0;
   dERROR(1,"not implemented");
@@ -99,7 +99,7 @@ dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts,dInt *nconn)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidIntPointer(nelems,2);
   dValidIntPointer(nverts,3);
   dValidIntPointer(nconn,4);
@@ -117,7 +117,7 @@ dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dEntTopology topo[],dIn
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   dValidIntPointer(topo,4);
   dValidIntPointer(off,5);
   dValidIntPointer(ind,6);
