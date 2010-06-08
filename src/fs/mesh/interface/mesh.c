@@ -302,11 +302,11 @@ dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
   if (fname) {
-    err = PetscStrfree(mesh->infile);dCHK(err);
+    err = PetscFree(mesh->infile);dCHK(err);
     err = PetscStrallocpy(fname,&mesh->infile);dCHK(err);
   }
   if (options) {
-    err = PetscStrfree(mesh->inoptions);dCHK(err);
+    err = PetscFree(mesh->inoptions);dCHK(err);
     err = PetscStrallocpy(options,&mesh->inoptions);dCHK(err);
   }
   dFunctionReturn(0);
@@ -957,8 +957,8 @@ dErr dMeshDestroy(dMesh m)
   MeshListFree(m->orf); MeshListFree(m->ofe);
   MeshListFree(m->x);
   iMesh_dtor(m->mi,&err);dICHK(m->mi,err);
-  err = PetscStrfree(m->infile);dCHK(err);
-  err = PetscStrfree(m->inoptions);dCHK(err);
+  err = PetscFree(m->infile);dCHK(err);
+  err = PetscFree(m->inoptions);dCHK(err);
   err = PetscHeaderDestroy(m);dCHK(err);
   dFunctionReturn(0);
 }
