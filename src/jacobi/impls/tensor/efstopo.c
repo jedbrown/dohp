@@ -116,7 +116,7 @@ static dErr dEFSView_Tensor_Private(const char *name,dRule rule,dInt n,TensorBas
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"dEFS type %s\n",name);dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"based on dRule:\n");dCHK(err);

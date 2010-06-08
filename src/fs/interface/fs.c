@@ -202,7 +202,7 @@ dErr dFSView(dFS fs,dViewer viewer)
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(fs,1,viewer,2);
 
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscViewerASCIIPrintf(viewer,"dFS object:(%s)\n",
                                   ((dObject)fs)->prefix ? ((dObject)fs)->prefix : "no prefix");dCHK(err);

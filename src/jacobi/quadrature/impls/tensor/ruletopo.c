@@ -29,7 +29,7 @@ static dErr dRuleView_Tensor_Private(const char *name,dInt n,TensorRule *tr,Pets
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"dRule type %s\n",name);dCHK(err);
     for (dInt i=0; i<n; i++) {

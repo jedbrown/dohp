@@ -45,7 +45,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
   err = dMemcpy(fs->ops,&defaultFSOps,sizeof defaultFSOps);dCHK(err);
   err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);dCHK(err);
   /* RCM is a good default ordering because it improves the performance of smoothers and incomplete factorization */
-  err = dStrcpyS(fs->orderingtype,sizeof fs->orderingtype,MATORDERING_RCM);dCHK(err);
+  err = dStrcpyS(fs->orderingtype,sizeof fs->orderingtype,MATORDERINGRCM);dCHK(err);
 
   /* Defaults */
   fs->bs = 1;

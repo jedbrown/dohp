@@ -10,7 +10,7 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&dhm);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"Continuous Galerkin function space\n");dCHK(err);

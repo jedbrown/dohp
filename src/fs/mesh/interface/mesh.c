@@ -797,7 +797,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   }
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(m,1,viewer,2);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscObjectGetType((PetscObject)m,&type);dCHK(err);
     if (((PetscObject)m)->prefix) {

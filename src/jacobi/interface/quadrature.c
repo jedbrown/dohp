@@ -108,7 +108,7 @@ dErr dQuadratureView(dQuadrature quad,PetscViewer viewer)
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(quad,1,viewer,2);
 
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscViewerASCIIPrintf(viewer,"dQuadobi object:(%s)\n",
                                   ((PetscObject)quad)->prefix ? ((PetscObject)quad)->prefix : "no prefix");dCHK(err);

@@ -47,7 +47,6 @@ dErr dQuotientCreate(dMesh m,dMeshESH loc,dMeshTag qsizetag,dQuotient *inq)
   dFunctionBegin;
   PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   dValidPointer(inq,4);
-  SETERRQ(1,"boo");
   *inq = 0;
   err = PetscObjectGetComm((PetscObject)m,&comm);dCHK(err);
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
@@ -235,7 +234,7 @@ dErr dQuotientView(dQuotient q,PetscViewer viewer)
   }
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(q,1,viewer,2);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = dQuotientGetType(q,&type);dCHK(err);
     if (((PetscObject)q)->prefix) {

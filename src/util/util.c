@@ -34,7 +34,7 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer vie
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   for (dInt i=0; i<m; i++) {
     if (name) {
