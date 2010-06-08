@@ -14,8 +14,8 @@
 #define dEntTopoToITAPS(dtopo,itopo) (*(itopo) = (dtopo), 0)
 #define dEntTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
 
-#define dCHK(err) if (PetscUnlikely(err)) return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(err),0," ")
-#define dERROR(n,...) return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(n),1,__VA_ARGS__)
+#define dCHK(err) do {if (PetscUnlikely(err)) return PetscError(PETSC_COMM_SELF,__LINE__,__func__,__FILE__,__SDIR__,(err),PETSC_ERROR_REPEAT," ");} while (0)
+#define dERROR(n,...) return PetscError(PETSC_COMM_SELF,__LINE__,__func__,__FILE__,__SDIR__,(n),PETSC_ERROR_INITIAL,__VA_ARGS__)
 
 #define dPrintf PetscPrintf
 #define dMemcpy(a,b,c) PetscMemcpy(a,b,c)
