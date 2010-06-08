@@ -3,7 +3,7 @@
 
 #include "dohptype.h"
 #include <stdint.h>
-#include <petsc.h>
+#include <petscsys.h>
 
 #define dSTATUS_UNOWNED   (dEntStatus)0x1
 #define dSTATUS_SHARED    (dEntStatus)0x2
