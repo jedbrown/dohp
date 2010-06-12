@@ -329,10 +329,9 @@ dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot)
 /* Makes a new set containing all entities in original, but not subsets */
 dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy)
 {
-  iMesh_Instance mi = mesh->mi;
-  dIInt   ierr,islist;
   dInt    size;
   dMeshEH *ents;
+  dMeshSetOrdering ordering;
   dErr    err;
 
   dFunctionBegin;
@@ -341,10 +340,20 @@ dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy)
   err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&size);dCHK(err);
   err = dMallocA(size,&ents);dCHK(err);
   err = dMeshGetEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,ents,size,NULL);dCHK(err);
-  iMesh_isList(mi,set,&islist,&ierr);dICHK(mi,ierr);
-  err = dMeshSetCreate(mesh,islist?dMESHSET_ORDERED:dMESHSET_UNORDERED,copy);dCHK(err);
+  err = dMeshSetGetOrdering(mesh,set,&ordering);dCHK(err);
+  err = dMeshSetCreate(mesh,ordering,copy);dCHK(err);
   err = dMeshSetAddEnts(mesh,*copy,ents,size);dCHK(err);
   err = dFree(ents);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dMeshSetGetOrdering(dMesh mesh,dMeshESH set,dMeshSetOrdering *ordering)
+{
+  dIInt ierr,islist;
+
+  dFunctionBegin;
+  iMesh_isList(mesh->mi,set,&islist,&ierr);dICHK(mesh->mi,ierr);
+  *ordering = islist ? dMESHSET_ORDERED : dMESHSET_UNORDERED;
   dFunctionReturn(0);
 }
 

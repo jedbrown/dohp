@@ -106,6 +106,7 @@ extern dErr dMeshLoad(dMesh m);
 extern dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
 extern dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
 extern dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
+extern dErr dMeshSetGetOrdering(dMesh,dMeshESH,dMeshSetOrdering*);
 extern dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 extern dErr dMeshDestroy(dMesh);
 extern dErr dMeshView(dMesh,dViewer);
