@@ -596,6 +596,25 @@ dErr dMeshGetEntsOff(dMesh mesh,dMeshESH set,dInt toff[],dMeshEH **inents)
   dFunctionReturn(0);
 }
 
+/* Create a subset of an existing set, consisting of entities matching the type+topo condition. */
+dErr dMeshSetFilterEnts(dMesh mesh,dMeshESH set,dEntType etype,dEntTopology etopo,dMeshESH *subset)
+{
+  dErr err;
+  dMeshSetOrdering ordering;
+  dInt nents;
+  dMeshEH *ents;
+
+  dFunctionBegin;
+  err = dMeshGetNumEnts(mesh,set,etype,etopo,&nents);dCHK(err);
+  err = dMallocA(nents,&ents);dCHK(err);
+  err = dMeshGetEnts(mesh,set,etype,etopo,ents,nents,NULL);dCHK(err);
+  err = dMeshSetGetOrdering(mesh,set,&ordering);dCHK(err);
+  err = dMeshSetCreate(mesh,ordering,subset);dCHK(err);
+  err = dMeshSetAddEnts(mesh,set,ents,nents);dCHK(err);
+  err = dFree(ents);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /**
 * Get the parallel status for an array of entities.  In serial, returns that all are interior, in parallel, sets bits
 * for dSTATUS_XXX.

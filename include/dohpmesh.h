@@ -125,6 +125,7 @@ extern dErr dMeshGetNumSubsets(dMesh,dMeshESH,dInt,dInt*);
 extern dErr dMeshGetSubsets(dMesh,dMeshESH,dInt,dMeshESH[],dInt,dInt*);
 extern dErr dMeshGetEntsOff(dMesh,dMeshESH,dInt*,dMeshEH**);
 extern dErr dMeshGetAdjIndex(dMesh,const dMeshEH[],dInt,const dMeshEH[],dInt,dInt[],dInt*);
+extern dErr dMeshSetFilterEnts(dMesh,dMeshESH,dEntType,dEntTopology,dMeshESH*);
 
 extern dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag);
 extern dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag);
