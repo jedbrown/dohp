@@ -15,10 +15,7 @@ typedef struct _p_dMesh *dMesh;
 extern dClassId dMESH_CLASSID;
 
 extern const char *const iBase_ErrorString[];
-extern const char *dMeshEntTopologyName(dEntTopology);
-extern const char *dMeshEntTypeName(dEntType);
 extern const char *const iBase_TagValueTypeName[];
-extern dEntType dMeshEntTypeFromTopology(dEntTopology);
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
 #define dICHK(mesh,err) do {                                            \

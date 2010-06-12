@@ -81,6 +81,10 @@ typedef enum { dTOPO_POINT, dTOPO_LINE, dTOPO_POLYGON, dTOPO_TRIANGLE,
                dTOPO_PYRAMID, dTOPO_SEPTAHEDRON, dTOPO_ALL } dEntTopology;
 typedef enum { dTYPE_VERTEX, dTYPE_EDGE, dTYPE_FACE, dTYPE_REGION, dTYPE_ALL } dEntType;
 
+extern const char *dMeshEntTopologyName(dEntTopology);
+extern const char *dMeshEntTypeName(dEntType);
+extern dEntType dMeshEntTypeFromTopology(dEntTopology);
+
 typedef unsigned char dEntStatus;
 
 #endif  /* _DOHPTYPE_H */

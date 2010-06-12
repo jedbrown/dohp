@@ -529,7 +529,7 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
           err = TensorGetBasis(tnsr,rsize[2],rcoord[2],dPolynomialOrder1D(order[i],2),&newefs->basis[2]);dCHK(err);
           break;
         default:
-          dERROR(1,"no basis available for given topology");
+          dERROR(PETSC_ERR_SUP,"no basis available for topology %s",dMeshEntTopologyName(topo[i]));
       }
       kh_val(tnsr->efs,kiter) = newefs;
     }
