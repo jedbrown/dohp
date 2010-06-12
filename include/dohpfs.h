@@ -81,7 +81,7 @@ extern dErr dFSBuildSpace(dFS);
 extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
 extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
 
-extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dQuadratureMethod,dRuleSet*);
+extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dEntType,dEntTopology,dQuadratureMethod,dRuleSet*);
 extern dErr dFSGetEFS(dFS,dRuleSet,dInt*,dEFS**);
 extern dErr dFSRestoreEFS(dFS,dRuleSet,dInt*,dEFS**);
 extern dErr dRuleSetDestroy(dRuleSet);

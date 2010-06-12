@@ -37,6 +37,8 @@ typedef struct {
 struct _n_dRuleSet {
   dMesh mesh;
   dMeshESH set;
+  dEntType type;
+  dEntTopology topo;
   dInt n;
   dRule *rules;
 };

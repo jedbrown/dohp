@@ -31,7 +31,7 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
   err = MatMAIJRedimension(E1,3,&Ebs);dCHK(err);
   err = MatGetVecs(Ebs,&xc,&xx);dCHK(err);
 
-  err = dFSGetPreferredQuadratureRuleSet(fs,fs->activeSet,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
+  err = dFSGetPreferredQuadratureRuleSet(fs,fs->set.active,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
   err = dFSGetEFS(fs,ruleset,&nelems,&efs);dCHK(err);
   dERROR(1,"In flux");
 #if 0

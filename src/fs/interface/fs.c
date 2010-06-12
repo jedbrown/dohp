@@ -551,7 +551,7 @@ static dErr dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIntegratio
 * @note This function should accept the "domain" (perhaps just a mesh set) on which the integration is being performed.
 *
 **/
-dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dQuadratureMethod method,dRuleSet *ruleset)
+dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTopology etopo,dQuadratureMethod method,dRuleSet *ruleset)
 {
   dInt             ents_a,ents_s;
   dEntTopology     *topo;
@@ -563,11 +563,11 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dQuadratureMethod meth
 
   dFunctionBegin;
   *ruleset = NULL;
-  err = dMeshGetNumEnts(fs->mesh,set,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
+  err = dMeshGetNumEnts(fs->mesh,set,etype,etopo,&ents_a);dCHK(err);
   err = dMallocA3(ents_a,&ents,ents_a,&topo,ents_a,&order);dCHK(err);
-  err = dMeshGetEnts(fs->mesh,set,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,set,etype,etopo,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshGetTopo(fs->mesh,ents_s,ents,topo);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->degreetag,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->tag.degree,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
 
   /* Request exact integration of a mass matrix.  More generally, the required order should be based on the order of the
    * adjacent elements, and perhaps also the physics.
@@ -582,6 +582,8 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dQuadratureMethod meth
   err = dNew(struct _n_dRuleSet,&rset);dCHK(err);
   err = dFSGetMesh(fs,&rset->mesh);dCHK(err);
   rset->set = set;
+  rset->type = etype;
+  rset->topo = etopo;
   rset->n = ents_s;
   err = dJacobiGetQuadrature(fs->jacobi,method,&quad);dCHK(err);
   err = dQuadratureGetRules(quad,ents_s,topo,order,&rset->rules);dCHK(err);
@@ -610,11 +612,11 @@ dErr dFSGetEFS(dFS fs,dRuleSet rset,dInt *n,dEFS **efs)
   dJacobi          jac;
 
   dFunctionBegin;
-  err = dMeshGetNumEnts(fs->mesh,rset->set,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
+  err = dMeshGetNumEnts(fs->mesh,rset->set,rset->type,rset->topo,&ents_a);dCHK(err);
   err = dMallocA3(ents_a,&ents,ents_a,&topo,ents_a,&order);dCHK(err);
-  err = dMeshGetEnts(fs->mesh,rset->set,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,rset->set,rset->type,rset->topo,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshGetTopo(fs->mesh,ents_s,ents,topo);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->degreetag,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->tag.degree,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
   /* @bug Only correct for volume integrals. */
   *n = rset->n;
   dFSGetJacobi(fs,&jac);dCHK(err);
