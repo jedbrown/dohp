@@ -173,7 +173,6 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(elt->comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   elt->jac = jac;
 
@@ -196,7 +195,7 @@ static dErr ElastSetFromOptions(Elast elt)
 
   {                             /* Allocate space for stored values */
     dInt n;
-    s_dRule *rule;
+    dRule *rule;
     err = dFSGetElements(fs,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
     err = dMallocA(n+1,&elt->storeoff);dCHK(err);
     elt->storeoff[0] = 0;
@@ -293,8 +292,8 @@ static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
   Elast elt = ctx;
   dFS fs = elt->fs;
   dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
   dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
   dErr err;
@@ -331,8 +330,8 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
   Elast elt;
   dFS fs;
   dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
   dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
   dErr err;
@@ -371,8 +370,8 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
 static dErr ElastJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
   Elast elt = ctx;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*nx)[3];
   dScalar *x;
   dFS fs = elt->fs;
@@ -455,8 +454,8 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
 {
   dFS fs = elt->fs;
   dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
   dScalar *x,(*u)[3],(*du)[9];
   dErr err;
