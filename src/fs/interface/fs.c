@@ -602,7 +602,7 @@ dErr dRuleSetDestroy(dRuleSet rset)
   dFunctionReturn(0);
 }
 
-dErr dFSGetEFS(dFS fs,dRuleSet rset,dInt *n,dEFS **efs)
+dErr dFSGetEFS(dFS fs,dRuleSet rset,dInt *n,const dEFS **efs)
 {
   dErr             err;
   dInt             ents_a,ents_s;
@@ -619,13 +619,13 @@ dErr dFSGetEFS(dFS fs,dRuleSet rset,dInt *n,dEFS **efs)
   err = dMeshTagGetData(fs->mesh,fs->tag.degree,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
   /* @bug Only correct for volume integrals. */
   *n = rset->n;
-  dFSGetJacobi(fs,&jac);dCHK(err);
-  err = dJacobiGetEFS(jac,ents_s,topo,order,rset->rules,efs);dCHK(err);
+  err = dFSGetJacobi(fs,&jac);dCHK(err);
+  err = dJacobiGetEFS(jac,ents_s,topo,order,rset->rules,(dEFS**)efs);dCHK(err);
   err = dFree3(ents,topo,order);dCHK(err);
   dFunctionReturn(0);
 }
 
-dErr dFSRestoreEFS(dFS dUNUSED fs,dRuleSet dUNUSED rset,dInt *n,dEFS **efs)
+dErr dFSRestoreEFS(dFS dUNUSED fs,dRuleSet dUNUSED rset,dInt *n,const dEFS **efs)
 {
   dErr err;
 

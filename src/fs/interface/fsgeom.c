@@ -14,7 +14,7 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
   Vec     xc,xx,xc1,xx1;
   dScalar *count,*x;
   dReal   (*qx)[3],(*geom)[3];
-  dEFS    *efs;
+  const dEFS *efs;
   dRuleSet ruleset;
 
   dFunctionBegin;
