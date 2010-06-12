@@ -78,9 +78,9 @@ static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   err = dMallocA(ma->nents,&deg);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
+  err = dMeshTagGetData(fs->mesh,fs->tag.degree,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
   err = dJacobiPropogateDown(fs->jacobi,ma,deg);dCHK(err);
-  err = dMeshTagSetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err);
+  err = dMeshTagSetData(fs->mesh,fs->tag.degree,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err);
   err = dFree(deg);dCHK(err);
   dFunctionReturn(0);
 }
@@ -207,7 +207,7 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
   dFunctionBegin;
   xcnt = xstart[fs->nelem];
   err = dMallocA3(xcnt,&nnz,xcnt,&pnnz,ma->nents,&loffset);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->loffsetTag,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->tag.loffset,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
 
   err = VecDohpGetClosure(fs->gvec,&Xclosure);dCHK(err);
   err = VecGhostGetLocalForm(Xclosure,&Xloc);dCHK(err);
@@ -271,7 +271,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   bs   = fs->bs;
   mesh = fs->mesh;
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
-  err = dMeshGetAdjacency(mesh,fs->activeSet,&meshAdj);dCHK(err);
+  err = dMeshGetAdjacency(mesh,fs->set.active,&meshAdj);dCHK(err);
   err = dMemcpy(&ma,meshAdj,sizeof ma);dCHK(err); /* To have object rather than pointer semantics in this function. */
   err = dFSContPropogateDegree(fs,meshAdj);dCHK(err);
 
@@ -283,35 +283,35 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   {
     dInt      nboundaries,ghstart;
     dMeshESH *bdysets;
-    iMesh_addEntArrToSet(mi,ma.ents,ma.nents,fs->explicitSet,&ierr);dICHK(mi,ierr);
+    iMesh_addEntArrToSet(mi,ma.ents,ma.nents,fs->set.explicit,&ierr);dICHK(mi,ierr);
     /* Move ghost ents from \a explicitSet to \a ghostSet */
-    iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+    iMesh_getEntitiesRec(mi,fs->set.explicit,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
     err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-    iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->explicitSet,&ierr);dICHK(mi,ierr);
-    iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->ghostSet,&ierr);dICHK(mi,ierr);
+    iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->set.explicit,&ierr);dICHK(mi,ierr);
+    iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->set.ghost,&ierr);dICHK(mi,ierr);
     /* Move owned Dirichlet ents from \a explicitSet to \a dirichletSet */
-    err = dMeshGetNumSubsets(mesh,fs->boundaries,1,&nboundaries);dCHK(err);
+    err = dMeshGetNumSubsets(mesh,fs->set.boundaries,1,&nboundaries);dCHK(err);
     if (!nboundaries) goto after_boundaries;
     err = dMallocA2(nboundaries,&bdysets,nboundaries,&bstat);dCHK(err);
-    err = dMeshGetSubsets(mesh,fs->boundaries,1,bdysets,nboundaries,NULL);dCHK(err);
-    err = dMeshTagSGetData(mesh,fs->bstatusTag,bdysets,nboundaries,bstat,nboundaries,dDATA_INT);dCHK(err);
+    err = dMeshGetSubsets(mesh,fs->set.boundaries,1,bdysets,nboundaries,NULL);dCHK(err);
+    err = dMeshTagSGetData(mesh,fs->tag.bstatus,bdysets,nboundaries,bstat,nboundaries,dDATA_INT);dCHK(err);
     for (int i=0; i<nboundaries; i++) {
       if (bstat[i] & dFSBSTATUS_DIRICHLET) {
         iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
         err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-        iMesh_rmvEntArrFromSet(mi,ents,ghstart,fs->explicitSet,&ierr);dICHK(mi,ierr);
-        iMesh_addEntArrToSet(mi,ents,ghstart,fs->dirichletSet,&ierr);dICHK(mi,ierr);
+        iMesh_rmvEntArrFromSet(mi,ents,ghstart,fs->set.explicit,&ierr);dICHK(mi,ierr);
+        iMesh_addEntArrToSet(mi,ents,ghstart,fs->set.dirichlet,&ierr);dICHK(mi,ierr);
       }
       if (bstat[i] & dFSBSTATUS_WEAK) {
         iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_FACE,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-        iMesh_addEntArrToSet(mi,ents,ents_s,fs->weakFaceSet,&ierr);dICHK(mi,ierr);
+        iMesh_addEntArrToSet(mi,ents,ents_s,fs->set.weakFace,&ierr);dICHK(mi,ierr);
       }
     }
     err = dFree2(bdysets,bstat);dCHK(err);
   }
   after_boundaries:
 
-  err = dMeshPopulateOrderedSet_Private(mesh,fs->orderedSet,fs->explicitSet,fs->dirichletSet,fs->ghostSet,fs->orderingtype);dCHK(err);
+  err = dMeshPopulateOrderedSet_Private(mesh,fs->set.ordered,fs->set.explicit,fs->set.dirichlet,fs->set.ghost,fs->orderingtype);dCHK(err);
   {
     char strbuf[dNAME_LEN];
     const char *fsname;
@@ -321,19 +321,19 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     rank = mpirank;
     err = PetscObjectGetName((PetscObject)fs,&fsname);dCHK(err);
     err = PetscSNPrintf(strbuf,sizeof strbuf,"%s_%s",fsname,dTAG_PARTITION);dCHK(err);
-    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->partitionTag);dCHK(err);
-    err = dMeshTagSSetData(mesh,fs->partitionTag,&fs->activeSet,1,&rank,1,dDATA_INT);dCHK(err);
+    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->tag.partition);dCHK(err);
+    err = dMeshTagSSetData(mesh,fs->tag.partition,&fs->set.active,1,&rank,1,dDATA_INT);dCHK(err);
     err = PetscSNPrintf(strbuf,sizeof strbuf,"%s_%s",fsname,dTAG_ORDERED_SUBDOMAIN);dCHK(err);
-    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->orderedsubTag);dCHK(err);
-    err = dMeshTagSSetData(mesh,fs->orderedsubTag,&fs->orderedSet,1,&rank,1,dDATA_INT);dCHK(err);
+    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->tag.orderedsub);dCHK(err);
+    err = dMeshTagSSetData(mesh,fs->tag.orderedsub,&fs->set.ordered,1,&rank,1,dDATA_INT);dCHK(err);
   }
-  err = dMeshGetEnts(fs->mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
 
   /* Get number of nodes for all entities, and parallel status */
   err = dMallocA4(ma.nents,&deg,ma.nents,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,ma.nents,dDATA_INT);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->ruletag,ma.ents,ma.nents,rdeg,ma.nents,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.degree,ma.ents,ma.nents,deg,ma.nents,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.rule,ma.ents,ma.nents,rdeg,ma.nents,dDATA_INT);dCHK(err);
   /* Fill the arrays \a inodes and \a xnodes with the number of interior and expanded nodes for each
   * (topology,degree) pair */
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
@@ -343,7 +343,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   n = ndirichlet = ngh = 0;
   for (int i=0; i<ma.nents; i++) {
     dInt member;
-    dMeshESH exclusive_sets[] = {fs->explicitSet,fs->dirichletSet,fs->ghostSet};
+    dMeshESH exclusive_sets[] = {fs->set.explicit,fs->set.dirichlet,fs->set.ghost};
     err = dMeshEntClassifyExclusive(mesh,ma.ents[i],3,exclusive_sets,&member);dCHK(err);
     switch (member) {
       case 0: n          += inodes[i]; break;
@@ -366,27 +366,27 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     dInt i,scan,nentsExplicit,nentsDirichlet;
 
     /* We assume that orderedSet contains explicitSet+dirichletSet+ghostSet (in that order) */
-    err = dMeshGetEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->dirichletSet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
+    err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+    err = dMeshGetNumEnts(mesh,fs->set.explicit,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
+    err = dMeshGetNumEnts(mesh,fs->set.dirichlet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
     err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
 
     /* global offset */
     for (i=0,scan=rstart; i<nentsExplicit; scan+=inodes[idx[i++]])
       intdata[i] = scan; /* fill \a intdata with the global offset */
     for ( ; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->tag.goffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
 
     /* global closure offset */
     for (i=0,scan=crstart; i<nentsExplicit+nentsDirichlet; scan+=inodes[idx[i++]])
       intdata[i] = scan;
     for ( ; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->tag.gcoffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
 
     /* local index */
     for (i=0,scan=0; i<ents_s; scan+=inodes[idx[i++]])
       intdata[i] = scan;
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->tag.loffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
 
     /* Set a pointer to the ghost portion, we will work with that next */
     ghents   = ents + nentsExplicit + nentsDirichlet;
@@ -395,11 +395,11 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
 
   /* communicate global and closure offset for ghosts */
-  err = dMeshTagBcast(mesh,fs->goffsetTag);dCHK(err);
-  err = dMeshTagBcast(mesh,fs->gcoffsetTag);dCHK(err);
+  err = dMeshTagBcast(mesh,fs->tag.goffset);dCHK(err);
+  err = dMeshTagBcast(mesh,fs->tag.gcoffset);dCHK(err);
 
   /* Retrieve ghost offsets, to create localupdate. */
-  err = dMeshTagGetData(mesh,fs->gcoffsetTag,ghents,ghents_s,intdata,ghents_s,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.gcoffset,ghents,ghents_s,intdata,ghents_s,dDATA_INT);dCHK(err);
   for (dInt i=0; i<ghents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
     if (intdata[i] < 0) dERROR(1,"Tag exchange did not work");
   }
@@ -435,12 +435,12 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   * be constrained against all nodes on the adjacent entity.
   */
 
-  err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
   nregions = ents_s;
   err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions,&regBDeg,nregions,&xnodes);dCHK(err);
   err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,regBDeg,nregions,dDATA_INT);dCHK(err);
   err = dJacobiGetNodeCount(fs->jacobi,ents_s,regTopo,regBDeg,NULL,xnodes);dCHK(err);
 
   xcnt = xstart[0] = 0;
@@ -455,7 +455,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
   err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
-  err = dMeshRestoreAdjacency(fs->mesh,fs->activeSet,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
+  err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
   err = dFree4(deg,rdeg,inodes,status);dCHK(err);
   err = dFree4(ents,intdata,idx,ghidx);dCHK(err);
   dFunctionReturn(0);
@@ -471,10 +471,10 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *n
   Vec     X;
 
   dFunctionBegin;
-  err = dMeshGetNumEnts(fs->mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,&nents);dCHK(err);
+  err = dMeshGetNumEnts(fs->mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,&nents);dCHK(err);
   err = dMallocA2(nents,&ents,nents,&degree);dCHK(err);
-  err = dMeshGetEnts(fs->mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,nents,NULL);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->degreetag,ents,nents,degree,nents,dDATA_INT);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,nents,NULL);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->tag.degree,ents,nents,degree,nents,dDATA_INT);dCHK(err);
   nsub = 0;
   for (dInt e=0; e<nents; e++) {
     /* Since this is for visualization, we represent everything as Q_k Gauss-Lobatto even if it was P_k or otherwise. */

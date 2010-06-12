@@ -108,10 +108,10 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     PetscMPIInt size;
 
     err = dViewerDHMGetFSType(viewer,&h5t_fs);dCHK(err);
-    err = dMeshGetTagName(fs->mesh,fs->degreetag,&fs5.degree);dCHK(err);
-    err = dMeshGetTagName(fs->mesh,fs->gcoffsetTag,&fs5.global_offset);dCHK(err);
-    err = dMeshGetTagName(fs->mesh,fs->partitionTag,&fs5.partition);dCHK(err);
-    err = dMeshGetTagName(fs->mesh,fs->orderedsubTag,&fs5.ordered_subdomain);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->tag.degree,&fs5.degree);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->tag.gcoffset,&fs5.global_offset);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->tag.partition,&fs5.partition);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->tag.orderedsub,&fs5.ordered_subdomain);dCHK(err);
     herr = H5Rcreate(&fs5.mesh,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
     fs5.time = dhm->time;
     err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);
@@ -329,9 +329,9 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
         err = dFSSetMesh(fs,mesh,set);dCHK(err); /* Create all the private sets and tags */
         err = dMeshGetTag(mesh,fs5.ordered_subdomain,&tag);dCHK(err);
         err = dMeshGetTaggedSet(mesh,tag,&readrank,&set);dCHK(err);
-        if (set != fs->orderedSet) { /* Replace it */
-          err = dMeshSetDestroy(mesh,fs->orderedSet);dCHK(err);
-          fs->orderedSet = set;
+        if (set != fs->set.ordered) { /* Replace it */
+          err = dMeshSetDestroy(mesh,fs->set.ordered);dCHK(err);
+          fs->set.ordered = set;
         }
 
         err = dMeshGetTag(mesh,fs5.degree,&tag);dCHK(err);
@@ -341,9 +341,9 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
         err = dJacobiSetFromOptions(jac);dCHK(err);
 
         err = dMeshGetTag(mesh,fs5.global_offset,&tag);dCHK(err);
-        if (tag != fs->gcoffsetTag) { /* Replace it */
-          err = dMeshTagDestroy(mesh,fs->gcoffsetTag);dCHK(err);
-          fs->gcoffsetTag = tag;
+        if (tag != fs->tag.gcoffset) { /* Replace it */
+          err = dMeshTagDestroy(mesh,fs->tag.gcoffset);dCHK(err);
+          fs->tag.gcoffset= tag;
         }
       }
       herr = H5Dvlen_reclaim(mstring,strspace,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dvlen_reclaim);
@@ -367,20 +367,20 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     dMeshAdjacency meshadj;
 
     err = dFSGetMesh(fs,&mesh);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
+    err = dMeshGetNumEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
     err = dMallocA5(ents_a,&ents,ents_a,&topo,ents_a,&bdeg,ents_a,&xnodes,ents_a,&idx);dCHK(err);
 
-    err = dMeshGetEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+    err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
     dASSERT(ents_a == ents_s);
     err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
-    err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
 
     err = dMallocA2(ents_s,&inodes,ents_s,&loffset);dCHK(err);
     err = dJacobiGetNodeCount(fs->jacobi,ents_s,topo,bdeg,inodes,xnodes);dCHK(err);
     for (i=0,n=0; i<ents_s; n += inodes[i++]) loffset[i] = n;
     bs = 1;                     /* @bug */
 
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,loffset,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->tag.loffset,ents,ents_s,loffset,ents_s,dDATA_INT);dCHK(err);
     err = dFree2(inodes,loffset);dCHK(err);
 
     /* The global vector is the same as the closure (assume no Dirichlet boundaries for now).
@@ -391,8 +391,8 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = dFSCreateLocalToGlobal_Private(fs,n,n,0,NULL,0);dCHK(err);
     err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
 
-    err = dMeshGetAdjacency(mesh,fs->activeSet,&meshadj);dCHK(err);
-    err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+    err = dMeshGetAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
+    err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
 
     err = dMeshGetVertexCoords(mesh,ents_s,ents,&fs->vtxoff,&fs->vtx);dCHK(err);
 
@@ -421,7 +421,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
 #endif
 
-    err = dMeshRestoreAdjacency(mesh,fs->activeSet,&meshadj);dCHK(err);
+    err = dMeshRestoreAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
     err = dFree5(ents,topo,bdeg,xnodes,idx);dCHK(err);
   }
 

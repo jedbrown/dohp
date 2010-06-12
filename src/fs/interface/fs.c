@@ -18,19 +18,18 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   }
   err = PetscObjectReference((PetscObject)mesh);dCHK(err);
   fs->mesh = mesh;
-  fs->activeSet = active;
-  err = dMeshGetTag(mesh,fs->bdyTagName,&fs->bdyTag);dCHK(err);
-  err = dMeshTagCreateTemp(mesh,"boundary_status",1,dDATA_INT,&fs->bstatusTag);dCHK(err);
-  err = dMeshTagCreateTemp(mesh,"boundary_constraint",sizeof(struct dFSConstraintCtx),dDATA_BYTE,&fs->bdyConstraintTag);dCHK(err);
-  err = dMeshTagCreateTemp(mesh,"global_offset",1,dDATA_INT,&fs->goffsetTag);dCHK(err);
-  err = dMeshTagCreateTemp(mesh,"local_offset",1,dDATA_INT,&fs->loffsetTag);dCHK(err);
-  err = dMeshTagCreate(mesh,"global_closure_offset",1,dDATA_INT,&fs->gcoffsetTag);dCHK(err);
-  err = dMeshSetCreate(mesh,dMESHSET_ORDERED,&fs->orderedSet);dCHK(err);
-  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->explicitSet);dCHK(err);
-  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->dirichletSet);dCHK(err);
-  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->ghostSet);dCHK(err);
-  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->weakFaceSet);dCHK(err);
-  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->boundaries);dCHK(err);
+  fs->set.active= active;
+  err = dMeshGetTag(mesh,fs->bdyTagName,&fs->tag.boundary);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"boundary_status",1,dDATA_INT,&fs->tag.bstatus);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"boundary_constraint",sizeof(struct dFSConstraintCtx),dDATA_BYTE,&fs->tag.bdyConstraint);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"global_offset",1,dDATA_INT,&fs->tag.goffset);dCHK(err);
+  err = dMeshTagCreateTemp(mesh,"local_offset",1,dDATA_INT,&fs->tag.loffset);dCHK(err);
+  err = dMeshTagCreate(mesh,"global_closure_offset",1,dDATA_INT,&fs->tag.gcoffset);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_ORDERED,&fs->set.ordered);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->set.explicit);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->set.dirichlet);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->set.ghost);dCHK(err);
+  err = dMeshSetCreate(mesh,dMESHSET_UNORDERED,&fs->set.boundaries);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -73,7 +72,7 @@ dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  fs->ruletag = rtag;
+  fs->tag.rule = rtag;
   if (fs->jacobi && fs->jacobi != jac) dERROR(PETSC_ERR_ARG_WRONGSTATE,"cannot change dJacobi");
   if (!fs->mesh) dERROR(PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
   err = dMeshGetTagName(fs->mesh,rtag,&name);dCHK(err);
@@ -95,7 +94,7 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(jac,dJACOBI_CLASSID,2);
-  fs->degreetag = deg;
+  fs->tag.degree = deg;
   if (fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
   if (!fs->mesh) dERROR(PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
   err = dMeshGetTagName(fs->mesh,deg,&name);dCHK(err);
@@ -176,16 +175,16 @@ dErr dFSRegisterBoundary(dFS fs,dInt mid,dFSBStatus bstat,dFSConstraintFunction 
   dValidHeader(fs,DM_CLASSID,1);
   if (!dFSBStatusValid(bstat)) dERROR(1,"Boundary status %x invalid",bstat);
   if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(1,"Cannot impose strong conditions on more dofs than the block size");
-  err = dMeshGetTaggedSet(fs->mesh,fs->bdyTag,&mid,&bset);dCHK(err);
-  err = dMeshTagSSetData(fs->mesh,fs->bstatusTag,&bset,1,&bstat,1,dDATA_INT);dCHK(err);
+  err = dMeshGetTaggedSet(fs->mesh,fs->tag.boundary,&mid,&bset);dCHK(err);
+  err = dMeshTagSSetData(fs->mesh,fs->tag.bstatus,&bset,1,&bstat,1,dDATA_INT);dCHK(err);
   if (cfunc) {
     struct dFSConstraintCtx ctx;
     ctx.cfunc = cfunc;
     ctx.user = user;
-    err = dMeshTagSSetData(fs->mesh,fs->bdyConstraintTag,&bset,1,&ctx,sizeof(ctx),dDATA_BYTE);dCHK(err);
+    err = dMeshTagSSetData(fs->mesh,fs->tag.bdyConstraint,&bset,1,&ctx,sizeof(ctx),dDATA_BYTE);dCHK(err);
   }
   err = dMeshGetInstance(fs->mesh,&mi);dCHK(err);
-  iMesh_addEntSet(mi,bset,fs->boundaries,&ierr);dICHK(mi,ierr);
+  iMesh_addEntSet(mi,bset,fs->set.boundaries,&ierr);dICHK(mi,ierr);
   dFunctionReturn(0);
 }
 
@@ -216,7 +215,7 @@ dErr dFSView(dFS fs,dViewer viewer)
       dInt nents[4];
       err = PetscViewerASCIIPrintf(viewer,"General information about the mesh topology.\n");dCHK(err);
       for (dEntType type=dTYPE_VERTEX; type<dTYPE_ALL; type++) {
-        err = dMeshGetNumEnts(fs->mesh,fs->activeSet,type,dTOPO_ALL,&nents[type]);dCHK(err);
+        err = dMeshGetNumEnts(fs->mesh,fs->set.active,type,dTOPO_ALL,&nents[type]);dCHK(err);
       }
       err = PetscViewerASCIIPrintf(viewer,"number of vertices=%d edges=%d faces=%d regions=%d\n",nents[0],nents[1],nents[2],nents[3]);dCHK(err);
     }

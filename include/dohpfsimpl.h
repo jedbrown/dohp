@@ -64,15 +64,30 @@ struct _p_dFS {
   PETSCHEADER(struct _dFSOps);
   DMHEADER
   dMesh        mesh;
-  dMeshTag     degreetag,ruletag; /**< tags on regions */
-  dMeshESH     activeSet;       /**< all entities that will be part of this space, weak forms are evaluated on regions in this set */
+  struct {
+    dMeshTag degree;            /**< Effective degree of elements, packed into dPolynomialOrder */
+    dMeshTag rule;              /**< Degree of rules defined on elements that integration is to be performed on */
+    dMeshTag boundary;          /**< Tag indicating which boundary condition should be enforced */
+    dMeshTag bstatus;           /**< Boundary status tag, every NEUMANN_SET=x set will be tagged */
+    dMeshTag bdyConstraint;     /**< User-defined context for enforcing boundary constraints */
+    dMeshTag goffset;           /**< Offset of first node in global vector */
+    dMeshTag gcoffset;          /**< Offset of first node in global closure vector */
+    dMeshTag loffset;           /**< Offset of first node in local vector (split to include both real and Dirichlet vectors, based on dsplit) */
+    dMeshTag partition;         /**< Part number of activeSet */
+    dMeshTag orderedsub;        /**< Part number of ordered set */
+  } tag;
+  struct {
+    dMeshESH active;            /**< All entities that will be part of this space, weak forms are evaluated on regions in this set */
+    dMeshESH boundaries;        /**< Entities for which boundary conditions need to be enforced */
+    dMeshESH ordered;           /**< All entities in local space, ordered as they are used in the computation */
+    dMeshESH explicit,dirichlet,ghost;  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first
+                                         * part, closure is first two, local is whole thing.  The sets allow
+                                         * us to work with pieces. */
+    dMeshESH weakFace;
+  } set;
   dQuotient    quotient;
   dJacobi      jacobi;
-  dMeshESH     boundaries;      /**< Set of boundary conditions to be enforced on this function space */
-  dMeshTag     bdyTag;          /**< Tag for each boundary condition */
   char         bdyTagName[dNAME_LEN]; /**< Usually "NEUMANN_SET" */
-  dMeshTag     bstatusTag;      /**< Boundary status tag, every NEUMANN_SET=x set will be tagged */
-  dMeshTag     bdyConstraintTag; /**< User-defined context for enforcing boundary constraints */
   PetscTruth   spacebuilt;
   PetscTruth   assemblefull;    /**< Use full order constraints for assembly */
   PetscTruth   assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
@@ -84,16 +99,6 @@ struct _p_dFS {
   dInt        *vtxoff;
   dReal       (*vtx)[3];
   dInt         n,nc,ngh;        /**< Vector sizes in blocks: owned, owned closure, ghosts */
-  dMeshTag     goffsetTag;      /**< Offset of first node in global vector */
-  dMeshTag     gcoffsetTag;     /**< Offset of first node in global closure vector */
-  dMeshTag     loffsetTag;      /**< Offset of first node in local vector (split to include both real and Dirichlet vectors, based on dsplit) */
-  dMeshTag     partitionTag;    /**< Part number of activeSet */
-  dMeshTag     orderedsubTag;   /**< Part number of ordered set */
-  dMeshESH     orderedSet;      /**< All entities in local space, ordered as they are used in the computation */
-  dMeshESH     explicitSet,dirichletSet,ghostSet;  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first
-                                                   * part, closure is first two, local is whole thing.  The sets allow
-                                                   * us to work with pieces. */
-  dMeshESH     weakFaceSet;     /**< Faces on which weak forms need to be evaluated (I'm not sure this is actually needed) */
   Mat          E;               /**< full-order element assembly matrix (element nodes to local numbering) */
   Mat          Ep;              /**< preconditioning element assembly matrix (element nodes to local numbering, as sparse as possible) */
   Vec          weight;          /**< Vector in global space, used to compensate for overcounting after local to global */
