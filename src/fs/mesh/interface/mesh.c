@@ -5,8 +5,6 @@
 #include <MBParallelConventions.h>
 #include <ctype.h>              /* needed for isprint() */
 
-static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer);
-
 static const dInt iBase_SizeFromType[4] = {sizeof(int),sizeof(double),sizeof(void*),sizeof(char)};
 
 const char *const iBase_ErrorString[] = {
@@ -777,10 +775,6 @@ dErr dMeshLoad(dMesh mesh)
   dFunctionReturn(0);
 }
 
-/*@
-   dMeshView -
-
-@*/
 dErr dMeshView(dMesh m,PetscViewer viewer)
 {
   const char *type;
@@ -807,7 +801,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
     }
     err = PetscViewerASCIIPrintf(viewer,"Mesh type: %s\n",(type ? type : "not yet set"));dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"Internal count by type: V=%d E=%d F=%d R=%d\n",m->v.s,m->e.s,m->f.s,m->r.s);dCHK(err);
-    err = dMeshView_EntSet(m,m->root,viewer);dCHK(err);
+    err = dMeshSetView(m,m->root,viewer);dCHK(err);
     if (m->ops->view) {
       err = PetscViewerASCIIPushTab(viewer);dCHK(err);
       err = (*m->ops->view)(m,viewer);dCHK(err);
@@ -821,11 +815,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-/*@
-   dMeshView_EntSet -
-
-@*/
-static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
+dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer)
 {
   size_t valuesLen = 256;
   char values[256];
@@ -838,10 +828,13 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   MeshListData data=MLZ;
   MeshListESH esh=MLZ;
   dInt i,j,ntopo;
-  dBool canprint;
+  dBool canprint,flg;
   dErr err;
 
   dFunctionBegin;
+  if (!viewer) {err = PetscViewerASCIIGetStdout(((dObject)m)->comm,&viewer);dCHK(err);}
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&flg);dCHK(err);
+  if (!flg) dFunctionReturn(0);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   {
     for (i=iMesh_POINT; i<iMesh_ALL_TOPOLOGIES; i++) {
@@ -911,7 +904,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   for (i=0; i<esh.s; i++) {
     err = PetscViewerASCIIPrintf(viewer,"Contained set %d/%d:\n",i+1,esh.s);dCHK(err);
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-    err = dMeshView_EntSet(m,esh.v[i],viewer);dCHK(err);
+    err = dMeshSetView(m,esh.v[i],viewer);dCHK(err);
     err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   }
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
@@ -924,7 +917,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   for (i=0; i<esh.s; i++) {
     err = PetscViewerASCIIPrintf(viewer,"Child %d/%d:\n",i+1,esh.s);dCHK(err);
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-    err = dMeshView_EntSet(m,esh.v[i],viewer);dCHK(err);
+    err = dMeshSetView(m,esh.v[i],viewer);dCHK(err);
     err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   }
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
@@ -1276,7 +1269,6 @@ dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dM
   err = dFree2(*inx,*inxoff);dCHK(err);
   dFunctionReturn(0);
 }
-
 
 dErr dMeshPartitionOnOwnership(dMesh mesh,dMeshEH ents[],dInt n,dInt *ghstart)
 {

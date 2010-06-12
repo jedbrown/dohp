@@ -112,6 +112,7 @@ extern dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
 extern dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 extern dErr dMeshDestroy(dMesh);
 extern dErr dMeshView(dMesh,dViewer);
+extern dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer);
 extern dErr dMeshRegisterAll(const char path[]);
 #define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,d)
 extern dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
