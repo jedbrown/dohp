@@ -87,7 +87,6 @@ struct _p_dFS {
                                          * us to work with pieces. */
     dMeshESH weakFace;
   } set;
-  dQuotient    quotient;
   dJacobi      jacobi;
   char         bdyTagName[dNAME_LEN]; /**< Usually "NEUMANN_SET" */
   PetscTruth   spacebuilt;

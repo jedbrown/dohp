@@ -12,10 +12,6 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(mesh,dMESH_CLASSID,2);
-  if (fs->quotient) {
-    err = dQuotientGetMesh(fs->quotient,&qmesh);dCHK(err);
-    if (mesh != qmesh) fs->quotient = 0; /* The Quotient is stale */
-  }
   err = PetscObjectReference((PetscObject)mesh);dCHK(err);
   fs->mesh = mesh;
   fs->set.active= active;
