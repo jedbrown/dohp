@@ -224,7 +224,7 @@ dErr dJacobiGetEFS(dJacobi jac,dInt n,const dEntTopology topo[],const dPolynomia
 
   dFunctionBegin;
   dValidHeader(jac,dJACOBI_CLASSID,1);
-  dValidPointer(topo,3)
+  dValidPointer(topo,3);
   dValidPointer(order,4);
   dValidPointer(rules,5);
   dValidPointer(efs,6);

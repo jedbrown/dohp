@@ -22,9 +22,10 @@
 #define dMemzero(a,b)  PetscMemzero(a,b)
 #define dValidHeader(a,b,c) PetscValidHeaderSpecific(a,b,c)
 
-#define dValidPointer(a,b)                                              \
-  { if (!(a)) dERROR(PETSC_ERR_ARG_NULL,"Null Pointer: Parameter # %d",(b)); \
-    if ((size_t)a & 3) dERROR(PETSC_ERR_ARG_BADPTR,"Invalid Pointer: Parameter # %d",(b));} \
+#define dValidPointer(a,b) do {                                              \
+    if (!(a)) dERROR(PETSC_ERR_ARG_NULL,"Null Pointer: Parameter # %d",(b)); \
+    if ((size_t)a & 3) dERROR(PETSC_ERR_ARG_BADPTR,"Invalid Pointer: Parameter # %d",(b)); \
+  } while (0)
 
 #define dMalloc(a,b) PetscMalloc(a,b)
 #define dNew(a,b) PetscNew(a,b)
@@ -194,23 +195,23 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 
 #if defined(PETSC_USE_DEBUG)
 # define dFunctionBegin                                                 \
-  {                                                                     \
+  do {                                                                  \
     if (petscstack && (petscstack->currentsize < PETSCSTACKSIZE)) {     \
       petscstack->function[petscstack->currentsize]  = __func__;        \
       petscstack->file[petscstack->currentsize]      = __FILE__;        \
       petscstack->directory[petscstack->currentsize] = __SDIR__;        \
       petscstack->line[petscstack->currentsize]      = __LINE__;        \
       petscstack->currentsize++;                                        \
-    }}
+    }} while (0)
 # define dFunctionReturn(a)                     \
-  {                                             \
+  do {                                          \
     PetscStackPop;                              \
-    return(a);}
+    return(a);} while (0)
 
 # define dFunctionReturnVoid()                  \
-  {                                             \
+  do {                                          \
     PetscStackPop;                              \
-    return;}
+    return;} while (0)
 #else
 # define dFunctionBegin do { } while (0)
 # define dFunctionReturn(a) return (a)
