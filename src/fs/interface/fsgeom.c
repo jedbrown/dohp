@@ -9,12 +9,12 @@
 dErr dFSGetCoordinates(dFS fs,Vec *inx)
 {
   dErr    err;
-  dInt    n,*off,*geomoff,nelems;
-  Mat     E1,Ebs;
-  Vec     xc,xx,xc1,xx1;
-  dScalar *count,*x;
-  dReal   (*qx)[3],(*geom)[3];
-  const dEFS *efs;
+  dInt    nelems;
+  Vec     Expanded,Geom,X,Count;
+  dScalar *x;
+  const dScalar *geom;
+  dFS     cfs;
+  const dEFS *cefs;
   dRuleSet ruleset;
 
   dFunctionBegin;
@@ -22,70 +22,116 @@ dErr dFSGetCoordinates(dFS fs,Vec *inx)
   dValidPointer(inx,2);
   *inx = 0;
 
-  err = MatMAIJRedimension(fs->E,1,&E1);dCHK(err);
-  err = MatGetVecs(E1,&xc1,&xx1);dCHK(err);
-  err = VecSet(xx1,1);dCHK(err);
-  err = MatMultTranspose(E1,xx1,xc1);dCHK(err);
-  err = MatMult(E1,xc1,xx1);dCHK(err); /* xx1 now has the number of times each node occurs in the expanded vector */
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Geom);dCHK(err);
+  err = VecDuplicate(Geom,&Expanded);dCHK(err);
+  err = dFSCreateGlobalVector(cfs,&X);dCHK(err);
+  err = VecDuplicate(X,&Count);dCHK(err);
 
-  err = MatMAIJRedimension(E1,3,&Ebs);dCHK(err);
-  err = MatGetVecs(Ebs,&xc,&xx);dCHK(err);
+  /* Count the number of occurances of each node in the closure. */
+  err = VecSet(Expanded,1.);dCHK(err);
+  err = VecZeroEntries(Count);dCHK(err);
+  err = dFSExpandedToGlobal(cfs,Expanded,Count,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
 
-  err = dFSGetPreferredQuadratureRuleSet(fs,fs->set.active,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
-  err = dFSGetEFS(fs,ruleset,&nelems,&efs);dCHK(err);
-  dERROR(1,"In flux");
-#if 0
-  err = dFSGetElements(fs,&n,&off,NULL,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&qx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
-  err = VecGetArray(xx1,&count);dCHK(err);
-  err = VecGetArray(xx,&x);dCHK(err);
-  for (dInt e=0; e<n; e++) {
-    /* Offsets are given in terms of blocks */
-    const dScalar *counte = count + off[e];
-    dScalar       *xe     = x + 3*off[e];
-    dInt           three,P[3];
-    err = dEFSGetGlobalCoordinates(efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,qx);dCHK(err);
-    if (three != 3) dERROR(1,"element dimension unexpected");
-    for (dInt i=0; i<P[0]*P[1]*P[2]; i++) {
-      for (dInt j=0; j<3; j++) xe[i*3+j] = qx[i][j] / counte[i];
-    }
+  /* Evaluate the coordinate basis functions on the interpolation nodes of the given function space. */
+  err = dFSGetPreferredQuadratureRuleSet(fs,fs->set.active,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_SELF,&ruleset);dCHK(err);
+  err = dFSGetEFS(cfs,ruleset,&nelems,&cefs);dCHK(err);
+  err = VecGetArrayRead(Geom,&geom);dCHK(err);
+  err = VecGetArray(Expanded,&x);dCHK(err);
+  for (dInt e=0,goffset=0,offset=0; e<nelems; e++) {
+    dInt step,nnodes;
+    dRule rule;
+    err = dEFSApply(cefs[e],NULL,3,geom+goffset,x+offset,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSGetSizes(cefs[e],NULL,NULL,&step);dCHK(err);
+    err = dEFSGetRule(cefs[e],&rule);dCHK(err);
+    err = dRuleGetSize(rule,NULL,&nnodes);dCHK(err);
+    goffset += step*3;
+    offset  += nnodes*3;
   }
-  err = dFSRestoreElements(fs,&n,&off,NULL,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSRestoreWorkspace(fs,__func__,&qx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
-#endif
-  err = VecRestoreArray(xx1,&count);dCHK(err);
-  err = VecRestoreArray(xx,&x);dCHK(err);
+  err = VecRestoreArrayRead(Geom,&geom);dCHK(err);
+  err = VecRestoreArray(Expanded,&x);dCHK(err);
 
-  err = MatMultTranspose(Ebs,xx,xc);dCHK(err);
+  err = VecZeroEntries(X);dCHK(err);
+  err = dFSExpandedToGlobal(cfs,Expanded,X,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = VecPointwiseDivide(X,X,Count);dCHK(err);
 
-  err = VecDestroy(xx1);dCHK(err);
-  err = VecDestroy(xc1);dCHK(err);
-  err = VecDestroy(xx);dCHK(err);
-  err = MatDestroy(Ebs);dCHK(err);
-  err = MatDestroy(E1);dCHK(err);
-  *inx = xc;
+  err = VecDestroy(Expanded);dCHK(err);
+  err = VecDestroy(Count);dCHK(err);
+  err = VecDestroy(Geom);dCHK(err);
+  *inx = X;
   dFunctionReturn(0);
 }
 
-/** Get displacements of every point in geometry vector.
+static dErr dFSCreateGeometryFromMesh_Private(dFS fs)
+{
+  dErr err;
+  dMesh mesh;
+  dJacobi jacobi;
+  dMeshEH *ents;
+  const dInt *offset;
+  const dReal *rcoords;
+  dScalar *x;
+  dInt nents,n;
+  dFS cfs;
+  Vec Expanded,Global,Count;
+
+  dFunctionBegin;
+  err = dFSGetMesh(fs,&mesh);dCHK(err);
+  err = dFSGetJacobi(fs,&jacobi);dCHK(err);
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSCreateExpandedVector(cfs,&Expanded);dCHK(err);
+  err = dFSCreateGlobalVector(cfs,&Global);dCHK(err);
+  err = VecDuplicate(Global,&Count);dCHK(err);
+
+  /* Count the number of elements in which each node appears */
+  err = VecSet(Expanded,1.);dCHK(err);
+  err = VecZeroEntries(Count);dCHK(err);
+  err = dFSExpandedToGlobal(cfs,Expanded,Count,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+
+  /* Populate \a Expanded with local coordinates from mesh */
+  err = dMeshGetNumEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,&nents);dCHK(err);
+  err = dMallocA(nents,&ents);dCHK(err);
+  err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,nents,NULL);dCHK(err);
+  err = dMeshGetAdjVertexCoords(mesh,nents,ents,&offset,&rcoords);dCHK(err);
+  err = VecGetLocalSize(Expanded,&n);dCHK(err);
+  if (n != 3*offset[nents]) dERROR(PETSC_ERR_PLIB,"Size of Expanded %D does not match offset %D",n,3*offset[nents]);
+  err = VecGetArray(Expanded,&x);dCHK(err);
+  for (dInt i=0; i<n; i++) x[i] = rcoords[i];
+  err = VecRestoreArray(Expanded,&x);dCHK(err);
+  err = dMeshRestoreAdjVertexCoords(mesh,nents,ents,&offset,&rcoords);dCHK(err);
+  err = dFree(ents);dCHK(err);
+
+  /* Populate \a Global with the average coordinates from all the elements whose closure contains the node */
+  err = dFSExpandedToGlobal(cfs,Expanded,Global,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = VecPointwiseDivide(Global,Global,Count);dCHK(err);
+  err = VecDestroy(Count);dCHK(err);
+
+  fs->geometry.expanded = Expanded;
+  fs->geometry.global   = Global;
+  dFunctionReturn(0);
+}
+
+
+/** Get displacements of every node in expanded vector.
 *
 * @param fs Function space
-* @param ingeom the new geometry vector with block size 3 and same number of blocks as the closure vector
+* @param ingeom the new geometry vector with block size 3 and same number of blocks as points in the expanded vector.
 *
-* @note I don't yet have a clear view of how this should work.  If we have mesh motion with interesting boundary
-* conditions, we probably need a bonified function space for the geometry.
+* @note This is not suitable for use as a function space, 
 *
 * @note It is important to get geometry associated with boundary sets because it will frequently be projected against
 * the boundary.
 **/
-dErr dFSGetGeometryVector(dFS dUNUSED fs,Vec *ingeom)
+dErr dFSGetGeometryVectorExpanded(dFS fs,Vec *ingeom)
 {
+  dErr err;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(ingeom,2);
   *ingeom = 0;
-  dERROR(1,"not implemented");
+  if (!fs->geometry.expanded) {err = dFSCreateGeometryFromMesh_Private(fs);dCHK(err);}
+  *ingeom = fs->geometry.expanded;
   dFunctionReturn(0);
 }
 

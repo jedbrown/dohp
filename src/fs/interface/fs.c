@@ -6,7 +6,6 @@ extern dErr VecView_Dohp_FSCont(Vec,PetscViewer);
 
 dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 {
-  dMesh qmesh;
   dErr  err;
 
   dFunctionBegin;
@@ -296,7 +295,6 @@ dErr dFSDestroy(dFS fs)
     tmp = link->next;
     err = dFree(link);dCHK(err);
   }
-  err = dMeshRestoreVertexCoords(fs->mesh,fs->nelem,NULL,&fs->vtxoff,&fs->vtx);dCHK(err);
   err = dMeshDestroy(fs->mesh);dCHK(err);
   err = dJacobiDestroy(fs->jacobi);dCHK(err);
   err = PetscHeaderDestroy(fs);dCHK(err);

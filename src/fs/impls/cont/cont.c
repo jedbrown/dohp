@@ -450,7 +450,6 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMallocA(nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
   err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
 
-  err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
   err = dFree4(xstart,regTopo,regBDeg,xnodes);dCHK(err);
 
   err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);

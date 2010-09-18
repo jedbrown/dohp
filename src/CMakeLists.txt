@@ -23,6 +23,7 @@ list (APPEND Dohp_SRCS
 list (APPEND Dohp_SRCS
   fs/interface/fs.c
   fs/interface/fsbuild.c
+  fs/interface/fscoord.c
   fs/interface/fsreg.c
   fs/interface/fsrot.c
   fs/interface/fsgeom.c

@@ -97,8 +97,6 @@ struct _p_dFS {
   dInt         nelem;
   dInt        *off;             /**< Offset of element dofs in expanded vector */
   struct _dFSIntegrationLink *integration;
-  dInt        *vtxoff;
-  dReal       (*vtx)[3];
   dInt         n,nc,ngh;        /**< Vector sizes in blocks: owned, owned closure, ghosts */
   Mat          E;               /**< full-order element assembly matrix (element nodes to local numbering) */
   Mat          Ep;              /**< preconditioning element assembly matrix (element nodes to local numbering, as sparse as possible) */
@@ -108,6 +106,13 @@ struct _p_dFS {
   VecScatter   dscat;           /**< Scatter from global closure to \a dcache. */
   ISLocalToGlobalMapping bmapping; /**< Block mapping, Dirichlet blocks have negative global index */
   ISLocalToGlobalMapping mapping;  /**< Scalar mapping, mapping[i] = bmapping[i/bs]*bs+i%bs; */
+
+  struct {
+    Vec expanded;               /**< expanded, used for integration */
+    Vec global;                 /**< coordinates at all nodes of geometryfs */
+    dFS fs;                     /**< function space for geometry */
+  } geometry;
+
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */
   s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];

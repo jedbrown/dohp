@@ -359,7 +359,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 
   /* @todo Call private dFSBuildSpace pieces (once they exist) */
   {
-    dInt           i,n,bs,ents_a,ents_s,*inodes,*xnodes,*idx,xcnt,*loffset;
+    dInt           i,n,bs,ents_a,ents_s,*inodes,*xnodes,*idx,*loffset;
     dPolynomialOrder *bdeg;
     dEntTopology   *topo;
     dMeshEH        *ents;
@@ -393,8 +393,6 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 
     err = dMeshGetAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
     err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-
-    err = dMeshGetVertexCoords(mesh,ents_s,ents,&fs->vtxoff,&fs->vtx);dCHK(err);
 
     fs->nelem = ents_s;
     dERROR(1,"In flux");
