@@ -116,7 +116,7 @@ extern dErr dMeshRegisterAll(const char path[]);
 extern dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
 extern dErr dMeshSetType(dMesh,const dMeshType);
 extern dErr dMeshInitializePackage(const char[]);
-extern dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
+extern dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,const char*,dInt,dMeshTag*);
 extern dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 extern dErr dMeshGetInstance(dMesh,iMesh_Instance*);
 extern dErr dMeshGetNumEnts(dMesh,dMeshESH,dEntType,dEntTopology,dInt*);

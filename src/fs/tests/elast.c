@@ -176,8 +176,8 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dJacobiSetFromOptions(jac);dCHK(err);
   elt->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"elast_rule_degree",elt->nominalRDeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"elast_efs_degree",elt->constBDeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"elast_rule_degree",elt->nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"elast_efs_degree",elt->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(elt->comm,&fs);dCHK(err);
   err = dFSSetBlockSize(fs,3);dCHK(err);

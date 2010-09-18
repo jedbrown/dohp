@@ -992,14 +992,13 @@ dErr dMeshDestroy(dMesh m)
 *
 * @param mesh mesh
 * @param set entity set handle on which to add the tag, tags all non-vertex entities in \a set
-* @param jac dJacobi to use when generating the tags
 * @param name unique identifier for the tag (mostly for debugging)
 * @param degree polynomial degree which should be integrated exactly when the element has an affine map
 * @param[out] inrtag tag
 *
 * @return err
 */
-dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,const char name[],dInt degree,dMeshTag *inrtag)
+dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,const char name[],dInt degree,dMeshTag *inrtag)
 {
   dMeshTag rtag;
   dMeshEH *ents;

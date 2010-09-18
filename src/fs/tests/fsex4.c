@@ -136,8 +136,8 @@ int main(int argc,char *argv[])
   err = dMeshGetRoot(mesh,&active);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,active,&active);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,active,jac,"fsex4_rule_degree",ex4->rdeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,active,jac,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,active,"fsex4_rule_degree",ex4->rdeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,active,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
   err = dFSCreate(comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,active);dCHK(err);
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);

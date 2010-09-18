@@ -268,9 +268,9 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dJacobiSetFromOptions(jac);dCHK(err);
   stk->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_rule_degree",stk->nominalRDeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_efs_velocity_degree",stk->constBDeg,&dtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"stokes_efs_pressure_degree",stk->constBDeg-stk->pressureCodim,&dptag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"stokes_rule_degree",stk->nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"stokes_efs_velocity_degree",stk->constBDeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"stokes_efs_pressure_degree",stk->constBDeg-stk->pressureCodim,&dptag);dCHK(err);
 
   err = dFSCreate(stk->comm,&fsu);dCHK(err);
   err = dFSSetBlockSize(fsu,3);dCHK(err);

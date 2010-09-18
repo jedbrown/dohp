@@ -237,8 +237,8 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dJacobiSetFromOptions(jac);dCHK(err);
   elp->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ellip_rule_degree",elp->nominalRDeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ellip_efs_degree",elp->constBDeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"ellip_rule_degree",elp->nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"ellip_efs_degree",elp->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(elp->comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);

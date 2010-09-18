@@ -520,7 +520,7 @@ int main(int argc,char *argv[])
   err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
   err = tagHexes(mesh,&dtag);dCHK(err);
   if (showconn) {err = examine(mesh,dtag);dCHK(err);}
 
