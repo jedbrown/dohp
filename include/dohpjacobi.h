@@ -110,6 +110,7 @@ typedef enum {
                                 * can be rapidly evaluated. */
   dQUADRATURE_METHOD_SPARSE,    /* A reduced quadrature, used for integration of sparser approximations to the true
                                 * Jacobian.  Normally used for integration of matrices based on Q_1 subelement space. */
+  dQUADRATURE_METHOD_SELF,      /* Often not a quadrature at all, used to interpolate from one basis to another */
   dQUADRATURE_METHOD_INVALID
 } dQuadratureMethod;
 
