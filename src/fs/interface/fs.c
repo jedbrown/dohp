@@ -303,6 +303,16 @@ dErr dFSDestroy(dFS fs)
   dFunctionReturn(0);
 }
 
+dErr dFSSetOptionsPrefix(dFS fs,const char prefix[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  err = PetscObjectSetOptionsPrefix((PetscObject)fs,prefix);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /**
 * Builds a function space.  Enforcement of constraints is implementation dependent.
 *
