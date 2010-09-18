@@ -529,7 +529,7 @@ dErr dFSRotateGlobal(dFS fs,Vec g,dFSRotateMode rmode,dFSHomogeneousMode hmode)
   dFunctionReturn(0);
 }
 
-static dErr dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIntegrationLink **found)
+static dErr dUNUSED dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIntegrationLink **found)
 {
   struct _dFSIntegrationLink *link;
 
@@ -551,9 +551,6 @@ static dErr dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIntegratio
 *
 * @note This function helps to hide the low-level dQuadrature object from the user, since it is almost always the case
 * that the user wants the "best" quadrature for a particular function space they are working with.
-*
-* @note This function should accept the "domain" (perhaps just a mesh set) on which the integration is being performed.
-*
 **/
 dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTopology etopo,dQuadratureMethod method,dRuleSet *ruleset)
 {
