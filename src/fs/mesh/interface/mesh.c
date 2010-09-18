@@ -1235,6 +1235,30 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
   dFunctionReturn(0);
 }
 
+dErr dMeshGetVertexCoords(dMesh mesh,dInt nvtx,const dMeshEH vtx[],const dReal **incoords)
+{
+  dIInt ierr;
+  MeshListReal vcoords=MLZ;
+  dReal *coords;
+  dErr err;
+
+  dFunctionBegin;
+  iMesh_getVtxArrCoords(mesh->mi,vtx,nvtx,iBase_INTERLEAVED,MLREF(vcoords),&ierr);dICHK(mesh->mi,ierr);
+  err = dMallocA(vcoords.s,&coords);dCHK(err);
+  for (dInt i=0; i<vcoords.s; i++) coords[i] = (dReal)vcoords.v[i];
+  *incoords = coords;
+  dFunctionReturn(0);
+}
+
+dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dInt dUNUSED nvtx,const dMeshEH dUNUSED vtx[],const dReal **incoords)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dFree(*incoords);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /** Get vertex coordinates for the vertices representing the connectivity of the entities.
 *
 * @example <c>x+xoff[i] ... x+xoff[i+1]</c> are the coordinates of the vertices in the connectivity of \c ents[i]
@@ -1245,15 +1269,15 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
 * @param inxoff address of offsets of vertices for each entity, NOT the offset of the first vertex coordinate because \a x has array type
 * @param inx address of vertex values
 */
-dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
+dErr dMeshGetAdjVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],const dInt **inxoff,const dReal **inx)
 {
-  iMesh_Instance mi         = mesh->mi;
-  MeshListEH     conn       = MLZ;
-  MeshListInt    connoff    = MLZ;
-  MeshListReal   vtx        = MLZ;
+  iMesh_Instance mi      = mesh->mi;
+  MeshListEH     conn    = MLZ;
+  MeshListInt    connoff = MLZ;
+  MeshListReal   vtx     = MLZ;
   dIInt          ierr;
-  dReal         *x;
-  dInt          *xoff;
+  dReal          *x;
+  dInt           *xoff;
   dErr           err;
 
   dFunctionBegin;
@@ -1277,7 +1301,7 @@ dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,d
   xoff[n] = connoff.v[n];       /* Leave the offset as number of vertices, not first coordinate of each vtx */
   MeshListFree(conn); MeshListFree(connoff); MeshListFree(vtx);
   *inxoff = xoff;
-  *inx = (dReal(*)[3])x;
+  *inx = x;
   dFunctionReturn(0);
 }
 
@@ -1285,7 +1309,7 @@ dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,d
 * Since the vertex coords are often persistent for the life of the dFS, it's common that \a ents will not be available
 * when this function is called, hence we accept a NULL argument.  This is a hack to preserve a symmetric interface.
 **/
-dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
+dErr dMeshRestoreAdjVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dMeshEH ents[],const dInt **inxoff,const dReal **inx)
 {
   dErr err;
 

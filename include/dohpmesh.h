@@ -146,8 +146,10 @@ extern dErr dMeshGetStatus(dMesh,const dMeshEH[],dInt,dEntStatus[]);
 extern dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
 extern dErr dMeshGetAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
 extern dErr dMeshRestoreAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
-extern dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
-extern dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
+extern dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],const dReal**);
+extern dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],const dReal**);
+extern dErr dMeshGetAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,const dReal**);
+extern dErr dMeshRestoreAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,const dReal**);
 extern dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
 extern dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 
