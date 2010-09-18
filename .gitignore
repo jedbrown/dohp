@@ -20,3 +20,5 @@ docs/latex
 *.kdev4
 .cproject
 .project
+nbproject
+eclipse-style
