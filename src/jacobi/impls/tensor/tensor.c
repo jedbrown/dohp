@@ -192,7 +192,7 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
   dFunctionReturn(0);
 }
 
-static dErr dJacobiPropogateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dPolynomialOrder order[])
+static dErr dJacobiPropagateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dPolynomialOrder order[])
 {
   static const dInt quadperm[4] = {0,1,0,1};
   static const dInt hexperm[6][2] = {{0,2},{1,2},{0,2},{1,2},{1,0},{0,1}}; /* map natural axis of Quad to natural axis of Hex */
@@ -551,7 +551,7 @@ dErr dJacobiCreate_Tensor(dJacobi jac)
     .SetFromOptions     = dJacobiSetFromOptions_Tensor,
     .Destroy            = dJacobiDestroy_Tensor,
     .View               = dJacobiView_Tensor,
-    .PropogateDown      = dJacobiPropogateDown_Tensor,
+    .PropagateDown      = dJacobiPropagateDown_Tensor,
     .GetEFS             = dJacobiGetEFS_Tensor,
     .GetNodeCount       = dJacobiGetNodeCount_Tensor,
     .GetConstraintCount = dJacobiGetConstraintCount_Tensor,

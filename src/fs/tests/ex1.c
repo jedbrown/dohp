@@ -140,7 +140,7 @@ static dErr tagHexes(dMesh mesh,dMeshTag *intag)
     for (dInt i=0; i<ALEN(hexDegree); i++) hexDegree[i] = gopt.constBDeg;
   }
   err = dMeshTagCreate(mesh,"ex1_anisotropic",3,dDATA_INT,&tag);dCHK(err);
-  /* tag edges and faces with high values, currently needed to propogate degrees (will overwrite high values) */
+  /* tag edges and faces with high values, currently needed to propagate degrees (will overwrite high values) */
   for (dEntType type=dTYPE_VERTEX; type<=dTYPE_FACE; type++) {
     err = dMeshGetEnts(mesh,0,type,dTOPO_ALL,ents,ALEN(ents),&nents);
     for (dInt i=0; i<3*nents; i++) adata[i] = 30;

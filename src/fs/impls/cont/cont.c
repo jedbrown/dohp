@@ -70,7 +70,7 @@ static dErr dFSDestroy_Cont(dFS fs)
 /**
 @note Not collective
 */
-static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
+static dErr dFSContPropagateDegree(dFS fs,dMeshAdjacency ma)
 {
   dPolynomialOrder *deg;
   dErr err;
@@ -79,7 +79,7 @@ static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
   dValidHeader(fs,DM_CLASSID,1);
   err = dMallocA(ma->nents,&deg);dCHK(err);
   err = dMeshTagGetData(fs->mesh,fs->tag.degree,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
-  err = dJacobiPropogateDown(fs->jacobi,ma,deg);dCHK(err);
+  err = dJacobiPropagateDown(fs->jacobi,ma,deg);dCHK(err);
   err = dMeshTagSetData(fs->mesh,fs->tag.degree,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err);
   err = dFree(deg);dCHK(err);
   dFunctionReturn(0);
@@ -274,7 +274,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   err = dMeshGetAdjacency(mesh,fs->set.active,&meshAdj);dCHK(err);
   err = dMemcpy(&ma,meshAdj,sizeof ma);dCHK(err); /* To have object rather than pointer semantics in this function. */
-  err = dFSContPropogateDegree(fs,meshAdj);dCHK(err);
+  err = dFSContPropagateDegree(fs,meshAdj);dCHK(err);
 
   /* Allocate a workspace that's plenty big, so that we don't have to allocate memory constantly */
   ents_a = ma.nents;

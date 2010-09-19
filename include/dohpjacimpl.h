@@ -69,7 +69,7 @@ struct _dJacobiOps {
   dErr (*SetFromOptions)(dJacobi);
   dErr (*Destroy)(dJacobi);
   dErr (*View)(dJacobi,dViewer);
-  dErr (*PropogateDown)(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
+  dErr (*PropagateDown)(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
   dErr (*GetEFS)(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],const dRule[],dEFS[]);
   dErr (*GetNodeCount)(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],dInt[],dInt[]);
   dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dPolynomialOrder[],dMeshAdjacency,dInt[],dInt[]);

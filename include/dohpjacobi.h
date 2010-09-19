@@ -139,7 +139,7 @@ extern dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],
 extern dErr dEFSGetExplicit(dEFS,const dReal geom[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
 extern dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
 
-extern dErr dJacobiPropogateDown(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
+extern dErr dJacobiPropagateDown(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
 extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],dInt[],dInt[]);
 
 extern dErr dJacobiGetConstraintCount(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dPolynomialOrder[],const dMeshAdjacency,dInt[],dInt[]);

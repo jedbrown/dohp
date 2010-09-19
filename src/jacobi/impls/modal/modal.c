@@ -383,7 +383,7 @@ dErr dJacobiCreate_Modal(dJacobi jac)
     .SetFromOptions     = dJacobiSetFromOptions_Modal,
     .Destroy            = dJacobiDestroy_Modal,
     .View               = dJacobiView_Modal,
-    .PropogateDown      = 0,
+    .PropagateDown      = 0,
     .GetEFS             = dJacobiGetEFS_Modal,
     .GetNodeCount       = dJacobiGetNodeCount_Modal,
     .GetConstraintCount = dJacobiGetConstraintCount_Modal,

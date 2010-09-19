@@ -144,7 +144,7 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
 }
 
 /**
-* Propogate the anisotropic values \a deg from the high dimensional entities down to the lower dimensional ones.
+* Propagate the anisotropic values \a deg from the high dimensional entities down to the lower dimensional ones.
 *
 * @note This assumes a minimum rule, should that be optional?
 * @note This interface sucks because the Jacobi shouldn't know about adjacencies.
@@ -153,7 +153,7 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
 * @param[in] a mesh adjacencies
 * @param[in,out] deg orders of all entities, in the order implied by \a a
 */
-dErr dJacobiPropogateDown(dJacobi jac,dMeshAdjacency a,dPolynomialOrder deg[])
+dErr dJacobiPropagateDown(dJacobi jac,dMeshAdjacency a,dPolynomialOrder deg[])
 {
   dErr err;
 
@@ -161,7 +161,7 @@ dErr dJacobiPropogateDown(dJacobi jac,dMeshAdjacency a,dPolynomialOrder deg[])
   dValidHeader(jac,dJACOBI_CLASSID,1);
   dValidPointer(a,2);
   dValidPointer(deg,3);
-  err = jac->ops->PropogateDown(jac,a,deg);dCHK(err);
+  err = jac->ops->PropagateDown(jac,a,deg);dCHK(err);
   dFunctionReturn(0);
 }
 
