@@ -221,22 +221,23 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
 
   /* We don't solve systems with these so it will never make sense for them to use a different format */
   err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nloc,1,nnz,&E);dCHK(err);
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nloc,1,pnnz,&Ep);dCHK(err);
+  Ep = E;
 
   err = dJacobiAddConstraints(fs->jacobi,fs->nelem,idx,xstart,loffset,deg,ma,E,Ep);dCHK(err);
 
   err = dFree3(nnz,pnnz,loffset);dCHK(err);
 
   err = MatAssemblyBegin(E,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyBegin(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
+  if (E != Ep) {err = MatAssemblyBegin(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);}
   err = MatAssemblyEnd(E,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
+  if (E != Ep) {err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);}
 
   err = MatCreateMAIJ(E,bs,inE);dCHK(err);
-  err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);
+  if (E == Ep) inEp = inE;
+  else {err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);}
 
   err = MatDestroy(E);dCHK(err);
-  err = MatDestroy(Ep);dCHK(err);
+  if (E != Ep) {err = MatDestroy(Ep);dCHK(err);}
   dFunctionReturn(0);
 }
 
