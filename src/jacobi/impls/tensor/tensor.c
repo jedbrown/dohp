@@ -266,7 +266,7 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
         if (xnode) xnode[i] = xcnt[0];
         break;
       case dTOPO_POINT:
-        if (inode) inode[i] = 0;
+        if (inode) inode[i] = 1;
         if (xnode) xnode[i] = 1;
         break;
       default:
