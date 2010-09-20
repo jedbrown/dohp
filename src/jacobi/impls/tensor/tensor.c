@@ -365,7 +365,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
   dFunctionBegin;
   for (elem=0; elem<nx; elem++) {
     const dInt ei = xi[elem]; /* Element index, \a is, \a deg and everything in \a ma is addressed by \a ei. */
-    const dInt d0 = dPolynomialOrder1D(deg[ei],0),d1 = dPolynomialOrder1D(deg[ei],1),d2 = dPolynomialOrder1D(deg[ei],2),d[3]={d0,d1,d2};
+    const dInt d0 = dPolynomialOrder1D(deg[ei],0)+1,d1 = dPolynomialOrder1D(deg[ei],1)+1,d2 = dPolynomialOrder1D(deg[ei],2)+1,d[3]={d0,d1,d2};
     const dInt scan[3] = {d1*d2,d2,1};
     switch (ma->topo[ei]) {
       case dTOPO_HEX:                              /* ****************************** HEX ************************** */
