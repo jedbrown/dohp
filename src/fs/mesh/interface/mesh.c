@@ -1000,7 +1000,7 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
   }
   //err = dJacobiGetRule(jac,nents,topo,rdeg,rules);dCHK(err);
   //err = dMeshTagSetData(mesh,rtag,ents,nents,rules,nents*(dInt)sizeof(s_dRule),dDATA_BYTE);dCHK(err);
-  err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,3,dDATA_INT);dCHK(err);
+  err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,3*nents,dDATA_INT);dCHK(err);
   err = dFree4(ents,topo,rdeg,rules);dCHK(err);
   *inrtag = rtag;
   dFunctionReturn(0);
