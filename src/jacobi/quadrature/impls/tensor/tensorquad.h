@@ -38,9 +38,9 @@ typedef struct {
   dPolynomialOrder degree;
 } khu_facetrulekey_t;
 static inline khint_t khu_facetrulekey_hash_func(khu_facetrulekey_t key)
-{ return kh_int_hash_func((khint32_t)key.topo) ^ kh_int_hash_func((khint32_t)key.facet) ^ kh_int_hash_func((khint32_t)key.degree); }
+{ return kh_int_hash_func((khint32_t)key.topo) ^ kh_int_hash_func((khint32_t)key.facet) ^ kh_int_hash_func(dPolynomialOrderKeyU32(key.degree)); }
 static inline bool khu_facetrulekey_hash_equal(khu_facetrulekey_t a,khu_facetrulekey_t b)
-{ return (a.topo == b.topo) && (a.facet == b.facet) && (a.degree == b.degree); }
+{ return (a.topo == b.topo) && (a.facet == b.facet) && dPolynomialOrderEqual(a.degree,b.degree); }
 KHASH_INIT(facetrule, khu_facetrulekey_t, dRule, 1, khu_facetrulekey_hash_func, khu_facetrulekey_hash_equal)
 
 

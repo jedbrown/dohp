@@ -117,7 +117,7 @@ static dErr dQuadratureGetRules_Tensor_Private(dQuadrature quad,dInt n,const dEn
   dFunctionBegin;
   for (dInt i=0; i<n; i++) {
     int       new;
-    khint64_t key   = ((uint64_t)topo[i]) << 32 | ((uint64_t)order[i]);
+    khint64_t key   = ((uint64_t)topo[i]) << 32 | ((uint64_t)dPolynomialOrderKeyU32(order[i]));
     khiter_t   kiter = kh_put_rule(tnsr->rules,key,&new);
     if (new) {
       dRule_Tensor *newrule;
@@ -268,12 +268,12 @@ static dErr dQuadratureGetFacetRules_Tensor_Private(dQuadrature quad,dInt n,cons
             {.jac = {{0,1,0},{1,0,0},{0,0,-1}}, .translation = {0,0,-1}},
             {.jac = {{1,0,0},{0,1,0},{0,0,1}}, .translation = {0,0,1}},
           },t = transform[facet[i]];
-          dPolynomialOrder
+          dInt
             maxdeg = dPolynomialOrderMax(order[i]),
             xdeg = dPolynomialOrder1D(order[i],0),
             ydeg = dPolynomialOrder1D(order[i],1),
-            zdeg = dPolynomialOrder1D(order[i],2),
-            rotdeg = dPolynomialOrderCreate(maxdeg,
+            zdeg = dPolynomialOrder1D(order[i],2);
+          dPolynomialOrder rotdeg = dPolynomialOrderCreate(maxdeg,
                                             (!!t.jac[0][0])*xdeg+(!!t.jac[0][1])*ydeg+(!!t.jac[0][2])*zdeg,
                                             (!!t.jac[1][0])*xdeg+(!!t.jac[1][1])*ydeg+(!!t.jac[1][2])*zdeg,
                                             (!!t.jac[2][0])*xdeg+(!!t.jac[2][1])*ydeg+(!!t.jac[2][2])*zdeg);

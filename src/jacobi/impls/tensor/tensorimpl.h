@@ -36,9 +36,9 @@ typedef struct {
   dRule rule;
 } khu_efskey_t;
 static inline khint_t khu_efskey_hash_func(khu_efskey_t key)
-{ return kh_int_hash_func((khint32_t)key.topo) ^ kh_int_hash_func((khint32_t)key.degree) ^ kh_int64_hash_func((khint64_t)(uintptr_t)key.rule); }
+{ return kh_int_hash_func((khint32_t)key.topo) ^ kh_int_hash_func((khint32_t)dPolynomialOrderKeyU32(key.degree)) ^ kh_int64_hash_func((khint64_t)(uintptr_t)key.rule); }
 static inline bool khu_efskey_hash_equal(khu_efskey_t a,khu_efskey_t b)
-{ return (a.topo == b.topo) && (a.degree == b.degree) && (a.rule == b.rule); }
+{ return (a.topo == b.topo) && dPolynomialOrderEqual(a.degree,b.degree) && (a.rule == b.rule); }
 KHASH_INIT(efs, khu_efskey_t, dEFS_Tensor*, 1, khu_efskey_hash_func, khu_efskey_hash_equal)
 
 /**

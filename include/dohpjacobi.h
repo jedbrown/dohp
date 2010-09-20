@@ -44,14 +44,36 @@ typedef struct s_dRule *dRule;
 *  polynomials are in the space.  These orders are used to prescribe internal variation in function spaces, and to
 *  choose adequate quadratures.
 **/
-typedef uint32_t dPolynomialOrder;
+typedef union _dPolynomialOrder dPolynomialOrder;
+union _dPolynomialOrder {
+  struct {
+    unsigned char max,x,y,z;
+  } s;
+  int padding_;
+};
 
 static inline dPolynomialOrder dPolynomialOrderCreate(dInt max,dInt x,dInt y,dInt z)
-{return ((uint32_t)max) << 24 | ((uint32_t)x) << 16 | ((uint32_t)y) << 8 | ((uint32_t)z);}
+{return (dPolynomialOrder){.s = {(unsigned char)max,(unsigned char)x,(unsigned char)y,(unsigned char)z}};}
 static inline dInt dPolynomialOrder1D(dPolynomialOrder order,dInt direction)
-{uint32_t max = order>>24,dir=(order>>(16-8*direction))&0xff; return max > dir ? max : dir;}
+{
+  dInt max = order.s.max,dir;
+  switch (direction) {
+    case 0: dir = order.s.x; break;
+    case 1: dir = order.s.y; break;
+    case 2: dir = order.s.z; break;
+    default: dir = 0; /* BAD */
+  }
+  return (max > dir) ? max : dir;
+}
 static inline dInt dPolynomialOrderMax(dPolynomialOrder order)
-{uint32_t max = order>>24,xyz = ((order>>16)&0xff) + ((order>>8)&0xff) + ((order>>0)&0xff); return max > xyz ? max : xyz;}
+{
+  dInt max = order.s.max,xyz = order.s.x+order.s.y+order.s.z;
+  return (max > xyz) ? max : xyz;
+}
+static inline uint32_t dPolynomialOrderKeyU32(dPolynomialOrder order)
+{return ((uint32_t)order.s.max << 24) + ((uint32_t)order.s.x << 16) + ((uint32_t)order.s.y << 8) + ((uint32_t)order.s.z);}
+static inline bool dPolynomialOrderEqual(dPolynomialOrder a,dPolynomialOrder b)
+{return (a.s.max == b.s.max) && (a.s.x == b.s.x) && (a.s.y == b.s.y) && (a.s.z == b.s.z);}
 
 /**
 * Indicates whether or not to apply the transpose of a interpolation/derivative matrix.

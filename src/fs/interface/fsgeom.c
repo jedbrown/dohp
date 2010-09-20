@@ -128,7 +128,7 @@ dErr dFSGetCoordinateFS(dFS fs,dFS *incfs)
     err = dFSCreate(((dObject)fs)->comm,&cfs);dCHK(err);
     err = dFSSetMesh(cfs,mesh,fs->set.active);dCHK(err);
     err = PetscSNPrintf(degreename,sizeof degreename,"%scfs_degree",((dObject)fs)->prefix);dCHK(err);
-    err = dMeshCreateRuleTagIsotropic(mesh,fs->set.active,degreename,dPolynomialOrderCreate(0,1,1,1),&dtag);dCHK(err);
+    err = dMeshCreateRuleTagIsotropic(mesh,fs->set.active,degreename,1,&dtag);dCHK(err);
     err = dFSSetDegree(cfs,jacobi,dtag);dCHK(err);
     err = dFSSetRuleTag(cfs,jacobi,dtag);dCHK(err); /* FIXME: remove this attribute from dFS */
     err = dFSSetBlockSize(cfs,3);dCHK(err);
