@@ -490,6 +490,7 @@ dErr dEFSGetGlobalCoordinates(dEFS efs,const dReal x[restrict][3],dInt *dim,dInt
 * @param[in,out] ei element integrator to be updated
 *
 **/
+#if 0
 dErr dEFSUpdateElementIntegrator(dEFS efs,const dReal x[restrict][3],dElementIntegrator ei)
 {
   dErr err;
@@ -501,6 +502,7 @@ dErr dEFSUpdateElementIntegrator(dEFS efs,const dReal x[restrict][3],dElementInt
   err = (*efs->ops->updateElementIntegrator)(efs,x,ei);dCHK(err);
   dFunctionReturn(0);
 }
+#endif
 
 dErr dEFSGetRule(dEFS efs,dRule *rule)
 {
