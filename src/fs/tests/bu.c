@@ -25,8 +25,8 @@ static dErr BUCreate(MPI_Comm comm,BU *bunit)
   err = dNew(struct BUnitCtx,&bu);dCHK(err);
 
   bu->comm        = comm;
-  bu->nominalRDeg = 3;
-  bu->constBDeg   = 3;          /* With only one element, this is the minimum possible with Dirichlet boundary conditions */
+  bu->nominalRDeg = 2;
+  bu->constBDeg   = 2;          /* With only one element, this is the minimum possible with Dirichlet boundary conditions */
 
   *bunit = bu;
   dFunctionReturn(0);
