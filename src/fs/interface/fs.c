@@ -285,7 +285,7 @@ dErr dFSDestroy(dFS fs)
   err = VecDestroy(fs->dcache);dCHK(err);
   err = VecScatterDestroy(fs->dscat);dCHK(err);
   err = MatDestroy(fs->E);dCHK(err);
-  err = MatDestroy(fs->Ep);dCHK(err);
+  if (fs->E != fs->Ep) {err = MatDestroy(fs->Ep);dCHK(err);}
   err = ISLocalToGlobalMappingDestroy(fs->bmapping);dCHK(err);
   err = ISLocalToGlobalMappingDestroy(fs->mapping);dCHK(err);
   err = dFree(fs->off);dCHK(err);

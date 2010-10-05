@@ -233,7 +233,7 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
   if (E != Ep) {err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);}
 
   err = MatCreateMAIJ(E,bs,inE);dCHK(err);
-  if (E == Ep) inEp = inE;
+  if (E == Ep) *inEp = *inE;
   else {err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);}
 
   err = MatDestroy(E);dCHK(err);
