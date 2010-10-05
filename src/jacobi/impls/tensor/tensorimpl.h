@@ -3,6 +3,7 @@
 
 #include <dohpkhash.h>
 #include <dohpjacimpl.h>
+#include <dohp.h>
 
 dEXTERN_C_BEGIN
 
@@ -67,7 +68,7 @@ typedef struct {
                                   *
                                   * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
   khash_t(efs) *efs;
-  PetscTruth usemscale,uselscale,nounroll;
+  dBool usemscale,uselscale,nounroll;
   /* dBufferList data; */
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
 } dJacobi_Tensor;

@@ -89,9 +89,9 @@ struct _p_dFS {
   } set;
   dJacobi      jacobi;
   char         bdyTagName[dNAME_LEN]; /**< Usually "NEUMANN_SET" */
-  PetscTruth   spacebuilt;
-  PetscTruth   assemblefull;    /**< Use full order constraints for assembly */
-  PetscTruth   assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
+  dBool        spacebuilt;
+  dBool        assemblefull;    /**< Use full order constraints for assembly */
+  dBool        assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
   dInt         ruleStrength;
   dInt         bs;              /**< Block size (number of dofs per node) */
   dInt         nelem;

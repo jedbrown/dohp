@@ -98,8 +98,8 @@ static inline void dTensorSymUncompress3(const dScalar Du[6],dScalar Dv[9])
 /* stdbool.h has small (1 byte) bools, PETSc uses an enum which has few size guarantees, so we use it directly and keep
 * it out of our public interface (which is why these typedefs are here and not in dohptype.h).
 **/
-typedef PetscTruth dTruth;
-typedef PetscTruth  dBool;
+typedef PetscBool dTruth;
+typedef PetscBool  dBool;
 #define dTRUE  PETSC_TRUE
 #define dFALSE PETSC_FALSE
 

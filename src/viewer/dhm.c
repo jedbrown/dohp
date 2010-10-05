@@ -555,7 +555,7 @@ dErr dViewerDHMGetStepSummary(PetscViewer viewer,dInt *nfs,const struct dViewerD
   struct dViewerDHMSummaryFS    *fspaces;
   struct dViewerDHMSummaryField *fields;
   dErr                          err;
-  PetscTruth                    match;
+  dBool                         match;
   hid_t                         curstep;
   struct field_traversal        ctx;
   hsize_t                       idx;
@@ -626,8 +626,8 @@ dErr dViewerDHMGetStepSummary(PetscViewer viewer,dInt *nfs,const struct dViewerD
 
 dErr dViewerDHMRestoreStepSummary(PetscViewer viewer,dInt *nfs,const struct dViewerDHMSummaryFS **infs,dInt *nfields,const struct dViewerDHMSummaryField **infields)
 {
-  dErr       err;
-  PetscTruth match;
+  dErr err;
+  dBool match;
 
   dFunctionBegin;
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
