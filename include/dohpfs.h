@@ -108,8 +108,10 @@ extern dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMo
 extern dErr dFSSetRotation(dFS,dFSRotation);
 extern dErr dFSGetRotation(dFS,dFSRotation*);
 
-extern dErr dFSGetCoordinates(dFS,Vec*);
+extern dErr dFSGetNodalCoordinatesExpanded(dFS,Vec*);
+extern dErr dFSGetNodalCoordinatesGlobal(dFS,Vec*);
 extern dErr dFSGetGeometryVectorExpanded(dFS,Vec*);
+extern dErr dFSGetGeometryVectorGlobal(dFS,Vec*);
 extern dErr dFSGetCoordinateFS(dFS,dFS*);
 
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to

@@ -1,12 +1,59 @@
 #include <dohpfsimpl.h>
 #include <dohpvec.h>
 
+dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
+{
+  dErr err;
+  dFS cfs;
+  Vec Geom,Expanded3;
+  Mat E3;
+  const dScalar *geom;
+  dScalar *x;
+  const dEFS *cefs;
+  dRuleSet ruleset;
+  dInt nelems;
+
+  dFunctionBegin;
+  err = MatMAIJRedimension(fs->E,3,&E3);dCHK(err);
+  err = MatGetVecs(E3,NULL,&Expanded3);dCHK(err);
+  err = MatDestroy(E3);dCHK(err);
+
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Geom);dCHK(err);
+
+  /* Evaluate the coordinate basis functions on the interpolation nodes of the given function space. */
+  err = dFSGetPreferredQuadratureRuleSet(fs,fs->set.active,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_SELF,&ruleset);dCHK(err);
+  err = dFSGetEFS(cfs,ruleset,&nelems,&cefs);dCHK(err);
+  err = VecGetArrayRead(Geom,&geom);dCHK(err);
+  err = VecGetArray(Expanded3,&x);dCHK(err);
+  for (dInt e=0,goffset=0,offset=0; e<nelems; e++) {
+    dInt step,nnodes;
+    dRule rule;
+    err = dEFSApply(cefs[e],NULL,3,geom+goffset,x+offset,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSGetSizes(cefs[e],NULL,NULL,&step);dCHK(err);
+    err = dEFSGetRule(cefs[e],&rule);dCHK(err);
+    err = dRuleGetSize(rule,NULL,&nnodes);dCHK(err);
+    goffset += step*3;
+    offset  += nnodes*3;
+  }
+  err = VecRestoreArrayRead(Geom,&geom);dCHK(err);
+  err = VecRestoreArray(Expanded3,&x);dCHK(err);
+
+  err = dRuleSetDestroy(ruleset);dCHK(err);
+  *inX = Expanded3;
+  dFunctionReturn(0);
+}
+
 /** Get coordinates for every node in closure (every subelement vertex)
-*
-* @param fs Function space
-* @param inx the new vector with block size 3 and the same number of blocks as the closure vector
-**/
-dErr dFSGetCoordinates(dFS fs,Vec *inx)
+ *
+ * @note This function cannot be implemented for all \a dFS types.  For most purposes, users should
+ *       \a dFSGetGeometryVectorExpanded and evaluate (element by element) on the nodes of their choice
+ *       (with a self-quadrature).
+ *
+ * @param fs Function space
+ * @param inx the new vector with block size 3 and the same number of blocks as the closure vector
+ **/
+dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 {
   dErr    err;
   dInt    nelems;
@@ -111,6 +158,10 @@ static dErr dFSCreateGeometryFromMesh_Private(dFS fs)
   dFunctionReturn(0);
 }
 
+/* Get a parallel dFS for representing the geometry
+ *
+ * @note Creates a new one if not yet set, generally based on the nodal locations in the mesh
+ */
 dErr dFSGetCoordinateFS(dFS fs,dFS *incfs)
 {
   dErr err;
