@@ -63,7 +63,7 @@ static inline dInt dPolynomialOrder1D(dPolynomialOrder order,dInt direction)
     case 2: dir = order.s.z; break;
     default: dir = 0; /* BAD */
   }
-  return (max > dir) ? max : dir;
+  return dir ? dir : max;
 }
 static inline dInt dPolynomialOrderMax(dPolynomialOrder order)
 {
