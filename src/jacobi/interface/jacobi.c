@@ -116,9 +116,7 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
 
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
-  if (!viewer) {
-    err = PetscViewerASCIIGetStdout(((PetscObject)jac)->comm,&viewer);dCHK(err);
-  }
+  if (!viewer) {err = PetscViewerASCIIGetStdout(((PetscObject)jac)->comm,&viewer);dCHK(err);}
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(jac,1,viewer,2);
 
@@ -284,6 +282,7 @@ dErr dRuleView(dRule rule,PetscViewer viewer)
 
   dFunctionBegin;
   dValidPointer(rule,1);
+  if (!viewer) {err = PetscViewerASCIIGetStdout(PETSC_COMM_SELF,&viewer);dCHK(err);}
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   err = (*rule->ops.view)(rule,viewer);dCHK(err);
   dFunctionReturn(0);
