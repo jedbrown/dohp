@@ -1,7 +1,7 @@
 #ifndef _DOHPMESH_H
 #define _DOHPMESH_H
 
-#include <petsc.h>
+#include <petscsys.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dohptype.h>
