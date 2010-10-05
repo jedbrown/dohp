@@ -3,6 +3,7 @@ dohp_link_executable (fs-ex4 fsex4.c)
 dohp_link_executable (ellip ellip.c)
 # dohp_link_executable (cellip cellip.c)
 dohp_link_executable (bu bu.c)
+dohp_link_executable (cunit cunit.c)
 dohp_link_executable (elast elast.c)
 dohp_link_executable (stokes stokes.c)
 
