@@ -178,12 +178,12 @@ dErr dFSGetCoordinateFS(dFS fs,dFS *incfs)
     err = dFSGetJacobi(fs,&jacobi);dCHK(err);
     err = dFSCreate(((dObject)fs)->comm,&cfs);dCHK(err);
     err = dFSSetMesh(cfs,mesh,fs->set.active);dCHK(err);
-    err = PetscSNPrintf(degreename,sizeof degreename,"%scfs_degree",((dObject)fs)->prefix);dCHK(err);
+    err = PetscSNPrintf(degreename,sizeof degreename,"%scfs_degree",dNonNullElse(((dObject)fs)->prefix,""));dCHK(err);
     err = dMeshCreateRuleTagIsotropic(mesh,fs->set.active,degreename,1,&dtag);dCHK(err);
     err = dFSSetDegree(cfs,jacobi,dtag);dCHK(err);
     err = dFSSetRuleTag(cfs,jacobi,dtag);dCHK(err); /* FIXME: remove this attribute from dFS */
     err = dFSSetBlockSize(cfs,3);dCHK(err);
-    err = PetscSNPrintf(prefix,sizeof prefix,"%scoord_",((dObject)fs)->prefix);dCHK(err);
+    err = PetscSNPrintf(prefix,sizeof prefix,"%scoord_",dNonNullElse(((dObject)fs)->prefix,""));dCHK(err);
     err = dFSSetOptionsPrefix(cfs,prefix);dCHK(err);
     err = dFSSetFromOptions(cfs);dCHK(err);
     fs->geometry.fs = cfs;

@@ -65,6 +65,7 @@
 #define dValidScalarPointer(p,a) dValidPointerSpecific((p),"dScalar",(a))
 #define dValidRealPointer(p,a) dValidPointerSpecific((p),"dReal",(a))
 
+#define dNonNullElse(a,b) ((a)?(a):(b))
 #define dStrlen(s,l) PetscStrlen((s),(l))
 extern dErr dObjectGetComm(dObject obj,MPI_Comm *comm);
 
