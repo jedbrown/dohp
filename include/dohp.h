@@ -107,11 +107,7 @@ typedef PetscBool  dBool;
 #define dNAME_LEN     256
 #define dSTR_LEN      256
 
-#if defined(__GNUC__)
-# define dUNUSED __attribute__((unused))
-#else
-# define dUNUSED
-#endif
+#define dUNUSED PETSC_UNUSED
 
 #define dCACHE_LINE    64l       /* my cache lines are 64 bytes long */
 #define dRPCL dCACHE_LINE/sizeof(dReal)
