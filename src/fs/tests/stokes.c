@@ -228,9 +228,9 @@ static dErr StokesSetFromOptions(Stokes stk)
     stk->nominalRDeg = stk->constBDeg; /* The cheapest option, usually a good default */
     err = PetscOptionsInt("-pressure_codim","Reduce pressure space by this factor","",stk->pressureCodim,&stk->pressureCodim,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",stk->nominalRDeg,&stk->nominalRDeg,NULL);dCHK(err);
-    err = PetscOptionsTruth("-cardinal_mass","Assemble diagonal mass matrix","",stk->cardinalMass,&stk->cardinalMass,NULL);dCHK(err);
-    err = PetscOptionsTruth("-error_view","View errors","",stk->errorview,&stk->errorview,NULL);dCHK(err);
-    err = PetscOptionsTruth("-saddle_A_explicit","Compute the A operator explicitly","",stk->saddle_A_explicit,&stk->saddle_A_explicit,NULL);dCHK(err);
+    err = PetscOptionsBool("-cardinal_mass","Assemble diagonal mass matrix","",stk->cardinalMass,&stk->cardinalMass,NULL);dCHK(err);
+    err = PetscOptionsBool("-error_view","View errors","",stk->errorview,&stk->errorview,NULL);dCHK(err);
+    err = PetscOptionsBool("-saddle_A_explicit","Compute the A operator explicitly","",stk->saddle_A_explicit,&stk->saddle_A_explicit,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_A","Rate factor (rheology)","",rheo->A,&rheo->A,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_eps","Regularization (rheology)","",rheo->eps,&rheo->eps,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_p","Power p=1+1/n where n is Glen exponent","",rheo->p,&rheo->p,NULL);dCHK(err);
@@ -240,7 +240,7 @@ static dErr StokesSetFromOptions(Stokes stk)
     err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
     err = PetscOptionsList("-stokes_A_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_A,stk->mattype_A,sizeof(stk->mattype_A),NULL);dCHK(err);
     err = PetscOptionsList("-stokes_D_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_D,stk->mattype_D,sizeof(stk->mattype_D),NULL);dCHK(err);
-    err = PetscOptionsTruth("-neumann300","Use boundary set 300 as Neumann conditions","",stk->neumann300,&stk->neumann300,NULL);dCHK(err);
+    err = PetscOptionsBool("-neumann300","Use boundary set 300 as Neumann conditions","",stk->neumann300,&stk->neumann300,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
 
   switch (exact) {
@@ -1346,42 +1346,42 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dTruth compute_explicit)
     err = MatSetFromOptions(expmat);dCHK(err);
     err = MatSetFromOptions(expmat_fd);dCHK(err);
 
-    err = PetscOptionsGetTruth(NULL,"-mat_view_contour",&contour,NULL);dCHK(err);
+    err = PetscOptionsGetBool(NULL,"-mat_view_contour",&contour,NULL);dCHK(err);
     if (contour) {err = PetscViewerPushFormat(PETSC_VIEWER_DRAW_WORLD,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);}
     {
       dTruth flg = dFALSE;
-      err = PetscOptionsGetTruth(NULL,"-explicit_mat_view",&flg,NULL);dCHK(err);
+      err = PetscOptionsGetBool(NULL,"-explicit_mat_view",&flg,NULL);dCHK(err);
       if (flg) {
         err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using mat-free implementation of J\n");dCHK(err);
         err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
       }
       flg = dFALSE;
-      err = PetscOptionsGetTruth(NULL,"-explicit_mat_view_draw",&flg,NULL);dCHK(err);
+      err = PetscOptionsGetBool(NULL,"-explicit_mat_view_draw",&flg,NULL);dCHK(err);
       if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
     }
 
     {
       dTruth flg = dFALSE;
-      err = PetscOptionsGetTruth(NULL,"-explicit_fd_mat_view",&flg,NULL);dCHK(err);
+      err = PetscOptionsGetBool(NULL,"-explicit_fd_mat_view",&flg,NULL);dCHK(err);
       if (flg) {
         err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using FD\n");dCHK(err);
         err = MatView(expmat_fd,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
       }
       flg = dFALSE;
-      err = PetscOptionsGetTruth(NULL,"-explicit_fd_mat_view_draw",&flg,NULL);dCHK(err);
+      err = PetscOptionsGetBool(NULL,"-explicit_fd_mat_view_draw",&flg,NULL);dCHK(err);
       if (flg) {err = MatView(expmat_fd,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
     }
 
     err = MatAXPY(expmat,-1,expmat_fd,SAME_NONZERO_PATTERN);dCHK(err);
     {
       dTruth flg = dFALSE;
-      err = PetscOptionsGetTruth(NULL,"-explicit_diff_mat_view",&flg,NULL);dCHK(err);
+      err = PetscOptionsGetBool(NULL,"-explicit_diff_mat_view",&flg,NULL);dCHK(err);
       if (flg) {
         err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Difference between mat-free implementation of J and FD\n");dCHK(err);
         err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
       }
       flg = dFALSE;
-      err = PetscOptionsGetTruth(NULL,"-explicit_diff_mat_view_draw",&flg,NULL);dCHK(err);
+      err = PetscOptionsGetBool(NULL,"-explicit_diff_mat_view_draw",&flg,NULL);dCHK(err);
       if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
     }
     if (contour) {err = PetscViewerPopFormat(PETSC_VIEWER_DRAW_WORLD);dCHK(err);}

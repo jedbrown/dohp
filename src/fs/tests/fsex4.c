@@ -124,9 +124,9 @@ int main(int argc,char *argv[])
   err = PetscOptionsBegin(comm,NULL,"FS-Ex4 Options","");dCHK(err);
   {
     err = PetscOptionsInt("-bdeg","Number of nodes per element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
-    err = PetscOptionsTruth("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
+    err = PetscOptionsBool("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
     if (read) {
-      err = PetscOptionsTruth("-read_back_vec","Read the Vec back in too","",read_vec,&read_vec,NULL);dCHK(err);
+      err = PetscOptionsBool("-read_back_vec","Read the Vec back in too","",read_vec,&read_vec,NULL);dCHK(err);
     }
   }
   err = PetscOptionsEnd();dCHK(err);

@@ -142,7 +142,7 @@ static dErr ElastSetFromOptions(Elast elt)
   err = PetscOptionsBegin(elt->comm,NULL,"Elasticity options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elt->constBDeg,&elt->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elt->nominalRDeg,&elt->nominalRDeg,NULL);dCHK(err);
-    err = PetscOptionsTruth("-error_view","View errors","",elt->errorview,&elt->errorview,NULL);dCHK(err);
+    err = PetscOptionsBool("-error_view","View errors","",elt->errorview,&elt->errorview,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_lambda","first Lame parameter","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_mu","Second Lame parameter","",prm->mu,&prm->mu,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_gamma","Strength of nonlinearity [0,1]","",prm->gamma,&prm->gamma,NULL);dCHK(err);

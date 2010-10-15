@@ -140,9 +140,9 @@ static dErr dJacobiSetFromOptions_Tensor(dJacobi jac)
   dFunctionBegin;
   err = PetscOptionsHead("Tensor options");dCHK(err);
   {
-    err = PetscOptionsTruth("-djac_tensor_mass_scale","Use optimal scaling for Q1 mass matrices","Jacobi",tnsr->usemscale,&tnsr->usemscale,NULL);dCHK(err);
-    err = PetscOptionsTruth("-djac_tensor_laplace_scale","Use optimal scaling for Q1 Laplacian matrices","Jacobi",tnsr->uselscale,&tnsr->uselscale,NULL);dCHK(err);
-    err = PetscOptionsTruth("-djac_tensor_no_unroll","Do not use unrolled versions of tensor operations","Jacobi",tnsr->nounroll,&tnsr->nounroll,NULL);dCHK(err);
+    err = PetscOptionsBool("-djac_tensor_mass_scale","Use optimal scaling for Q1 mass matrices","Jacobi",tnsr->usemscale,&tnsr->usemscale,NULL);dCHK(err);
+    err = PetscOptionsBool("-djac_tensor_laplace_scale","Use optimal scaling for Q1 Laplacian matrices","Jacobi",tnsr->uselscale,&tnsr->uselscale,NULL);dCHK(err);
+    err = PetscOptionsBool("-djac_tensor_no_unroll","Do not use unrolled versions of tensor operations","Jacobi",tnsr->nounroll,&tnsr->nounroll,NULL);dCHK(err);
   }
   err = PetscOptionsTail();dCHK(err);
   dFunctionReturn(0);

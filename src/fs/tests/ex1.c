@@ -70,7 +70,7 @@ static dErr createHexMesh(iMesh_Instance mi)
 
   dFunctionBegin;
   err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"Hex mesh options",NULL);dCHK(err);
-  err = PetscOptionsTruth("-affine","Use an affine coordinate map",NULL,iaffine,&iaffine,NULL);dCHK(err);
+  err = PetscOptionsBool("-affine","Use an affine coordinate map",NULL,iaffine,&iaffine,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
   vtx = iaffine ? vtx_affine : vtx_parametric;
   iMesh_createVtxArr(mi,vtxlen/3,iBase_INTERLEAVED,vtx,vtxlen,MLREF(v),&ierr);dICHK(mi,ierr);
@@ -489,15 +489,15 @@ int main(int argc,char *argv[])
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)",NULL,gopt.nominalRDeg,&gopt.nominalRDeg,NULL);dCHK(err);
-    err = PetscOptionsTruth("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
+    err = PetscOptionsBool("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
     err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-frequency","Frequency of oscillation in each cartesion direction",NULL,gopt.frequency,&nset,&flg);dCHK(err);
     if (flg && nset > 3) dERROR(1,"frequency may be at most 3 values");
-    err = PetscOptionsTruth("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
-    err = PetscOptionsTruth("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
+    err = PetscOptionsBool("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
+    err = PetscOptionsBool("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-require_ptwise","<L^1,L^2,L^infty> Error if pointwise norms exceed given values, negative to disable",NULL,gopt.normRequirePtwise,&nset,&flg);dCHK(err);
     if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_ptwise, %d set",nset);

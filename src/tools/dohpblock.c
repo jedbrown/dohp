@@ -156,8 +156,8 @@ static dErr createUniformTags(iMesh_Instance mesh)
 int main(int argc, char *argv[])
 {
   const char outopts[]="",pTagName[]="OWNING_PART", pSetName[]="PARALLEL_PARTITION";
-  PetscTruth do_geom=1,assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
-  PetscTruth do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1;
+  PetscBool  do_geom=1,assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
+  PetscBool  do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1;
   char outfile[256] = "dblock.h5m";
   char outgeom[256] = "dblock.brep";
   dInt verbose = 1;
@@ -179,19 +179,19 @@ int main(int argc, char *argv[])
   {
     char boxstr[256] = "-1:1,-1:1,-1:1",mnp[256] = "9,9,9",MNP[256] = "2,2,2";
     err = PetscOptionsInt("-verbose","verbosity of output","none",verbose,&verbose,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_geom","create geometric models","none",do_geom,&do_geom,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_geom","create geometric models","none",do_geom,&do_geom,NULL);dCHK(err);
     if (do_geom) {
-      err = PetscOptionsTruth("-assoc_with_brick","associate boundaries with brick","none",assoc_with_brick,&assoc_with_brick,NULL);dCHK(err);
+      err = PetscOptionsBool("-assoc_with_brick","associate boundaries with brick","none",assoc_with_brick,&assoc_with_brick,NULL);dCHK(err);
     }
-    err = PetscOptionsTruth("-do_color_bdy","color boundary sets","none",do_color_bdy,&do_color_bdy,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_color_bdy","color boundary sets","none",do_color_bdy,&do_color_bdy,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
     err = PetscOptionsString("-box","box x0:x1,y0:y1,z0:z1","none",boxstr,boxstr,sizeof(boxstr),NULL);dCHK(err);
     err = PetscOptionsString("-mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
     err = PetscOptionsString("-procs_mnp","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);

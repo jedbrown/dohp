@@ -271,8 +271,8 @@ static dErr checkRulesAndEFS(dJacobi jac)
   err = PetscOptionsInt("-max_rdeg","Maximum rule degree",NULL,maxrdeg,&maxrdeg,NULL);dCHK(err);
   err = PetscOptionsInt("-min_bdeg","Minimum basis degree",NULL,minbdeg,&minbdeg,NULL);dCHK(err);
   err = PetscOptionsInt("-max_bdeg","Maximum basis degree",NULL,maxbdeg,&maxbdeg,NULL);dCHK(err);
-  err = PetscOptionsTruth("-show_rules","Show rules",NULL,showrules,&showrules,NULL);dCHK(err);
-  err = PetscOptionsTruth("-show_efs","Show EFS",NULL,showefs,&showefs,NULL);dCHK(err);
+  err = PetscOptionsBool("-show_rules","Show rules",NULL,showrules,&showrules,NULL);dCHK(err);
+  err = PetscOptionsBool("-show_efs","Show EFS",NULL,showefs,&showefs,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
   N = (maxrdeg-minrdeg+1) * (maxbdeg-minbdeg+1);
   err = dMallocA3(N,&topo,N,&rdeg,N,&bdeg);dCHK(err);
