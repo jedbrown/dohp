@@ -57,7 +57,7 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 {
   dErr    err;
   dInt    nelems;
-  Vec     Expanded,Geom,X,Count;
+  Vec     Expanded1,Expanded,Geom,X,Count;
   dScalar *x;
   const dScalar *geom;
   dFS     cfs;
@@ -71,9 +71,12 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Geom);dCHK(err);
-  err = VecDuplicate(Geom,&Expanded);dCHK(err);
   err = dFSCreateGlobalVector(cfs,&X);dCHK(err);
   err = VecDuplicate(X,&Count);dCHK(err);
+
+  err = dFSCreateExpandedVector(fs,&Expanded1);dCHK(err);
+  err = VecCreateRedimensioned(Expanded1,3,&Expanded);dCHK(err);
+  err = VecDestroy(Expanded1);dCHK(err);
 
   /* Count the number of occurances of each node in the closure. */
   err = VecSet(Expanded,1.);dCHK(err);
@@ -104,7 +107,6 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 
   err = VecDestroy(Expanded);dCHK(err);
   err = VecDestroy(Count);dCHK(err);
-  err = VecDestroy(Geom);dCHK(err);
   *inx = X;
   dFunctionReturn(0);
 }

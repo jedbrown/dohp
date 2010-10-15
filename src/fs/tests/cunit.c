@@ -201,36 +201,55 @@ static dErr CUView(CU cu,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
+static dErr CUTestEvaluate(CU cu,dViewer dUNUSED viewer)
+{
+  dErr err;
+  dFS cfs;
+  Vec cglobal,cexpanded,cexpanded2;
+  dReal norm;
+
+  dFunctionBegin;
+  err = dFSGetCoordinateFS(cu->fs,&cfs);dCHK(err);
+  err = dFSGetNodalCoordinatesGlobal(cu->fs,&cglobal);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(cu->fs,&cexpanded);dCHK(err);
+  err = VecDuplicate(cexpanded,&cexpanded2);dCHK(err);
+  err = dFSGlobalToExpanded(cfs,cglobal,cexpanded2,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecAXPY(cexpanded2,-1.,cexpanded);dCHK(err);
+  err = VecNorm(cexpanded2,NORM_MAX,&norm);dCHK(err);
+  if (norm > 0.) dERROR(1,"Problem matching expanded coordinates, norm=%G",norm);
+  err = VecDestroy(cexpanded2);dCHK(err);
+  dFunctionReturn(0);
+}
+
 static dErr CUTest(CU cu,dViewer viewer)
 {
   dErr     err;
   Vec      gc,coords;
   dScalar *g;
-  dInt     low,hi;
+  dInt     low,hi,N,bs;
 
   dFunctionBegin;
+  /* Check connectivity */
   err = VecDohpGetClosure(cu->gx,&gc);dCHK(err);
-  err = VecSet(gc,10);dCHK(err);
-  err = dFSInhomogeneousDirichletCommit(cu->fs,gc);dCHK(err);
   err = VecGetOwnershipRange(gc,&low,&hi);dCHK(err);
   err = VecGetArray(gc,&g);dCHK(err);
   for (dInt i=0; i<hi-low; i++) g[i] = 1000 + low + i;
   err = VecRestoreArray(gc,&g);dCHK(err);
-
-#if 0
-  err = PetscViewerASCIIPrintf(viewer,"Global closure vector, should be a sequence starting with 1000\n");dCHK(err);
-  err = VecView(gc,viewer);dCHK(err);
-#endif
   err = VecDohpRestoreClosure(cu->gx,&gc);dCHK(err);
 
   err = dFSGlobalToExpanded(cu->fs,cu->gx,cu->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Expanded vector\n");dCHK(err);
   err = VecView(cu->x,viewer);dCHK(err);
 
+  /* View coordinates in Q1 basis derived from the mesh */
   err = dFSGetGeometryVectorExpanded(cu->fs,&coords);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"Expanded coordinate vector (3 dofs per expanded node)\n");dCHK(err);
+  err = VecGetSize(coords,&N);dCHK(err);
+  err = VecGetBlockSize(coords,&bs);dCHK(err);
+  if (N%3 || bs !=3) dERROR(PETSC_ERR_PLIB,"Vector size unexpected");
+  err = PetscViewerASCIIPrintf(viewer,"Expanded coordinate vector (3 dofs per expanded node, %D nodes)\n",N/3);dCHK(err);
   err = VecView(coords,viewer);dCHK(err);
-  err = VecDestroy(coords);dCHK(err);
+
+  err = CUTestEvaluate(cu,viewer);dCHK(err);
   dFunctionReturn(0);
 }
 
