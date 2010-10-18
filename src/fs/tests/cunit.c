@@ -205,19 +205,29 @@ static dErr CUTestEvaluate(CU cu,dViewer dUNUSED viewer)
 {
   dErr err;
   dFS cfs;
-  Vec cglobal,cexpanded,cexpanded2;
+  Vec ncglobal,ncexpanded,expanded2;
   dReal norm;
 
   dFunctionBegin;
   err = dFSGetCoordinateFS(cu->fs,&cfs);dCHK(err);
-  err = dFSGetNodalCoordinatesGlobal(cu->fs,&cglobal);dCHK(err);
-  err = dFSGetGeometryVectorExpanded(cu->fs,&cexpanded);dCHK(err);
-  err = VecDuplicate(cexpanded,&cexpanded2);dCHK(err);
-  err = dFSGlobalToExpanded(cfs,cglobal,cexpanded2,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecAXPY(cexpanded2,-1.,cexpanded);dCHK(err);
-  err = VecNorm(cexpanded2,NORM_MAX,&norm);dCHK(err);
+  err = dFSRedimension(cu->fs,3,&fs3);dCHK(err);
+  {
+    err = dFSGetNodalCoordinatesGlobal(cu->fs,&ncglobal);dCHK(err);
+    err = dFSGetNodalCoordinatesExpanded(cu->fs,&ncexpanded);dCHK(err);
+    err = dFSGlobalToExpanded(fs3,ncglobal,expanded2,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+    err = VecAXPY(expanded2,-1.,ncexpanded);dCHK(err);
+    err = VecNorm(expanded2,NORM_MAX,&norm);dCHK(err);
+    if (norm > 0.) dERROR(1,"Problem matching expanded coordinates, norm=%G",norm);
+    err = VecDestroy(expanded2);dCHK(err);
+  }
+  
+  err = dFSGetGeometryVectorExpanded(cu->fs,&ncexpanded);dCHK(err);
+  err = VecDuplicate(ncexpanded,&expanded2);dCHK(err);
+  err = dFSGlobalToExpanded(cfs,ncglobal,expanded2,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = VecAXPY(expanded2,-1.,ncexpanded);dCHK(err);
+  err = VecNorm(expanded2,NORM_MAX,&norm);dCHK(err);
   if (norm > 0.) dERROR(1,"Problem matching expanded coordinates, norm=%G",norm);
-  err = VecDestroy(cexpanded2);dCHK(err);
+  err = VecDestroy(expanded2);dCHK(err);
   dFunctionReturn(0);
 }
 

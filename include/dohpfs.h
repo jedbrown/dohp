@@ -114,6 +114,8 @@ extern dErr dFSGetGeometryVectorExpanded(dFS,Vec*);
 extern dErr dFSGetGeometryVectorGlobal(dFS,Vec*);
 extern dErr dFSGetCoordinateFS(dFS,dFS*);
 
+extern dErr dFSRedimension(dFS,dInt,dFSHomogeneousMode,dFS*);
+
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
 * separate it out yet.  This macro is a rather dirty way to avoid a bunch of code duplication without much runtime cost.
 * When there's time, I should make this more elegant.

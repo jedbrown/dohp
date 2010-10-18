@@ -57,10 +57,10 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 {
   dErr    err;
   dInt    nelems;
-  Vec     Expanded1,Expanded,Geom,X,Count;
+  Vec     Expanded,Geom,X,Count;
   dScalar *x;
   const dScalar *geom;
-  dFS     cfs;
+  dFS     fs3;
   const dEFS *cefs;
   dRuleSet ruleset;
 
@@ -69,19 +69,17 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
   dValidPointer(inx,2);
   *inx = 0;
 
-  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Geom);dCHK(err);
-  err = dFSCreateGlobalVector(cfs,&X);dCHK(err);
-  err = VecDuplicate(X,&Count);dCHK(err);
 
-  err = dFSCreateExpandedVector(fs,&Expanded1);dCHK(err);
-  err = VecCreateRedimensioned(Expanded1,3,&Expanded);dCHK(err);
-  err = VecDestroy(Expanded1);dCHK(err);
+  err = dFSRedimension(fs,3,dFS_HOMOGENEOUS,&fs3);dCHK(err);
+  err = dFSCreateExpandedVector(fs3,&Expanded);dCHK(err);
+  err = dFSCreateGlobalVector(fs3,&X);dCHK(err);
+  err = VecDuplicate(X,&Count);dCHK(err);
 
   /* Count the number of occurances of each node in the closure. */
   err = VecSet(Expanded,1.);dCHK(err);
   err = VecZeroEntries(Count);dCHK(err);
-  err = dFSExpandedToGlobal(cfs,Expanded,Count,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs3,Expanded,Count,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
 
   /* Evaluate the coordinate basis functions on the interpolation nodes of the given function space. */
   err = dFSGetPreferredQuadratureRuleSet(fs,fs->set.active,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_SELF,&ruleset);dCHK(err);
@@ -102,9 +100,10 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
   err = VecRestoreArray(Expanded,&x);dCHK(err);
 
   err = VecZeroEntries(X);dCHK(err);
-  err = dFSExpandedToGlobal(cfs,Expanded,X,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = dFSExpandedToGlobal(fs3,Expanded,X,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
   err = VecPointwiseDivide(X,X,Count);dCHK(err);
 
+  err = dFSDestroy(fs3);dCHK(err);
   err = VecDestroy(Expanded);dCHK(err);
   err = VecDestroy(Count);dCHK(err);
   *inx = X;
@@ -250,5 +249,38 @@ dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dEntTopology topo[],dIn
   dValidIntPointer(ind,6);
   if (!fs->ops->getsubelementmesh) dERROR(1,"not implemented");
   err = (*fs->ops->getsubelementmesh)(fs,nelems,nverts,topo,off,ind);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** dFSRedimension - Create a new function space with the same layout, but different number of dofs per node
+ *
+ */
+dErr dFSRedimension(dFS fs,dInt bs,dFSHomogeneousMode mode,dFS *infs)
+{
+  dErr err;
+  dFS rfs;
+  dJacobi jac;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  if (bs < 1) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Block size must be at least 1, was %D",bs);
+  dValidPointer(infs,4);
+  *infs = NULL;
+
+  if (!fs->spacebuilt) dERROR(PETSC_ERR_ARG_WRONGSTATE,"Cannot redimension a space that has not been built");
+  if (!fs->mesh || !fs->set.active) dERROR(PETSC_ERR_PLIB,"Space has been built, but does not have a mesh (should not happen)");
+
+  err = dFSCreate(((dObject)fs)->comm,&rfs);dCHK(err);
+  err = dFSSetBlockSize(rfs,bs);dCHK(err);
+  err = dFSSetMesh(rfs,fs->mesh,fs->set.active);dCHK(err);
+  err = dFSGetJacobi(fs,&jac);dCHK(err);
+  err = dFSSetDegree(rfs,jac,fs->tag.degree);dCHK(err);
+  err = dFSSetRuleTag(rfs,jac,fs->tag.rule);dCHK(err); /* TODO: remove */
+  if (mode == dFS_INHOMOGENEOUS) {
+    dERROR(PETSC_ERR_SUP,"Only dFS_HOMOGENEOUS so far");
+  }
+  err = dFSSetType(rfs,((dObject)fs)->type_name);dCHK(err);
+  err = dFSBuildSpace(rfs);dCHK(err);
+  *infs = rfs;
   dFunctionReturn(0);
 }

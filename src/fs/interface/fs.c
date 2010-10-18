@@ -12,6 +12,7 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(mesh,dMESH_CLASSID,2);
   err = PetscObjectReference((PetscObject)mesh);dCHK(err);
+  if (fs->mesh) {err = dMeshDestroy(fs->mesh);dCHK(err);}
   fs->mesh = mesh;
   fs->set.active= active;
   err = dMeshGetTag(mesh,fs->bdyTagName,&fs->tag.boundary);dCHK(err);
@@ -325,6 +326,7 @@ dErr dFSBuildSpace(dFS fs)
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
+  if (!((dObject)fs)->type_name) dERROR(PETSC_ERR_ARG_TYPENOTSET,"Cannot build space");
   if (fs->spacebuilt) dERROR(1,"The space is already built, rebuilding is not implemented");
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
