@@ -45,7 +45,7 @@ typedef enum {
 } dFSBStatus;
 
 typedef enum {dFS_HOMOGENEOUS, dFS_INHOMOGENEOUS} dFSHomogeneousMode;
-
+typedef enum {dFS_CLOSURE, dFS_INTERIOR} dFSClosureMode;
 typedef enum {dFS_ROTATE_FORWARD, dFS_ROTATE_REVERSE} dFSRotateMode;
 
 #define dFSType char *
@@ -108,13 +108,15 @@ extern dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMo
 extern dErr dFSSetRotation(dFS,dFSRotation);
 extern dErr dFSGetRotation(dFS,dFSRotation*);
 
-extern dErr dFSGetNodalCoordinatesExpanded(dFS,Vec*);
-extern dErr dFSGetNodalCoordinatesGlobal(dFS,Vec*);
+extern dErr dFSGetCoordinateFS(dFS,dFS*);
 extern dErr dFSGetGeometryVectorExpanded(dFS,Vec*);
 extern dErr dFSGetGeometryVectorGlobal(dFS,Vec*);
-extern dErr dFSGetCoordinateFS(dFS,dFS*);
 
-extern dErr dFSRedimension(dFS,dInt,dFSHomogeneousMode,dFS*);
+extern dErr dFSGetNodalCoordinateFS(dFS,dFS*);
+extern dErr dFSGetNodalCoordinatesExpanded(dFS,Vec*);
+extern dErr dFSGetNodalCoordinatesGlobal(dFS,Vec*);
+
+extern dErr dFSRedimension(dFS,dInt,dFSClosureMode,dFS*);
 
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
 * separate it out yet.  This macro is a rather dirty way to avoid a bunch of code duplication without much runtime cost.

@@ -201,33 +201,55 @@ static dErr CUView(CU cu,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-static dErr CUTestEvaluate(CU cu,dViewer dUNUSED viewer)
+static dErr VecBlockCompare(Vec X,Vec Y,dViewer viewer)
 {
   dErr err;
-  dFS cfs;
+  dInt i,m,n,bs;
+  const dScalar *x,*y;
+
+  dFunctionBegin;
+  dValidHeader(X,VEC_CLASSID,1);
+  dValidHeader(Y,VEC_CLASSID,2);
+  dValidHeader(viewer,PETSC_VIEWER_CLASSID,3);
+  err = VecGetLocalSize(X,&m);dCHK(err);
+  err = VecGetLocalSize(Y,&n);dCHK(err);
+  if (m != n) dERROR(PETSC_ERR_ARG_INCOMP,"Size of X %D not compatible with Y %D",m,n);
+  err = VecGetBlockSize(X,&bs);dCHK(err);
+  if (bs != 3) dERROR(PETSC_ERR_SUP,"X block size %D, but only implemented for bs=3",bs);
+  err = VecGetBlockSize(Y,&bs);dCHK(err);
+  if (bs != 3) dERROR(PETSC_ERR_SUP,"Y block size %D, but only implemented for bs=3",bs);
+
+  err = VecGetArrayRead(X,&x);dCHK(err);
+  err = VecGetArrayRead(Y,&y);dCHK(err);
+  for (i=0; i<m; i+=bs) {
+    if (!FuzzyEquals3(&x[i],&y[i])) {
+      err = PetscViewerASCIISynchronizedPrintf(viewer,"Node %3D: X {%10G %10G %10G} != Y {%10G %10G %10G}\n",i/bs,PetscRealPart(x[i]),PetscRealPart(x[i+1]),PetscRealPart(x[i+2]),
+                                               PetscRealPart(y[i]),PetscRealPart(y[i+1]),PetscRealPart(y[i+2]));dCHK(err);
+    }
+  }
+  err = PetscViewerFlush(viewer);dCHK(err);
+  err = VecRestoreArrayRead(X,&x);dCHK(err);
+  err = VecRestoreArrayRead(Y,&y);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr CUTestEvaluate(CU cu,dViewer viewer)
+{
+  dErr err;
+  dFS cfs,fs3;
   Vec ncglobal,ncexpanded,expanded2;
-  dReal norm;
 
   dFunctionBegin;
   err = dFSGetCoordinateFS(cu->fs,&cfs);dCHK(err);
-  err = dFSRedimension(cu->fs,3,&fs3);dCHK(err);
+  err = dFSGetNodalCoordinateFS(cu->fs,&fs3);dCHK(err);
   {
     err = dFSGetNodalCoordinatesGlobal(cu->fs,&ncglobal);dCHK(err);
     err = dFSGetNodalCoordinatesExpanded(cu->fs,&ncexpanded);dCHK(err);
+    err = VecDuplicate(ncexpanded,&expanded2);dCHK(err);
     err = dFSGlobalToExpanded(fs3,ncglobal,expanded2,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
-    err = VecAXPY(expanded2,-1.,ncexpanded);dCHK(err);
-    err = VecNorm(expanded2,NORM_MAX,&norm);dCHK(err);
-    if (norm > 0.) dERROR(1,"Problem matching expanded coordinates, norm=%G",norm);
+    err = VecBlockCompare(ncexpanded,expanded2,viewer);dCHK(err);
     err = VecDestroy(expanded2);dCHK(err);
   }
-  
-  err = dFSGetGeometryVectorExpanded(cu->fs,&ncexpanded);dCHK(err);
-  err = VecDuplicate(ncexpanded,&expanded2);dCHK(err);
-  err = dFSGlobalToExpanded(cfs,ncglobal,expanded2,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecAXPY(expanded2,-1.,ncexpanded);dCHK(err);
-  err = VecNorm(expanded2,NORM_MAX,&norm);dCHK(err);
-  if (norm > 0.) dERROR(1,"Problem matching expanded coordinates, norm=%G",norm);
-  err = VecDestroy(expanded2);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -257,7 +279,7 @@ static dErr CUTest(CU cu,dViewer viewer)
   err = VecGetBlockSize(coords,&bs);dCHK(err);
   if (N%3 || bs !=3) dERROR(PETSC_ERR_PLIB,"Vector size unexpected");
   err = PetscViewerASCIIPrintf(viewer,"Expanded coordinate vector (3 dofs per expanded node, %D nodes)\n",N/3);dCHK(err);
-  err = VecView(coords,viewer);dCHK(err);
+  err = VecBlockView(coords,viewer);dCHK(err);
 
   err = CUTestEvaluate(cu,viewer);dCHK(err);
   dFunctionReturn(0);

@@ -296,6 +296,17 @@ dErr dFSDestroy(dFS fs)
     tmp = link->next;
     err = dFree(link);dCHK(err);
   }
+
+  /* Geometry */
+  if (fs->geometry.expanded) {err = VecDestroy(fs->geometry.expanded);dCHK(err);}
+  if (fs->geometry.global) {err = VecDestroy(fs->geometry.global);dCHK(err);}
+  if (fs->geometry.fs) {err = dFSDestroy(fs->geometry.fs);dCHK(err);}
+
+  /* Nodal Coordinates */
+  if (fs->nodalcoord.expanded) {err = VecDestroy(fs->nodalcoord.expanded);dCHK(err);}
+  if (fs->nodalcoord.global) {err = VecDestroy(fs->nodalcoord.global);dCHK(err);}
+  if (fs->nodalcoord.fs) {err = dFSDestroy(fs->nodalcoord.fs);dCHK(err);}
+
   err = dMeshDestroy(fs->mesh);dCHK(err);
   err = dJacobiDestroy(fs->jacobi);dCHK(err);
   err = dFree(fs->ops);dCHK(err);

@@ -1,12 +1,24 @@
 #include <dohpfsimpl.h>
 #include <dohpvec.h>
 
+/** dFSGetNodalCoordinateFS - Gets an FS the same size as the solution FS, but with block size 3 to hold nodal coordinates
+ *
+ */
+dErr dFSGetNodalCoordinateFS(dFS fs,dFS *nfs)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!fs->nodalcoord.fs) {err = dFSRedimension(fs,3,dFS_CLOSURE,&fs->nodalcoord.fs);dCHK(err);}
+  *nfs = fs->nodalcoord.fs;
+  dFunctionReturn(0);
+}
+
 dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
 {
   dErr err;
   dFS cfs;
   Vec Geom,Expanded3;
-  Mat E3;
   const dScalar *geom;
   dScalar *x;
   const dEFS *cefs;
@@ -14,9 +26,12 @@ dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
   dInt nelems;
 
   dFunctionBegin;
-  err = MatMAIJRedimension(fs->E,3,&E3);dCHK(err);
-  err = MatGetVecs(E3,NULL,&Expanded3);dCHK(err);
-  err = MatDestroy(E3);dCHK(err);
+  if (!fs->nodalcoord.expanded) {
+    dFS fs3;
+    err = dFSGetNodalCoordinateFS(fs,&fs3);dCHK(err);
+    err = dFSCreateExpandedVector(fs3,&fs->nodalcoord.expanded);dCHK(err);
+  }
+  Expanded3 = fs->nodalcoord.expanded;
 
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Geom);dCHK(err);
@@ -38,6 +53,7 @@ dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
   }
   err = VecRestoreArrayRead(Geom,&geom);dCHK(err);
   err = VecRestoreArray(Expanded3,&x);dCHK(err);
+  err = dFSRestoreEFS(cfs,ruleset,&nelems,&cefs);dCHK(err);
 
   err = dRuleSetDestroy(ruleset);dCHK(err);
   *inX = Expanded3;
@@ -56,55 +72,30 @@ dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
 dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 {
   dErr    err;
-  dInt    nelems;
-  Vec     Expanded,Geom,X,Count;
-  dScalar *x;
-  const dScalar *geom;
+  Vec     Expanded,Ones,X,Count;
   dFS     fs3;
-  const dEFS *cefs;
-  dRuleSet ruleset;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidPointer(inx,2);
   *inx = 0;
 
-  err = dFSGetGeometryVectorExpanded(fs,&Geom);dCHK(err);
-
-  err = dFSRedimension(fs,3,dFS_HOMOGENEOUS,&fs3);dCHK(err);
-  err = dFSCreateExpandedVector(fs3,&Expanded);dCHK(err);
-  err = dFSCreateGlobalVector(fs3,&X);dCHK(err);
-  err = VecDuplicate(X,&Count);dCHK(err);
+  err = dFSGetNodalCoordinateFS(fs,&fs3);dCHK(err);
+  err = dFSGetNodalCoordinatesExpanded(fs,&Expanded);dCHK(err);
+  if (!fs->nodalcoord.global) {err = dFSCreateGlobalVector(fs3,&fs->nodalcoord.global);dCHK(err);}
+  X = fs->nodalcoord.global;
 
   /* Count the number of occurances of each node in the closure. */
-  err = VecSet(Expanded,1.);dCHK(err);
+  err = VecDuplicate(Expanded,&Ones);dCHK(err);
+  err = VecDuplicate(X,&Count);dCHK(err);
+  err = VecSet(Ones,1.);dCHK(err);
   err = VecZeroEntries(Count);dCHK(err);
-  err = dFSExpandedToGlobal(fs3,Expanded,Count,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
-
-  /* Evaluate the coordinate basis functions on the interpolation nodes of the given function space. */
-  err = dFSGetPreferredQuadratureRuleSet(fs,fs->set.active,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_SELF,&ruleset);dCHK(err);
-  err = dFSGetEFS(cfs,ruleset,&nelems,&cefs);dCHK(err);
-  err = VecGetArrayRead(Geom,&geom);dCHK(err);
-  err = VecGetArray(Expanded,&x);dCHK(err);
-  for (dInt e=0,goffset=0,offset=0; e<nelems; e++) {
-    dInt step,nnodes;
-    dRule rule;
-    err = dEFSApply(cefs[e],NULL,3,geom+goffset,x+offset,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSGetSizes(cefs[e],NULL,NULL,&step);dCHK(err);
-    err = dEFSGetRule(cefs[e],&rule);dCHK(err);
-    err = dRuleGetSize(rule,NULL,&nnodes);dCHK(err);
-    goffset += step*3;
-    offset  += nnodes*3;
-  }
-  err = VecRestoreArrayRead(Geom,&geom);dCHK(err);
-  err = VecRestoreArray(Expanded,&x);dCHK(err);
+  err = dFSExpandedToGlobal(fs3,Ones,Count,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
+  err = VecDestroy(Ones);dCHK(err);
 
   err = VecZeroEntries(X);dCHK(err);
   err = dFSExpandedToGlobal(fs3,Expanded,X,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
   err = VecPointwiseDivide(X,X,Count);dCHK(err);
-
-  err = dFSDestroy(fs3);dCHK(err);
-  err = VecDestroy(Expanded);dCHK(err);
   err = VecDestroy(Count);dCHK(err);
   *inx = X;
   dFunctionReturn(0);
@@ -255,7 +246,7 @@ dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dEntTopology topo[],dIn
 /** dFSRedimension - Create a new function space with the same layout, but different number of dofs per node
  *
  */
-dErr dFSRedimension(dFS fs,dInt bs,dFSHomogeneousMode mode,dFS *infs)
+dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
 {
   dErr err;
   dFS rfs;
@@ -276,9 +267,7 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSHomogeneousMode mode,dFS *infs)
   err = dFSGetJacobi(fs,&jac);dCHK(err);
   err = dFSSetDegree(rfs,jac,fs->tag.degree);dCHK(err);
   err = dFSSetRuleTag(rfs,jac,fs->tag.rule);dCHK(err); /* TODO: remove */
-  if (mode == dFS_INHOMOGENEOUS) {
-    dERROR(PETSC_ERR_SUP,"Only dFS_HOMOGENEOUS so far");
-  }
+  if (mode != dFS_CLOSURE) dERROR(PETSC_ERR_SUP,"Only dFS_CLOSURE so far");
   err = dFSSetType(rfs,((dObject)fs)->type_name);dCHK(err);
   err = dFSBuildSpace(rfs);dCHK(err);
   *infs = rfs;
