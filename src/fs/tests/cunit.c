@@ -19,6 +19,7 @@ struct CUnitCtx {
   dFS      fs;
   dInt     nominalRDeg,constBDeg;
   DeformType deform_type;
+  dBool    expanded_view,cexp_view,nce_view,nce_compare;
 };
 
 static dBool FuzzyEquals(dScalar a,dScalar b) {return (dBool)(dAbs(a-b)/(dAbs(a)+dAbs(b)) < 1e-12);}
@@ -147,6 +148,10 @@ static dErr CUSetFromOptions(CU cu)
   err = PetscOptionsInt("-nominal_RDeg","Nominal Rule degree (to be increased if required)",NULL,cu->nominalRDeg,&cu->nominalRDeg,NULL);dCHK(err);
   err = PetscOptionsInt("-const_Bdeg","Constant interpolation degree",NULL,cu->constBDeg,&cu->constBDeg,NULL);dCHK(err);
   err = PetscOptionsEnum("-deform_type","Deformation to apply",NULL,DeformTypes,cu->deform_type,(PetscEnum*)&cu->deform_type,NULL);dCHK(err);
+  err = PetscOptionsBool("-expanded_view","Show expanded vector which shows connectivity",NULL,cu->expanded_view,&cu->expanded_view,NULL);dCHK(err);
+  err = PetscOptionsBool("-cexp_view","Show expanded coordinates (in coordinate basis)",NULL,cu->cexp_view,&cu->cexp_view,NULL);dCHK(err);
+  err = PetscOptionsBool("-nce_view","Show coordinates evaluated at nodes of solution basis",NULL,cu->nce_view,&cu->nce_view,NULL);dCHK(err);
+  err = PetscOptionsBool("-nce_compare","Compare global nodal coordinates re-expanded (consistency check)",NULL,cu->nce_compare,&cu->nce_compare,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
 
   /* Create mesh */
@@ -245,9 +250,16 @@ static dErr CUTestEvaluate(CU cu,dViewer viewer)
   {
     err = dFSGetNodalCoordinatesGlobal(cu->fs,&ncglobal);dCHK(err);
     err = dFSGetNodalCoordinatesExpanded(cu->fs,&ncexpanded);dCHK(err);
+    if (cu->nce_view) {
+      err = PetscViewerASCIIPrintf(viewer,"Nodal coordinates in expanded space (checks evaluation; -nce_view)\n");dCHK(err);
+      err = VecBlockView(ncexpanded,viewer);dCHK(err);
+    }
     err = VecDuplicate(ncexpanded,&expanded2);dCHK(err);
     err = dFSGlobalToExpanded(fs3,ncglobal,expanded2,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
-    err = VecBlockCompare(ncexpanded,expanded2,viewer);dCHK(err);
+    if (cu->nce_compare) {
+      err = PetscViewerASCIIPrintf(viewer,"Comparison of re-expanded global coordinates (-nce_compare)\n");dCHK(err);
+      err = VecBlockCompare(ncexpanded,expanded2,viewer);dCHK(err);
+    }
     err = VecDestroy(expanded2);dCHK(err);
   }
   dFunctionReturn(0);
@@ -270,16 +282,20 @@ static dErr CUTest(CU cu,dViewer viewer)
   err = VecDohpRestoreClosure(cu->gx,&gc);dCHK(err);
 
   err = dFSGlobalToExpanded(cu->fs,cu->gx,cu->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"Expanded vector\n");dCHK(err);
-  err = VecView(cu->x,viewer);dCHK(err);
+  if (cu->expanded_view) {
+    err = PetscViewerASCIIPrintf(viewer,"Expanded vector (-expanded_view)\n");dCHK(err);
+    err = VecView(cu->x,viewer);dCHK(err);
+  }
 
   /* View coordinates in Q1 basis derived from the mesh */
   err = dFSGetGeometryVectorExpanded(cu->fs,&coords);dCHK(err);
   err = VecGetSize(coords,&N);dCHK(err);
   err = VecGetBlockSize(coords,&bs);dCHK(err);
   if (N%3 || bs !=3) dERROR(PETSC_ERR_PLIB,"Vector size unexpected");
-  err = PetscViewerASCIIPrintf(viewer,"Expanded coordinate vector (3 dofs per expanded node, %D nodes)\n",N/3);dCHK(err);
-  err = VecBlockView(coords,viewer);dCHK(err);
+  if (cu->cexp_view) {
+    err = PetscViewerASCIIPrintf(viewer,"Expanded coordinate vector (3 dofs per expanded node, %D nodes; -cexp_view)\n",N/3);dCHK(err);
+    err = VecBlockView(coords,viewer);dCHK(err);
+  }
 
   err = CUTestEvaluate(cu,viewer);dCHK(err);
   dFunctionReturn(0);
