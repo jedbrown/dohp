@@ -14,20 +14,22 @@ static PetscFList FSList = 0;
 * from a local vector, the user cannot avoid seeing VecGhost.  We do have expanded vectors which are genuinely distinct,
 * but I'm very skeptical of the usefulness of identifying them with the "local vector" of a DM.
 **/
-static const struct _dFSOps defaultFSOps = { .view = dFSView,
-                                             .createglobalvector = dFSCreateGlobalVector,
-                                             .createlocalvector  = dFSCreateExpandedVector,
-                                             /* I think that these don't make sense with the current design.  In
-                                             * particular, there may be points in the expanded space which are not
-                                             * represented in the global vector.  In this configuration, an INSERT_MODE
-                                             * scatter is not sufficient because it is not surjective.
-                                             *
-                                             .globaltolocalbegin = dFSGlobalToExpandedBegin,
-                                             .globaltolocalend   = dFSGlobalToExpandedEnd,
-                                             */
-                                             .getmatrix          = dFSGetMatrix,
-                                             .destroy            = dFSDestroy,
-                                             .impldestroy        = 0};
+static const struct _DMOps  defaultFSDMOps = { .view               = (PetscErrorCode(*)(DM,PetscViewer))dFSView,
+                                               .setfromoptions     = (PetscErrorCode(*)(DM))dFSSetFromOptions,
+                                               .createglobalvector = (PetscErrorCode(*)(DM,Vec*))dFSCreateGlobalVector,
+                                               .createlocalvector  = (PetscErrorCode(*)(DM,Vec*))dFSCreateExpandedVector,
+                                               .getmatrix          = (PetscErrorCode(*)(DM,const MatType,Mat*))dFSGetMatrix,
+                                               .destroy            = (PetscErrorCode(*)(DM))dFSDestroy,
+                                               /*
+                                                * I think that these don't make sense with the current design.  In
+                                                * particular, there may be points in the expanded space which are not
+                                                * represented in the global vector.  In this configuration, an INSERT_MODE
+                                                * scatter is not sufficient because it is not surjective.
+                                                *
+                                                .globaltolocalbegin = dFSGlobalToExpandedBegin,
+                                                .globaltolocalend   = dFSGlobalToExpandedEnd,
+                                                */
+};
 
 dErr dFSCreate(MPI_Comm comm,dFS *infs)
 {
@@ -40,14 +42,21 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dFSInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,DM_CLASSID,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
+  {
+    DM dm;
+    err = PetscHeaderCreate(dm,_p_dFS,struct _DMOps,DM_CLASSID,0,"DM",comm,DMDestroy,DMView);dCHK(err);
+    fs = (dFS)dm;
+  }
 
-  err = dMemcpy(fs->ops,&defaultFSOps,sizeof defaultFSOps);dCHK(err);
+  err = dMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof defaultFSDMOps);dCHK(err);
   err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);dCHK(err);
   /* RCM is a good default ordering because it improves the performance of smoothers and incomplete factorization */
   err = dStrcpyS(fs->orderingtype,sizeof fs->orderingtype,MATORDERINGRCM);dCHK(err);
 
-  /* Defaults */
+  /* For implementation-defined operations */
+  err = PetscNewLog(fs,struct _dFSOps,&fs->ops);dCHK(err);
+
+/* Defaults */
   fs->bs = 1;
   err = dCallocA(1,&fs->fieldname);dCHK(err);
 
@@ -68,7 +77,7 @@ dErr dFSSetType(dFS fs,const dFSType type)
   err = PetscFListFind(FSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(1,"Unable to find requested dFS type %s",type);
   if (fs->ops->impldestroy) { err = (*fs->ops->impldestroy)(fs);dCHK(err); }
-  err = PetscMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
+  err = PetscMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof(defaultFSDMOps));dCHK(err);
   fs->spacebuilt = 0;
   err = (*r)(fs);dCHK(err);
   err = PetscObjectChangeTypeName((PetscObject)fs,type);dCHK(err);

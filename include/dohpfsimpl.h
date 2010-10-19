@@ -52,8 +52,9 @@ struct _dFSIntegrationLink {
 };
 
 struct _dFSOps {
-  DMOPS(dFS)
   dErr (*impldestroy)(dFS);
+  dErr (*setfromoptions)(dFS);
+  dErr (*view)(dFS,dViewer);
   dErr (*buildspace)(dFS);
   dErr (*getsubelementmeshsize)(dFS,dInt*,dInt*,dInt*);
   dErr (*getsubelementmesh)(dFS,dInt,dInt,dEntTopology[],dInt[],dInt[]);
@@ -63,8 +64,8 @@ struct _dFSOps {
 #define dFS_MAX_WORKSPACES 64
 
 struct _p_dFS {
-  PETSCHEADER(struct _dFSOps);
-  DMHEADER
+  struct _p_DM dm;              /**< This must come first so that downcasting to DM works correctly */
+  struct _dFSOps *ops;
   dMesh        mesh;
   struct {
     dMeshTag degree;            /**< Effective degree of elements, packed into dPolynomialOrder */
@@ -112,6 +113,11 @@ struct _p_dFS {
     Vec global;                 /**< coordinates at all nodes of geometryfs */
     dFS fs;                     /**< function space for geometry */
   } geometry;
+  struct {
+    Vec expanded;
+    Vec global;
+    dFS fs;
+  } nodalcoord;
 
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */

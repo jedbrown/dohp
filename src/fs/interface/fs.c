@@ -298,7 +298,11 @@ dErr dFSDestroy(dFS fs)
   }
   err = dMeshDestroy(fs->mesh);dCHK(err);
   err = dJacobiDestroy(fs->jacobi);dCHK(err);
-  err = PetscHeaderDestroy(fs);dCHK(err);
+  err = dFree(fs->ops);dCHK(err);
+  { /* PetscHeaderDestroy is a macro, need it to destroy the correct ops table, and also need an lvalue */
+    DM dm = (DM)fs;
+    err = PetscHeaderDestroy(dm);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
