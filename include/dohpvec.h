@@ -17,6 +17,7 @@ extern dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat);
 extern dErr VecDohpLoadIntoVector(PetscViewer,const char fieldname[],Vec);
 
 extern dErr VecCreateRedimensioned(Vec X,dInt bs,Vec *Y);
+extern dErr VecBlockView(Vec X,dViewer viewer);
 
 dEXTERN_C_END
 #endif
