@@ -107,6 +107,7 @@ static dErr dFSCreateGeometryFromMesh_Private(dFS fs)
   dMesh mesh;
   dJacobi jacobi;
   dMeshEH *ents;
+  dEntTopology *topo;
   const dInt *offset;
   const dReal *rcoords;
   dScalar *x;
@@ -129,16 +130,27 @@ static dErr dFSCreateGeometryFromMesh_Private(dFS fs)
 
   /* Populate \a Expanded with local coordinates from mesh */
   err = dMeshGetNumEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,&nents);dCHK(err);
-  err = dMallocA(nents,&ents);dCHK(err);
+  err = dMallocA2(nents,&ents,nents,&topo);dCHK(err);
   err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,nents,NULL);dCHK(err);
+  err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
   err = dMeshGetAdjVertexCoords(mesh,nents,ents,&offset,&rcoords);dCHK(err);
   err = VecGetLocalSize(Expanded,&n);dCHK(err);
   if (n != 3*offset[nents]) dERROR(PETSC_ERR_PLIB,"Size of Expanded %D does not match offset %D",n,3*offset[nents]);
   err = VecGetArray(Expanded,&x);dCHK(err);
-  for (dInt i=0; i<n; i++) x[i] = rcoords[i];
+  for (dInt e=0,k=0; e<nents; e++) {
+    switch (topo[e]) {
+      case dTOPO_HEX:
+        for (dInt i=0; i<8; i++) {
+          static const dInt connidx[8] = {0,4,3,7,1,5,2,6}; /* FIXME: generalize this */
+          for (dInt j=0; j<3; j++) x[k++] = rcoords[(offset[e]+connidx[i])*3+j];
+        }
+        break;
+      default: dERROR(PETSC_ERR_SUP,"No support for topology %s",dMeshEntTopologyName(topo[e]));
+    }
+  }
   err = VecRestoreArray(Expanded,&x);dCHK(err);
   err = dMeshRestoreAdjVertexCoords(mesh,nents,ents,&offset,&rcoords);dCHK(err);
-  err = dFree(ents);dCHK(err);
+  err = dFree2(ents,topo);dCHK(err);
 
   /* Populate \a Global with the average coordinates from all the elements whose closure contains the node */
   err = dFSExpandedToGlobal(cfs,Expanded,Global,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);

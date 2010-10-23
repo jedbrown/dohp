@@ -22,7 +22,7 @@ struct CUnitCtx {
   dBool    expanded_view,cexp_view,nce_view,nce_compare;
 };
 
-static dBool FuzzyEquals(dScalar a,dScalar b) {return (dBool)(dAbs(a-b)/(dAbs(a)+dAbs(b)) < 1e-12);}
+static dBool FuzzyEquals(dScalar a,dScalar b) {return (dBool)(dAbs(a-b)/(1.e-50+dAbs(a)+dAbs(b)) < 1e-12);}
 static dBool FuzzyEquals3(const dScalar *a,const dScalar *b)
 {return FuzzyEquals(a[0],b[0]) && FuzzyEquals(a[1],b[1]) && FuzzyEquals(a[2],b[2]);}
 
@@ -99,7 +99,7 @@ static dErr CUCreateHexMesh(CU cu)
       err = PFSetType(pf,PFIDENTITY,0);dCHK(err);
       break;
     case DEFORM_AFFINE: {
-      Deform_Affine *ctx,tmpctx = {.A = {{1,0,0},{0,1,0},{0,0,1}},.b = {1,1,1}};
+      Deform_Affine *ctx,tmpctx = {.A = {{1,2,3},{4,5,6},{7,8,9}},.b = {10,11,12}};
       err = PetscMalloc(sizeof(Deform_Affine),&ctx);dCHK(err);
       *ctx = tmpctx;
       err = PFSet(pf,DeformApply_Affine,0,0,DeformFree1,ctx);dCHK(err);

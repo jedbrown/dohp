@@ -11,6 +11,9 @@ dohp_add_test (fs-mf-projection 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 6
 dohp_add_test (fs-mf-op-proj-0  1 fs-ex1 -snes_mf_operator -ksp_type minres -pc_type jacobi -const_BDeg 10 -snes_monitor -ksp_converged_reason -ksp_rtol 1e-10 -frequency 5,4,3 -require_ptwise 2e-6,3e-6,2.3e-5 -require_grad 7e-7,3e-6,2e-4 -dfs_ordering_type natural -malloc_dump)
 dohp_add_test (fs-mf-op-proj-1  1 fs-ex1 -const_BDeg 7 -snes_mf_operator -ksp_converged_reason -pc_type jacobi -ksp_type minres -ksp_rtol 1e-10 -snes_monitor -frequency 2,2,2 -require_ptwise 2e-6,2e-6,9e-6 -require_grad 3e-6,7e-6,1.1e-4 -dfs_ordering_type natural -malloc_dump)
 
+dohp_add_test (cunit-identity-0 1 cunit -dfs_ordering_type natural -deform_type identity -expanded_view -cexp_view -nce_view -nce_compare)
+dohp_add_test (cunit-affine-0 1 cunit -dfs_ordering_type natural -deform_type affine -nce_view -nce_compare)
+
 dohp_add_test (bu-0 1 bu -dmesh_in "${Dohp_DATA_DIR}/dblock211.h5m" -dfs_ordering_type natural -malloc_dump)
 
 dohp_add_test (fsex4-submesh-p2 1 fs-ex4 -bdeg 2 -dfs_view -dfs_ordering_type natural -malloc_dump)
