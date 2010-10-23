@@ -92,6 +92,12 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
             dERROR(1,"GaussFamily %d not supported",tnsr->family);
         }
         break;
+      case dQUADRATURE_METHOD_SELF:
+        /* FIXME: Just assume that we are matching a Lobatto basis.
+         * Note that this does not integrate the mass matrix exactly. */
+        size = 1 + order/2;
+        nodes_and_weights = zwglj;
+        break;
       default: dERROR(PETSC_ERR_SUP,"quadrature method %d",method);
     }
     err = dNew(struct s_TensorRule,&r);dCHK(err);
@@ -152,6 +158,8 @@ static dErr dQuadratureGetRules_Tensor_FAST(dQuadrature quad,dInt n,const dEntTo
 {return dQuadratureGetRules_Tensor_Private(quad,n,topo,order,rules,dQUADRATURE_METHOD_FAST);}
 static dErr dQuadratureGetRules_Tensor_SPARSE(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule rules[])
 {return dQuadratureGetRules_Tensor_Private(quad,n,topo,order,rules,dQUADRATURE_METHOD_SPARSE);}
+static dErr dQuadratureGetRules_Tensor_SELF(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule rules[])
+{return dQuadratureGetRules_Tensor_Private(quad,n,topo,order,rules,dQUADRATURE_METHOD_SELF);}
 
 /*
  * Transformed rules
@@ -295,6 +303,8 @@ static dErr dQuadratureGetFacetRules_Tensor_FAST(dQuadrature quad,dInt n,const d
 {return dQuadratureGetFacetRules_Tensor_Private(quad,n,topo,facets,order,rules,dQUADRATURE_METHOD_FAST);}
 static dErr dQuadratureGetFacetRules_Tensor_SPARSE(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt facets[],const dPolynomialOrder order[],dRule rules[])
 {return dQuadratureGetFacetRules_Tensor_Private(quad,n,topo,facets,order,rules,dQUADRATURE_METHOD_SPARSE);}
+static dErr dQuadratureGetFacetRules_Tensor_SELF(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt facets[],const dPolynomialOrder order[],dRule rules[])
+{return dQuadratureGetFacetRules_Tensor_Private(quad,n,topo,facets,order,rules,dQUADRATURE_METHOD_SELF);}
 
 static dErr dQuadratureDestroy_Tensor(dQuadrature quad)
 {
@@ -364,6 +374,10 @@ static dErr dQuadratureSetMethod_Tensor(dQuadrature quad,dQuadratureMethod metho
     case dQUADRATURE_METHOD_SPARSE:
       quad->ops->GetRule      = dQuadratureGetRules_Tensor_SPARSE;
       quad->ops->GetFacetRule = dQuadratureGetFacetRules_Tensor_SPARSE;
+      break;
+    case dQUADRATURE_METHOD_SELF:
+      quad->ops->GetRule      = dQuadratureGetRules_Tensor_SELF;
+      quad->ops->GetFacetRule = dQuadratureGetFacetRules_Tensor_SELF;
       break;
     default: dERROR(PETSC_ERR_SUP,"Quadrature method '%s'",dQuadratureMethods[method]);
   }

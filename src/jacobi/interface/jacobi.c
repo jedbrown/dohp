@@ -270,6 +270,7 @@ dErr dJacobiGetQuadrature(dJacobi jac,dQuadratureMethod method,dQuadrature *quad
     } else {
       err = dQuadratureCreate(((PetscObject)jac)->comm,&jac->quad[method]);dCHK(err);
       err = dQuadratureSetFromOptions(jac->quad[method]);dCHK(err);
+      err = dQuadratureSetMethod(jac->quad[method],method);dCHK(err);
     }
   }
   *quad = jac->quad[method];

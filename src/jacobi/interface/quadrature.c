@@ -3,7 +3,7 @@
 
 static PetscFList dQuadratureList;
 
-const char *const dQuadratureMethods[] = {"FAST","SPARSE","dQuadratureMethod","dQUADRATURE_METHOD_",0};
+const char *const dQuadratureMethods[] = {"FAST","SPARSE","SELF","dQuadratureMethod","dQUADRATURE_METHOD_",0};
 
 /** Create an array of rules for integrating functions of given order on the reference element
 *
