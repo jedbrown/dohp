@@ -25,7 +25,7 @@ int main(int argc,char *argv[])
 
   ghosts[0] = n*((size+rank-1)%size)+1; /* second block of left neighbor, periodically */
   ghosts[1] = n*((size+rank+1)%size)+1; /* second block of right neighbor, periodically */
-  err = PetscSynchronizedPrintf(comm,"ghosts %d %d\n",ghosts[0],ghosts[1]);dCHK(err);
+  err = PetscSynchronizedPrintf(comm,"[%d] ghosts %D %D\n",rank,ghosts[0],ghosts[1]);dCHK(err);
   err = PetscSynchronizedFlush(comm);dCHK(err);
 
   err = VecCreateDohp(comm,bs,n-1,n,nghost,ghosts,&x);dCHK(err);
@@ -55,13 +55,13 @@ int main(int argc,char *argv[])
   err = ISDestroy(isg);dCHK(err);
   err = VecScatterBegin(scatter,xl,z,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecScatterEnd(scatter,xl,z,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
-  err = PetscPrintf(comm,"Before VecGhostUpdateBegin/End");dCHK(err);
+  err = PetscPrintf(comm,"Before VecGhostUpdateBegin/End\n");dCHK(err);
   err = VecView(z,viewer);dCHK(err);
   err = VecGhostUpdateBegin(xc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecGhostUpdateEnd(xc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecScatterBegin(scatter,xl,z,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecScatterEnd(scatter,xl,z,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
-  err = PetscPrintf(comm,"After VecGhostUpdateBegin/End");dCHK(err);
+  err = PetscPrintf(comm,"After VecGhostUpdateBegin/End\n");dCHK(err);
   err = VecView(z,viewer);dCHK(err);
   err = VecScatterDestroy(scatter);dCHK(err);
   err = VecDestroy(z);dCHK(err);
