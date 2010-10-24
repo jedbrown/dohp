@@ -11,16 +11,20 @@ static dErr TestModalBases(dJacobi jac,PetscViewer viewer)
   dRule *rules;
   dEFS *efs;
   dQuadrature quad;
+  dQuadratureMethod method = dQUADRATURE_METHOD_FAST;
   dInt rp = 6;
   dErr err;
 
   dFunctionBegin;
-  err = PetscOptionsGetInt(NULL,"-rule_degree",&rp,NULL);dCHK(err);
+  err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"TestModalBases Options",NULL);dCHK(err);
+  err = PetscOptionsInt("-rule_degree","Degree of polynomial that the quadrature should (nominally) be able to integrate exactly",NULL,rp,&rp,NULL);dCHK(err);
+  err = PetscOptionsEnum("-quadrature_method","Method to use for sample quadrature",NULL,dQuadratureMethods,(PetscEnum)method,(PetscEnum*)&method,NULL);dCHK(err);
+  err = PetscOptionsEnd();dCHK(err);
   for (dInt i=0; i<4; i++) {
     rdegree[i] = dPolynomialOrderCreate(rp,0,0,0);
     bdegree[i] = dPolynomialOrderCreate(i,0,0,0);
   }
-  err = dJacobiGetQuadrature(jac,dQUADRATURE_METHOD_FAST,&quad);dCHK(err);
+  err = dJacobiGetQuadrature(jac,method,&quad);dCHK(err);
   err = dQuadratureGetRules(quad,4,topo,rdegree,&rules);dCHK(err);
   err = dJacobiGetEFS(jac,4,topo,bdegree,rules,&efs);dCHK(err);
 
@@ -46,7 +50,6 @@ static dErr TestModalBases(dJacobi jac,PetscViewer viewer)
     err = PetscScalarView(m,modes,viewer);dCHK(err);
     err = dFree5(modes,coord,weight,values,derivs);dCHK(err);
   }
-
   err = dFree(rules);dCHK(err);
   err = dFree(efs);dCHK(err);
   dFunctionReturn(0);
