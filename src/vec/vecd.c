@@ -116,7 +116,6 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
 dErr VecCreateDohp(MPI_Comm comm,dInt bs,dInt n,dInt nc,dInt nghosts,const dInt ghosts[],Vec *v)
 {
   Vec_MPI *vmpi;
-  dInt    *sghosts;
   Vec      vc,vg;
   dScalar *a;
   dErr     err;
@@ -124,14 +123,7 @@ dErr VecCreateDohp(MPI_Comm comm,dInt bs,dInt n,dInt nc,dInt nghosts,const dInt 
   dFunctionBegin;
   dValidPointer(v,7);
   *v = 0;
-  if (bs > 1) {
-    err = dMallocA(nghosts,&sghosts);dCHK(err);
-    for (dInt i=0; i<nghosts; i++) sghosts[i] = ghosts[i]*bs; /* Index ghosts by scalar offset instead of blocks */
-  } else {
-    sghosts = 0;
-  }
-  err = VecCreateGhostBlock(comm,bs,nc*bs,PETSC_DECIDE,nghosts,sghosts?sghosts:ghosts,&vc);dCHK(err);
-  err = dFree(sghosts);dCHK(err);
+  err = VecCreateGhostBlock(comm,bs,nc*bs,PETSC_DECIDE,nghosts,ghosts,&vc);dCHK(err);
   err = VecGetArray(vc,&a);dCHK(err);
   err = VecCreateMPIWithArray(comm,n*bs,PETSC_DECIDE,a,&vg);dCHK(err);
   err = VecRestoreArray(vc,&a);dCHK(err);
