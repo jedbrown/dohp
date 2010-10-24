@@ -1,5 +1,5 @@
-[0] ghosts 4 4
-[1] ghosts 1 1
+[0] ghosts 4 3
+[1] ghosts 1 0
 Empty vector
 Vector Object:
   type: dohp
@@ -80,8 +80,8 @@ Process [0]
 0
 1102
 1103
-1102
-1103
+1100
+1101
 Process [1]
 1100
 1101
@@ -91,8 +91,8 @@ Process [1]
 0
 1002
 1003
-1002
-1003
+1000
+1001
 Global unclosed form of y
 Vector Object:
   type: dohp

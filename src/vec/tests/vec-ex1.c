@@ -24,7 +24,7 @@ int main(int argc,char *argv[])
   err = PetscViewerASCIIGetStdout(comm,&viewer);dCHK(err);
 
   ghosts[0] = n*((size+rank-1)%size)+1; /* second block of left neighbor, periodically */
-  ghosts[1] = n*((size+rank+1)%size)+1; /* second block of right neighbor, periodically */
+  ghosts[1] = n*((size+rank+1)%size);   /* first block of right neighbor, periodically */
   err = PetscSynchronizedPrintf(comm,"[%d] ghosts %D %D\n",rank,ghosts[0],ghosts[1]);dCHK(err);
   err = PetscSynchronizedFlush(comm);dCHK(err);
 
