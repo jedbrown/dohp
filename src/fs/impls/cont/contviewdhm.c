@@ -245,7 +245,12 @@ dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
   if (isdhm) {
     err = VecView_Dohp_FSCont_DHM(x,viewer);dCHK(err);
-  } else dERROR(1,"not implemented");
+  } else {
+    Vec xclosure;
+    err = VecDohpGetClosure(x,&xclosure);dCHK(err);
+    err = VecView(xclosure,viewer);dCHK(err);
+    err = VecDohpRestoreClosure(x,&xclosure);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
