@@ -137,10 +137,9 @@ static dErr BUAssemble(BU bu,Mat P)
   err = dFSGlobalToExpanded(bu->fs,bu->gx,bu->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Expanded vector projected into inhomogeneous space\n");dCHK(err);
   err = VecView(bu->x,viewer);dCHK(err);
-  err = dFSGetCoordinates(bu->fs,&coords);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"Serial coordinate vector (3 dofs per closure node)\n");dCHK(err);
+  err = dFSGetNodalCoordinatesGlobal(bu->fs,&coords);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"Global coordinate vector (3 dofs per closure node)\n");dCHK(err);
   err = VecView(coords,viewer);dCHK(err);
-  err = VecDestroy(coords);dCHK(err);
   err = MatAssemblyBegin(P,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd  (P,MAT_FINAL_ASSEMBLY);dCHK(err);
   dFunctionReturn(0);
