@@ -487,16 +487,59 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   dFunctionReturn(0);
 }
 
-/* Might only work for MOAB */
 dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,const void *data,dInt count,dDataType type)
 {
-  return dMeshTagSetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type);
+  iMesh_Instance mi = mesh->mi;
+  const char *dptr = data;
+  dIInt size,ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  dValidPointer(esets,3);
+  dValidPointer(data,5);
+  size = count * iBase_SizeFromType[type];
+  if (1) {
+    dIInt bytes;
+    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    if (size != ecount * (dInt)bytes)
+      dERROR(PETSC_ERR_ARG_SIZ,"Trying to tag %D entities with %D byte tags, but only requested %D bytes",ecount,bytes,size);
+  }
+#if 0
+  iMesh_setArrData(mi,(const iBase_EntityHandle*)esets,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
+#else
+  for (dInt i=0; i<ecount; i++) {
+    iMesh_setEntSetData(mi,esets[i],tag,dptr+i*iBase_SizeFromType[type],iBase_SizeFromType[type],&ierr);dICHK(mi,ierr);
+  }
+#endif
+  dFunctionReturn(0);
 }
 
-/* Might only work for MOAB */
 dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type)
 {
-  return dMeshTagGetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type);
+  iMesh_Instance mi = mesh->mi;
+  char *dptr = data;
+  dIInt size,alloc,peritem,ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  dValidPointer(esets,3);
+  dValidPointer(data,5);
+  alloc = count * iBase_SizeFromType[type];
+  peritem = alloc / ecount;
+  size = 0;                     /* protect against degenerate case */
+#if 0
+  iMesh_getArrData(mi,(const iBase_EntityHandle*)esets,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
+  if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type])
+    dERROR(1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
+#else
+  for (dInt i=0; i<ecount; i++) {
+    char *ptr = dptr + i*iBase_SizeFromType[type];
+    dIInt al = peritem,sz = 0;
+    iMesh_getEntSetData(mi,esets[i],tag,&ptr,&al,&sz,&ierr);dICHK(mi,ierr);
+  }
+#endif
+  if (size > alloc) dERROR(1,"Insufficient allocation, iMesh should have thrown an error already");
+  dFunctionReturn(0);
 }
 
 dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
