@@ -65,6 +65,7 @@ extern dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetBlockSize(dFS,dInt);
 extern dErr dFSSetFieldName(dFS,dInt,const char*);
 extern dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
+extern dErr dFSRegisterBoundarySet(dFS,dMeshESH,dFSBStatus,dFSConstraintFunction,void*);
 extern dErr dFSSetFromOptions(dFS);
 extern dErr dFSSetType(dFS,const dFSType);
 extern dErr dFSCreateExpandedVector(dFS,Vec*);

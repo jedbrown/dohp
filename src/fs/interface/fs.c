@@ -167,6 +167,17 @@ dErr dFSSetFieldName(dFS fs,dInt fn,const char *fname)
 dErr dFSRegisterBoundary(dFS fs,dInt mid,dFSBStatus bstat,dFSConstraintFunction cfunc,void *user)
 {
   dMeshESH         bset;
+  dErr             err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  err = dMeshGetTaggedSet(fs->mesh,fs->tag.boundary,&mid,&bset);dCHK(err);
+  err = dFSRegisterBoundarySet(fs,bset,bstat,cfunc,user);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSRegisterBoundarySet(dFS fs,dMeshESH bset,dFSBStatus bstat,dFSConstraintFunction cfunc,void *user)
+{
   iMesh_Instance   mi;
   dErr             err;
   dIInt            ierr;
@@ -175,8 +186,7 @@ dErr dFSRegisterBoundary(dFS fs,dInt mid,dFSBStatus bstat,dFSConstraintFunction 
   dValidHeader(fs,DM_CLASSID,1);
   if (!dFSBStatusValid(bstat)) dERROR(1,"Boundary status %x invalid",bstat);
   if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(1,"Cannot impose strong conditions on more dofs than the block size");
-  err = dMeshGetTaggedSet(fs->mesh,fs->tag.boundary,&mid,&bset);dCHK(err);
-  err = dMeshTagSSetData(fs->mesh,fs->tag.bstatus,&bset,1,&bstat,1,dDATA_INT);dCHK(err);
+  err = dMeshTagSSetData(fs->mesh,fs->tag.bstatus,&bset,1,&bstat,sizeof(bstat),dDATA_BYTE);dCHK(err);
   if (cfunc) {
     struct dFSConstraintCtx ctx;
     ctx.cfunc = cfunc;
