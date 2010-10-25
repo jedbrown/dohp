@@ -9,7 +9,7 @@ dErr dFSGetNodalCoordinateFS(dFS fs,dFS *nfs)
   dErr err;
 
   dFunctionBegin;
-  if (!fs->nodalcoord.fs) {err = dFSRedimension(fs,3,dFS_CLOSURE,&fs->nodalcoord.fs);dCHK(err);}
+  if (!fs->nodalcoord.fs) {err = dFSRedimension(fs,3,dFS_INTERIOR,&fs->nodalcoord.fs);dCHK(err);}
   *nfs = fs->nodalcoord.fs;
   dFunctionReturn(0);
 }
@@ -279,8 +279,26 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
   err = dFSGetJacobi(fs,&jac);dCHK(err);
   err = dFSSetDegree(rfs,jac,fs->tag.degree);dCHK(err);
   err = dFSSetRuleTag(rfs,jac,fs->tag.rule);dCHK(err); /* TODO: remove */
-  if (mode != dFS_CLOSURE) dERROR(PETSC_ERR_SUP,"Only dFS_CLOSURE so far");
+  switch (mode) {
+  case dFS_CLOSURE: dERROR(PETSC_ERR_SUP,"Probably not what you want"); /* because ordering would be different, but there is nothing to do for this choice. */
+    break;
+  case dFS_INTERIOR: {
+    dMeshESH *bsets;
+    dInt nsets;
+    err = dMeshGetNumSubsets(fs->mesh,fs->set.boundaries,1,&nsets);dCHK(err);
+    err = dMallocA(nsets,&bsets);dCHK(err);
+    err = dMeshGetSubsets(fs->mesh,fs->set.boundaries,1,bsets,nsets,NULL);dCHK(err);dCHK(err);
+    for (dInt i=0; i<nsets; i++) {
+      dFSBStatus bstat;
+      err = dMeshTagSGetData(fs->mesh,fs->tag.bstatus,&bsets[i],1,&bstat,sizeof(bstat),dDATA_BYTE);dCHK(err);
+      err = dFSRegisterBoundarySet(rfs,bsets[i],bstat,NULL,NULL);dCHK(err); /* TODO: handle dFSConstraintCtx */
+    }
+    err = dFree(bsets);dCHK(err);
+  } break;
+  default: dERROR(PETSC_ERR_SUP,"No support for dFSClosureMode %s",dFSClosureModes[mode]);
+  }
   err = dFSSetType(rfs,((dObject)fs)->type_name);dCHK(err);
+  err = dMemcpy(rfs->orderingtype,fs->orderingtype,sizeof(fs->orderingtype));
   err = dFSBuildSpace(rfs);dCHK(err);
   *infs = rfs;
   dFunctionReturn(0);
