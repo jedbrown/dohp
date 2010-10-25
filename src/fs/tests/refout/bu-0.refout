@@ -170,7 +170,7 @@ Vector Object:
 10
 10
 10
-Serial coordinate vector (3 dofs per closure node)
+Global coordinate vector (3 dofs per closure node)
 Vector Object:
   type: mpi
 Process [0]
