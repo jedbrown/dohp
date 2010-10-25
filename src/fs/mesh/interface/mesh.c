@@ -560,7 +560,7 @@ dErr dMeshGetSubsets(dMesh mesh,dMeshESH set,dInt hops,dMeshESH subsets[],dInt a
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
-  dValidPointer(subsets,4);
+  if (alloc) dValidPointer(subsets,4);
   s = 0;
   iMesh_getEntSets(mesh->mi,set,hops,&subsets,&alloc,&s,&ierr);dICHK(mesh->mi,ierr);
   if (size) *size = s;
