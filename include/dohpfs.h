@@ -48,6 +48,10 @@ typedef enum {dFS_HOMOGENEOUS, dFS_INHOMOGENEOUS} dFSHomogeneousMode;
 typedef enum {dFS_CLOSURE, dFS_INTERIOR} dFSClosureMode;
 typedef enum {dFS_ROTATE_FORWARD, dFS_ROTATE_REVERSE} dFSRotateMode;
 
+extern const char *const dFSHomogeneousModes[];
+extern const char *const dFSClosureModes[];
+extern const char *const dFSRotateModes[];
+
 #define dFSType char *
 
 #define dFSCONT "cont"

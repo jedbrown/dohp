@@ -4,6 +4,10 @@
 
 extern dErr VecView_Dohp_FSCont(Vec,PetscViewer);
 
+const char *const dFSHomogeneousModes[] = {"HOMOGENOUS","INHOMOGENEOUS","dFSHomogeneousMode","dFS_",0};
+const char *const dFSClosureModes[] = {"CLOSURE","INTERIOR","dFSClosureMode","dFS_",0};
+const char *const dFSRotateModes[] = {"FORWARD","REVERSE","dFSRotateMode","dFS_ROTATE_",0};
+
 dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
 {
   dErr  err;
