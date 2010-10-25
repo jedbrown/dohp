@@ -72,7 +72,7 @@ dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
 dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 {
   dErr    err;
-  Vec     Expanded,Ones,X,Count;
+  Vec     Expanded,Ones,X,Count,Xclosure,Countclosure;
   dFS     fs3;
 
   dFunctionBegin;
@@ -95,7 +95,13 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
 
   err = VecZeroEntries(X);dCHK(err);
   err = dFSExpandedToGlobal(fs3,Expanded,X,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
-  err = VecPointwiseDivide(X,X,Count);dCHK(err);
+
+  err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
+  err = VecDohpGetClosure(Count,&Countclosure);dCHK(err);
+  err = VecPointwiseDivide(Xclosure,Xclosure,Countclosure);dCHK(err);
+  err = VecDohpRestoreClosure(X,&Xclosure);dCHK(err);
+  err = VecDohpRestoreClosure(Count,&Countclosure);dCHK(err);
+
   err = VecDestroy(Count);dCHK(err);
   *inx = X;
   dFunctionReturn(0);
