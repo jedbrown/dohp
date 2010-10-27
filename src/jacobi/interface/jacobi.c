@@ -1,6 +1,7 @@
 #include <petsc.h>
 #include <dohpjacimpl.h>
 #include <dohp.h>
+#include <dohpgeom.h>
 
 dClassId dJACOBI_CLASSID,dQUADRATURE_CLASSID;
 PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
@@ -365,6 +366,25 @@ dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal qg[restr
   err = PetscLogEventBegin(dLOG_RuleComputeGeometry,0,0,0,0);dCHK(err);
   err = rule->ops.computeGeometry(rule,vtx,qg,jinv,jdet);dCHK(err);
   err = PetscLogEventEnd(dLOG_RuleComputeGeometry,0,0,0,0);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dRuleComputePhysical(dRule rule,const dScalar jac[],dScalar jinv[],dScalar jw[])
+{
+  dErr err;
+  dInt n;
+
+  dFunctionBegin;
+  dValidPointer(rule,1);
+  dValidPointer(jac,2);
+  err = dRuleGetSize(rule,NULL,&n);dCHK(err);
+  err = dRuleGetNodeWeight(rule,NULL,jw);dCHK(err);
+  for (dInt i=0; i<n; i++) {
+    dReal det;
+    err = dGeomInvert3(jac+i*9,jinv+i*9,&det);dCHK(err);
+    if (det < 0.) dERROR(1,"Negative Jacobian at node %D");
+    jw[i] *= det;
+  }
   dFunctionReturn(0);
 }
 

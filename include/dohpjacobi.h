@@ -172,6 +172,7 @@ extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
 extern dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
 extern dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
 extern dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
+extern dErr dRuleComputePhysical(dRule rule,const dScalar jac[],dScalar jinv[],dScalar jw[]);
 
 #define dQuadratureRegisterDynamic(a,b,c,d) dQuadratureRegister(a,b,c,d)
 extern dErr dQuadratureRegister(const char[],const char[],const char[],dErr(*)(dQuadrature));
