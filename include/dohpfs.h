@@ -77,8 +77,6 @@ extern dErr dFSRotateGlobal(dFS,Vec,dFSRotateMode,dFSHomogeneousMode);
 #if 0
 extern dErr dFSGetElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 extern dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
-extern dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
-extern dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
 #endif
 extern dErr dFSMatSetValuesBlockedExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
 extern dErr dFSGetMatrix(dFS,const MatType,Mat*);
