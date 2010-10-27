@@ -302,11 +302,6 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
       err = exact.function(&q[i*3],f);dCHK(err);
       v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
     }
-    if (0) {
-      dReal sum = 0;
-      for (dInt i=0; i<Q; i++) sum += jw[i];
-      printf("sum of %d quadrature weights times Jdet = %g\n",Q,sum);
-    }
     err = dEFSApply(efs[e],cjinv,1,v,y+off,dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
     err = dEFSGetSizes(efs[e],NULL,NULL,&P);dCHK(err);
     off += P;
