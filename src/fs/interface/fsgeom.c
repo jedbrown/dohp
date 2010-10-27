@@ -22,7 +22,7 @@ dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
   const dScalar *geom;
   dScalar *x;
   const dEFS *cefs;
-  dRuleSet ruleset;
+  dRuleset ruleset;
   dInt nelems;
 
   dFunctionBegin;
@@ -55,7 +55,7 @@ dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
   err = VecRestoreArray(Expanded3,&x);dCHK(err);
   err = dFSRestoreEFS(cfs,ruleset,&nelems,&cefs);dCHK(err);
 
-  err = dRuleSetDestroy(ruleset);dCHK(err);
+  err = dRulesetDestroy(ruleset);dCHK(err);
   *inX = Expanded3;
   dFunctionReturn(0);
 }

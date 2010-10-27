@@ -577,7 +577,7 @@ dErr dFSGetDomain(dFS fs,dMeshESH *domain)
   dFunctionReturn(0);
 }
 
-dErr dFSGetEFS(dFS fs,dRuleSet rset,dInt *n,const dEFS **efs)
+dErr dFSGetEFS(dFS fs,dRuleset rset,dInt *n,const dEFS **efs)
 {
   dErr             err;
   dInt             ents_a,ents_s;
@@ -600,7 +600,7 @@ dErr dFSGetEFS(dFS fs,dRuleSet rset,dInt *n,const dEFS **efs)
   dFunctionReturn(0);
 }
 
-dErr dFSRestoreEFS(dFS dUNUSED fs,dRuleSet dUNUSED rset,dInt *n,const dEFS **efs)
+dErr dFSRestoreEFS(dFS dUNUSED fs,dRuleset dUNUSED rset,dInt *n,const dEFS **efs)
 {
   dErr err;
 

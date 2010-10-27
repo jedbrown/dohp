@@ -252,7 +252,7 @@ static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],
 struct ProjContext {
   dFS fs;
   Vec x,y;
-  dRuleSet ruleset;
+  dRuleset ruleset;
 };
 
 static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
@@ -264,7 +264,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   const dEFS *efs,*cefs;
   dScalar *y,*u,*v,*q,*cjac,*cjinv,*jw;
   const dScalar *x,*coords;
-  dRuleSet ruleset;
+  dRuleset ruleset;
   dFS cfs;
   Vec Coords;
 
@@ -287,7 +287,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = dFSGetEFS(cfs,ruleset,&n,&cefs);dCHK(err);
   dASSERT(n == nelem);
 
-  err = dRuleSetGetWorkspace(ruleset,&q,&cjac,&cjinv,&jw,1,&u,&v,NULL,NULL,0);dCHK(err);
+  err = dRulesetGetWorkspace(ruleset,&q,&cjac,&cjinv,&jw,1,&u,&v,NULL,NULL,0);dCHK(err);
   for (dInt e=0,off=0,coff=0; e<nelem; e++) {
     dInt P,Q;
     dRule rule;
@@ -310,7 +310,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   }
   err = dFSRestoreEFS(fs,ruleset,&n,&efs);dCHK(err);
   err = dFSRestoreEFS(cfs,ruleset,&n,&cefs);dCHK(err);
-  err = dRuleSetRestoreWorkspace(ruleset,&q,&cjac,&cjinv,&jw,1,&u,&v,NULL,NULL,0);dCHK(err);
+  err = dRulesetRestoreWorkspace(ruleset,&q,&cjac,&cjinv,&jw,1,&u,&v,NULL,NULL,0);dCHK(err);
   err = VecRestoreArrayRead(Coords,&coords);dCHK(err);
   err = VecRestoreArrayRead(proj->x,&x);dCHK(err);
   err = VecRestoreArray(proj->y,&y);dCHK(err);
@@ -491,7 +491,7 @@ static dErr doProjection(dFS fs)
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(proj.x);dCHK(err);
   err = VecDestroy(proj.y);dCHK(err);
-  err = dRuleSetDestroy(proj.ruleset);dCHK(err);
+  err = dRulesetDestroy(proj.ruleset);dCHK(err);
   dFunctionReturn(0);
 }
 

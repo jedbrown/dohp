@@ -8,13 +8,13 @@
 * @note This function helps to hide the low-level dQuadrature object from the user, since it is almost always the case
 * that the user wants the "best" quadrature for a particular function space they are working with.
 **/
-dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTopology etopo,dQuadratureMethod method,dRuleSet *ruleset)
+dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTopology etopo,dQuadratureMethod method,dRuleset *ruleset)
 {
   dInt             ents_a,ents_s;
   dEntTopology     *topo;
   dPolynomialOrder *order;
   dQuadrature      quad;
-  dRuleSet         rset;
+  dRuleset         rset;
   dMeshEH          *ents;
   dErr             err;
 
@@ -36,7 +36,7 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTop
                                       dSqrInt(dPolynomialOrder1D(order[i],2)));
   }
 
-  err = dNew(struct _n_dRuleSet,&rset);dCHK(err);
+  err = dNew(struct _n_dRuleset,&rset);dCHK(err);
   err = dFSGetMesh(fs,&rset->mesh);dCHK(err);
   rset->set = set;
   rset->type = etype;
@@ -49,14 +49,14 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTop
   dFunctionReturn(0);
 }
 
-static dErr dRuleSetWorkspaceDestroy(struct dRuleSetWorkspace *ws)
+static dErr dRulesetWorkspaceDestroy(struct dRulesetWorkspace *ws)
 {
   dErr err;
 
   dFunctionBegin;
   if (!ws) dFunctionReturn(0);
   err = dFree4(ws->q,ws->cjac,ws->cjinv,ws->jw);dCHK(err);
-  for (struct dRuleSetWorkspaceLink *link = ws->link,*next; link; link = next) {
+  for (struct dRulesetWorkspaceLink *link = ws->link,*next; link; link = next) {
     err = dFree4(link->u,link->v,link->du,link->dv);dCHK(err);
     next = link->next;
     err = dFree(link);dCHK(err);
@@ -66,18 +66,18 @@ static dErr dRuleSetWorkspaceDestroy(struct dRuleSetWorkspace *ws)
 }
 
 
-dErr dRuleSetDestroy(dRuleSet rset)
+dErr dRulesetDestroy(dRuleset rset)
 {
   dErr err;
 
   dFunctionBegin;
   err = dFree(rset->rules);dCHK(err);
-  err = dRuleSetWorkspaceDestroy(rset->workspace);dCHK(err);
+  err = dRulesetWorkspaceDestroy(rset->workspace);dCHK(err);
   err = dFree(rset);dCHK(err);
   dFunctionReturn(0);
 }
 
-static dErr dRuleSetGetMaxQ(dRuleSet rset,dInt *maxQ)
+static dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ)
 {
   dErr err;
 
@@ -92,15 +92,15 @@ static dErr dRuleSetGetMaxQ(dRuleSet rset,dInt *maxQ)
   dFunctionReturn(0);
 }
 
-dErr dRuleSetGetWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...)
+dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...)
 {
   dErr err;
   dInt Q;
   va_list ap;
-  struct dRuleSetWorkspace *ws;
+  struct dRulesetWorkspace *ws;
 
   dFunctionBegin;
-  err = dRuleSetGetMaxQ(rset,&Q);dCHK(err);
+  err = dRulesetGetMaxQ(rset,&Q);dCHK(err);
   if (!rset->workspace) {
     err = dCallocA(1,&rset->workspace);dCHK(err);
   }
@@ -114,7 +114,7 @@ dErr dRuleSetGetWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cji
   if (jw) *jw       = ws->jw;
 
   va_start(ap,dof);
-  for (struct dRuleSetWorkspaceLink *next,**linkp=&ws->link; dof; *linkp = next,linkp = &next->next) {
+  for (struct dRulesetWorkspaceLink *next,**linkp=&ws->link; dof; *linkp = next,linkp = &next->next) {
     dScalar **u,**v,**du,**dv;
     next = *linkp;
     if (!next) {
@@ -140,15 +140,15 @@ dErr dRuleSetGetWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cji
   dFunctionReturn(0);
 }
 
-/** dRuleSetRestoreWorkspace - return a workspace managed by the ruleset
+/** dRulesetRestoreWorkspace - return a workspace managed by the ruleset
  *
  */
-dErr dRuleSetRestoreWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...)
+dErr dRulesetRestoreWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...)
 {
   va_list ap;
 
   dFunctionBegin;
-  for (struct dRuleSetWorkspaceLink *next = rset->workspace->link; next; next = next->next) {
+  for (struct dRulesetWorkspaceLink *next = rset->workspace->link; next; next = next->next) {
     next->checkedout = dFALSE;
   }
   if (q) *q         = NULL;

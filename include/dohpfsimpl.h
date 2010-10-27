@@ -25,22 +25,22 @@ struct dFSConstraintCtx {
   void                   *user;
 };
 
-struct dRuleSetWorkspaceLink {
+struct dRulesetWorkspaceLink {
   dBool checkedout;
   dInt dof;
   dScalar *u,*v,*du,*dv;
-  struct dRuleSetWorkspaceLink *next;
+  struct dRulesetWorkspaceLink *next;
 };
 
-struct dRuleSetWorkspace {
+struct dRulesetWorkspace {
   dScalar *q;
   dScalar *cjac;
   dScalar *cjinv;
   dScalar *jw;
-  struct dRuleSetWorkspaceLink *link;
+  struct dRulesetWorkspaceLink *link;
 };
 
-struct _n_dRuleSet {
+struct _n_dRuleset {
   dMesh mesh;
   dMeshESH set;
   dEntType type;
@@ -48,7 +48,7 @@ struct _n_dRuleSet {
   dInt n;
   dRule *rules;
   dInt maxQ;
-  struct dRuleSetWorkspace *workspace;
+  struct dRulesetWorkspace *workspace;
 };
 
 struct _dFSIntegrationLink {

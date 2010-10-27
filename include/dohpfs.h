@@ -20,7 +20,7 @@ extern dClassId dFSROT_CLASSID;
 
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;
-typedef struct _n_dRuleSet *dRuleSet;
+typedef struct _n_dRuleset *dRuleset;
 
 /** User-provided constraint function.
 * @param ctx User context
@@ -86,12 +86,12 @@ extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
 extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
 extern dErr dFSGetDomain(dFS,dMeshESH*);
 
-extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dEntType,dEntTopology,dQuadratureMethod,dRuleSet*);
-extern dErr dFSGetEFS(dFS,dRuleSet,dInt*,const dEFS**);
-extern dErr dFSRestoreEFS(dFS,dRuleSet,dInt*,const dEFS**);
-extern dErr dRuleSetGetWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
-extern dErr dRuleSetRestoreWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
-extern dErr dRuleSetDestroy(dRuleSet);
+extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dEntType,dEntTopology,dQuadratureMethod,dRuleset*);
+extern dErr dFSGetEFS(dFS,dRuleset,dInt*,const dEFS**);
+extern dErr dFSRestoreEFS(dFS,dRuleset,dInt*,const dEFS**);
+extern dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
+extern dErr dRulesetRestoreWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
+extern dErr dRulesetDestroy(dRuleset);
 
 extern dErr dFSDestroy(dFS);
 extern dErr dFSView(dFS,dViewer);
