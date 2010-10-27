@@ -102,7 +102,7 @@ dErr dRuleSetGetWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cji
   dFunctionBegin;
   err = dRuleSetGetMaxQ(rset,&Q);dCHK(err);
   if (!rset->workspace) {
-    err = dMallocA(1,&rset->workspace);dCHK(err);
+    err = dCallocA(1,&rset->workspace);dCHK(err);
   }
   ws = rset->workspace;
   if (!ws->q) {
@@ -118,9 +118,9 @@ dErr dRuleSetGetWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cji
     dScalar **u,**v,**du,**dv;
     next = *linkp;
     if (!next) {
-      next->dof = dof;
-      err = dMallocA(1,&next);dCHK(err);
+      err = dCallocA(1,&next);dCHK(err);
       err = dMallocA4(dof*Q,&next->u,dof*Q,&next->v,dof*dof*Q,&next->du,dof*dof*Q,&next->dv);dCHK(err);
+      next->dof = dof;
       next->next = NULL;
     }
     if (next->dof != dof) dERROR(PETSC_ERR_SUP,"changing size of requested link");
