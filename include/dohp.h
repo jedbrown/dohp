@@ -35,7 +35,7 @@
 #define dMallocM(n,t,p) (dMalloc((n)*sizeof(t),(p)))
 #define dMallocA(n,p) (dMalloc((n)*sizeof(**(p)),(p)))
 #define dCalloc(n,p) (dMalloc((n),(p)) || dMemzero(*(p),(n)))
-#define dCallocA(n,p) (dCalloc((n)*sizeof(p),(p)))
+#define dCallocA(n,p) (dCalloc((n)*sizeof(**(p)),(p)))
 
 #define dValidPointer2(a,b,c,d) (dValidPointer((a),(b)) || dValidPointer((c),(d)))
 #define dValidPointer3(a,b,c,d,e,f) (dValidPointer2((a),(b),(c),(d)) || dValidPointer((e),(f)))
