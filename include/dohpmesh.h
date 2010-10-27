@@ -71,7 +71,7 @@ typedef struct {
 
 /* Use this macro to zero a MeshListXXX, i.e. MeshListInt a=MLZ; */
 #define MLZ {0,0,0}
-#define MeshListFree(m) ((m).a ? (free((m).v),(m).v=0,(m).a=0,(m).s=0,0) : 0)
+#define MeshListFree(m) ((m).a && (free((m).v),(m).v=0,(m).a=0,(m).s=0,0))
 #define MeshListMalloc(m,n) ( m ? ((n).s=0,(n).a=m,(n).v=malloc((n).a*sizeof(n.v[0])),!(n.v)) : MeshListFree(n))
 #define MLREF(m) &(m).v,&(m).a,&(m).s
 

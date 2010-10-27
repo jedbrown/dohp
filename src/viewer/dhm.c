@@ -280,7 +280,7 @@ static dErr dViewerDHMSetTimeUnits_DHM(PetscViewer v,const char *units,dReal sca
   dErr         err;
 
   dFunctionBegin;
-  if (dhm->timeunits) {err = dFree(dhm->timeunits);}
+  if (dhm->timeunits) {err = dFree(dhm->timeunits);dCHK(err);}
   err = PetscStrallocpy(units,&dhm->timeunits);dCHK(err);
   dhm->timescale = scale;
   dFunctionReturn(0);
@@ -486,7 +486,7 @@ static herr_t field_traverse_func(hid_t base,const char *name,const H5L_info_t d
   herr = H5Aread(attr,ctx->vectype,&vecmeta);if (herr < 0) {ret = -3; goto out;}
 
   if (dMallocA(1,&new_field)) {ret = -4; goto out;}
-  if (PetscStrallocpy(name,&new_field->name)) {dFree(new_field); ret = -5; goto out;}
+  if (PetscStrallocpy(name,&new_field->name)) {(void)dFree(new_field); ret = -5; goto out;}
   new_field->fsname = 0;
   {
     char fullname[256] = {0};
@@ -536,7 +536,7 @@ static herr_t field_traverse_func(hid_t base,const char *name,const H5L_info_t d
       H5Dclose(fs);
     }
     if (PetscStrallocpy(new_field->fsname,&new_fs.name)) {ret = -7; goto out;}
-    if (dMallocA(1,&p)) {dFree(new_fs.name); ret = -8; goto out;}
+    if (dMallocA(1,&p)) {(void)dFree(new_fs.name); ret = -8; goto out;}
     dMemcpy(p,&new_fs,sizeof(new_fs));
     p->next = ctx->fs_head;
     ctx->fs_head = p;
