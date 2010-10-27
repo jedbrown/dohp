@@ -480,6 +480,13 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   dValidPointer(data,5);
   alloc = count * iBase_SizeFromType[type];
   size = 0;                     /* protect against degenerate case */
+  if (1) {
+    dIInt bytes;
+    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    if (ecount && bytes != iBase_SizeFromType[type]*count/ecount) {
+      dERROR(PETSC_ERR_ARG_SIZ,"Trying ot retrieve tags of %D bytes, but caller expects %D",bytes,iBase_SizeFromType[type]*count/ecount);
+    }
+  }
   iMesh_getArrData(mi,ents,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
   if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type])
     dERROR(1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
