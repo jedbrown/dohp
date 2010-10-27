@@ -86,10 +86,13 @@ extern dErr dFSSetOptionsPrefix(dFS,const char[]);
 extern dErr dFSBuildSpace(dFS);
 extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
 extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
+extern dErr dFSGetDomain(dFS,dMeshESH*);
 
 extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dEntType,dEntTopology,dQuadratureMethod,dRuleSet*);
 extern dErr dFSGetEFS(dFS,dRuleSet,dInt*,const dEFS**);
 extern dErr dFSRestoreEFS(dFS,dRuleSet,dInt*,const dEFS**);
+extern dErr dRuleSetGetWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
+extern dErr dRuleSetRestoreWorkspace(dRuleSet rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
 extern dErr dRuleSetDestroy(dRuleSet);
 
 extern dErr dFSDestroy(dFS);

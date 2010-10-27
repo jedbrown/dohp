@@ -282,18 +282,6 @@ dErr dFSDestroy(dFS fs)
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
   }
-  for (dInt i=0; i<dFS_MAX_WORKSPACES; i++) {
-    s_dFSWorkspace *w = &fs->workspace[i];
-    switch (w->status) {
-      case 0: continue;         /* Nothing here, nothing allocated */
-      case 1:                   /* Allocated, but is not currently checked out */
-        err = dFree7(w->q,w->jinv,w->jw,w->u,w->v,w->du,w->dv);dCHK(err);
-        break;
-      case 2:                   /* Still checked out */
-        dERROR(1,"Workspace checked out under name `%s' not restored",w->name);
-      default: dERROR(1,"Invalid status %d",w->status);
-    }
-  }
   for (dInt i=0; i<fs->bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
   err = dFree(fs->fieldname);dCHK(err);
   err = VecDestroy(fs->gvec);dCHK(err);
@@ -576,61 +564,16 @@ static dErr dUNUSED dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIn
   dFunctionReturn(0);
 }
 
-/** This is a fairly high-level function to get the preferred quadrature for this FS.  Usually the FS with the highest
-* order elements, or the physics with the most aliasing problems, is used to define the quadrature on which all
-* components are integrated.
-*
-* @note This function helps to hide the low-level dQuadrature object from the user, since it is almost always the case
-* that the user wants the "best" quadrature for a particular function space they are working with.
-**/
-dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTopology etopo,dQuadratureMethod method,dRuleSet *ruleset)
+/** dFSGetDomain - Gets the set containing all entities in the closure of the domain
+ *
+ */
+dErr dFSGetDomain(dFS fs,dMeshESH *domain)
 {
-  dInt             ents_a,ents_s;
-  dEntTopology     *topo;
-  dPolynomialOrder *order;
-  dQuadrature      quad;
-  dRuleSet         rset;
-  dMeshEH          *ents;
-  dErr             err;
 
   dFunctionBegin;
-  *ruleset = NULL;
-  err = dMeshGetNumEnts(fs->mesh,set,etype,etopo,&ents_a);dCHK(err);
-  err = dMallocA3(ents_a,&ents,ents_a,&topo,ents_a,&order);dCHK(err);
-  err = dMeshGetEnts(fs->mesh,set,etype,etopo,ents,ents_a,&ents_s);dCHK(err);
-  err = dMeshGetTopo(fs->mesh,ents_s,ents,topo);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->tag.degree,ents,ents_s,order,ents_s,dDATA_INT);dCHK(err);
-
-  /* Request exact integration of a mass matrix.  More generally, the required order should be based on the order of the
-   * adjacent elements, and perhaps also the physics.
-   */
-  for (dInt i=0; i<ents_s; i++) {
-    order[i] = dPolynomialOrderCreate(dSqrInt(dPolynomialOrderMax(order[i])),
-                                      dSqrInt(dPolynomialOrder1D(order[i],0)),
-                                      dSqrInt(dPolynomialOrder1D(order[i],1)),
-                                      dSqrInt(dPolynomialOrder1D(order[i],2)));
-  }
-
-  err = dNew(struct _n_dRuleSet,&rset);dCHK(err);
-  err = dFSGetMesh(fs,&rset->mesh);dCHK(err);
-  rset->set = set;
-  rset->type = etype;
-  rset->topo = etopo;
-  rset->n = ents_s;
-  err = dJacobiGetQuadrature(fs->jacobi,method,&quad);dCHK(err);
-  err = dQuadratureGetRules(quad,ents_s,topo,order,&rset->rules);dCHK(err);
-  err = dFree3(ents,topo,order);dCHK(err);
-  *ruleset = rset;
-  dFunctionReturn(0);
-}
-
-dErr dRuleSetDestroy(dRuleSet rset)
-{
-  dErr err;
-
-  dFunctionBegin;
-  err = dFree(rset->rules);dCHK(err);
-  err = dFree(rset);dCHK(err);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidPointer(domain,2);
+  *domain = fs->set.active;
   dFunctionReturn(0);
 }
 

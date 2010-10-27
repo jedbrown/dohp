@@ -54,6 +54,7 @@ static dErr dRuleSetWorkspaceDestroy(struct dRuleSetWorkspace *ws)
   dErr err;
 
   dFunctionBegin;
+  if (!ws) dFunctionReturn(0);
   err = dFree4(ws->q,ws->cjac,ws->cjinv,ws->jw);dCHK(err);
   for (struct dRuleSetWorkspaceLink *link = ws->link,*next; link; link = next) {
     err = dFree4(link->u,link->v,link->du,link->dv);dCHK(err);

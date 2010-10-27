@@ -25,14 +25,20 @@ struct dFSConstraintCtx {
   void                   *user;
 };
 
-typedef struct {
-  dInt status;                  /* 0:unallocated 1:available 2:checked out */
-  char name[dNAME_LEN];
-  dReal (*q)[3];
-  dReal (*jinv)[3][3];
-  dReal *jw;
+struct dRuleSetWorkspaceLink {
+  dBool checkedout;
+  dInt dof;
   dScalar *u,*v,*du,*dv;
-} s_dFSWorkspace;
+  struct dRuleSetWorkspaceLink *next;
+};
+
+struct dRuleSetWorkspace {
+  dScalar *q;
+  dScalar *cjac;
+  dScalar *cjinv;
+  dScalar *jw;
+  struct dRuleSetWorkspaceLink *link;
+};
 
 struct _n_dRuleSet {
   dMesh mesh;
@@ -41,6 +47,8 @@ struct _n_dRuleSet {
   dEntTopology topo;
   dInt n;
   dRule *rules;
+  dInt maxQ;
+  struct dRuleSetWorkspace *workspace;
 };
 
 struct _dFSIntegrationLink {
@@ -60,8 +68,6 @@ struct _dFSOps {
   dErr (*getsubelementmesh)(dFS,dInt,dInt,dEntTopology[],dInt[],dInt[]);
   dErr (*loadintofs)(dViewer,const char[],dFS);
 };
-
-#define dFS_MAX_WORKSPACES 64
 
 struct _p_dFS {
   struct _p_DM dm;              /**< This must come first so that downcasting to DM works correctly */
@@ -121,7 +127,6 @@ struct _p_dFS {
 
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */
-  s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];
   char         orderingtype[256];
   char       **fieldname;
   void        *data;

@@ -26,6 +26,7 @@ list (APPEND Dohp_SRCS
   fs/interface/fsreg.c
   fs/interface/fsrot.c
   fs/interface/fsgeom.c
+  fs/interface/fsruleset.c
   fs/interface/q1.c
   fs/impls/cont/cont.c
   fs/impls/cont/contviewdhm.c)
