@@ -21,6 +21,7 @@ extern dClassId dFSROT_CLASSID;
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;
 typedef struct _n_dRuleset *dRuleset;
+typedef struct _n_dRulesetIterator *dRulesetIterator;
 
 /** User-provided constraint function.
 * @param ctx User context
@@ -95,6 +96,20 @@ extern dErr dRulesetGetSize(dRuleset rset,dInt *size);
 extern dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
 extern dErr dRulesetRestoreWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
 extern dErr dRulesetDestroy(dRuleset);
+
+extern dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter);
+extern dErr dRulesetIteratorDestroy(dRulesetIterator);
+extern dErr dRulesetIteratorAddFS(dRulesetIterator it,dFS fs);
+extern dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...);
+extern dErr dRulesetIteratorNextPatch(dRulesetIterator it);
+extern bool dRulesetIteratorHasPatch(dRulesetIterator it);
+extern dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...);
+extern dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
+extern dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
+extern dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...);
+extern dErr dRulesetIteratorFinish(dRulesetIterator);
+extern dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt patchbytes,dInt nodebytes);
+extern dErr dRulesetIteratorGetStash(dRulesetIterator,void *patchstash,void *nodestash);
 
 extern dErr dFSDestroy(dFS);
 extern dErr dFSView(dFS,dViewer);
