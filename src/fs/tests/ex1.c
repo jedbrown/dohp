@@ -14,6 +14,7 @@ struct Options {
   dInt nominalRDeg;
   dTruth showsoln;
   dInt cycles;
+  dInt  proj_version;
   dReal q1scale;
   dReal frequency[3];
   dReal normRequirePtwise[3];
@@ -318,6 +319,63 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dFunctionReturn(0);
 }
 
+static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
+{
+  dErr err;
+  struct ProjContext *proj = ctx;
+  dFS fs = proj->fs;
+  dRuleset ruleset;
+  dFS cfs;
+  Vec Coords;
+  dRulesetIterator iter;
+
+  dFunctionBegin;
+  if (!proj->ruleset) {
+    dMeshESH domain;
+    err = dFSGetDomain(fs,&domain);dCHK(err);
+    err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
+  }
+  ruleset = proj->ruleset;
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
+  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,NULL,gx,gy);dCHK(err);
+
+  while (dRulesetIteratorHasPatch(iter)) {
+    dRule rule;
+    dEFS cefs,efs;
+    dScalar *ex,*eu,*ev;
+    dScalar *cjinv,*jw,*x,*dx,*u,*du,*v,*dv;
+    dInt Q;
+    err = dRulesetIteratorGetPatch(iter,&rule,&cefs,&ex,NULL,&efs,&eu,&ev);dCHK(err);
+    err = dRulesetIteratorGetPatchSpace(iter,&cjinv,&jw,&x,&dx,NULL,NULL,&u,&du,&v,&dv);dCHK(err);
+    err = dEFSApply(cefs,NULL,3,ex,x,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(cefs,NULL,3,ex,dx,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRuleComputePhysical(rule,dx,cjinv,jw);dCHK(err);
+    err = dEFSApply(efs,cjinv,1,eu,u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(efs,cjinv,1,eu,du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRuleGetSize(rule,0,&Q);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      dScalar f[1];             /* Scalar problem */
+      err = exact.function(&x[i*3],f);dCHK(err);
+      v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
+      dv[i*3+0] = 0;
+      dv[i*3+1] = 0;
+      dv[i*3+2] = 0;
+    }
+    err = dEFSApply(efs,cjinv,1,v,ev,dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(efs,cjinv,1,dv,ev,dAPPLY_GRAD_TRANSPOSE,INSERT_VALUES);dCHK(err);
+    err = dRulesetIteratorRestorePatchSpace(iter,&cjinv,&jw,&x,&dx,NULL,NULL,&u,&du,&v,&dv);dCHK(err);
+    err = dRulesetIteratorCommitPatch(iter,NULL,ev);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+  }
+
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
 #if 0
 static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
@@ -459,7 +517,15 @@ static dErr doProjection(dFS fs)
   err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
   J = Jp;                       /* Use -snes_mf_operator to apply J matrix-free instead of actually using Jp as the Krylov matrix */
   err = SNESCreate(comm,&snes);dCHK(err);
-  err = SNESSetFunction(snes,r,ProjResidual,(void*)&proj);dCHK(err);
+  switch (gopt.proj_version) {
+  case 1:
+    err = SNESSetFunction(snes,r,ProjResidual,(void*)&proj);dCHK(err);
+    break;
+  case 2:
+    err = SNESSetFunction(snes,r,ProjResidual2,(void*)&proj);dCHK(err);
+    break;
+  default: dERROR(PETSC_ERR_USER,"Invalid residual version (-proj_version)");
+  }
   //err = SNESSetJacobian(snes,J,Jp,ProjJacobian,(void*)&proj);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-12,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
@@ -514,7 +580,7 @@ int main(int argc,char *argv[])
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.q1scale = 1.0;
+    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1; gopt.q1scale = 1.0;
     gopt.frequency[0] = 1; gopt.frequency[1] = 1; gopt.frequency[2] = 1;
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
@@ -522,6 +588,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsBool("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
+    err = PetscOptionsInt("-proj_version","Residual evaluation version",NULL,gopt.proj_version,&gopt.proj_version,NULL);dCHK(err);
     err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-frequency","Frequency of oscillation in each cartesion direction",NULL,gopt.frequency,&nset,&flg);dCHK(err);
