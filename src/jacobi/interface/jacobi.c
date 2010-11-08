@@ -379,11 +379,25 @@ dErr dRuleComputePhysical(dRule rule,const dScalar jac[],dScalar jinv[],dScalar 
   dValidPointer(jac,2);
   err = dRuleGetSize(rule,NULL,&n);dCHK(err);
   err = dRuleGetNodeWeight(rule,NULL,jw);dCHK(err);
-  for (dInt i=0; i<n; i++) {
-    dReal det;
-    err = dGeomInvert3(jac+i*9,jinv+i*9,&det);dCHK(err);
-    if (det < 0.) dERROR(1,"Negative Jacobian at node %D");
-    jw[i] *= det;
+  if (jac) {
+    for (dInt i=0; i<n; i++) {
+      dReal det;
+      err = dGeomInvert3(jac+i*9,jinv+i*9,&det);dCHK(err);
+      if (det < 0.) dERROR(1,"Negative Jacobian at node %D");
+      jw[i] *= det;
+    }
+  } else {
+    for (dInt i=0; i<n; i++) {
+      jinv[9*i+0] = 1.;
+      jinv[9*i+1] = 0.;
+      jinv[9*i+2] = 0.;
+      jinv[9*i+3] = 0.;
+      jinv[9*i+4] = 1.;
+      jinv[9*i+5] = 0.;
+      jinv[9*i+6] = 0.;
+      jinv[9*i+7] = 0.;
+      jinv[9*i+8] = 1.;
+    }
   }
   dFunctionReturn(0);
 }
