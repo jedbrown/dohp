@@ -90,6 +90,8 @@ extern dErr dFSGetDomain(dFS,dMeshESH*);
 extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dEntType,dEntTopology,dQuadratureMethod,dRuleset*);
 extern dErr dFSGetEFS(dFS,dRuleset,dInt*,const dEFS**);
 extern dErr dFSRestoreEFS(dFS,dRuleset,dInt*,const dEFS**);
+extern dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ);
+extern dErr dRulesetGetSize(dRuleset rset,dInt *size);
 extern dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
 extern dErr dRulesetRestoreWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
 extern dErr dRulesetDestroy(dRuleset);

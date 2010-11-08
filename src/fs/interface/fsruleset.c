@@ -77,7 +77,7 @@ dErr dRulesetDestroy(dRuleset rset)
   dFunctionReturn(0);
 }
 
-static dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ)
+dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ)
 {
   dErr err;
 
@@ -89,6 +89,13 @@ static dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ)
     }
   }
   *maxQ = rset->maxQ;
+  dFunctionReturn(0);
+}
+
+dErr dRulesetGetSize(dRuleset rset,dInt *size)
+{
+  dFunctionBegin;
+  *size = rset->n;
   dFunctionReturn(0);
 }
 
