@@ -466,6 +466,9 @@ dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScal
 
   dFunctionBegin;
   dValidPointer(efs,1);
+  if (dofs < 1) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"dofs %D, must be positive",dofs);
+  dValidScalarPointer(in,4);
+  dValidScalarPointer(out,5);
   err = PetscLogEventBegin(dLOG_EFSApply,0,0,0,0);dCHK(err);
   err = (*efs->ops.apply)(efs,mapdata,dofs,in,out,amode,imode);dCHK(err);
   err = PetscLogEventEnd(dLOG_EFSApply,0,0,0,0);dCHK(err);
