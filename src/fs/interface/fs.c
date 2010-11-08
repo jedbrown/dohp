@@ -126,6 +126,15 @@ dErr dFSSetBlockSize(dFS fs,dInt bs)
   dFunctionReturn(0);
 }
 
+dErr dFSGetBlockSize(dFS fs,dInt *bs)
+{
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidIntPointer(bs,2);
+  *bs = fs->bs;
+  dFunctionReturn(0);
+}
+
 /** Set the name of a field managed by the function space.
 *
 * @param fs function space

@@ -63,6 +63,7 @@ extern dErr dFSGetJacobi(dFS,dJacobi*);
 extern dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetBlockSize(dFS,dInt);
+extern dErr dFSGetBlockSize(dFS,dInt*);
 extern dErr dFSSetFieldName(dFS,dInt,const char*);
 extern dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
 extern dErr dFSRegisterBoundarySet(dFS,dMeshESH,dFSBStatus,dFSConstraintFunction,void*);
