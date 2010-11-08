@@ -372,6 +372,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   }
 
   err = dRulesetIteratorFinish(iter);dCHK(err);
+  err = dRulesetIteratorDestroy(iter);dCHK(err);
   dFunctionReturn(0);
 }
 

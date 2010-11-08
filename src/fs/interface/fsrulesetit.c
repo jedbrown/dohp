@@ -152,6 +152,7 @@ dErr dRulesetIteratorFinish(dRulesetIterator it)
   for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
     err = VecRestoreArray(p->Xexp,&p->x);dCHK(err);
     err = VecRestoreArray(p->Yexp,&p->y);dCHK(err);
+    if (!p->Y) continue;        /* This field is not being assembled */
     err = dFSExpandedToGlobal(p->fs,p->Yexp,p->Y,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
   }
   dFunctionReturn(0);
@@ -162,12 +163,12 @@ dErr dRulesetIteratorNextPatch(dRulesetIterator it)
   dErr err;
 
   dFunctionBegin;
-  it->curpatch++;
-  for (struct dRulesetIteratorLink *p; p; p=p->next) {
+  for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
     dInt n;
     err = dEFSGetSizes(p->efs[it->curpatch],NULL,NULL,&n);dCHK(err);
     p->off += n*p->bs;
   }
+  it->curpatch++;
   dFunctionReturn(0);
 }
 
@@ -303,7 +304,10 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
 
   dFunctionBegin;
   for (struct dRulesetIteratorLink *p=it->link,*n=p; p; p=n) {
+    err = dFSRestoreEFS(p->fs,it->ruleset,&p->nefs,&p->efs);dCHK(err);
     err = dFSDestroy(p->fs);dCHK(err);
+    err = VecDestroy(p->Xexp);dCHK(err);
+    err = VecDestroy(p->Yexp);dCHK(err);
     err = dRulesetIteratorLinkFreePatchSpace_Private(p);dCHK(err);
     n = p->next;
     err = dFree(p);dCHK(err);
