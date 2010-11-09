@@ -28,7 +28,7 @@ static dErr VecStateSync_Private(Vec x,Vec y)
 dErr VecDohpGetClosure(Vec v,Vec *c)
 {
   Vec_MPI *vmpi;
-  dTruth   isdohp;
+  dBool    isdohp;
   dErr     err;
 
   dFunctionBegin;
@@ -47,7 +47,7 @@ dErr VecDohpGetClosure(Vec v,Vec *c)
 dErr VecDohpRestoreClosure(Vec v,Vec *c)
 {
   dErr   err;
-  dTruth isdohp;
+  dBool  isdohp;
 
   dFunctionBegin;
   dValidHeader(v,VEC_CLASSID,1);
@@ -155,7 +155,7 @@ dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat)
 {
   MPI_Comm comm;
   dErr     err;
-  dTruth   isdohp;
+  dBool    isdohp;
   IS       from;
   Vec      gc;
   dInt     n,nc,crstart;

@@ -154,7 +154,7 @@ struct _p_Stokes {
   IS                     ublock,pblock;
   VecScatter             extractVelocity,extractPressure;
   dInt                   constBDeg,pressureCodim,nominalRDeg;
-  dTruth                 errorview,saddle_A_explicit,cardinalMass,neumann300;
+  dBool                  errorview,saddle_A_explicit,cardinalMass,neumann300;
   char                   mattype_A[256],mattype_D[256];
 };
 
@@ -389,7 +389,7 @@ static dErr MatDestroy_StokesOuter(Mat J)
   dFunctionReturn(0);
 }
 
-static dErr StokesGetMatrices(Stokes stk,dTruth use_jblock,Mat *J,Mat *Jp)
+static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
 {
   dErr err;
   dInt m,nu,np;
@@ -605,7 +605,7 @@ static dErr MatGetSubMatrix_StokesOuter(Mat J,IS rows,IS cols,MatReuse reuse,Mat
   dFunctionBegin;
   err = MatShellGetContext(J,(void**)&sms);dCHK(err);
   for (dInt i=0; i<4; i++) {
-    dTruth match;
+    dBool match;
     IS trows,tcols;
     Mat tmat;
     switch (i) {
@@ -1226,7 +1226,7 @@ static dErr PCDestroy_Stokes(PC pc)
   dFunctionReturn(0);
 }
 
-static dErr StokesGetSolutionField_All(Stokes stk,dFS fs,dTruth isvel,Vec *insoln)
+static dErr StokesGetSolutionField_All(Stokes stk,dFS fs,dBool isvel,Vec *insoln)
 {
   Vec      sol,xc,cvec;
   dScalar *x,*coords;
@@ -1301,10 +1301,10 @@ static dErr StokesGetNullSpace(Stokes stk,MatNullSpace *matnull)
 }
 
 
-static dErr CheckNullSpace(SNES snes,Vec residual,dTruth compute_explicit)
+static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
 {
   Mat          mffd,J,Jp;
-  dTruth       isnull;
+  dBool        isnull;
   Vec          U,F;
   MatStructure mstruct;
   MatNullSpace matnull;
@@ -1336,7 +1336,7 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dTruth compute_explicit)
   if (compute_explicit) {
     Mat expmat,expmat_fd;
     dInt m,n;
-    dTruth contour = dFALSE;
+    dBool contour = dFALSE;
     err = MatGetLocalSize(J,&m,&n);dCHK(err);
     err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
     err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
@@ -1349,7 +1349,7 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dTruth compute_explicit)
     err = PetscOptionsGetBool(NULL,"-mat_view_contour",&contour,NULL);dCHK(err);
     if (contour) {err = PetscViewerPushFormat(PETSC_VIEWER_DRAW_WORLD,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);}
     {
-      dTruth flg = dFALSE;
+      dBool flg = dFALSE;
       err = PetscOptionsGetBool(NULL,"-explicit_mat_view",&flg,NULL);dCHK(err);
       if (flg) {
         err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using mat-free implementation of J\n");dCHK(err);
@@ -1361,7 +1361,7 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dTruth compute_explicit)
     }
 
     {
-      dTruth flg = dFALSE;
+      dBool flg = dFALSE;
       err = PetscOptionsGetBool(NULL,"-explicit_fd_mat_view",&flg,NULL);dCHK(err);
       if (flg) {
         err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using FD\n");dCHK(err);
@@ -1374,7 +1374,7 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dTruth compute_explicit)
 
     err = MatAXPY(expmat,-1,expmat_fd,SAME_NONZERO_PATTERN);dCHK(err);
     {
-      dTruth flg = dFALSE;
+      dBool flg = dFALSE;
       err = PetscOptionsGetBool(NULL,"-explicit_diff_mat_view",&flg,NULL);dCHK(err);
       if (flg) {
         err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Difference between mat-free implementation of J and FD\n");dCHK(err);
@@ -1403,7 +1403,7 @@ int main(int argc,char *argv[])
   MatFDColoring fdcolor = 0;
   Vec r,x,soln;
   SNES snes;
-  dTruth nocheck,check_null,compute_explicit,use_jblock;
+  dBool nocheck,check_null,compute_explicit,use_jblock;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -1449,7 +1449,7 @@ int main(int argc,char *argv[])
   {
     KSP    ksp;
     PC     pc;
-    dTruth isshell;
+    dBool  isshell;
 
     err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPGetPC(ksp,&pc);dCHK(err);

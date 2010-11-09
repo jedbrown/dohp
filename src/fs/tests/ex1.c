@@ -12,7 +12,7 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 struct Options {
   dInt constBDeg;
   dInt nominalRDeg;
-  dTruth showsoln;
+  dBool  showsoln;
   dInt cycles;
   dInt  proj_version;
   dReal q1scale;
@@ -57,7 +57,7 @@ static dErr createHexMesh(iMesh_Instance mi)
                                               0.1,0.2,1.3, 1.3,0.2,1.1, 1.1,1.2,1.3, 0.3,1.2,1.1,
                                               2.1,0.2,0.3, 2.3,1.2,0.1, 2.1,1.2,1.3, 2.3,0.2,1.1};
   const double *vtx;
-  dTruth iaffine = dFALSE;
+  dBool  iaffine = dFALSE;
   int rconn[16] = {0,1,2,3,4,5,6,7, 1,2,6,5,8,9,10,11};
   int fconn[11*4] = {0,1,2,3, 1,2,6,5, 2,3,7,6, 0,3,7,4, 0,1,5,4, 5,6,7,4,
                      8,11,5,1, 2,1,8,9, 8,9,10,11, 11,10,6,5, 9,10,6,2};
@@ -574,7 +574,7 @@ int main(int argc,char *argv[])
   dMeshTag rtag,dtag;
   MPI_Comm comm;
   PetscViewer viewer;
-  dTruth showconn,showmesh,flg;
+  dBool  showconn,showmesh,flg;
   dInt exactChoice,nset;
   dErr err;
 

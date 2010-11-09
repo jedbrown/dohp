@@ -175,7 +175,7 @@ static dErr dJacobiDestroy_Tensor(dJacobi jac)
 static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
 {
   dJacobi_Tensor *tnsr = jac->data;
-  dTruth ascii;
+  dBool  ascii;
   dErr err;
 
   dFunctionBegin;

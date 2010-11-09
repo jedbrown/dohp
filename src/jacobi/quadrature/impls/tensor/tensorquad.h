@@ -25,7 +25,7 @@ typedef struct {
   dReal jac[3][3];
   dReal translation[3];
   dRule reference;
-  dTruth has_tensor;
+  dBool  has_tensor;
   TensorRule trule[3];
 } dRule_Transformed;
 

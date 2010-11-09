@@ -103,7 +103,7 @@ struct ElastCtx {
   dFS                   fs;
   Vec                   x,y;
   dInt                  constBDeg,nominalRDeg;
-  dTruth                errorview;
+  dBool                 errorview;
 };
 
 static dErr ElastCreate(MPI_Comm comm,Elast *elast)
@@ -556,7 +556,7 @@ int main(int argc,char *argv[])
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dTruth nojshell,nocheck;
+  dBool  nojshell,nocheck;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);

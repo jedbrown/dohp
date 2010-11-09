@@ -111,7 +111,7 @@ int main(int argc,char *argv[])
   dJacobi  jac;
   dMeshTag rtag,dtag;
   dMeshESH active;
-  dTruth   read,read_vec;
+  dBool    read,read_vec;
   Vec      X;
 
   err = dInitialize(&argc,&argv,0,help);dCHK(err);

@@ -27,8 +27,8 @@ struct EllipParam {
   dReal epsilon;
   dReal p;
   dReal lambda;
-  dTruth onlyproject;
-  dTruth bdy100;
+  dBool  onlyproject;
+  dBool  bdy100;
 };
 
 struct EllipExactCtx {
@@ -120,8 +120,8 @@ struct EllipCtx {
   dFS                   fs;
   Vec                   x,y;
   dInt                  constBDeg,nominalRDeg;
-  dTruth                errorview;
-  dTruth                eta_monitor;
+  dBool                 errorview;
+  dBool                 eta_monitor;
 };
 
 static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
@@ -172,7 +172,7 @@ static dErr EllipSetFromOptions(Ellip elp)
   dJacobi jac;
   dMeshESH domain;
   dMeshTag rtag,dtag;
-  dTruth mesh_out;
+  dBool  mesh_out;
   dReal morph,twist,stretch;
   dInt exact;
   dErr err;
@@ -802,7 +802,7 @@ int main(int argc,char *argv[])
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dTruth nojshell,nocheck,viewdhm,new_assembly;
+  dBool  nojshell,nocheck,viewdhm,new_assembly;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -867,7 +867,7 @@ int main(int argc,char *argv[])
   {
     KSP ksp;
     PC pc;
-    dTruth isshell;
+    dBool  isshell;
     err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPGetPC(ksp,&pc);dCHK(err);
     err = PetscTypeCompare((dObject)pc,PCSHELL,&isshell);dCHK(err);

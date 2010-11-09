@@ -94,7 +94,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 {
   dScalar         weights[256];
   Mat             madj;
-  dTruth          flg;
+  dBool           flg;
   dInt           *nnz,*ordering,ordering_a;
   const dInt     *newindices;
   dIInt           adj_a = 0,adj_s,*adjoff=NULL,adjoff_a=0,adjoff_s,ierr,*intdata,ents_s,ents_a,tmp;
@@ -494,7 +494,7 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   dErr       err;
   //dReal (*nx)[3],(*geom)[3];
   dInt dUNUSED n,sub,subc,*off,*geomoff,nnodes,*ai,*aj;
-  dTruth     done;
+  dBool      done;
 
   dFunctionBegin;
   err = dMemzero(subtopo,sizeof(*subtopo)*nsubelems);dCHK(err);

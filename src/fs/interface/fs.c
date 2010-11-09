@@ -683,7 +683,7 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   dInt lm,ln,*lidxm = lidxms,*lidxn = lidxns;
   dInt bs,i,j,li,lj,row,col,cn,*ci,*cj;
   dScalar *lv = lvs,*lvt = lvts,*ca;
-  dTruth done;
+  dBool  done;
   dErr err;
 
   dFunctionBegin;

@@ -236,7 +236,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
 dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
 {
   dFS fs;
-  dTruth isdhm;
+  dBool  isdhm;
   dErr err;
 
   dFunctionBegin;
@@ -261,7 +261,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   hid_t       curstep,vectype,vdset,vattr,fsobj,fsspace;
   herr_t      herr;
   dht_Vec     vecmeta;
-  dTruth      debug = dFALSE;
+  dBool       debug = dFALSE;
 
   dFunctionBegin;
   err = dViewerDHMSetUp(viewer);dCHK(err);
@@ -438,7 +438,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
 {
   dErr    err;
-  dTruth  match;
+  dBool   match;
   hid_t   curstep,dset,memspace,filespace;
   hsize_t gdim[2],offset[2],count[2];
   herr_t  herr;

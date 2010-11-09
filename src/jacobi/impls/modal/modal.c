@@ -250,7 +250,7 @@ static dErr dJacobiDestroy_Modal(dJacobi jac)
 static dErr dJacobiView_Modal(dJacobi jac,PetscViewer viewer)
 {
   dJacobi_Modal *modal = jac->data;
-  dTruth ascii;
+  dBool  ascii;
   dErr err;
 
   dFunctionBegin;

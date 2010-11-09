@@ -43,7 +43,7 @@ dErr dJacobiCreate(MPI_Comm comm,dJacobi *injacobi)
 dErr dJacobiSetType(dJacobi jac,const dJacobiType type)
 {
   dErr err,(*r)(dJacobi);
-  dTruth     match;
+  dBool      match;
 
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
@@ -73,7 +73,7 @@ dErr dJacobiGetType(dJacobi jac,const dJacobiType *type)
 dErr dJacobiSetFromOptions(dJacobi jac)
 {
   char type[dNAME_LEN] = dJACOBI_TENSOR;
-  dTruth typeSet;
+  dBool  typeSet;
   dErr err;
 
   dFunctionBegin;
@@ -112,7 +112,7 @@ dErr dJacobiDestroy(dJacobi jac)
 
 dErr dJacobiView(dJacobi jac,PetscViewer viewer)
 {
-  dTruth iascii;
+  dBool  iascii;
   dErr err;
 
   dFunctionBegin;
@@ -178,7 +178,7 @@ dErr dJacobiRegister(const char name[],const char path[],const char cname[],dErr
 
 dErr dJacobiRegisterAll(const char path[])
 {
-  static dTruth called = PETSC_FALSE;
+  static dBool  called = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;
@@ -190,7 +190,7 @@ dErr dJacobiRegisterAll(const char path[])
 
 dErr dJacobiInitializePackage(const char path[])
 {
-  static dTruth initialized = PETSC_FALSE;
+  static dBool  initialized = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;

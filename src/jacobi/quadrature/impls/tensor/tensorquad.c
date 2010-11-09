@@ -5,7 +5,7 @@
 
 dErr TensorRuleView(TensorRule rule,PetscViewer viewer)
 {
-  dTruth ascii;
+  dBool  ascii;
   dErr err;
 
   dFunctionBegin;
@@ -344,7 +344,7 @@ static dErr dQuadratureView_Tensor(dQuadrature quad,PetscViewer viewer)
 {
   dQuadrature_Tensor *tnsr = (dQuadrature_Tensor*)quad->data;
   dErr err;
-  dTruth iascii;
+  dBool  iascii;
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
@@ -388,7 +388,7 @@ static dErr dQuadratureSetFromOptions_Tensor(dQuadrature quad)
 {
   dQuadrature_Tensor *tnsr  = quad->data;
   dQuadratureMethod  method = dQUADRATURE_METHOD_FAST;
-  dTruth             flg;
+  dBool              flg;
   dErr               err;
 
   dFunctionBegin;

@@ -4,7 +4,7 @@
 
 static dErr ModalBasisView(dInt Q,dInt P,const dReal interp[],const dReal deriv[],PetscViewer viewer)
 {
-  dTruth ascii;
+  dBool  ascii;
   dErr   err;
 
   dFunctionBegin;
@@ -18,7 +18,7 @@ static dErr ModalBasisView(dInt Q,dInt P,const dReal interp[],const dReal deriv[
 
 static dErr dEFSView_Modal_Private(const dEFS_Modal *modal,const char *name,PetscViewer viewer)
 {
-  dTruth ascii;
+  dBool  ascii;
   dErr   err;
 
   dFunctionBegin;

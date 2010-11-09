@@ -97,7 +97,7 @@ dErr dQuadratureDestroy(dQuadrature quad)
 
 dErr dQuadratureView(dQuadrature quad,PetscViewer viewer)
 {
-  dTruth iascii;
+  dBool  iascii;
   dErr   err;
 
   dFunctionBegin;
@@ -130,7 +130,7 @@ dErr dQuadratureView(dQuadrature quad,PetscViewer viewer)
 dErr dQuadratureSetType(dQuadrature quad,dQuadratureType type)
 {
   dErr   err,(*r)(dQuadrature);
-  dTruth match;
+  dBool  match;
 
   dFunctionBegin;
   PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);

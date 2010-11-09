@@ -254,7 +254,7 @@ static dErr checkRulesAndEFS(dJacobi jac)
   dInt         N,minrdeg,maxrdeg,minbdeg,maxbdeg;
   dPolynomialOrder *rdeg,*bdeg;
   dEntTopology *topo;
-  dTruth       showrules,showefs;
+  dBool        showrules,showefs;
   dRule        *rule;
   dEFS         *efs;
   dErr         err;

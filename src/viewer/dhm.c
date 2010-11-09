@@ -9,7 +9,7 @@ static dErr dViewerDHM_H5Tcommit(PetscViewer viewer,const char *typename,hid_t t
 {
   dViewer_DHM *dhm = viewer->data;
   dErr        err;
-  dTruth      match;
+  dBool       match;
   herr_t      herr;
 
   dFunctionBegin;
@@ -367,7 +367,7 @@ dErr dViewerDHMSetTimeStep(PetscViewer viewer,dInt step)
 {
   dViewer_DHM *dhm = viewer->data;
   dErr        err;
-  dTruth      match;
+  dBool       match;
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
@@ -410,7 +410,7 @@ dErr dViewerDHMGetSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
 {
   dViewer_DHM      *dhm = viewer->data;
   dErr             err;
-  dTruth           match;
+  dBool            match;
   H5G_info_t       info;
   step_traversal_t ctx;
   hsize_t          idx;
@@ -436,7 +436,7 @@ dErr dViewerDHMGetSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
 
 dErr dViewerDHMRestoreSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
 {
-  dTruth match;
+  dBool  match;
   dErr err;
 
   dFunctionBegin;
