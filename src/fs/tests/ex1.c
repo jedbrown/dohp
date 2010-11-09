@@ -336,6 +336,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
     err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
   }
   ruleset = proj->ruleset;
+  err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
   err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
@@ -365,7 +366,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
       dv[i*3+2] = 0;
     }
     err = dEFSApply(efs,cjinv,1,v,ev,dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(efs,cjinv,1,dv,ev,dAPPLY_GRAD_TRANSPOSE,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(efs,cjinv,1,dv,ev,dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
     err = dRulesetIteratorRestorePatchSpace(iter,&cjinv,&jw,&x,&dx,NULL,NULL,&u,&du,&v,&dv);dCHK(err);
     err = dRulesetIteratorCommitPatch(iter,NULL,ev);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
