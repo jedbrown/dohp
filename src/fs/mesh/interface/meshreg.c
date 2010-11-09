@@ -58,7 +58,7 @@ dErr dMeshSetType(dMesh mesh,const dMeshType type)
   err = PetscTypeCompare((PetscObject)mesh,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   err = PetscFListFind(MeshList,((PetscObject)mesh)->comm,type,(void(**)(void))&r);dCHK(err);
-  if (!r) dERROR(1,"Unable to find requested dMesh type %s",type);
+  if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dMesh type %s",type);
   if (mesh->ops->destroy) { err = (*mesh->ops->destroy)(mesh);dCHK(err); }
   err = (*r)(mesh);dCHK(err);
   err = PetscObjectChangeTypeName((PetscObject)mesh,type);dCHK(err);

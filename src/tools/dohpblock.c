@@ -200,11 +200,11 @@ int main(int argc, char *argv[])
       err = PetscOptionsString("-ogeom","outfile for geometry","none",outgeom,outgeom,sizeof(outgeom),NULL);dCHK(err);
     }
     i = sscanf(boxstr,"%lf:%lf,%lf:%lf,%lf:%lf",&box.x0,&box.x1,&box.y0,&box.y1,&box.z0,&box.z1);
-    if (i != 6) dERROR(1,"Failed to parse bounding box.");
+    if (i != 6) dERROR(PETSC_COMM_SELF,1,"Failed to parse bounding box.");
     i = sscanf(mnp,"%d,%d,%d",&m,&n,&p);
-    if (i != 3) dERROR(1,"Failed to parse size.");
+    if (i != 3) dERROR(PETSC_COMM_SELF,1,"Failed to parse size.");
     i = sscanf(MNP,"%d,%d,%d",&M,&N,&P);
-    if (i != 3) dERROR(1,"Failed to parse partition size.");
+    if (i != 3) dERROR(PETSC_COMM_SELF,1,"Failed to parse partition size.");
   }
   err = PetscOptionsEnd();
 
@@ -258,9 +258,9 @@ int main(int argc, char *argv[])
       }
     }
   }
-  if (I != c.s) dERROR(1,"Wrong number of regions.");
+  if (I != c.s) dERROR(PETSC_COMM_SELF,1,"Wrong number of regions.");
   iMesh_createEntArr(mesh,iMesh_HEXAHEDRON,c.v,c.s,&r.v,&r.a,&r.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
-  if (r.s != (m-1)*(n-1)*(p-1)) dERROR(1,"Wrong number of regions created.");
+  if (r.s != (m-1)*(n-1)*(p-1)) dERROR(PETSC_COMM_SELF,1,"Wrong number of regions created.");
   printf("region size %d, status size %d\n",r.s,s.s);
 
   if (do_global_number) {err = doGlobalNumber(mesh);dCHK(err);}
@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
         }
       }
     }
-    if (I != c.s) dERROR(1, "Wrong number of faces.");
+    if (I != c.s) dERROR(PETSC_COMM_SELF,1, "Wrong number of faces.");
     iMesh_createEntArr(mesh,iMesh_QUADRILATERAL,c.v,c.s,&f.v,&f.a,&f.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
     err = CommitToFaceSets(mesh,f.v,face,facecount,facesets,entbuf);dCHK(err);
     printf("face size %d, status size %d\n",f.s,s.s);
@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
         }
       }
     }
-    if (I != c.s) dERROR(1, "Wrong number of edges.");
+    if (I != c.s) dERROR(PETSC_COMM_SELF,1, "Wrong number of edges.");
     iMesh_createEntArr(mesh,iMesh_LINE_SEGMENT,c.v,c.s, &e.v,&e.a,&e.s, &s.v,&s.a,&s.s,&err);dICHK(mesh,err);
     err = CommitToFaceSets(mesh,e.v,face,facecount,facesets,entbuf);dCHK(err);
     printf("edge size %d, status size %d\n",e.s,s.s);
@@ -515,7 +515,7 @@ int main(int argc, char *argv[])
         int gid,gdim;
         iRel_getSetEntAssociation(assoc,rel,facesets[i],1,&gface,&err);dIRCHK(assoc,err);
         iGeom_getEntType(geom,gface,&gdim,&err);dIGCHK(geom,err);
-        if (gdim != 2) dERROR(1,"Geometric dimension is %d, expected 2",gdim);
+        if (gdim != 2) dERROR(PETSC_COMM_SELF,1,"Geometric dimension is %d, expected 2",gdim);
         iGeom_getIntData(geom,gface,geomGlobalIDTag,&gid,&err);dIGCHK(geom,err);
         iMesh_setEntSetIntData(mesh,facesets[i],meshGeomDimTag,2,&err);dICHK(mesh,err);
         /* If the following line is disabled, Lasso will pick up the wrong relations, but at least they will still be with

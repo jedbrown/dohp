@@ -73,11 +73,11 @@ dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   fs->tag.rule = rtag;
-  if (fs->jacobi && fs->jacobi != jac) dERROR(PETSC_ERR_ARG_WRONGSTATE,"cannot change dJacobi");
-  if (!fs->mesh) dERROR(PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
+  if (fs->jacobi && fs->jacobi != jac) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"cannot change dJacobi");
+  if (!fs->mesh) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
   err = dMeshGetTagName(fs->mesh,rtag,&name);dCHK(err);
   if (!name || (name[0] == '_' && name[1] == '_'))
-    dERROR(PETSC_ERR_ARG_INCOMP,"The quadrature Rule tag must be persistent, it cannot start with '__'");
+    dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"The quadrature Rule tag must be persistent, it cannot start with '__'");
   err = dFree(name);dCHK(err);
   if (!fs->jacobi) {
     err = PetscObjectReference((PetscObject)jac);dCHK(err);
@@ -95,11 +95,11 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(jac,dJACOBI_CLASSID,2);
   fs->tag.degree = deg;
-  if (fs->jacobi && fs->jacobi != jac) dERROR(1,"cannot change dJacobi");
-  if (!fs->mesh) dERROR(PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
+  if (fs->jacobi && fs->jacobi != jac) dERROR(PETSC_COMM_SELF,1,"cannot change dJacobi");
+  if (!fs->mesh) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
   err = dMeshGetTagName(fs->mesh,deg,&name);dCHK(err);
   if (!name || (name[0] == '_' && name[1] == '_'))
-    dERROR(PETSC_ERR_ARG_INCOMP,"The element Degree tag must be persistent, it cannot start with '__'");
+    dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"The element Degree tag must be persistent, it cannot start with '__'");
   err = dFree(name);dCHK(err);
   if (!fs->jacobi) {
     err = PetscObjectReference((PetscObject)jac);dCHK(err);
@@ -149,7 +149,7 @@ dErr dFSSetFieldName(dFS fs,dInt fn,const char *fname)
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  if (fn < 0 || fs->bs <= fn) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
+  if (fn < 0 || fs->bs <= fn) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
   if (fs->fieldname[fn]) {err = dFree(fs->fieldname[fn]);dCHK(err);}
   err = PetscStrallocpy(fname,&fs->fieldname[fn]);dCHK(err);
   dFunctionReturn(0);
@@ -193,8 +193,8 @@ dErr dFSRegisterBoundarySet(dFS fs,dMeshESH bset,dFSBStatus bstat,dFSConstraintF
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  if (!dFSBStatusValid(bstat)) dERROR(1,"Boundary status %x invalid",bstat);
-  if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(1,"Cannot impose strong conditions on more dofs than the block size");
+  if (!dFSBStatusValid(bstat)) dERROR(PETSC_COMM_SELF,1,"Boundary status %x invalid",bstat);
+  if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(PETSC_COMM_SELF,1,"Cannot impose strong conditions on more dofs than the block size");
   err = dMeshTagSSetData(fs->mesh,fs->tag.bstatus,&bset,1,&bstat,sizeof(bstat),dDATA_BYTE);dCHK(err);
   if (cfunc) {
     struct dFSConstraintCtx ctx;
@@ -241,10 +241,10 @@ dErr dFSView(dFS fs,dViewer viewer)
     {                           /* print aggregate sizes */
       dInt lm[4],gm[4];
       err = MatGetSize(fs->E,&lm[0],&lm[1]);dCHK(err);
-      if (lm[0]%fs->bs || lm[1]%fs->bs) dERROR(1,"Constraint matrix not a multiple of block size, should not happen");
+      if (lm[0]%fs->bs || lm[1]%fs->bs) dERROR(PETSC_COMM_SELF,1,"Constraint matrix not a multiple of block size, should not happen");
       lm[0] /= fs->bs;
       lm[1] /= fs->bs;
-      if (lm[1] != fs->nc) dERROR(1,"Inconsistent number of closure nodes");
+      if (lm[1] != fs->nc) dERROR(PETSC_COMM_SELF,1,"Inconsistent number of closure nodes");
       lm[2] = fs->n;
       lm[3] = fs->ngh;
       err = MPI_Reduce(lm,gm,4,MPIU_INT,MPI_SUM,0,((dObject)fs)->comm);dCHK(err);
@@ -276,7 +276,7 @@ dErr dFSLoadIntoFS(PetscViewer viewer,const char fieldname[],dFS fs)
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
   dValidCharPointer(fieldname,2);
   dValidHeader(fs,DM_CLASSID,3);
-  if (!fs->ops->loadintofs) dERROR(PETSC_ERR_SUP,"FS does not support load");
+  if (!fs->ops->loadintofs) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"FS does not support load");
   err = (*fs->ops->loadintofs)(viewer,fieldname,fs);dCHK(err);
   dFunctionReturn(0);
 }
@@ -352,8 +352,8 @@ dErr dFSBuildSpace(dFS fs)
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  if (!((dObject)fs)->type_name) dERROR(PETSC_ERR_ARG_TYPENOTSET,"Cannot build space");
-  if (fs->spacebuilt) dERROR(1,"The space is already built, rebuilding is not implemented");
+  if (!((dObject)fs)->type_name) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_TYPENOTSET,"Cannot build space");
+  if (fs->spacebuilt) dERROR(PETSC_COMM_SELF,1,"The space is already built, rebuilding is not implemented");
   if (fs->ops->buildspace) {
     err = (*fs->ops->buildspace)(fs);dCHK(err);
   }
@@ -419,7 +419,7 @@ dErr dFSExpandedToLocal(dFS fs,Vec x,Vec l,InsertMode imode)
       err = MatMultTransposeAdd(fs->E,x,l,l);dCHK(err);
       break;
     default:
-      dERROR(1,"InsertMode %d not supported",imode);
+      dERROR(PETSC_COMM_SELF,1,"InsertMode %d not supported",imode);
   }
   dFunctionReturn(0);
 }
@@ -440,7 +440,7 @@ dErr dFSLocalToExpanded(dFS fs,Vec l,Vec x,InsertMode imode)
       err = MatMultAdd(fs->E,l,x,x);dCHK(err);
       break;
     default:
-      dERROR(1,"InsertMode %d not supported",imode);
+      dERROR(PETSC_COMM_SELF,1,"InsertMode %d not supported",imode);
   }
   dFunctionReturn(0);
 }
@@ -490,7 +490,7 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
       err = VecScatterBegin(fs->dscat,fs->dcache,gc,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
       err = VecScatterEnd  (fs->dscat,fs->dcache,gc,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
       break;
-    default: dERROR(1,"hmode %d unsupported",hmode);
+    default: dERROR(PETSC_COMM_SELF,1,"hmode %d unsupported",hmode);
   }
   err = VecGhostUpdateBegin(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   err = VecGhostUpdateEnd(gc,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
@@ -524,7 +524,7 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode 
     err = VecGetArray(lf,&a);dCHK(err);
     err = dMemzero(a+gstart,(end-gstart)*sizeof(*a));dCHK(err);
     err = VecRestoreArray(lf,&a);dCHK(err);
-  } else if (imode != INSERT_VALUES) dERROR(1,"unsupported imode");
+  } else if (imode != INSERT_VALUES) dERROR(PETSC_COMM_SELF,1,"unsupported imode");
   err = dFSExpandedToLocal(fs,x,lf,imode);dCHK(err);
   err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
   err = VecGhostUpdateBegin(gc,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
@@ -569,7 +569,7 @@ static dErr dUNUSED dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIn
       dFunctionReturn(0);
     }
   }
-  dERROR(1,"Cannot find integration \"%s\"",name);
+  dERROR(PETSC_COMM_SELF,1,"Cannot find integration \"%s\"",name);
   dFunctionReturn(0);
 }
 
@@ -626,7 +626,7 @@ static dErr MatGetVecs_DohpFS(Mat A,Vec *x,Vec *y)
 
   dFunctionBegin;
   err = PetscObjectQuery((dObject)A,"DohpFS",(dObject*)&fs);dCHK(err);
-  if (!fs) dERROR(1,"Mat has no composed FS");
+  if (!fs) dERROR(PETSC_COMM_SELF,1,"Mat has no composed FS");
   if (x) {err = dFSCreateGlobalVector(fs,x);dCHK(err);}
   if (y) {err = dFSCreateGlobalVector(fs,y);dCHK(err);}
   dFunctionReturn(0);
@@ -696,7 +696,7 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   err = PetscLogEventBegin(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
   err = MatMAIJGetAIJ(fs->assemblefull?fs->E:fs->Ep,&E);dCHK(err); /* Does not reference so do not destroy or return E */
   err = MatGetRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
-  if (!done) dERROR(1,"Could not get indices");
+  if (!done) dERROR(PETSC_COMM_SELF,1,"Could not get indices");
   err = MatGetArray_SeqAIJ(E,&ca);dCHK(err);
   for (i=0,lm=0; i<m; i++) {
     /* Count the number of columns in constraint matrix for each row of input matrix, this will be the total number of
@@ -742,7 +742,7 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
 
   err = MatRestoreArray_SeqAIJ(E,&ca);dCHK(err);
   err = MatRestoreRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
-  if (!done) dERROR(1,"Failed to return indices");
+  if (!done) dERROR(PETSC_COMM_SELF,1,"Failed to return indices");
   if (fs->assemblereduced) {
     dInt brow[lm],bcol[ln];
     dScalar bval[lm*ln];

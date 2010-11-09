@@ -18,9 +18,9 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
   dErr err;
 
   dFunctionBegin;
-  if (n && !dest) dERROR(1,"attempting to copy into a NULL string");
+  if (n && !dest) dERROR(PETSC_COMM_SELF,1,"attempting to copy into a NULL string");
   while (--n && (*d++ = *s++)) {}
-  if (!n) dERROR(1,"String truncated");
+  if (!n) dERROR(PETSC_COMM_SELF,1,"String truncated");
   err = dMemzero(d,n);dCHK(err);
   dFunctionReturn(0);
 }

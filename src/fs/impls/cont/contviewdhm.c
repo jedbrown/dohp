@@ -177,7 +177,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   err = dViewerDHMSetUp(viewer);dCHK(err);
   err = PetscObjectGetName((PetscObject)X,&xname);dCHK(err);
   err = PetscObjectQuery((PetscObject)X,"dFS",(PetscObject*)&fs);dCHK(err);
-  if (!fs) dERROR(PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
+  if (!fs) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
   err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err); /* we are responsible for closing */
   err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);        /* leave curstep open */
   err = dFSView_Cont_DHM(fs,viewer);dCHK(err);
@@ -204,7 +204,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
     char fsname[256];
     ssize_t namelen;
     namelen = H5Iget_name(fsdset,fsname,sizeof fsname);dH5CHK(namelen,H5Iget_name);
-    if (!namelen) dERROR(PETSC_ERR_LIB,"Could not get FS path");
+    if (!namelen) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Could not get FS path");
     {
       dht_Vec vecatt[1];
       hsize_t dims[1] = {1};
@@ -241,7 +241,7 @@ dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
 
   dFunctionBegin;
   err = PetscObjectQuery((PetscObject)x,"dFS",(PetscObject*)&fs);dCHK(err);
-  if (!fs) dERROR(PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
+  if (!fs) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
   if (isdhm) {
     err = VecView_Dohp_FSCont_DHM(x,viewer);dCHK(err);
@@ -400,7 +400,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
 
     fs->nelem = ents_s;
-    dERROR(1,"In flux");
+    dERROR(PETSC_COMM_SELF,1,"In flux");
 #if 0
     err = dMallocA3(ents_s,&fs->rule,ents_s,&fs->efs,ents_s+1,&fs->off);dCHK(err); /* Owned by FS */
 
@@ -447,9 +447,9 @@ dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"The viewer must be type \"%s\"",PETSC_VIEWER_DHM);
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"The viewer must be type \"%s\"",PETSC_VIEWER_DHM);
   err = PetscTypeCompare((PetscObject)X,VECDOHP,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"Vector must have type \"%s\"",VECDOHP);
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Vector must have type \"%s\"",VECDOHP);
 
   err = dViewerDHMSetUp(viewer);dCHK(err);
   err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);

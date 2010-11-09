@@ -118,7 +118,7 @@ static dErr dEFSApply_Modal_All(dEFS efs_generic,const dReal dUNUSED jinv[restri
         }
       }
     } break;
-    default: dERROR(PETSC_ERR_SUP,"Apply-mode not implemented");
+    default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Apply-mode not implemented");
   }
   dFunctionReturn(0);
 }

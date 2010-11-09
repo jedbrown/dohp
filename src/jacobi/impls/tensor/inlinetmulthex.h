@@ -34,7 +34,7 @@ static dErr TensorMult_Hex_nounroll(dInt D,const dInt P[3],const dInt Q[3],const
     case ADD_VALUES:
       break;
     default:
-      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+      dERROR(PETSC_COMM_SELF,1,"Requested InsertMode %d not supported for this operation.",imode);
   }
 
   for (dInt l=0; l<Q[0]; l++) {
@@ -122,13 +122,13 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
 
   dFunctionBegin;
 #if defined dUSE_DEBUG
-  if (((uintptr_t)in) & 0xf) dERROR(PETSC_ERR_ARG_INCOMP,"Packed SSE instructions require 16-byte alignment");
-  if (((uintptr_t)out) & 0xf) dERROR(PETSC_ERR_ARG_INCOMP,"Packed SSE instructions require 16-byte alignment");
-  if (((uintptr_t)Ax) & 0xf) dERROR(PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
-  if (((uintptr_t)Ay) & 0xf) dERROR(PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
-  if (((uintptr_t)Az) & 0xf) dERROR(PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)in) & 0xf) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)out) & 0xf) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)Ax) & 0xf) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)Ay) & 0xf) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
+  if (((uintptr_t)Az) & 0xf) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Packed SSE instructions require 16-byte alignment");
 #endif
-  if (P[2] != P2 || Q[2] != Q2 || D_is_1 != D) dERROR(1,"input sizes do not agree with unrolled sizes");
+  if (P[2] != P2 || Q[2] != Q2 || D_is_1 != D) dERROR(PETSC_COMM_SELF,1,"input sizes do not agree with unrolled sizes");
   err = dMemzero(amem,sizeof(amem));dCHK(err);
   _mm_prefetch((const char*)in,_MM_HINT_T0);
   err = dMemzero(bmem,sizeof(bmem));dCHK(err);
@@ -139,7 +139,7 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
     case ADD_VALUES:
       break;
     default:
-      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+      dERROR(PETSC_COMM_SELF,1,"Requested InsertMode %d not supported for this operation.",imode);
   }
 
 #ifdef VERBOSE_TIMING
@@ -229,7 +229,7 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
     }
   }
 #elif 0
-  if (P[1] != 4) dERROR(1,"not supported");
+  if (P[1] != 4) dERROR(PETSC_COMM_SELF,1,"not supported");
   for (dInt i=0; i<Q[0]; i++) {
     const dInt JKD = P[1]*P2*D,KD = P2*D;
     dScalar (*restrict aa)[KD] = (dScalar(*)[4])&amem[i*JKD];
@@ -285,11 +285,11 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
     dScalar *restrict aa = &amem[i*JKD];
     for (dInt l=0; l<Q[1]; l+=2) {
       dScalar *restrict bb0 = &bmem[(i*Q[1]+l)*KD],*restrict bb1 = &bmem[(i*Q[1]+l+1)*KD];
-      //if ((size_t)bb0 & 0xf || (size_t)bb1 & 0xf) dERROR(1,"bmem is unaligned");
+      //if ((size_t)bb0 & 0xf || (size_t)bb1 & 0xf) dERROR(PETSC_COMM_SELF,1,"bmem is unaligned");
       __m128d bb00 = _mm_setzero_pd(),bb02=bb00,bb10=bb00,bb12=bb00;
       for (dInt j=0; j<P[1]; j+=2) {
         const dScalar *restrict aaa0 = &aa[j*KD],*restrict aaa1 = &aa[(j+1)*KD];
-        //if ((size_t)aaa0 & 0xf || (size_t)aaa1 & 0xf) dERROR(1,"aa is unaligned");
+        //if ((size_t)aaa0 & 0xf || (size_t)aaa1 & 0xf) dERROR(PETSC_COMM_SELF,1,"aa is unaligned");
         __m128d
           aaa00 = _mm_load_pd(aaa0),aaa02 = _mm_load_pd(aaa0+2),aaa10 = _mm_load_pd(aaa1),aaa12 = _mm_load_pd(aaa1+2),
           aay00 = _mm_loaddup_pd(&Ay[l][j]),aay01 = _mm_loaddup_pd(&Ay[l][j+1]), aay10 = _mm_loaddup_pd(&Ay[l+1][j]),aay11 = _mm_loaddup_pd(&Ay[l+1][j+1]);
@@ -305,7 +305,7 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
     }
   }
 #else
-  if (P[1] != P2) dERROR(1,"not supported");
+  if (P[1] != P2) dERROR(PETSC_COMM_SELF,1,"not supported");
   for (dInt i=0; i<Q[0]; i++) {
     const dInt JKD = P[1]*P2*D,KD = P2*D;
     dScalar (*restrict aa)[KD] = (dScalar(*)[KD])&amem[i*JKD];

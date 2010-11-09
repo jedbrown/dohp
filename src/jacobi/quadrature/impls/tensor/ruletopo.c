@@ -222,7 +222,7 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
                       + x[7][l]*qmp);
         }
         err = dGeomInvert3(&J[0][0],&jinv[p][0][0],&Jdet);dCHK(err);
-        if (Jdet <= 0.0) dERROR(1,"Negative Jacobian at %d,%d,%d",i,j,k);
+        if (Jdet <= 0.0) dERROR(PETSC_COMM_SELF,1,"Negative Jacobian at %d,%d,%d",i,j,k);
         jw[p] = Jdet * qw[0][i] * qw[1][j] * qw[2][k]; /* Weight the determinant */
       }
     }

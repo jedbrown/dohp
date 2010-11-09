@@ -23,7 +23,7 @@ static dErr ModalPCount(dEntType type,dInt order,dInt *count) {
         case 1: *count = 3; break;
         case 2: *count = 6; break;
         case 3: *count = 10; break;
-        default: dERROR(PETSC_ERR_SUP,"Order %D for type %s",order,dMeshEntTypeName(type));
+        default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Order %D for type %s",order,dMeshEntTypeName(type));
       }
       break;
     case dTYPE_REGION:
@@ -32,10 +32,10 @@ static dErr ModalPCount(dEntType type,dInt order,dInt *count) {
         case 1: *count = 4; break;
         case 2: *count = 10; break;
         case 3: *count = 18; break;
-        default: dERROR(PETSC_ERR_SUP,"Order %D for type %s",order,dMeshEntTypeName(type));
+        default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Order %D for type %s",order,dMeshEntTypeName(type));
       }
       break;
-    default: dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Unknown type %s",dMeshEntTypeName(type));
+    default: dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Unknown type %s",dMeshEntTypeName(type));
   }
   dFunctionReturn(0);
 }
@@ -218,7 +218,7 @@ static dErr dEFSModalSetUp(dEFS_Modal *modal,dEntTopology topo,dRule rule,dInt o
             deriv[0][2] = 0;
         }
         break;
-      default: dERROR(PETSC_ERR_SUP,"topology %s",dMeshEntTopologyName(topo));
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"topology %s",dMeshEntTopologyName(topo));
     }
   }
   err = dFree(rcoord);dCHK(err);
@@ -255,7 +255,7 @@ static dErr dJacobiView_Modal(dJacobi jac,PetscViewer viewer)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
-  if (!ascii) dERROR(PETSC_ERR_SUP,"only ASCII");
+  if (!ascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Modal Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Cache of EFS\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
@@ -273,7 +273,7 @@ static dErr dJacobiModalSetFamily_Modal(dJacobi jac,dJacobiModalFamily family)
 
   dFunctionBegin;
   if (family != dJACOBI_MODAL_P_DISCONTINUOUS)
-    dERROR(PETSC_ERR_SUP,"only P-discontinuous");
+    dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only P-discontinuous");
   modal->family = family;
   dFunctionReturn(0);
 }
@@ -332,7 +332,7 @@ static dErr dJacobiAddConstraints_Modal(dJacobi dUNUSED jac,dInt nx,const dInt x
   for (dInt elem=0; elem<nx; elem++) {
     const dInt ei = xi[elem]; /* Element index, \a is, \a deg and everything in \a ma is addressed by \a ei. */
     if (xs[ei+1]-xs[ei] != is[ei+1]-is[ei])
-      dERROR(PETSC_ERR_PLIB,"Different number of interior and expanded nodes with discontinuous element");
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Different number of interior and expanded nodes with discontinuous element");
     for (dInt i=xs[ei],j=is[ei]; i<xs[i+1]; i++,j++) {
       err = MatSetValue(matE,i,j,1.0,INSERT_VALUES);dCHK(err);
       if (matEp != matE) {
@@ -368,7 +368,7 @@ static dErr dJacobiGetEFS_Modal(dJacobi jac,dInt n,const dEntTopology topo[],con
           newefs->ops = *modal->efsOpsHex;
           break;
         default:
-          dERROR(1,"no basis available for given topology");
+          dERROR(PETSC_COMM_SELF,1,"no basis available for given topology");
       }
       kh_val(modal->efs,kiter) = newefs;
     }

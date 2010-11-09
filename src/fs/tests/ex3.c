@@ -65,7 +65,7 @@ int main(int argc,char *argv[])
     {
       dInt used;
       err = dMeshGetEnts(mesh,domain,dTYPE_ALL,dTOPO_ALL,ents,n,&used);dCHK(err);
-      if (used != n) dERROR(1,"wrong number of entities");
+      if (used != n) dERROR(PETSC_COMM_SELF,1,"wrong number of entities");
     }
     err = dMeshGetTopo(mesh,n,ents,topo);dCHK(err);
     for (i=0; i<n; i++) {
@@ -74,7 +74,7 @@ int main(int argc,char *argv[])
         case dTOPO_LINE:  deg[3*i] = 5; deg[3*i+1] = deg[3*i+2] = 1; break;
         case dTOPO_QUAD:  deg[3*i] = deg[3*i+1] = 6; deg[3*i+2] = 1; break;
         case dTOPO_HEX:   deg[3*i] = deg[3*i+1] = deg[3*i+2] = 7; break;
-        default: dERROR(1,"Topology not supported");
+        default: dERROR(PETSC_COMM_SELF,1,"Topology not supported");
       }
       CHKMEMQ;
     }

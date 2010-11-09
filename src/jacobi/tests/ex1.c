@@ -28,7 +28,7 @@ static dErr exact_0(dInt dim,const dReal x[],dScalar f[])
       f[2] = sinh(x[0]-a) * tanh(x[1]-b) * cosh(x[2]-c);
       break;
     default:
-      dERROR(1,"dimension %d not in range",dim);
+      dERROR(PETSC_COMM_SELF,1,"dimension %d not in range",dim);
   }
   dFunctionReturn(0);
 }
@@ -82,7 +82,7 @@ static dErr exact_1(dInt D,const dReal x[],dScalar f[])
       f[1] = x[1];
       f[2] = x[2];
       break;
-    default: dERROR(1,"not implemented");
+    default: dERROR(PETSC_COMM_SELF,1,"not implemented");
   }
   dFunctionReturn(0);
 }
@@ -103,7 +103,7 @@ static dErr dexact_1(dInt D,const dReal x[],dScalar f[])
       f[7] = 0;
       f[8] = 1;
       break;
-    default: dERROR(1,"not implemented");
+    default: dERROR(PETSC_COMM_SELF,1,"not implemented");
   }
   dFunctionReturn(0);
 }
@@ -147,7 +147,7 @@ static dErr checkInterp(dInt N,dEFS efs[],Vec u)
             dInt vsize;
             err = VecGetLocalSize(u,&vsize);dCHK(err);
             if (vsize < ind + dim)
-              dERROR(1,"Will overwrite Vec size %d: at %d;%d,%d,%d ind=%d D=%d\n",vsize,i,j,k,l,ind,dim);
+              dERROR(PETSC_COMM_SELF,1,"Will overwrite Vec size %d: at %d;%d,%d,%d ind=%d D=%d\n",vsize,i,j,k,l,ind,dim);
           }
           err = exact.function(dim,y,&f[ind]);dCHK(err);
           ind += dim;
@@ -181,7 +181,7 @@ static dErr checkInterp(dInt N,dEFS efs[],Vec u)
       case 1: Q[1] = 1; Q[2] = 1; break;
       case 2: Q[2] = 1; break;
       case 3: break;
-      default: dERROR(1,"dim %d out of range",dim);
+      default: dERROR(PETSC_COMM_SELF,1,"dim %d out of range",dim);
     }
     qind = 0; z = dz = 0.0;
     for (dInt j=0; j<Q[0]; j++) {
@@ -216,7 +216,7 @@ static dErr checkInterp(dInt N,dEFS efs[],Vec u)
     }
     ind += dim*size;
   }
-  if (z > 1e-10 || dz > 1e-8) dERROR(1,"Residuals unacceptably large.");
+  if (z > 1e-10 || dz > 1e-8) dERROR(PETSC_COMM_SELF,1,"Residuals unacceptably large.");
   err = VecRestoreArray(u,&f);dCHK(err);
   err = dFree2(g,dg);dCHK(err);
   dFunctionReturn(0);
@@ -337,7 +337,7 @@ int main(int argc,char *argv[])
       exact.function = exact_1;
       exact.deriv = dexact_1;
       break;
-    default: dERROR(1,"exact solution %d not implemented",ex);
+    default: dERROR(PETSC_COMM_SELF,1,"exact solution %d not implemented",ex);
   }
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);

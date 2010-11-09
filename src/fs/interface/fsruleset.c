@@ -130,8 +130,8 @@ dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cji
       next->dof = dof;
       next->next = NULL;
     }
-    if (next->dof != dof) dERROR(PETSC_ERR_SUP,"changing size of requested link");
-    if (next->checkedout) dERROR(PETSC_ERR_SUP,"already checked out");
+    if (next->dof != dof) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"changing size of requested link");
+    if (next->checkedout) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"already checked out");
     next->checkedout = dTRUE;
     u  = va_arg(ap,dScalar**);
     v  = va_arg(ap,dScalar**);

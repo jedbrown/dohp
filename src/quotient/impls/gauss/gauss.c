@@ -34,7 +34,7 @@ static dErr dQuotientSetUp_Gauss(dQuotient quot)
   dFunctionBegin;
   PetscValidHeaderSpecific(quot,dQUOTIENT_CLASSID,1);
   nelems = quot->nelems;
-  dERROR(1,"This is broken");
+  dERROR(PETSC_COMM_SELF,1,"This is broken");
   //err = PetscMalloc2(nelems,EQuad_Hex,&quot->quad,nelems,EMap_Affine3,&quot->emap);dCHK(err);
   dFunctionReturn(0);
 }
@@ -49,7 +49,7 @@ static dErr dQuotientUpdate_Gauss(dQuotient q)
   if (q->setdegreefunc) {
     err = (*q->setdegreefunc)(q,q->setdegreectx,q->nelems,newdegree);dCHK(err);
   } else {
-    dERROR(1,"SetDegreeFunc not set");
+    dERROR(PETSC_COMM_SELF,1,"SetDegreeFunc not set");
   }
   for (i=0; i<q->nelems; i++) {
     //err = DohpGeomCompute

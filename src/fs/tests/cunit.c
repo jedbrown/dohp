@@ -104,7 +104,7 @@ static dErr CUCreateHexMesh(CU cu)
       *ctx = tmpctx;
       err = PFSet(pf,DeformApply_Affine,0,0,DeformFree1,ctx);dCHK(err);
     } break;
-    default: dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Deformation number %D not recognized",(PetscInt)cu->deform_type);
+    default: dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Deformation number %D not recognized",(PetscInt)cu->deform_type);
   }
   err = PFApply(pf,vtxlen/3,vtx_base,vtx_mapped);dCHK(err);
 
@@ -116,9 +116,9 @@ static dErr CUCreateHexMesh(CU cu)
   iMesh_createEntArr(mi,iMesh_HEXAHEDRON,work,ALEN(rconn),MLREF(r),MLREF(stat),&ierr);dICHK(mi,ierr);
   {                             /* Check to see if any orientations changed */
     iMesh_getEntArrAdj(mi,r.v,r.s,iMesh_POINT,MLREF(tv),MLREF(off),&ierr);dICHK(mi,ierr);
-    if (tv.s != v.s + 4) dERROR(1,"wrong number of vertices returned"); /* interface verts counted twice */
+    if (tv.s != v.s + 4) dERROR(PETSC_COMM_SELF,1,"wrong number of vertices returned"); /* interface verts counted twice */
     for (int i=0; i<tv.s; i++) {
-      if (v.v[rconn[i]] != tv.v[i]) dERROR(1,"unexpected vertex ordering");
+      if (v.v[rconn[i]] != tv.v[i]) dERROR(PETSC_COMM_SELF,1,"unexpected vertex ordering");
     }
     MeshListFree(tv);
     MeshListFree(off);
@@ -218,11 +218,11 @@ static dErr VecBlockCompare(Vec X,Vec Y,dViewer viewer)
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,3);
   err = VecGetLocalSize(X,&m);dCHK(err);
   err = VecGetLocalSize(Y,&n);dCHK(err);
-  if (m != n) dERROR(PETSC_ERR_ARG_INCOMP,"Size of X %D not compatible with Y %D",m,n);
+  if (m != n) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Size of X %D not compatible with Y %D",m,n);
   err = VecGetBlockSize(X,&bs);dCHK(err);
-  if (bs != 3) dERROR(PETSC_ERR_SUP,"X block size %D, but only implemented for bs=3",bs);
+  if (bs != 3) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"X block size %D, but only implemented for bs=3",bs);
   err = VecGetBlockSize(Y,&bs);dCHK(err);
-  if (bs != 3) dERROR(PETSC_ERR_SUP,"Y block size %D, but only implemented for bs=3",bs);
+  if (bs != 3) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Y block size %D, but only implemented for bs=3",bs);
 
   err = VecGetArrayRead(X,&x);dCHK(err);
   err = VecGetArrayRead(Y,&y);dCHK(err);
@@ -291,7 +291,7 @@ static dErr CUTest(CU cu,dViewer viewer)
   err = dFSGetGeometryVectorExpanded(cu->fs,&coords);dCHK(err);
   err = VecGetSize(coords,&N);dCHK(err);
   err = VecGetBlockSize(coords,&bs);dCHK(err);
-  if (N%3 || bs !=3) dERROR(PETSC_ERR_PLIB,"Vector size unexpected");
+  if (N%3 || bs !=3) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Vector size unexpected");
   if (cu->cexp_view) {
     err = PetscViewerASCIIPrintf(viewer,"Expanded coordinate vector (3 dofs per expanded node, %D nodes; -cexp_view)\n",N/3);dCHK(err);
     err = VecBlockView(coords,viewer);dCHK(err);

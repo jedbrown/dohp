@@ -23,7 +23,7 @@ extern const char *const iBase_TagValueTypeName[];
       dErr _l_ret = err;                                                \
       char _l_desc[512] = "Description not available";                  \
       iMesh_getDescription(mesh,_l_desc,&err,sizeof(_l_desc));          \
-      dERROR(1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+      dERROR(PETSC_COMM_SELF,1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
 #define dIGCHK(geom,err) do {                                           \
@@ -31,13 +31,13 @@ extern const char *const iBase_TagValueTypeName[];
       dErr _l_ret = err;                                                \
       char _l_desc[512] = "Description not available";                  \
       iGeom_getDescription(geom,_l_desc,&err,sizeof(_l_desc));          \
-      dERROR(1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+      dERROR(PETSC_COMM_SELF,1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
 
 #define dIRCHK(assoc,err)                                               \
   if (PetscUnlikely(err))                                               \
-    dERROR(1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description)
+    dERROR(PETSC_COMM_SELF,1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description)
 
 
 typedef struct {

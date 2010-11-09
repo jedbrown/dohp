@@ -33,7 +33,7 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
   err = dJacobiGetType(jac,&jtype);dCHK(err);
   if (!strcmp(jtype,dJACOBI_TENSOR)) type = TENSOR;
   else if (!strcmp(jtype,dJACOBI_MODAL)) type = MODAL;
-  else dERROR(PETSC_ERR_SUP,"Unexpected Jacobi type '%s'",jtype);
+  else dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Unexpected Jacobi type '%s'",jtype);
 
   err = PetscOptionsGetInt(NULL,"-rule_degree",&rp,NULL);dCHK(err);
   for (dInt i=0; i<4; i++) {

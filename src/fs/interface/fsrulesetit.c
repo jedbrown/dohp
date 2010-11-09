@@ -129,7 +129,7 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
     err = VecGetArray(p->Xexp,&p->x);dCHK(err);
     err = VecGetArray(p->Yexp,&p->y);dCHK(err);
     if (!p->efs) {err = dFSGetEFS(p->fs,it->ruleset,&p->nefs,&p->efs);dCHK(err);}
-    if (p->nefs != it->npatches) dERROR(PETSC_ERR_PLIB,"Got an invalid EFS list");
+    if (p->nefs != it->npatches) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Got an invalid EFS list");
     err = dRulesetIteratorLinkCreatePatchSpace_Private(p,it->maxQ);dCHK(err);
   }
   va_end(ap);
@@ -198,7 +198,7 @@ dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar 
     if (ex)  *ex = &p->x[p->off];
     if (ey)  *ey = &p->y[p->off];
   }
-  if (p) dERROR(PETSC_ERR_PLIB,"dRulesetIterator claims to have nlinks %D but linked list has more",it->nlinks);
+  if (p) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"dRulesetIterator claims to have nlinks %D but linked list has more",it->nlinks);
   va_end(ap);
   dFunctionReturn(0);
 }

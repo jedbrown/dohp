@@ -138,7 +138,7 @@ dErr dQuadratureSetType(dQuadrature quad,dQuadratureType type)
   err = PetscTypeCompare((PetscObject)quad,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   err = PetscFListFind(dQuadratureList,((PetscObject)quad)->comm,type,(void(**)(void))&r);dCHK(err);
-  if (!r) dERROR(1,"Unable to find requested dQuadrature type %s",type);
+  if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dQuadrature type %s",type);
   if (quad->ops->Destroy) { err = (*quad->ops->Destroy)(quad);dCHK(err); }
   err = PetscMemzero(quad->ops,sizeof(quad->ops));dCHK(err);
   err = (*r)(quad);dCHK(err);

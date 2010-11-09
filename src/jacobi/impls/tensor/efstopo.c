@@ -49,8 +49,8 @@ _F(TensorMult_Quad);
 static dErr TensorMult_Hex(const TensorBasis b[],dInt D,const dInt P[],const dInt Q[],const dReal *A[],const dScalar f[],dScalar g[restrict],InsertMode imode)
 {
 #if defined(dUSE_DEBUG)
-  if (D > 3) dERROR(1,"D > 3 not supported");
-  if (!b[2]->multhex[D-1]) dERROR(1,"No multhex member, EFS was not set up correctly");
+  if (D > 3) dERROR(PETSC_COMM_SELF,1,"D > 3 not supported");
+  if (!b[2]->multhex[D-1]) dERROR(PETSC_COMM_SELF,1,"No multhex member, EFS was not set up correctly");
 #endif
   return b[2]->multhex[D-1](D,P,Q,A,f,g,imode);
 }
@@ -320,7 +320,7 @@ static dErr dEFSApply_Tensor_Line(dEFS efs,const dReal mapdata[],dInt D,const dS
     case dAPPLY_SYMGRAD:
     case dAPPLY_SYMGRAD_TRANSPOSE:
     default:
-      dERROR(1,"invalid dApplyMode %d specified",amode);
+      dERROR(PETSC_COMM_SELF,1,"invalid dApplyMode %d specified",amode);
   }
   dFunctionReturn(0);
 }
@@ -358,7 +358,7 @@ static dErr dEFSApply_Tensor_Quad(dEFS efs,const dReal mapdata[],dInt D,const dS
     } break;
     case dAPPLY_GRAD_TRANSPOSE:
     default:
-      dERROR(1,"invalid dApplyMode %d specified",amode);
+      dERROR(PETSC_COMM_SELF,1,"invalid dApplyMode %d specified",amode);
   }
   dFunctionReturn(0);
 }
@@ -405,7 +405,7 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
       switch (imode) {
         case INSERT_VALUES: err = dMemzero(out,P[0]*P[1]*P[2]*D*sizeof(out[0]));dCHK(err); break;
         case ADD_VALUES: break;
-        default: dERROR(1,"InsertMode %d invalid or unimplemented",imode);
+        default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid or unimplemented",imode);
       }
       A[0] = b[0]->derivTranspose; A[1] = b[1]->interpTranspose; A[2] = b[2]->interpTranspose;
       err = TensorMult_Hex(b,D,Q,P,A,df[0],out,ADD_VALUES);dCHK(err);
@@ -415,7 +415,7 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
       err = TensorMult_Hex(b,D,Q,P,A,df[2],out,ADD_VALUES);dCHK(err);
     } break;
     default:
-      dERROR(1,"invalid/unimplemented dApplyMode %d specified",amode);
+      dERROR(PETSC_COMM_SELF,1,"invalid/unimplemented dApplyMode %d specified",amode);
   }
   dFunctionReturn(0);
 }
@@ -461,7 +461,7 @@ static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],const dReal *
     case ADD_VALUES:
       break;
     default:
-      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+      dERROR(PETSC_COMM_SELF,1,"Requested InsertMode %d not supported for this operation.",imode);
   }
 
   for (l=0; l<Q[0]; l++) {
@@ -489,7 +489,7 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],const dReal *
     case ADD_VALUES:
       break;
     default:
-      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+      dERROR(PETSC_COMM_SELF,1,"Requested InsertMode %d not supported for this operation.",imode);
   }
 
   for (l=0; l<Q[0]; l++) {
@@ -538,7 +538,7 @@ static dErr TensorRuleNoMapping(dInt Q,dInt D,const dScalar in[restrict],dScalar
         }
       }
     } break;
-    default: dERROR(1,"InsertMode %d invalid/unimplemented",imode);
+    default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid/unimplemented",imode);
   }
   dFunctionReturn(0);
 }
@@ -583,7 +583,7 @@ static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,cons
         }
       }
     } break;
-    default: dERROR(1,"InsertMode %d invalid or not implemented",imode);
+    default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid or not implemented",imode);
   }
   dFunctionReturn(0);
 }
@@ -595,7 +595,7 @@ static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dI
   dScalar (*restrict v)[Q][D] = (dScalar(*)[Q][D])out;
 
   dFunctionBegin;
-  if (!jinv_flat) dERROR(1,"No Jinv, need a mapping");
+  if (!jinv_flat) dERROR(PETSC_COMM_SELF,1,"No Jinv, need a mapping");
   switch (imode) {
     case INSERT_VALUES: {
       for (dInt i=0; i<Q; i++) {
@@ -615,7 +615,7 @@ static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dI
         }
       }
     } break;
-    default: dERROR(1,"InsertMode %d invalid or not implemented",imode);
+    default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid or not implemented",imode);
   }
   dFunctionReturn(0);
 }
@@ -633,7 +633,7 @@ static dErr dRuleMappingApply_Tensor_Line(dRule rule,const dReal jinv[],dInt D,c
   dFunctionBegin;
   err = dRuleGetSize(rule,NULL,&Q);dCHK(err);
   if (jinv) {
-    dERROR(1,"Not implemented");
+    dERROR(PETSC_COMM_SELF,1,"Not implemented");
   } else {
     err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
   }
@@ -648,7 +648,7 @@ static dErr dRuleMappingApply_Tensor_Quad(dRule rule,const dReal jinv[],dInt D,c
   dFunctionBegin;
   err = dRuleGetSize(rule,NULL,&Q);dCHK(err);
   if (jinv) {
-    dERROR(1,"Not implemented");
+    dERROR(PETSC_COMM_SELF,1,"Not implemented");
   } else {
     err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
   }

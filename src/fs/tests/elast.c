@@ -161,7 +161,7 @@ static dErr ElastSetFromOptions(Elast elt)
       elt->exact.solution = ElastExact_1_Solution;
       elt->exact.forcing = ElastExact_1_Forcing;
       break;
-    default: dERROR(1,"Exact solution %d not implemented");
+    default: dERROR(PETSC_COMM_SELF,1,"Exact solution %d not implemented");
   }
 
   err = dMeshCreate(elt->comm,&mesh);dCHK(err);
@@ -388,7 +388,7 @@ static dErr ElastJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    if (three != 3) dERROR(PETSC_COMM_SELF,1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
         for (dInt k=0; k<P[2]-1; k++) {
@@ -529,7 +529,7 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
   {
     dInt nc;
     err = VecGetLocalSize(cvec,&nc);dCHK(err);
-    if (nc*bs != n*3) dERROR(1,"Coordinate vector has inconsistent size");
+    if (nc*bs != n*3) dERROR(PETSC_COMM_SELF,1,"Coordinate vector has inconsistent size");
   }
   err = VecGetArray(xc,&x);dCHK(err);
   err = VecGetArray(cvec,&coords);dCHK(err);

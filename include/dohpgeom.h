@@ -47,7 +47,7 @@ static inline bool dGeomQuadParallel(const dReal a[],const dReal b[]) /* return 
 static inline dErr dGeomConvexComb_2_4(dReal x,dReal y,const dReal (*v)[3],const dInt p[],dReal f[])
 {
   dInt i;
-  if (!(-1 <= x && x <= 1 && -1 <= y && y <= 1)) dERROR(1,"Point out of bounds");
+  if (!(-1 <= x && x <= 1 && -1 <= y && y <= 1)) dERROR(PETSC_COMM_SELF,1,"Point out of bounds");
   for (i=0; i<3; i++) {
     f[i] = 0.25*((1-x)*((1-y)*v[p[0]][i] + (1+y)*v[p[3]][i]) + (1+x)*((1-y)*v[p[1]][i] + (1+y)*v[p[2]][i]));
   }
@@ -115,13 +115,13 @@ static inline dErr dGeomOrientFindPerm_HexQuad(const dMeshEH rv[],const dMeshEH 
     if (fv[perm[i][0]] == rv[dMeshConnectHexQuad[fnum][0]] && fv[perm[i][1]] == rv[dMeshConnectHexQuad[fnum][1]]) {
       /* we have found a match, as an extra check we can check that the other vertices match */
       if (fv[perm[i][2]] != rv[dMeshConnectHexQuad[fnum][2]] || fv[perm[i][3]] != rv[dMeshConnectHexQuad[fnum][3]]) {
-        dERROR(1,"Faces cannot be matched, but part matches, perhaps adjacencies are corrupt");
+        dERROR(PETSC_COMM_SELF,1,"Faces cannot be matched, but part matches, perhaps adjacencies are corrupt");
       }
       *orient = permorient[i];
       dFunctionReturn(0);
     }
   }
-  dERROR(1,"Face (Quad) cannot be matched to region (Hex)");
+  dERROR(PETSC_COMM_SELF,1,"Face (Quad) cannot be matched to region (Hex)");
   dFunctionReturn(0);
 }
 
@@ -147,7 +147,7 @@ static inline dErr dGeomOrientFindPerm_QuadLine(const dMeshEH fv[],const dMeshEH
       dFunctionReturn(0);
     }
   }
-  dERROR(1,"Edges cannot be matched.");
+  dERROR(PETSC_COMM_SELF,1,"Edges cannot be matched.");
   dFunctionReturn(0);
 }
 

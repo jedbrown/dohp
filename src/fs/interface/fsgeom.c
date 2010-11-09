@@ -141,7 +141,7 @@ static dErr dFSCreateGeometryFromMesh_Private(dFS fs)
   err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
   err = dMeshGetAdjVertexCoords(mesh,nents,ents,&offset,&rcoords);dCHK(err);
   err = VecGetLocalSize(Expanded,&n);dCHK(err);
-  if (n != 3*offset[nents]) dERROR(PETSC_ERR_PLIB,"Size of Expanded %D does not match offset %D",n,3*offset[nents]);
+  if (n != 3*offset[nents]) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Size of Expanded %D does not match offset %D",n,3*offset[nents]);
   err = VecGetArray(Expanded,&x);dCHK(err);
   for (dInt e=0,k=0; e<nents; e++) {
     switch (topo[e]) {
@@ -151,7 +151,7 @@ static dErr dFSCreateGeometryFromMesh_Private(dFS fs)
           for (dInt j=0; j<3; j++) x[k++] = rcoords[(offset[e]+connidx[i])*3+j];
         }
         break;
-      default: dERROR(PETSC_ERR_SUP,"No support for topology %s",dMeshEntTopologyName(topo[e]));
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for topology %s",dMeshEntTopologyName(topo[e]));
     }
   }
   err = VecRestoreArray(Expanded,&x);dCHK(err);
@@ -238,7 +238,7 @@ dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts,dInt *nconn)
   dValidIntPointer(nelems,2);
   dValidIntPointer(nverts,3);
   dValidIntPointer(nconn,4);
-  if (!fs->ops->getsubelementmeshsize) dERROR(1,"not implemented");
+  if (!fs->ops->getsubelementmeshsize) dERROR(PETSC_COMM_SELF,1,"not implemented");
   err = (*fs->ops->getsubelementmeshsize)(fs,nelems,nverts,nconn);dCHK(err);
   dFunctionReturn(0);
 }
@@ -256,7 +256,7 @@ dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dEntTopology topo[],dIn
   dValidIntPointer(topo,4);
   dValidIntPointer(off,5);
   dValidIntPointer(ind,6);
-  if (!fs->ops->getsubelementmesh) dERROR(1,"not implemented");
+  if (!fs->ops->getsubelementmesh) dERROR(PETSC_COMM_SELF,1,"not implemented");
   err = (*fs->ops->getsubelementmesh)(fs,nelems,nverts,topo,off,ind);dCHK(err);
   dFunctionReturn(0);
 }
@@ -272,12 +272,12 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  if (bs < 1) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Block size must be at least 1, was %D",bs);
+  if (bs < 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Block size must be at least 1, was %D",bs);
   dValidPointer(infs,4);
   *infs = NULL;
 
-  if (!fs->spacebuilt) dERROR(PETSC_ERR_ARG_WRONGSTATE,"Cannot redimension a space that has not been built");
-  if (!fs->mesh || !fs->set.active) dERROR(PETSC_ERR_PLIB,"Space has been built, but does not have a mesh (should not happen)");
+  if (!fs->spacebuilt) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Cannot redimension a space that has not been built");
+  if (!fs->mesh || !fs->set.active) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Space has been built, but does not have a mesh (should not happen)");
 
   err = dFSCreate(((dObject)fs)->comm,&rfs);dCHK(err);
   err = dFSSetBlockSize(rfs,bs);dCHK(err);
@@ -286,7 +286,7 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
   err = dFSSetDegree(rfs,jac,fs->tag.degree);dCHK(err);
   err = dFSSetRuleTag(rfs,jac,fs->tag.rule);dCHK(err); /* TODO: remove */
   switch (mode) {
-  case dFS_CLOSURE: dERROR(PETSC_ERR_SUP,"Probably not what you want"); /* because ordering would be different, but there is nothing to do for this choice. */
+  case dFS_CLOSURE: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Probably not what you want"); /* because ordering would be different, but there is nothing to do for this choice. */
     break;
   case dFS_INTERIOR: {
     dMeshESH *bsets;
@@ -301,7 +301,7 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
     }
     err = dFree(bsets);dCHK(err);
   } break;
-  default: dERROR(PETSC_ERR_SUP,"No support for dFSClosureMode %s",dFSClosureModes[mode]);
+  default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for dFSClosureMode %s",dFSClosureModes[mode]);
   }
   err = dFSSetType(rfs,((dObject)fs)->type_name);dCHK(err);
   err = dMemcpy(rfs->orderingtype,fs->orderingtype,sizeof(fs->orderingtype));

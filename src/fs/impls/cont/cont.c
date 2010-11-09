@@ -29,7 +29,7 @@ static dErr dFSLoadIntoFS_Cont(dViewer viewer,const char fieldname[],dFS fs)
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
   if (isdhm) {
     err = dFSLoadIntoFS_Cont_DHM(viewer,fieldname,fs);dCHK(err);
-  } else dERROR(PETSC_ERR_SUP,"No support for viewer type \"%s\"",((PetscObject)viewer)->type_name);
+  } else dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for viewer type \"%s\"",((PetscObject)viewer)->type_name);
   dFunctionReturn(0);
 }
 
@@ -122,7 +122,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   err = dMeshGetEnts(mesh,explicitSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err); /* ents_s = number of explicit ents */
   err = dMeshGetEnts(mesh,dirichletSet,dTYPE_ALL,dTOPO_ALL,ents+ents_s,ents_a-ents_s,&tmp);dCHK(err);
   err = dMeshGetEnts(mesh,ghostSet,dTYPE_ALL,dTOPO_ALL,ents+ents_s+tmp,ents_a-ents_s-tmp,&tmp);dCHK(err);
-  if (tmp != 0) dERROR(PETSC_ERR_LIB,"iMesh returned inconsistent count");
+  if (tmp != 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"iMesh returned inconsistent count");
 
   /* Set default data on all ents, entities retaining this value will not be reordered */
   for (dInt i=0; i<ents_a; i++) intdata[i] = -1;
@@ -130,7 +130,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 
   /* Get adjacencies of owned explicitly represented entities (not ghosts or dirichlet) */
   iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_ALL,&adj,&adj_a,&adj_s,&adjoff,&adjoff_a,&adjoff_s,&ierr);dICHK(mi,ierr);
-  if (adj_s < ents_s) dERROR(1,"peculiar mesh");
+  if (adj_s < ents_s) dERROR(PETSC_COMM_SELF,1,"peculiar mesh");
   ordering_a = adj_s;
   err = dMallocA2(ordering_a,&ordering,ents_s,&nnz);dCHK(err); /* enough space for index on all adjacencies */
   for (dInt i=0; i<ents_s; i++) intdata[i] = i; /* Define a reference ordering on primary entities */
@@ -159,7 +159,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   err = MatGetOrdering(madj,orderingtype,&rperm,&cperm);dCHK(err);
   err = MatDestroy(madj);dCHK(err);
   err = ISEqual(rperm,cperm,&flg);dCHK(err);
-  if (!flg) dERROR(1,"Cannot use ordering");
+  if (!flg) dERROR(PETSC_COMM_SELF,1,"Cannot use ordering");
   err = ISGetIndices(rperm,&newindices);dCHK(err);
 
   /* Reuse \a adj as a buffer to apply permutation */
@@ -329,7 +329,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     err = dMeshTagSSetData(mesh,fs->tag.orderedsub,&fs->set.ordered,1,&rank,1,dDATA_INT);dCHK(err);
   }
   err = dMeshGetEnts(fs->mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-  if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
+  if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
 
   /* Get number of nodes for all entities, and parallel status */
   err = dMallocA4(ma.nents,&deg,ma.nents,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
@@ -350,7 +350,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
       case 0: n          += inodes[i]; break;
       case 1: ndirichlet += inodes[i]; break;
       case 2: ngh        += inodes[i]; break;
-      default: dERROR(PETSC_ERR_PLIB,"Should not be possible");
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Should not be possible");
     }
   }
   err = MPI_Scan(&n,&rstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
@@ -402,7 +402,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   /* Retrieve ghost offsets, to create localupdate. */
   err = dMeshTagGetData(mesh,fs->tag.gcoffset,ghents,ghents_s,intdata,ghents_s,dDATA_INT);dCHK(err);
   for (dInt i=0; i<ghents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
-    if (intdata[i] < 0) dERROR(1,"Tag exchange did not work");
+    if (intdata[i] < 0) dERROR(PETSC_COMM_SELF,1,"Tag exchange did not work");
   }
 
   /* Set ghost indices of every node using \a ghidx, create global vector. */
@@ -411,7 +411,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     for (dInt i=0; i<ghents_s; i++) {
       for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
     }
-    if (gh != fs->ngh) dERROR(1,"Ghost count inconsistent");
+    if (gh != fs->ngh) dERROR(PETSC_COMM_SELF,1,"Ghost count inconsistent");
     err = VecCreateDohp(((dObject)fs)->comm,bs,n,nc,ngh,ghidx,&fs->gvec);dCHK(err);
   }
 
@@ -502,13 +502,13 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   err = dMemzero(subind,sizeof(*subind)*nsubconn);dCHK(err);
 
   err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnodes,&ai,&aj,&done);dCHK(err);
-  if (!done) dERROR(PETSC_ERR_PLIB,"Element assembly matrix not gotten");
+  if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not gotten");
   /*
   In the following, we have to get a bit more than we actually need (topology only).  We'll change the interface if it
   becomes a performance issue.
   */
 #if 1
-  dERROR(1,"In flux");
+  dERROR(PETSC_COMM_SELF,1,"In flux");
 #else
   err = dFSGetElements(fs,&n,&off,0,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err); /* space for nodal coordinates (which we won't use) */
@@ -528,8 +528,8 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
           for (dInt l=0; l<8; l++,subc++) {
             dASSERT(0 <= rowcol[l] && rowcol[l] < nnodes);
             subind[subc] = aj[ai[rowcol[l]]];
-            if (ai[rowcol[l]+1]-ai[rowcol[l]] != 1) dERROR(PETSC_ERR_SUP,"Element assembly matrix is not boolean");
-            if (subc >= nsubconn) dERROR(1,"Insufficient preallocation for connectivity");
+            if (ai[rowcol[l]+1]-ai[rowcol[l]] != 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Element assembly matrix is not boolean");
+            if (subc >= nsubconn) dERROR(PETSC_COMM_SELF,1,"Insufficient preallocation for connectivity");
           }
         }
       }
@@ -542,7 +542,7 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   err = dFSRestoreWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err);
 #endif
   err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&n,&ai,&aj,&done);dCHK(err);
-  if (!done) dERROR(PETSC_ERR_PLIB,"Element assembly matrix not restored");
+  if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not restored");
   dFunctionReturn(0);
 }
 

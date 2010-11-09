@@ -216,7 +216,7 @@ static dErr EllipSetFromOptions(Ellip elp)
       elp->exact.solution = EllipExact_3_Solution;
       elp->exact.forcing = EllipExact_3_Forcing;
       break;
-    default: dERROR(1,"Exact solution %d not implemented");
+    default: dERROR(PETSC_COMM_SELF,1,"Exact solution %d not implemented");
   }
 
   err = dMeshCreate(elp->comm,&mesh);dCHK(err);
@@ -473,7 +473,7 @@ static dErr EllipJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structur
     err = dEFSGetTensorNodes(&efs[e],NULL,NULL,NULL,NULL,tmscale,tlscale);dCHK(err);
 #endif
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    if (three != 3) dERROR(PETSC_COMM_SELF,1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
         for (dInt k=0; k<P[2]-1; k++) {
@@ -592,7 +592,7 @@ static dErr EllipJacobian_new(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructu
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
     err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    if (three != 3) dERROR(PETSC_COMM_SELF,1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
         for (dInt k=0; k<P[2]-1; k++) {
@@ -763,8 +763,8 @@ static dErr PCSetUp_Ellip(PC pc)
 
   dFunctionBegin;
   err = PCShellGetContext(pc,(void**)&pce);dCHK(err);
-  if (!pce->Mdiag) dERROR(1,"Mdiag has not been set");
-  if (!pce->Mq1) dERROR(1,"Mq1 has not been set");
+  if (!pce->Mdiag) dERROR(PETSC_COMM_SELF,1,"Mdiag has not been set");
+  if (!pce->Mq1) dERROR(PETSC_COMM_SELF,1,"Mq1 has not been set");
   if (!pce->work0) {err = VecDuplicate(pce->Mdiag,&pce->work0);dCHK(err);}
   if (!pce->work1) {err = VecDuplicate(pce->Mdiag,&pce->work1);dCHK(err);}
   if (!pce->ksp) {

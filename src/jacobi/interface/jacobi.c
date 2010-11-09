@@ -51,7 +51,7 @@ dErr dJacobiSetType(dJacobi jac,const dJacobiType type)
   err = PetscTypeCompare((PetscObject)jac,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   err = PetscFListFind(dJacobiList,((PetscObject)jac)->comm,type,(void(**)(void))&r);dCHK(err);
-  if (!r) dERROR(1,"Unable to find requested dJacobi type %s",type);
+  if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dJacobi type %s",type);
   if (jac->ops->Destroy) { err = (*jac->ops->Destroy)(jac);dCHK(err); }
   err = PetscMemcpy(jac->ops,&_defaultOps,sizeof(_defaultOps));dCHK(err);
   jac->setupcalled = 0;
@@ -331,9 +331,9 @@ dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight)
         }
         break;
       default:
-        dERROR(PETSC_ERR_SUP,"dimension %d",dim);
+        dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"dimension %d",dim);
     }
-  } else dERROR(PETSC_ERR_SUP,"deficient rule");
+  } else dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"deficient rule");
   dFunctionReturn(0);
 }
 
@@ -383,7 +383,7 @@ dErr dRuleComputePhysical(dRule rule,const dScalar jac[],dScalar jinv[],dScalar 
     for (dInt i=0; i<n; i++) {
       dReal det;
       err = dGeomInvert3(jac+i*9,jinv+i*9,&det);dCHK(err);
-      if (det < 0.) dERROR(1,"Negative Jacobian at node %D");
+      if (det < 0.) dERROR(PETSC_COMM_SELF,1,"Negative Jacobian at node %D");
       jw[i] *= det;
     }
   } else {
@@ -480,7 +480,7 @@ dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScal
 
   dFunctionBegin;
   dValidPointer(efs,1);
-  if (dofs < 1) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"dofs %D, must be positive",dofs);
+  if (dofs < 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"dofs %D, must be positive",dofs);
   dValidScalarPointer(in,4);
   dValidScalarPointer(out,5);
   err = PetscLogEventBegin(dLOG_EFSApply,0,0,0,0);dCHK(err);
@@ -540,7 +540,7 @@ dErr dEFSGetExplicit(dEFS efs,const dReal jinv[],dInt *inQ,dInt *inP,const dReal
     *inP = P;
     *inbasis = newbasis;
     *inderiv = newderiv;
-  } else dERROR(PETSC_ERR_SUP,"this EFS is deficient");
+  } else dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"this EFS is deficient");
   dFunctionReturn(0);
 }
 

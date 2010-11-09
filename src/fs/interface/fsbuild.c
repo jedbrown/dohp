@@ -24,11 +24,11 @@ dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *ghidx,d
   err = VecGetArray(lf,&a);dCHK(err);
   /* \a a is a mask determining whether a value is represented in the global system (1) or not (-1) */
   for (i=0; i<n; i++) {
-    if (a[i*bs] != 1) dERROR(1,"should not happen");
+    if (a[i*bs] != 1) dERROR(PETSC_COMM_SELF,1,"should not happen");
     globals[i] = rstart+i;
   }
   for ( ; i<nc; i++) {
-    if (a[i*bs] != -1) dERROR(1,"should not happen");
+    if (a[i*bs] != -1) dERROR(PETSC_COMM_SELF,1,"should not happen");
     globals[i] = -(rstart + i);
   }
   for ( ; i<nc+ngh; i++) {

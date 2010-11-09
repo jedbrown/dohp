@@ -25,9 +25,9 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
   dErr        err;
 
   dFunctionBegin;
-  if (P <= 0) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"A TensorBasis must be at least first order, given %d",P);
-  //if (P > Q) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Trying to evaluate a basis on a rule with fewer nodes, this will make the mass matrix singular");
-  if (tnsr->family != dGAUSS_LOBATTO) dERROR(1,"GaussFamily %s not supported",dGaussFamilies[tnsr->family]);
+  if (P <= 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"A TensorBasis must be at least first order, given %d",P);
+  //if (P > Q) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Trying to evaluate a basis on a rule with fewer nodes, this will make the mass matrix singular");
+  if (tnsr->family != dGAUSS_LOBATTO) dERROR(PETSC_COMM_SELF,1,"GaussFamily %s not supported",dGaussFamilies[tnsr->family]);
   err = dNew(struct _TensorBasis,&b);dCHK(err);
   err = dMallocA6(P*Q,&b->interp,P*Q,&b->deriv,P*Q,&b->interpTranspose,P*Q,&b->derivTranspose,P,&b->node,P,&b->weight);dCHK(err);
   b->Q = Q;
@@ -71,7 +71,7 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
 
   matrices_computed:
   switch (P) {
-    case 1: dERROR(PETSC_ERR_SUP,"Zeroth order Tensor basis not available, use a Modal basis for P_0 elements");
+    case 1: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Zeroth order Tensor basis not available, use a Modal basis for P_0 elements");
 #define _C(p) case p: b->mscale = optimal_mscale_ ## p; b->lscale = optimal_lscale_ ## p; break
     _C(2);
     _C(3);
@@ -90,7 +90,7 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
     default:
       b->mscale = optimal_ones;
       b->lscale = optimal_ones;
-      dERROR(1,"optimal scaling not available for this order, this should just be a PetscInfo warning");
+      dERROR(PETSC_COMM_SELF,1,"optimal scaling not available for this order, this should just be a PetscInfo warning");
   }
   {
     b->multhex[0] = &TensorMult_Hex_nounroll;
@@ -180,7 +180,7 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
-  if (!ascii) dERROR(PETSC_ERR_SUP,"only ASCII");
+  if (!ascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Tensor based Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis database.\n");dCHK(err);
@@ -211,10 +211,10 @@ static dErr dJacobiPropagateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dPo
                                                dMinInt(dPolynomialOrder1D(order[aind],0),dPolynomialOrder1D(order[e],hexperm[i][orient[match][0]])),
                                                dMinInt(dPolynomialOrder1D(order[aind],1),dPolynomialOrder1D(order[e],hexperm[i][orient[match][1]])),
                                                0);
-          if (a->topo[aind] != dTOPO_QUAD) dERROR(1,"corrupt adjacency");
+          if (a->topo[aind] != dTOPO_QUAD) dERROR(PETSC_COMM_SELF,1,"corrupt adjacency");
         }
         break;
-      default: dERROR(1,"Region topology %d not supported",a->topo[e]);dCHK(err);
+      default: dERROR(PETSC_COMM_SELF,1,"Region topology %d not supported",a->topo[e]);dCHK(err);
     }
   }
   for (e=a->toff[dTYPE_FACE]; e<a->toff[dTYPE_FACE+1]; e++) {
@@ -226,17 +226,17 @@ static dErr dJacobiPropagateDown_Tensor(dUNUSED dJacobi jac,dMeshAdjacency a,dPo
                                                dMinInt(dPolynomialOrder1D(order[aind],0),dPolynomialOrder1D(order[e],quadperm[i])),
                                                0,
                                                0);
-          if (a->topo[aind] != dTOPO_LINE) dERROR(1,"corrupt adjacency");
+          if (a->topo[aind] != dTOPO_LINE) dERROR(PETSC_COMM_SELF,1,"corrupt adjacency");
         }
         break;
-      default: dERROR(1,"Face topology %d not supported",a->topo[e]);dCHK(err);
+      default: dERROR(PETSC_COMM_SELF,1,"Face topology %d not supported",a->topo[e]);dCHK(err);
     }
   }
   for (e=a->toff[dTYPE_EDGE]; e<a->toff[dTYPE_EDGE+1]; e++) {
     for (i=0; i<2; i++) {
       ai = a->adjoff[e]+i; aind = a->adjind[ai];
       order[aind] = dPolynomialOrderCreate(0,0,0,0); /* Just one node at points */
-      if (a->topo[aind] != dTOPO_POINT) dERROR(1,"corrupt adjacency");
+      if (a->topo[aind] != dTOPO_POINT) dERROR(PETSC_COMM_SELF,1,"corrupt adjacency");
     }
   }
   dFunctionReturn(0);
@@ -270,7 +270,7 @@ static dErr dJacobiGetNodeCount_Tensor(dUNUSED dJacobi jac,dInt count,const dEnt
         if (xnode) xnode[i] = 1;
         break;
       default:
-        dERROR(1,"Topology %d not supported",top[i]);
+        dERROR(PETSC_COMM_SELF,1,"Topology %d not supported",top[i]);
     }
   }
   dFunctionReturn(0);
@@ -291,13 +291,13 @@ static dErr dJacobiGetConstraintCount_Tensor(dUNUSED dJacobi jac,dInt nx,const d
           nnz[j] = pnnz[j] = 1;
         }
         break;
-      default: dERROR(1,"not implemented for expanded topology %d",ma->topo[i]);
+      default: dERROR(PETSC_COMM_SELF,1,"not implemented for expanded topology %d",ma->topo[i]);
     }
   }
   dFunctionReturn(0);
 }
 
-#define ASSERT(cond) if (!(cond)) dERROR(1,"assert " #cond "failed")
+#define ASSERT(cond) if (!(cond)) dERROR(PETSC_COMM_SELF,1,"assert " #cond "failed")
 
 static inline dInt same3(dInt a,dInt b,dInt c)
 {
@@ -335,7 +335,7 @@ static inline dErr dGeomPermQuadIndex(dInt perm,const dInt dim[],const dInt ij[2
     case 5: *ind = (M-1-i)*N + j; break;
     case 6: *ind = (M-1-i) + (N-1-j)*M; break;
     case 7: *ind = i*N + (N-1-j); break;
-    default: dERROR(1,"Invalid permutation");
+    default: dERROR(PETSC_COMM_SELF,1,"Invalid permutation");
   }
   dFunctionReturn(0);
 }
@@ -381,10 +381,10 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
           const dInt ef0 = fe[i][0].f,ef1 = fe[i][1].f;
           e[i] = aI[aO[f[ef0]] + iperm[fP[ef0]][fe[i][0].e]];
           if (e[i] != aI[aO[f[ef1]] + iperm[fP[ef1]][fe[i][1].e]])
-            dERROR(1,"faces don't agree about edge");
+            dERROR(PETSC_COMM_SELF,1,"faces don't agree about edge");
           eP[i] = aP[aO[f[ef0]] + iperm[fP[ef0]][fe[i][0].e]] ^ (((fP[ef0]>>2) & 1) ^ fe[i][0].o);
           if (eP[i] != (aP[aO[f[ef1]] + iperm[fP[ef1]][fe[i][1].e]] ^ (((fP[ef1]>>2) & 1) ^ fe[i][1].o)))
-            dERROR(1,"orientations do not agree");
+            dERROR(PETSC_COMM_SELF,1,"orientations do not agree");
         }
         for (i=0; i<8; i++) { /* Extract vertices */
           const dInt edge_flip[2][2] = {{0,1},{1,0}};
@@ -394,8 +394,8 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
 #define E(j) ev_common[i][j].e
 #define EV(j) aI[aO[e[E(j)]] + edge_flip[eP[E(j)]][ev_common[i][j].v]]
           v[i] = EV(0);
-          if (v[i] != EV(1)) dERROR(1,"first two edges don't agree about vertex");
-          if (v[i] != EV(2)) dERROR(1,"first and third edges don't agree about vertex");
+          if (v[i] != EV(1)) dERROR(PETSC_COMM_SELF,1,"first two edges don't agree about vertex");
+          if (v[i] != EV(2)) dERROR(PETSC_COMM_SELF,1,"first and third edges don't agree about vertex");
 #undef E
 #undef EV
         }
@@ -410,7 +410,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             {{1,0,d2-1},0,1,d0-1}, {{d0-1,1,d2-1},1,1,d1-1}, {{d0-2,d1-1,d2-1},0,-1,0}, {{0,d1-2,d2-1},1,-1,0},
             {{0,0,1},2,1,d2-1}, {{d0-1,0,1},2,1,d2-1}, {{d0-1,d1-1,1},2,1,d2-1}, {{0,d1-1,1},2,1,d2-1}};
           const dInt *start = E[i].start,incd = E[i].incd,inci = E[i].inci,end = E[i].end;
-          if (dPolynomialOrder1D(deg[e[i]],0) != dPolynomialOrder1D(deg[ei],E[i].incd)) dERROR(1,"degree does not agree, p-nonconforming");
+          if (dPolynomialOrder1D(deg[e[i]],0) != dPolynomialOrder1D(deg[ei],E[i].incd)) dERROR(PETSC_COMM_SELF,1,"degree does not agree, p-nonconforming");
           for (j=start[incd]; j!=end; j += inci) {
             nrow = 0; ncol = 0;
             irow[nrow++] = xs[elem] + (start[0]*d1+start[1])*d2+start[2] + (j-start[incd])*scan[incd];
@@ -456,7 +456,7 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
           }
         }
         break;
-      default: dERROR(1,"not implemented for expanded topology %d",ma->topo[ei]);
+      default: dERROR(PETSC_COMM_SELF,1,"not implemented for expanded topology %d",ma->topo[ei]);
     }
   }
   dFunctionReturn(0);
@@ -470,8 +470,8 @@ static dErr TensorGetBasis(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord[],
   khiter_t k;
 
   dFunctionBegin;
-  if (rsize <= 0) dERROR(1,"Rule size %d must be positive",rsize);
-  if (bsize <= 0) dERROR(1,"Basis size %d must be positive",bsize);
+  if (rsize <= 0) dERROR(PETSC_COMM_SELF,1,"Rule size %d must be positive",rsize);
+  if (bsize <= 0) dERROR(PETSC_COMM_SELF,1,"Basis size %d must be positive",bsize);
   *out = 0;
   key = ((int)tnsr->family << 24) | (rsize << 16) | bsize;
   k = kh_put_tensor(tnsr->tensor,key,&new);
@@ -511,25 +511,25 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
       newefs->rule = rules[i];
       switch (topo[i]) {
         case dTOPO_LINE:
-          if (rdim != 1) dERROR(1,"Incompatible Rule dim %d, expected 1",rdim);
+          if (rdim != 1) dERROR(PETSC_COMM_SELF,1,"Incompatible Rule dim %d, expected 1",rdim);
           newefs->ops = *tnsr->efsOpsLine;
           err = TensorGetBasis(tnsr,rsize[0],rcoord[0],dPolynomialOrder1D(order[i],0),&newefs->basis[0]);dCHK(err);
           break;
         case dTOPO_QUAD:
-          if (rdim != 2) dERROR(1,"Incompatible Rule dim %d, expected 2",rdim);
+          if (rdim != 2) dERROR(PETSC_COMM_SELF,1,"Incompatible Rule dim %d, expected 2",rdim);
           newefs->ops = *tnsr->efsOpsQuad;
           err = TensorGetBasis(tnsr,rsize[0],rcoord[0],dPolynomialOrder1D(order[i],0),&newefs->basis[0]);dCHK(err);
           err = TensorGetBasis(tnsr,rsize[1],rcoord[1],dPolynomialOrder1D(order[i],1),&newefs->basis[1]);dCHK(err);
           break;
         case dTOPO_HEX:
-          if (rdim != 3) dERROR(1,"Incompatible Rule dim %d, expected 3",rdim);
+          if (rdim != 3) dERROR(PETSC_COMM_SELF,1,"Incompatible Rule dim %d, expected 3",rdim);
           newefs->ops = *tnsr->efsOpsHex;
           err = TensorGetBasis(tnsr,rsize[0],rcoord[0],dPolynomialOrder1D(order[i],0),&newefs->basis[0]);dCHK(err);
           err = TensorGetBasis(tnsr,rsize[1],rcoord[1],dPolynomialOrder1D(order[i],1),&newefs->basis[1]);dCHK(err);
           err = TensorGetBasis(tnsr,rsize[2],rcoord[2],dPolynomialOrder1D(order[i],2),&newefs->basis[2]);dCHK(err);
           break;
         default:
-          dERROR(PETSC_ERR_SUP,"no basis available for topology %s",dMeshEntTopologyName(topo[i]));
+          dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"no basis available for topology %s",dMeshEntTopologyName(topo[i]));
       }
       kh_val(tnsr->efs,kiter) = newefs;
     }

@@ -75,7 +75,7 @@ dErr dFSSetType(dFS fs,const dFSType type)
   err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   err = PetscFListFind(FSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
-  if (!r) dERROR(1,"Unable to find requested dFS type %s",type);
+  if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dFS type %s",type);
   if (fs->ops->impldestroy) { err = (*fs->ops->impldestroy)(fs);dCHK(err); }
   err = PetscMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof(defaultFSDMOps));dCHK(err);
   fs->spacebuilt = 0;

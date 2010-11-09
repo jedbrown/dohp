@@ -25,7 +25,7 @@ dErr dQuotientUpdate(dQuotient q)
   if (q->ops->update) {
     err = (*q->ops->update)(q);dCHK(err);
   } else {
-    dERROR(1,"No update function given");
+    dERROR(PETSC_COMM_SELF,1,"No update function given");
   }
   err = PetscObjectStateIncrease((PetscObject)q);dCHK(err);
   dFunctionReturn(0);
@@ -77,7 +77,7 @@ dErr dQuotientSetType(dQuotient q,const dQuotientType type)
   err = PetscTypeCompare((PetscObject)q,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   err =  PetscFListFind(dQuotientList,((PetscObject)q)->comm,type,(void (**)(void)) &r);dCHK(err);
-  if (!r) dERROR(PETSC_ERR_ARG_UNKNOWN_TYPE,"Unable to find requested dQuotient type %s",type);
+  if (!r) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_UNKNOWN_TYPE,"Unable to find requested dQuotient type %s",type);
   if (q->ops->destroy) { err = (*q->ops->destroy)(q);dCHK(err); }
   err = PetscMemcpy(q->ops,&dQuotientDefaultOps,sizeof(struct _dQuotientOps));dCHK(err);
   q->setupcalled = 0;

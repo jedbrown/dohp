@@ -56,7 +56,7 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
 
   dFunctionBegin;
   *rule = 0;
-  if (!(0 <= order && order < 100)) dERROR(1,"rule order %d out of bounds",order);
+  if (!(0 <= order && order < 100)) dERROR(PETSC_COMM_SELF,1,"rule order %d out of bounds",order);
   key = ((uint32_t)method) << 8 | order;
   kiter = kh_put_tensor(tnsr->tensor,key,&new);
   if (new) {
@@ -71,11 +71,11 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
          * Lobatto) on the subelements.  A better system would somehow have the subelement details available explicitly.
          */
         size = order;
-        if (tnsr->alpha != 0 || tnsr->beta != 0) dERROR(PETSC_ERR_SUP,"only alpha=0, beta=0 (Legendre)");
+        if (tnsr->alpha != 0 || tnsr->beta != 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only alpha=0, beta=0 (Legendre)");
         switch (tnsr->family) {
           case dGAUSS_GAUSS: nodes_and_weights = two_point_gauss; break;
           case dGAUSS_LOBATTO: nodes_and_weights = two_point_lobatto; break;
-          default: dERROR(PETSC_ERR_SUP,"GaussFamily %d",tnsr->family);
+          default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"GaussFamily %d",tnsr->family);
         }
         break;
       case dQUADRATURE_METHOD_FAST:
@@ -89,7 +89,7 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
             nodes_and_weights = zwglj;
             break;
           default:
-            dERROR(1,"GaussFamily %d not supported",tnsr->family);
+            dERROR(PETSC_COMM_SELF,1,"GaussFamily %d not supported",tnsr->family);
         }
         break;
       case dQUADRATURE_METHOD_SELF:
@@ -98,7 +98,7 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
         size = 1 + order/2;
         nodes_and_weights = zwglj;
         break;
-      default: dERROR(PETSC_ERR_SUP,"quadrature method %d",method);
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"quadrature method %d",method);
     }
     err = dNew(struct s_TensorRule,&r);dCHK(err);
     err = dMallocA2(size,&r->weight,size,&r->coord);dCHK(err);
@@ -145,7 +145,7 @@ static dErr dQuadratureGetRules_Tensor_Private(dQuadrature quad,dInt n,const dEn
           err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],1),&newrule->trule[1]);dCHK(err);
           err = TensorGetRule(tnsr,method,dPolynomialOrder1D(order[i],2),&newrule->trule[2]);dCHK(err);
           break;
-        default: dERROR(1,"no rule available for given topology %s",dMeshEntTopologyName(topo[i]));
+        default: dERROR(PETSC_COMM_SELF,1,"no rule available for given topology %s",dMeshEntTopologyName(topo[i]));
       }
       kh_val(tnsr->rules,kiter) = newrule;
     }
@@ -201,7 +201,7 @@ static dErr dRuleGetTensorNodeWeight_Transformed(dRule grule,dInt *dim,dInt P[3]
       TensorRule tensor;
       const dReal (*jac)[3] = (const dReal (*)[3])rule->jac;
       if ((!!jac[i][0]) + (!!jac[i][1]) + (!!jac[i][2]) > 1)
-        dERROR(PETSC_ERR_SUP,"Cannot use this rotation with a tensor product");
+        dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Cannot use this rotation with a tensor product");
       err = dNew(struct s_TensorRule,&tensor);dCHK(err);
       for (dInt j=0; j<3; j++) {
         if (jac[i][j]) {
@@ -216,7 +216,7 @@ static dErr dRuleGetTensorNodeWeight_Transformed(dRule grule,dInt *dim,dInt P[3]
         goto tensor_done;
       }
       /* This output direction is empty */
-      dERROR(PETSC_ERR_SUP,"What do do here?");
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"What do do here?");
       tensor_done:
       rule->trule[i] = tensor;
     }
@@ -290,7 +290,7 @@ static dErr dQuadratureGetFacetRules_Tensor_Private(dQuadrature quad,dInt n,cons
           err = dQuadratureGetRules_Tensor_Private(quad,1,&topoquad,&rotdeg,&refrule,method);dCHK(err);
           err = dQuadratureCreateTransformedRule(quad,refrule,&t.jac[0][0],t.translation,&newrule);dCHK(err);
         } break;
-        default: dERROR(PETSC_ERR_SUP,"Unsupported topology type '%s'",dMeshEntTopologyName(topo[i]));
+        default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Unsupported topology type '%s'",dMeshEntTopologyName(topo[i]));
       }
       kh_val(tnsr->facetrules,kiter) = newrule;
     }
@@ -348,7 +348,7 @@ static dErr dQuadratureView_Tensor(dQuadrature quad,PetscViewer viewer)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
-  if (!iascii) dERROR(PETSC_ERR_SUP,"only ASCII");
+  if (!iascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Tensor Quadrature: %s\n",dGaussFamilies[tnsr->family]);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"alpha %g  beta %g\n",tnsr->alpha,tnsr->beta);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Tensor rules:\n");dCHK(err);
@@ -379,7 +379,7 @@ static dErr dQuadratureSetMethod_Tensor(dQuadrature quad,dQuadratureMethod metho
       quad->ops->GetRule      = dQuadratureGetRules_Tensor_SELF;
       quad->ops->GetFacetRule = dQuadratureGetFacetRules_Tensor_SELF;
       break;
-    default: dERROR(PETSC_ERR_SUP,"Quadrature method '%s'",dQuadratureMethods[method]);
+    default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Quadrature method '%s'",dQuadratureMethods[method]);
   }
   dFunctionReturn(0);
 }

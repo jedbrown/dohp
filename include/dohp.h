@@ -15,7 +15,7 @@
 #define dEntTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
 
 #define dCHK(err) do {if (PetscUnlikely(err)) return PetscError(PETSC_COMM_SELF,__LINE__,__func__,__FILE__,__SDIR__,(err),PETSC_ERROR_REPEAT," ");} while (0)
-#define dERROR(n,...) return PetscError(PETSC_COMM_SELF,__LINE__,__func__,__FILE__,__SDIR__,(n),PETSC_ERROR_INITIAL,__VA_ARGS__)
+#define dERROR(comm,n,...) return PetscError((comm),__LINE__,__func__,__FILE__,__SDIR__,(n),PETSC_ERROR_INITIAL,__VA_ARGS__)
 
 #define dPrintf PetscPrintf
 #define dMemcpy(a,b,c) PetscMemcpy(a,b,c)
@@ -23,8 +23,8 @@
 #define dValidHeader(a,b,c) PetscValidHeaderSpecific(a,b,c)
 
 #define dValidPointer(a,b) do {                                              \
-    if (!(a)) dERROR(PETSC_ERR_ARG_NULL,"Null Pointer: Parameter # %d",(b)); \
-    if ((size_t)a & 3) dERROR(PETSC_ERR_ARG_BADPTR,"Invalid Pointer: Parameter # %d",(b)); \
+    if (!(a)) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_NULL,"Null Pointer: Parameter # %d",(b)); \
+    if ((size_t)a & 3) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_BADPTR,"Invalid Pointer: Parameter # %d",(b)); \
   } while (0)
 
 #define dMalloc(a,b) PetscMalloc(a,b)
@@ -45,8 +45,8 @@
 #define dValidPointer7(a,b,c,d,e,f,g,h,i,j,k,l,m,n) (dValidPointer6((a),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),(l)) || dValidPointer((m),(n)))
 
 #define dValidPointerSpecific(p,t,a)                              \
-  {if (!p) dERROR(PETSC_ERR_ARG_BADPTR,"Null Pointer: Parameter # %d",(a)); \
-    if ((size_t)(p) % sizeof(*(p))) dERROR(PETSC_ERR_ARG_BADPTR,"Insufficient alignment for pointer to %s: Parameter # %d should have %ld alignment",(t),(a),sizeof(*(p)));}
+  {if (!p) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_BADPTR,"Null Pointer: Parameter # %d",(a)); \
+    if ((size_t)(p) % sizeof(*(p))) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_BADPTR,"Insufficient alignment for pointer to %s: Parameter # %d should have %ld alignment",(t),(a),sizeof(*(p)));}
 #define dValidPointerSpecific2(p0,t0,a0,p1,t1,a1) {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific(p1,t1,a1);}
 #define dValidPointerSpecific3(p0,t0,a0,p1,t1,a1,p2,t2,a2) \
   {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific2(p1,t1,a1,p2,t2,a2);}
@@ -214,6 +214,6 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 # define dFunctienReturnVoid() return
 #endif
 
-#define dASSERT(cond) if (!(cond)) { dERROR(1,"Assertion failed: " #cond); }
+#define dASSERT(cond) if (!(cond)) { dERROR(PETSC_COMM_SELF,1,"Assertion failed: " #cond); }
 
 #endif

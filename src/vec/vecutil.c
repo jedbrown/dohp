@@ -8,7 +8,7 @@ dErr VecCreateRedimensioned(Vec X,dInt bs,Vec *Y)
 
   dFunctionBegin;
   dValidHeader(X,VEC_CLASSID,1);
-  if (bs < 1) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Block size must be at least 1, was %D",bs);
+  if (bs < 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Block size must be at least 1, was %D",bs);
   dValidPointer(Y,3);
 
   err = VecGetLocalSize(X,&n);dCHK(err);
@@ -33,7 +33,7 @@ dErr VecBlockView(Vec X,dViewer viewer)
   if (!viewer) {err = PetscViewerASCIIGetStdout(((PetscObject)X)->comm,&viewer);dCHK(err);}
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
-  if (!ascii) dERROR(PETSC_ERR_SUP,"only ASCII");
+  if (!ascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
 
   err = VecGetLocalSize(X,&m);dCHK(err);
   err = VecGetBlockSize(X,&bs);dCHK(err);
@@ -51,7 +51,7 @@ dErr VecBlockView(Vec X,dViewer viewer)
       case 3:
       err = PetscViewerASCIISynchronizedPrintf(viewer,"[%d] %4D: %10G %10G %10G\n",rank,(rstart+i)/bs,PetscRealPart(x[i]),PetscRealPart(x[i+1]),PetscRealPart(x[i+2]));dCHK(err);
       break;
-      default: dERROR(PETSC_ERR_SUP,"block size %D",bs);
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"block size %D",bs);
     }
   }
   err = PetscViewerFlush(viewer);dCHK(err);

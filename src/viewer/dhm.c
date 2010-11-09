@@ -14,7 +14,7 @@ static dErr dViewerDHM_H5Tcommit(PetscViewer viewer,const char *typename,hid_t t
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   if (dhm->btype == FILE_MODE_WRITE) {
     herr = H5Tcommit(dhm->typeroot,typename,type,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tinsert);
   }
@@ -161,18 +161,18 @@ dErr dViewerDHMSetUp(PetscViewer viewer)
   switch (dhm->btype) {
     case FILE_MODE_READ:
       fid = H5Fopen(dhm->filename,H5F_ACC_RDONLY,plist_id);
-      if (fid < 0) dERROR(PETSC_ERR_LIB,"H5Fopen(\"%s\",H5F_ACC_RDONLY,...) failed",dhm->filename);
+      if (fid < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"H5Fopen(\"%s\",H5F_ACC_RDONLY,...) failed",dhm->filename);
       break;
     case FILE_MODE_WRITE:
       fid = H5Fcreate(dhm->filename,H5F_ACC_TRUNC,H5P_DEFAULT,plist_id);
-      if (fid < 0) dERROR(PETSC_ERR_LIB,"H5Fcreate(\"%s\",H5F_ACC_TRUNC,...) failed",dhm->filename);
+      if (fid < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"H5Fcreate(\"%s\",H5F_ACC_TRUNC,...) failed",dhm->filename);
       break;
     case FILE_MODE_APPEND:
       fid = H5Fopen(dhm->filename,H5F_ACC_RDWR,plist_id);
-      if (fid < 0) dERROR(PETSC_ERR_LIB,"H5Fopen(\"%s\",H5F_ACC_RDWR,...) failed",dhm->filename);
+      if (fid < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"H5Fopen(\"%s\",H5F_ACC_RDWR,...) failed",dhm->filename);
       break;
     default:
-      dERROR(PETSC_ERR_ORDER,"Must call PetscViewerFileSetMode() before PetscViewerFileSetName()");
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_ORDER,"Must call PetscViewerFileSetMode() before PetscViewerFileSetName()");
   }
   dhm->file = fid;
   herr = H5Pclose(plist_id);dH5CHK(herr,H5Pclose);
@@ -371,8 +371,8 @@ dErr dViewerDHMSetTimeStep(PetscViewer viewer,dInt step)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
-  if (step < 0 || dhm->totalsteps <= step) dERROR(PETSC_ERR_ARG_OUTOFRANGE,"Step %d out of range [0 .. %d]",step,dhm->totalsteps);
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
+  if (step < 0 || dhm->totalsteps <= step) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Step %d out of range [0 .. %d]",step,dhm->totalsteps);
   if (step != dhm->stepnumber) {
     err = dViewerDHMInvalidateCurrentStep(viewer);dCHK(err);
   }
@@ -418,7 +418,7 @@ dErr dViewerDHMGetSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   err = dViewerDHMSetUp(viewer);dCHK(err);
 
   herr = H5Gget_info(dhm->steproot,&info);dH5CHK(herr,H5Gget_info);
@@ -444,7 +444,7 @@ dErr dViewerDHMRestoreSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
   dValidIntPointer(nsteps,2);
   dValidPointer(steptimes,3);
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   *nsteps = 0;
   err = dFree(*steptimes);dCHK(err);
   dFunctionReturn(0);
@@ -565,7 +565,7 @@ dErr dViewerDHMGetStepSummary(PetscViewer viewer,dInt *nfs,const struct dViewerD
   dFunctionBegin;
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_SUP,"Only for viewer type 'dhm'");
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Only for viewer type 'dhm'");
   dValidIntPointer(nfs,2);
   dValidPointer(infs,3);
   dValidIntPointer(nfields,4);
@@ -632,7 +632,7 @@ dErr dViewerDHMRestoreStepSummary(PetscViewer viewer,dInt *nfs,const struct dVie
   dFunctionBegin;
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_ERR_SUP,"Only for viewer type 'dhm'");
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Only for viewer type 'dhm'");
   dValidIntPointer(nfs,2);
   dValidPointer(infs,3);
   dValidIntPointer(nfields,4);

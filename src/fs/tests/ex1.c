@@ -79,9 +79,9 @@ static dErr createHexMesh(iMesh_Instance mi)
   iMesh_createEntArr(mi,iMesh_HEXAHEDRON,work,ALEN(rconn),MLREF(r),MLREF(stat),&ierr);dICHK(mi,ierr);
   {                             /* Check to see if any orientations changed */
     iMesh_getEntArrAdj(mi,r.v,r.s,iMesh_POINT,MLREF(tv),MLREF(off),&ierr);dICHK(mi,ierr);
-    if (tv.s != v.s + 4) dERROR(1,"wrong number of vertices returned"); /* interface verts counted twice */
+    if (tv.s != v.s + 4) dERROR(PETSC_COMM_SELF,1,"wrong number of vertices returned"); /* interface verts counted twice */
     for (int i=0; i<tv.s; i++) {
-      if (v.v[rconn[i]] != tv.v[i]) dERROR(1,"unexpected vertex ordering");
+      if (v.v[rconn[i]] != tv.v[i]) dERROR(PETSC_COMM_SELF,1,"unexpected vertex ordering");
     }
     MeshListFree(tv);
     MeshListFree(off);
@@ -150,7 +150,7 @@ static dErr tagHexes(dMesh mesh,dMeshTag *intag)
   }
   /* tag the hexes with meaningful values */
   err = dMeshGetEnts(mesh,0,dTYPE_ALL,dTOPO_HEX,hex,ALEN(hex),&nhex);dCHK(err);
-  if (nhex != 2) dERROR(1,"wrong number of hexes");
+  if (nhex != 2) dERROR(PETSC_COMM_SELF,1,"wrong number of hexes");
   err = dMeshTagSetData(mesh,tag,hex,nhex,hexDegree,nhex,dDATA_INT);dCHK(err);
   *intag = tag;
   dFunctionReturn(0);
@@ -179,7 +179,7 @@ static dErr examine(dMesh mesh,dMeshTag tag)
         case dTOPO_HEX: nv = 8; break;
         case dTOPO_QUAD: nv = 4; break;
         case dTOPO_LINE: nv = 2; break;
-        default: dERROR(1,"unsupported topology");
+        default: dERROR(PETSC_COMM_SELF,1,"unsupported topology");
       }
       err = dPrintf(PETSC_COMM_WORLD,"%30s %d %d %d   [",dMeshEntTopologyName(topo[i]),data[3*i],data[3*i+1],data[3*i+2]);dCHK(err);
       for (dInt j=0; j<nv; j++) { err = dPrintf(PETSC_COMM_WORLD," %p",conn.v[connoff.v[i]+j]);dCHK(err); }
@@ -222,13 +222,13 @@ static dErr useFS(dFS fs)
     err = VecSum(g,&gsum);dCHK(err);
     err = VecSum(y,&ysum);dCHK(err);
     err = PetscPrintf(PETSC_COMM_WORLD,"|x| = %f, |g| = %f, |y| = %f\n",xsum,gsum,ysum);dCHK(err);
-    if (dAbs(xsum-gsum) > 1e-14) dERROR(1,"Expanded sum does not match global sum");
+    if (dAbs(xsum-gsum) > 1e-14) dERROR(PETSC_COMM_SELF,1,"Expanded sum does not match global sum");
     /* There are 16 points on the interface between the elements, these points get double-counted in both elements, so
     * the expanded sum is larger than the global sum by 32. */
     if (gopt.constBDeg) {
-      if (dAbs(ysum-gsum-2.0*dSqr(gopt.constBDeg+1)) > 1e-14) dERROR(1,"Unexpected expanded sum %f != %f + 2*%D^2",ysum,gsum,gopt.constBDeg+1);
+      if (dAbs(ysum-gsum-2.0*dSqr(gopt.constBDeg+1)) > 1e-14) dERROR(PETSC_COMM_SELF,1,"Unexpected expanded sum %f != %f + 2*%D^2",ysum,gsum,gopt.constBDeg+1);
     } else {
-      dERROR(1,"Don't know how to check for non-const Basis Degree");
+      dERROR(PETSC_COMM_SELF,1,"Don't know how to check for non-const Basis Degree");
     }
   }
   err = VecDestroy(x);dCHK(err);
@@ -244,7 +244,7 @@ static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],
   dFunctionBegin;
   for (dInt i=0; i<3; i++) {
     if (required[i] > 0 && resnorm[i] > required[i])
-      dERROR(1,"Norm requirement not met: ||%s||_%s = %g > %g",name,normName[i],resnorm[i],required[i]);
+      dERROR(PETSC_COMM_SELF,1,"Norm requirement not met: ||%s||_%s = %g > %g",name,normName[i],resnorm[i],required[i]);
   }
   dFunctionReturn(0);
 }
@@ -400,7 +400,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
     err = dEFSGetGlobalCoordinates(efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    if (three != 3) dERROR(PETSC_COMM_SELF,1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
         for (dInt k=0; k<P[2]-1; k++) {
@@ -414,7 +414,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
           {                     /* Scoping for VLA-pointer access */
             const dReal (*basis)[8] = (const dReal(*)[8])flatBasis;
             // const dReal (*deriv)[qn][8] = (const dReal(*)[qn][8])flatDeriv; /* UNUSED */
-            if (qn != 8) dERROR(1,"Unexpected number of quadrature points %d, but it *should* work, disable this error",qn);
+            if (qn != 8) dERROR(PETSC_COMM_SELF,1,"Unexpected number of quadrature points %d, but it *should* work, disable this error",qn);
             for (dInt lq=0; lq<qn; lq++) {           /* Loop over quadrature points */
               for (dInt ltest=0; ltest<8; ltest++) { /* Loop over test basis functions (corners) */
                 for (dInt lp=0; lp<8; lp++) {        /* Loop over trial basis functions (corners) */
@@ -526,7 +526,7 @@ static dErr doProjection(dFS fs)
   case 2:
     err = SNESSetFunction(snes,r,ProjResidual2,(void*)&proj);dCHK(err);
     break;
-  default: dERROR(PETSC_ERR_USER,"Invalid residual version (-proj_version)");
+  default: dERROR(PETSC_COMM_SELF,PETSC_ERR_USER,"Invalid residual version (-proj_version)");
   }
   //err = SNESSetJacobian(snes,J,Jp,ProjJacobian,(void*)&proj);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-12,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
@@ -594,15 +594,15 @@ int main(int argc,char *argv[])
     err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-frequency","Frequency of oscillation in each cartesion direction",NULL,gopt.frequency,&nset,&flg);dCHK(err);
-    if (flg && nset > 3) dERROR(1,"frequency may be at most 3 values");
+    if (flg && nset > 3) dERROR(PETSC_COMM_SELF,1,"frequency may be at most 3 values");
     err = PetscOptionsBool("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
     err = PetscOptionsBool("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-require_ptwise","<L^1,L^2,L^infty> Error if pointwise norms exceed given values, negative to disable",NULL,gopt.normRequirePtwise,&nset,&flg);dCHK(err);
-    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_ptwise, %d set",nset);
+    if (flg && nset != 3) dERROR(PETSC_COMM_SELF,1,"You must set 3 values for -require_ptwise, %d set",nset);
     nset = 3;
     err = PetscOptionsRealArray("-require_grad","<L^1,L^2,L^infty> Error if pointwise gradient norms exceed given values, negative to disable",NULL,gopt.normRequireGrad,&nset,&flg);dCHK(err);
-    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_grad");
+    if (flg && nset != 3) dERROR(PETSC_COMM_SELF,1,"You must set 3 values for -require_grad");
   } err = PetscOptionsEnd();dCHK(err);
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
@@ -639,7 +639,7 @@ int main(int argc,char *argv[])
       exact.function = exact_1_function;
       exact.gradient = exact_1_gradient;
       break;
-    default: dERROR(1,"Exact solution choice %d invalid",exactChoice);
+    default: dERROR(PETSC_COMM_SELF,1,"Exact solution choice %d invalid",exactChoice);
   }
   err = doProjection(fs);dCHK(err);
 

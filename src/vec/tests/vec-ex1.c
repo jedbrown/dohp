@@ -20,7 +20,7 @@ int main(int argc,char *argv[])
   comm = PETSC_COMM_WORLD;
   err = MPI_Comm_size(comm,&size);dCHK(err);
   err = MPI_Comm_rank(comm,&rank);dCHK(err);
-  if (size != 2) dERROR(1,"This example must be run with 2 processes");
+  if (size != 2) dERROR(PETSC_COMM_SELF,1,"This example must be run with 2 processes");
   err = PetscViewerASCIIGetStdout(comm,&viewer);dCHK(err);
 
   ghosts[0] = n*((size+rank-1)%size)+1; /* second block of left neighbor, periodically */
@@ -30,9 +30,9 @@ int main(int argc,char *argv[])
 
   err = VecCreateDohp(comm,bs,n-1,n,nghost,ghosts,&x);dCHK(err);
   err = VecGetLocalSize(x,&xn);dCHK(err);
-  if (xn != (n-1)*bs) dERROR(1,"local size %d, expected %d",xn,(n-1)*bs);
+  if (xn != (n-1)*bs) dERROR(PETSC_COMM_SELF,1,"local size %d, expected %d",xn,(n-1)*bs);
   err = VecGetBlockSize(x,&xbs);dCHK(err);
-  if (xbs != bs) dERROR(1,"block size %d, expected %d",xbs,bs);
+  if (xbs != bs) dERROR(PETSC_COMM_SELF,1,"block size %d, expected %d",xbs,bs);
 
   err = PetscPrintf(comm,"Empty vector\n");
   err = VecView(x,viewer);dCHK(err);
