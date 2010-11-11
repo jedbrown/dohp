@@ -107,6 +107,8 @@ extern dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,d
 extern dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
 extern dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
 extern dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...);
+extern dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
+extern dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,const dScalar *v,const dScalar *dv,...);
 extern dErr dRulesetIteratorFinish(dRulesetIterator);
 extern dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt patchbytes,dInt nodebytes);
 extern dErr dRulesetIteratorGetStash(dRulesetIterator,void *patchstash,void *nodestash);

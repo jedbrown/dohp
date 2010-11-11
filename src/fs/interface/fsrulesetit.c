@@ -203,7 +203,7 @@ dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar 
   dFunctionReturn(0);
 }
 
-/** dRulesetIteratorGetWorkspace - Gets space to store function values at quadrature points on the current patch
+/** dRulesetIteratorGetPatchSpace - Gets space to store function values at quadrature points on the current patch
  *
  */
 dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
@@ -268,6 +268,85 @@ dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...)
       v = va_arg(ap,dScalar*);
     }
     /* Nothing to do since it goes into expanded vector, which \a v already points at */
+  }
+  va_end(ap);
+  dFunctionReturn(0);
+}
+
+/** dRulesetIteratorGetPatchApplied - Gets a patch with function values and derivatives already evaluated on quadrature points
+ *
+ */
+dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
+{
+  dErr err;
+  va_list ap;
+  dRule rule;
+  dInt i;
+  dScalar *cjinv = NULL;
+  struct dRulesetIteratorLink *p;
+
+  dFunctionBegin;
+  dValidPointer(jw,3);
+  err = dEFSGetRule(it->link->efs[it->curpatch],&rule);dCHK(err);
+  err = dRuleGetSize(rule,0,Q);dCHK(err);
+  va_start(ap,dv);
+  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+    dEFS efs;
+    dScalar *ex;
+    if (i) {
+      u = va_arg(ap,dScalar**);
+      du = va_arg(ap,dScalar**);
+      v = va_arg(ap,dScalar**);
+      dv = va_arg(ap,dScalar**);
+    }
+    efs = p->efs[it->curpatch];
+    ex = &p->x[p->off];
+    if (u) {
+      err = dEFSApply(efs,cjinv,p->bs,ex,p->u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+      *u = p->u;
+    }
+    if (du || !i) {
+      err = dEFSApply(efs,cjinv,p->bs,ex,p->du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+      if (du) *du = p->du;
+      if (!i) {
+        cjinv = it->cjinv;
+        err = dRuleComputePhysical(rule,p->du,cjinv,it->jw);dCHK(err);
+        *jw = it->jw;
+      }
+    }
+    if (v) *v = p->v;
+    if (dv) *dv = p->dv;
+  }
+  va_end(ap);
+  dFunctionReturn(0);
+}
+
+/** dRulesetIteratorCommitPatchApplied - Commits coefficients of test functions evaluated at quadrature points
+ *
+ */
+dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,const dScalar *v,const dScalar *dv,...)
+{
+  dErr err;
+  va_list ap;
+  dInt i;
+  struct dRulesetIteratorLink *p;
+
+  dFunctionBegin;
+  va_start(ap,dv);
+  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+    dEFS efs = p->efs[it->curpatch];
+    dScalar *ey = &p->y[p->off];
+    if (i) {
+      v = va_arg(ap,const dScalar*);
+      dv = va_arg(ap,const dScalar*);
+    }
+    if (v) {
+      err = dEFSApply(efs,it->cjinv,p->bs,v,ey,dAPPLY_INTERP_TRANSPOSE,imode);dCHK(err);
+      imode = ADD_VALUES;
+    }
+    if (dv) {
+      err = dEFSApply(efs,it->cjinv,p->bs,dv,ey,dAPPLY_GRAD_TRANSPOSE,imode);dCHK(err);
+    }
   }
   va_end(ap);
   dFunctionReturn(0);

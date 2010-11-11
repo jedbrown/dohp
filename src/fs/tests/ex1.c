@@ -377,6 +377,51 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dFunctionReturn(0);
 }
 
+static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
+{
+  dErr err;
+  struct ProjContext *proj = ctx;
+  dFS fs = proj->fs;
+  dRuleset ruleset;
+  dFS cfs;
+  Vec Coords;
+  dRulesetIterator iter;
+
+  dFunctionBegin;
+  if (!proj->ruleset) {
+    dMeshESH domain;
+    err = dFSGetDomain(fs,&domain);dCHK(err);
+    err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
+  }
+  ruleset = proj->ruleset;
+  err = VecZeroEntries(gy);dCHK(err);
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
+  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,NULL,gx,gy);dCHK(err);
+
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar *x,*dx,*u,*du,*v,*dv;
+    dInt Q;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      dScalar f[1];             /* Scalar problem */
+      err = exact.function(&x[i*3],f);dCHK(err);
+      v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
+      dv[i*3+0] = 0;
+      dv[i*3+1] = 0;
+      dv[i*3+2] = 0;
+    }
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES,NULL,NULL,v,dv);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+  }
+
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  err = dRulesetIteratorDestroy(iter);dCHK(err);
+  dFunctionReturn(0);
+}
 
 #if 0
 static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStructure *structure,void *ctx)
@@ -525,6 +570,9 @@ static dErr doProjection(dFS fs)
     break;
   case 2:
     err = SNESSetFunction(snes,r,ProjResidual2,(void*)&proj);dCHK(err);
+    break;
+  case 3:
+    err = SNESSetFunction(snes,r,ProjResidual3,(void*)&proj);dCHK(err);
     break;
   default: dERROR(PETSC_COMM_SELF,PETSC_ERR_USER,"Invalid residual version (-proj_version)");
   }
