@@ -256,6 +256,20 @@ struct ProjContext {
   dRuleset ruleset;
 };
 
+static dErr ProjGetRuleset(struct ProjContext *proj,dRuleset *ruleset)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!proj->ruleset) {
+    dMeshESH domain;
+    err = dFSGetDomain(proj->fs,&domain);dCHK(err);
+    err = dFSGetPreferredQuadratureRuleSet(proj->fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
+  }
+  *ruleset = proj->ruleset;
+  dFunctionReturn(0);
+}
+
 static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 {
   dErr err;
@@ -274,12 +288,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = VecGetArrayRead(proj->x,&x);dCHK(err);
   err = VecZeroEntries(proj->y);dCHK(err);
   err = VecGetArray(proj->y,&y);dCHK(err);
-  if (!proj->ruleset) {
-    dMeshESH domain;
-    err = dFSGetDomain(fs,&domain);dCHK(err);
-    err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
-  }
-  ruleset = proj->ruleset;
+  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
   err = dFSGetEFS(fs,ruleset,&nelem,&efs);dCHK(err);
 
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
@@ -330,12 +339,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dRulesetIterator iter;
 
   dFunctionBegin;
-  if (!proj->ruleset) {
-    dMeshESH domain;
-    err = dFSGetDomain(fs,&domain);dCHK(err);
-    err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
-  }
-  ruleset = proj->ruleset;
+  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
@@ -388,11 +392,7 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dRulesetIterator iter;
 
   dFunctionBegin;
-  if (!proj->ruleset) {
-    dMeshESH domain;
-    err = dFSGetDomain(fs,&domain);dCHK(err);
-    err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
-  }
+  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
   ruleset = proj->ruleset;
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
