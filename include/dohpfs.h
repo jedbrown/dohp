@@ -109,6 +109,10 @@ extern dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dScalar **cjin
 extern dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...);
 extern dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
 extern dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,const dScalar *v,const dScalar *dv,...);
+extern dErr dRulesetIteratorGetPatchExplicit(dRulesetIterator it,dInt *P,const dReal **interp,const dReal **deriv,...);
+extern dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...);
+extern dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...);
+extern dErr dRulesetIteratorGetMatrixSpaceSplit(dRulesetIterator it,dScalar **K,...);
 extern dErr dRulesetIteratorFinish(dRulesetIterator);
 extern dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt patchbytes,dInt nodebytes);
 extern dErr dRulesetIteratorGetStash(dRulesetIterator,void *patchstash,void *nodestash);

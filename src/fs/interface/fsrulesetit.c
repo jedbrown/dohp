@@ -9,6 +9,8 @@ struct dRulesetIteratorLink {
   dScalar *x;                   /* Entries from expanded vector */
   dScalar *y;
   dScalar *u,*du,*v,*dv;
+  dInt *rowcol;
+  dInt maxP;
   dInt nefs;
   dInt off;
   dInt bs;
@@ -30,6 +32,7 @@ struct _n_dRulesetIterator {
   dInt nlinks;
   dInt Q;
   dReal *cjinv,*jw;
+  dScalar **Ksplit;
   struct dRulesetIteratorStash stash;
   struct dRulesetIteratorLink *link;
 };
@@ -101,6 +104,32 @@ static dErr dRulesetIteratorLinkFreePatchSpace_Private(struct dRulesetIteratorLi
   dFunctionReturn(0);
 }
 
+static dErr dRulesetIteratorCreateMatrixSpace_Private(dRulesetIterator it)
+{
+  dErr err;
+  dInt i,j;
+  struct dRulesetIteratorLink *row,*col;
+
+  dFunctionBegin;
+  if (it->Ksplit) dFunctionReturn(0);
+  err = dMallocA(it->nlinks*it->nlinks,&it->Ksplit);dCHK(err);
+  for (i=0,row=it->link; i<it->nlinks; i++,row=row->next) {
+    for (j=0,col=it->link; j<it->nlinks; j++,col=col->next) {
+      err = dMallocA(row->maxP*col->maxP,&it->Ksplit[i*it->nlinks+j]);dCHK(err);
+    }
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dRulesetIteratorFreeMatrixSpace_Private(dRulesetIterator it)
+{
+  dErr err;
+
+  dFunctionBegin;
+  for (dInt i=0; i<dSqrInt(it->nlinks); i++) {err = dFree(it->Ksplit[i]);dCHK(err);}
+  err = dFree(it->Ksplit);dCHK(err);
+  dFunctionReturn(0);
+}
 
 dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
 {
@@ -128,14 +157,24 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
     }
     err = VecGetArray(p->Xexp,&p->x);dCHK(err);
     err = VecGetArray(p->Yexp,&p->y);dCHK(err);
-    if (!p->efs) {err = dFSGetEFS(p->fs,it->ruleset,&p->nefs,&p->efs);dCHK(err);}
+    if (!p->efs) {
+      err = dFSGetEFS(p->fs,it->ruleset,&p->nefs,&p->efs);dCHK(err);
+      p->maxP = 0;
+      for (dInt j=0; j<p->nefs; j++) {
+        dInt P;
+        err = dEFSGetSizes(p->efs[j],NULL,NULL,&P);dCHK(err);
+        p->maxP = dMaxInt(p->maxP,P);
+      }
+    }
     if (p->nefs != it->npatches) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Got an invalid EFS list");
     err = dRulesetIteratorLinkCreatePatchSpace_Private(p,it->maxQ);dCHK(err);
+    if (!p->rowcol) {err = dMallocA(p->maxP,&p->rowcol);dCHK(err);}
   }
   va_end(ap);
   if (!it->cjinv) {
     err = dMallocA2(it->maxQ*9,&it->cjinv,it->maxQ,&it->jw);dCHK(err);
   }
+  err = dRulesetIteratorCreateMatrixSpace_Private(it);dCHK(err);
   if ((it->stash.patchbytes && !it->stash.patch) || (it->stash.nodebytes && !it->stash.node)) {
     /* Allocate space for the stash */
     err = dMallocA2(it->stash.patchbytes*it->npatches,&it->stash.patch,it->stash.nodebytes*it->nnodes,&it->stash.node);dCHK(err);
@@ -352,6 +391,89 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
   dFunctionReturn(0);
 }
 
+/** dRulesetIteratorGetPatchAssembly - Gets explicit bases for each function space on a patch
+ *
+ */
+dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...)
+{
+  dErr err;
+  va_list ap;
+  dInt i;
+  struct dRulesetIteratorLink *p;
+  const dReal *cjinv = NULL;
+
+  dFunctionBegin;
+  va_start(ap,deriv);
+  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+    dInt Q,PP;
+    if (i) {
+      P = va_arg(ap,dInt*);
+      rowcol = va_arg(ap,const dInt**);
+      interp = va_arg(ap,const dReal**);
+      deriv = va_arg(ap,const dReal**);
+    }
+    if (!(P || rowcol || interp || deriv)) continue;
+    err = dEFSGetExplicit(p->efs[it->curpatch],cjinv,&Q,&PP,interp,deriv);dCHK(err);
+    if (P) *P = PP;
+    if (rowcol) {
+      *rowcol = p->rowcol;
+      for (dInt j=0; j<PP; j++) p->rowcol[j] = p->off + j*p->bs;
+    }
+    cjinv = it->cjinv;
+  }
+  va_end(ap);
+  dFunctionReturn(0);
+}
+
+/** dRulesetIteratorGetPatchAssembly - Gets explicit bases for each function space on a patch
+ *
+ */
+dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...)
+{
+  dErr err;
+  va_list ap;
+  dInt i;
+  struct dRulesetIteratorLink *p;
+  const dReal *cjinv = NULL;
+
+  dFunctionBegin;
+  va_start(ap,deriv);
+  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+    dInt Q,PP;
+    if (i) {
+      P = va_arg(ap,dInt*);
+      rowcol = va_arg(ap,const dInt**);
+      interp = va_arg(ap,const dReal**);
+      deriv = va_arg(ap,const dReal**);
+    }
+    if (!(P || rowcol || interp || deriv)) continue;
+    err = dEFSRestoreExplicit(p->efs[it->curpatch],cjinv,&Q,&PP,interp,deriv);dCHK(err);
+    if (P) *P = PP;
+    if (rowcol) *rowcol = NULL;
+    cjinv = it->cjinv;
+  }
+  va_end(ap);
+  dFunctionReturn(0);
+}
+
+/** dRulesetIteratorGetMatrixSpaceSplit - Gets storage sufficient for the constituent matrices of a coupled system
+ *
+ */
+dErr dRulesetIteratorGetMatrixSpaceSplit(dRulesetIterator it,dScalar **K,...)
+{
+  va_list ap;
+
+  dFunctionBegin;
+  if (!it->Ksplit) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"No Ksplit available, must call dRulesetIteratorStart first");
+  va_start(ap,K);
+  for (dInt i=0; i<dSqrInt(it->nlinks); i++) {
+    if (i) K = va_arg(ap,dScalar**);
+    if (K) *K = it->Ksplit[i];
+  }
+  va_end(ap);
+  dFunctionReturn(0);
+}
+
 /** dRulesetIteratorAddStash - Attach some private memory to quadrature points and integration patches
  *
  */
@@ -388,9 +510,11 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
     err = VecDestroy(p->Xexp);dCHK(err);
     err = VecDestroy(p->Yexp);dCHK(err);
     err = dRulesetIteratorLinkFreePatchSpace_Private(p);dCHK(err);
+    err = dFree(p->rowcol);dCHK(err);
     n = p->next;
     err = dFree(p);dCHK(err);
   }
+  err = dRulesetIteratorFreeMatrixSpace_Private(it);dCHK(err);
   err = dFree2(it->cjinv,it->jw);dCHK(err);
   err = dFree(it);dCHK(err);
   dFunctionReturn(0);
