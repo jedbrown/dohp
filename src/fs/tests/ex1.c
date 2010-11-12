@@ -393,7 +393,6 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 
   dFunctionBegin;
   err = ProjGetRuleset(proj,&ruleset);dCHK(err);
-  ruleset = proj->ruleset;
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
@@ -420,6 +419,62 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 
   err = dRulesetIteratorFinish(iter);dCHK(err);
   err = dRulesetIteratorDestroy(iter);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+{
+  struct ProjContext *proj = ctx;
+  dFS fs = proj->fs,cfs;
+  dRuleset ruleset;
+  dRulesetIterator iter;
+  dScalar *Kflat;
+  dErr err;
+  Vec Coords;
+
+  dFunctionBegin;
+  err = MatZeroEntries(*Jp);dCHK(err);
+  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
+  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,NULL,gx,NULL);dCHK(err);
+  err = dRulesetIteratorGetMatrixSpaceSplit(iter,NULL,NULL,NULL,&Kflat);dCHK(err);
+
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dReal *jw,*interp_flat,*deriv;
+    const dInt *rowcol;
+    dScalar *x,*dx,*u,*du,*v,*dv;
+    dInt Q,P;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv);dCHK(err);
+    {                           /* Scope so that we can declare new VLA pointers for convenient assembly */
+      const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
+      dScalar (*K)[P] = (dScalar(*)[P])Kflat;
+      err = PetscMemzero(K,P*P*sizeof(K[0][0]));dCHK(err);
+      for (dInt i=0; i<P; i++) {
+        for (dInt q=0; q<Q; q++) {
+          for (dInt j=0; j<P; j++) {
+            K[i][j] += interp[q][i] * jw[q] * interp[q][j];
+          }
+        }
+      }
+      err = dFSMatSetValuesBlockedExpanded(fs,*Jp,P,rowcol,P,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+    }
+    err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+  }
+
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  err = dRulesetIteratorDestroy(iter);dCHK(err);
+
+  err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  /* Dummy assembly, necessary to reset base vector in -snes_mf_operator */
+  err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  *structure = SAME_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
 
@@ -576,7 +631,7 @@ static dErr doProjection(dFS fs)
     break;
   default: dERROR(PETSC_COMM_SELF,PETSC_ERR_USER,"Invalid residual version (-proj_version)");
   }
-  //err = SNESSetJacobian(snes,J,Jp,ProjJacobian,(void*)&proj);dCHK(err);
+  err = SNESSetJacobian(snes,J,Jp,ProjJacobian1,(void*)&proj);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-12,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
