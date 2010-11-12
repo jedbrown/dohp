@@ -29,7 +29,7 @@ struct _n_dRulesetIterator {
   dInt maxQ;
   dInt nlinks;
   dInt Q;
-  dScalar *cjinv,*jw;
+  dReal *cjinv,*jw;
   struct dRulesetIteratorStash stash;
   struct dRulesetIteratorLink *link;
 };
@@ -206,7 +206,7 @@ dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar 
 /** dRulesetIteratorGetPatchSpace - Gets space to store function values at quadrature points on the current patch
  *
  */
-dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
+dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dReal **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
 {
   va_list ap;
 
@@ -230,7 +230,7 @@ dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar *
   dFunctionReturn(0);
 }
 
-dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dScalar **cjinv,dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
+dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dReal **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
 {
   va_list ap;
 
@@ -276,13 +276,13 @@ dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...)
 /** dRulesetIteratorGetPatchApplied - Gets a patch with function values and derivatives already evaluated on quadrature points
  *
  */
-dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dScalar **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
+dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
 {
   dErr err;
   va_list ap;
   dRule rule;
   dInt i;
-  dScalar *cjinv = NULL;
+  dReal *cjinv = NULL;
   struct dRulesetIteratorLink *p;
 
   dFunctionBegin;

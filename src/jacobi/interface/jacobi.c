@@ -369,7 +369,7 @@ dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal qg[restr
   dFunctionReturn(0);
 }
 
-dErr dRuleComputePhysical(dRule rule,const dScalar jac[],dScalar jinv[],dScalar jw[])
+dErr dRuleComputePhysical(dRule rule,const dScalar jac[],dReal jinv[],dReal jw[])
 {
   dErr err;
   dInt n;
