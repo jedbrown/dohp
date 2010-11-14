@@ -252,6 +252,7 @@ static dErr checkRulesAndEFS(dJacobi jac)
   Vec          u      = NULL;
   dQuadrature  quad;
   dInt         N,minrdeg,maxrdeg,minbdeg,maxbdeg;
+  dQuadratureMethod qmethod;
   dPolynomialOrder *rdeg,*bdeg;
   dEntTopology *topo;
   dBool        showrules,showefs;
@@ -264,6 +265,7 @@ static dErr checkRulesAndEFS(dJacobi jac)
   maxrdeg = 10;
   minbdeg = 1;
   maxbdeg = 5;
+  qmethod = dQUADRATURE_METHOD_FAST;
   showrules = dFALSE;
   showefs = dFALSE;
   err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"Options for testing Jacobi",NULL);dCHK(err);
@@ -271,6 +273,7 @@ static dErr checkRulesAndEFS(dJacobi jac)
   err = PetscOptionsInt("-max_rdeg","Maximum rule degree",NULL,maxrdeg,&maxrdeg,NULL);dCHK(err);
   err = PetscOptionsInt("-min_bdeg","Minimum basis degree",NULL,minbdeg,&minbdeg,NULL);dCHK(err);
   err = PetscOptionsInt("-max_bdeg","Maximum basis degree",NULL,maxbdeg,&maxbdeg,NULL);dCHK(err);
+  err = PetscOptionsEnum("-qmethod","Quadrature method",NULL,dQuadratureMethods,(PetscEnum)qmethod,(PetscEnum*)&qmethod,NULL);dCHK(err);
   err = PetscOptionsBool("-show_rules","Show rules",NULL,showrules,&showrules,NULL);dCHK(err);
   err = PetscOptionsBool("-show_efs","Show EFS",NULL,showefs,&showefs,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
@@ -285,7 +288,7 @@ static dErr checkRulesAndEFS(dJacobi jac)
     }
   }
 
-  err = dJacobiGetQuadrature(jac,dQUADRATURE_METHOD_FAST,&quad);dCHK(err);
+  err = dJacobiGetQuadrature(jac,qmethod,&quad);dCHK(err);
   err = dQuadratureGetRules(quad,N,topo,rdeg,&rule);dCHK(err);
   if (showrules) {
     for (dInt i=0; i<N; i++) {

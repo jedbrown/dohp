@@ -26,6 +26,7 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
   dRule *rules;
   dEFS *efs;
   dQuadrature quad;
+  dQuadratureMethod qmethod = dQUADRATURE_METHOD_FAST;
   dInt rp = 6;
   dErr err;
 
@@ -35,6 +36,7 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
   else if (!strcmp(jtype,dJACOBI_MODAL)) type = MODAL;
   else dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Unexpected Jacobi type '%s'",jtype);
 
+  err = PetscOptionsGetEnum(NULL,"-qmethod",dQuadratureMethods,(PetscEnum*)&qmethod,NULL);dCHK(err);
   err = PetscOptionsGetInt(NULL,"-rule_degree",&rp,NULL);dCHK(err);
   for (dInt i=0; i<4; i++) {
     switch (type) {
@@ -47,7 +49,7 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
         bdegree[i] = dPolynomialOrderCreate(i,0,0,0);
     }
   }
-  err = dJacobiGetQuadrature(jac,dQUADRATURE_METHOD_FAST,&quad);dCHK(err);
+  err = dJacobiGetQuadrature(jac,qmethod,&quad);dCHK(err);
   err = dQuadratureGetRules(quad,4,topo,rdegree,&rules);dCHK(err);
   err = dJacobiGetEFS(jac,4,topo,bdegree,rules,&efs);dCHK(err);
 
