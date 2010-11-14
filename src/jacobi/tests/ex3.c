@@ -27,6 +27,7 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
   dEFS *efs;
   dQuadrature quad;
   dQuadratureMethod qmethod = dQUADRATURE_METHOD_FAST;
+  dBool just_view = dFALSE;
   dInt rp = 6;
   dErr err;
 
@@ -38,6 +39,7 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
 
   err = PetscOptionsGetEnum(NULL,"-qmethod",dQuadratureMethods,(PetscEnum*)&qmethod,NULL);dCHK(err);
   err = PetscOptionsGetInt(NULL,"-rule_degree",&rp,NULL);dCHK(err);
+  err = PetscOptionsGetBool(NULL,"-just_view",&just_view,NULL);dCHK(err);
   for (dInt i=0; i<4; i++) {
     switch (type) {
       case TENSOR:
@@ -58,6 +60,10 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
     dReal *coord,*weight;
     const dReal *interp,*deriv;
     dInt m,n,Q,P;
+    if (just_view) {
+      err = dEFSView(efs[i],PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+      continue;
+    }
     err = dRuleGetSize(rules[i],NULL,&n);dCHK(err);
     err = dEFSGetSizes(efs[i],NULL,NULL,&m);dCHK(err);
     err = dMallocA4(3*n,&coord,n,&weight,n,&values,n*3,&derivs);dCHK(err);

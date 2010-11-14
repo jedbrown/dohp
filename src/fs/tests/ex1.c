@@ -406,7 +406,6 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
     dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
     err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
-    printf("F %d\n",Q);
     for (dInt i=0; i<Q; i++) {
       dScalar f[1];             /* Scalar problem */
       err = exact.function(&x[i*3],f);dCHK(err);

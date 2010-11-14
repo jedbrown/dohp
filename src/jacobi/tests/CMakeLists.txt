@@ -10,3 +10,4 @@ dohp_add_test (jacobi-2-modal-sparse-gauss 1 jacobi-ex2 -djac_type modal -dquad_
 dohp_add_test (jacobi-3-modal-gauss 1 jacobi-ex3 -djac_type modal -rule_degree 6)
 dohp_add_test (jacobi-3-tensor-gauss 1 jacobi-ex3 -djac_type tensor -rule_degree 8 -dquad_tensor_gauss_family gauss)
 dohp_add_test (jacobi-3-tensor-lobatto 1 jacobi-ex3 -djac_type tensor -rule_degree 6 -dquad_tensor_gauss_family lobatto)
+dohp_add_test (jacobi-3-tensor-sparse-gauss 1 jacobi-ex3 -djac_type tensor -rule_degree 4 -dquad_tensor_gauss_family gauss -qmethod sparse -just_view)
