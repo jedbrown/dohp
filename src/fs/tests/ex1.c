@@ -15,6 +15,7 @@ struct Options {
   dBool  showsoln;
   dInt cycles;
   dInt  proj_version;
+  dQuadratureMethod jac_qmethod;
   dReal q1scale;
   dReal frequency[3];
   dReal normRequirePtwise[3];
@@ -253,20 +254,20 @@ static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],
 struct ProjContext {
   dFS fs;
   Vec x,y;
-  dRuleset ruleset;
+  dRuleset ruleset[dQUADRATURE_METHOD_INVALID];
 };
 
-static dErr ProjGetRuleset(struct ProjContext *proj,dRuleset *ruleset)
+static dErr ProjGetRuleset(struct ProjContext *proj,dQuadratureMethod qmethod,dRuleset *ruleset)
 {
   dErr err;
 
   dFunctionBegin;
-  if (!proj->ruleset) {
+  if (!proj->ruleset[qmethod]) {
     dMeshESH domain;
     err = dFSGetDomain(proj->fs,&domain);dCHK(err);
-    err = dFSGetPreferredQuadratureRuleSet(proj->fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_FAST,&proj->ruleset);dCHK(err);
+    err = dFSGetPreferredQuadratureRuleSet(proj->fs,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&proj->ruleset[qmethod]);dCHK(err);
   }
-  *ruleset = proj->ruleset;
+  *ruleset = proj->ruleset[qmethod];
   dFunctionReturn(0);
 }
 
@@ -288,7 +289,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = VecGetArrayRead(proj->x,&x);dCHK(err);
   err = VecZeroEntries(proj->y);dCHK(err);
   err = VecGetArray(proj->y,&y);dCHK(err);
-  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
+  err = ProjGetRuleset(proj,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
   err = dFSGetEFS(fs,ruleset,&nelem,&efs);dCHK(err);
 
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
@@ -339,7 +340,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
+  err = ProjGetRuleset(proj,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
@@ -392,7 +393,7 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
+  err = ProjGetRuleset(proj,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
@@ -405,6 +406,7 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
     dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
     err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    printf("F %d\n",Q);
     for (dInt i=0; i<Q; i++) {
       dScalar f[1];             /* Scalar problem */
       err = exact.function(&x[i*3],f);dCHK(err);
@@ -434,7 +436,7 @@ static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
 
   dFunctionBegin;
   err = MatZeroEntries(*Jp);dCHK(err);
-  err = ProjGetRuleset(proj,&ruleset);dCHK(err);
+  err = ProjGetRuleset(proj,gopt.jac_qmethod,&ruleset);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
   err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
@@ -472,8 +474,10 @@ static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   /* Dummy assembly, necessary to reset base vector in -snes_mf_operator */
-  err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  if (J != Jp) {
+    err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+    err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  }
   *structure = SAME_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
@@ -662,7 +666,9 @@ static dErr doProjection(dFS fs)
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(proj.x);dCHK(err);
   err = VecDestroy(proj.y);dCHK(err);
-  err = dRulesetDestroy(proj.ruleset);dCHK(err);
+  for (dInt i=0; i<ALEN(proj.ruleset); i++) {
+    if (proj.ruleset[i]) {err = dRulesetDestroy(proj.ruleset[i]);dCHK(err);}
+  }
   dFunctionReturn(0);
 }
 
@@ -685,7 +691,8 @@ int main(int argc,char *argv[])
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1; gopt.q1scale = 1.0;
+    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1;
+    gopt.jac_qmethod = dQUADRATURE_METHOD_FAST; gopt.q1scale = 1.0;
     gopt.frequency[0] = 1; gopt.frequency[1] = 1; gopt.frequency[2] = 1;
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
@@ -694,6 +701,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
     err = PetscOptionsInt("-proj_version","Residual evaluation version",NULL,gopt.proj_version,&gopt.proj_version,NULL);dCHK(err);
+    err = PetscOptionsEnum("-jac_qmethod","Quadrature method for Jacobian evaluation",NULL,dQuadratureMethods,(PetscEnum)gopt.jac_qmethod,(PetscEnum*)&gopt.jac_qmethod,NULL);dCHK(err);
     err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-frequency","Frequency of oscillation in each cartesion direction",NULL,gopt.frequency,&nset,&flg);dCHK(err);
