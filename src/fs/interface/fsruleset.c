@@ -30,10 +30,10 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTop
    * adjacent elements, and perhaps also the physics.
    */
   for (dInt i=0; i<ents_s; i++) {
-    order[i] = dPolynomialOrderCreate(dSqrInt(dPolynomialOrderMax(order[i])),
-                                      dSqrInt(dPolynomialOrder1D(order[i],0)),
-                                      dSqrInt(dPolynomialOrder1D(order[i],1)),
-                                      dSqrInt(dPolynomialOrder1D(order[i],2)));
+    order[i] = dPolynomialOrderCreate(2*(dPolynomialOrderMax(order[i])),
+                                      2*(dPolynomialOrder1D(order[i],0)),
+                                      2*(dPolynomialOrder1D(order[i],1)),
+                                      2*(dPolynomialOrder1D(order[i],2)));
   }
 
   err = dNew(struct _n_dRuleset,&rset);dCHK(err);
