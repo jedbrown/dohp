@@ -408,6 +408,7 @@ dErr dEFSView(dEFS efs,PetscViewer viewer)
 
   dFunctionBegin;
   dValidPointer(efs,1);
+  if (!viewer) {err = PetscViewerASCIIGetStdout(PETSC_COMM_SELF,&viewer);dCHK(err);}
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   err = (*efs->ops.view)(efs,viewer);dCHK(err);
   dFunctionReturn(0);
