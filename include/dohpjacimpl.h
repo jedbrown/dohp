@@ -46,6 +46,7 @@ struct _dEFSOps {
   dErr (*apply)(dEFS,const dReal[],dInt,const dScalar[],dScalar[],dApplyMode,InsertMode);
   dErr (*getGlobalCoordinates)(dEFS,const dReal(*)[3],dInt*,dInt[],dReal(*)[3]);
   dErr (*getExplicit)(dEFS,const dReal[],dInt*,dInt*,const dReal**,const dReal**);
+  dErr (*getExplicitSparse)(dEFS,dInt*,const dInt**,const dInt*const**,const dInt**,const dInt*const**,const dReal*const**,const dReal*const**);
 };
 
 /**

@@ -23,10 +23,21 @@ struct _TensorBasis {
   const dReal *mscale,*lscale;  /**< Used to produce optimal scaling of sparse mass and Laplacian matrices */
 };
 
+struct dEFS_TensorSparse {
+  dInt  npieces;
+  dInt  *Q;                     /**< Array with number of quadrature nodes on each piece of the patch */
+  dInt  *P;                     /**< Array with number of finite element modes on each piece of the patch */
+  dInt  **qidx;                 /**< For each piece, indices of quadrature points in patch ordering */
+  dInt  **eidx;                 /**< For each piece, indices of element modes with support on piece */
+  dReal **interp;               /**< Interpolation: u_piece[i] = u_patch[qidx[piece][i]] = sum_j interp[piece][i*Q[piece]+j] * u_elem[eidx[piece][j]] */
+  dReal **deriv;                /**< Derivatives, as above, but with gradients */
+};
+
 typedef struct {
   dEFSHEADER;
   dEntTopology topo;
   TensorBasis  basis[3];
+  struct dEFS_TensorSparse sparse;
 } dEFS_Tensor;
 
 KHASH_MAP_INIT_INT(tensor,TensorBasis)

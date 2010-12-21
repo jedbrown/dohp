@@ -37,6 +37,7 @@ _F(dRuleMappingApply_Tensor_Line);
 _F(dRuleMappingApply_Tensor_Quad);
 //_F(dRuleMappingApply_Tensor_Hex);
 #undef _F
+static dErr dEFSGetExplicitSparse_Tensor_Any(dEFS efs,dInt *npieces,const dInt **Q,const dInt *const**qidx,const dInt **P,const dInt *const**eidx,const dReal *const**interp,const dReal *const**deriv);
 
 static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
 static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
@@ -77,6 +78,7 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
                                              .getSizes             = dEFSGetSizes_Tensor_Hex,
                                              .getTensorNodes       = dEFSGetTensorNodes_Tensor_Hex,
                                              .apply                = dEFSApply_Tensor_Hex,
+                                             .getExplicitSparse    = dEFSGetExplicitSparse_Tensor_Any,
                                              .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex};
   dJacobi_Tensor *tnsr = jac->data;
   dErr err;
@@ -652,5 +654,21 @@ static dErr dRuleMappingApply_Tensor_Quad(dRule rule,const dReal jinv[],dInt D,c
   } else {
     err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
   }
+  dFunctionReturn(0);
+}
+
+static dErr dEFSGetExplicitSparse_Tensor_Any(dEFS efs,dInt *npieces,const dInt **Q,const dInt *const**qidx,const dInt **P,const dInt *const**eidx,const dReal *const**interp,const dReal *const**deriv)
+{
+  dEFS_Tensor *efst = (dEFS_Tensor*)efs;
+  struct dEFS_TensorSparse *sparse = &efst->sparse;
+
+  dFunctionBegin;
+  *npieces = sparse->npieces;
+  *Q       = sparse->Q;
+  *qidx    = (const dInt*const*)sparse->qidx;
+  *P       = sparse->P;
+  *eidx    = (const dInt*const*)sparse->eidx;
+  *interp  = (const dReal*const*)sparse->interp;
+  *deriv   = (const dReal*const*)sparse->deriv;
   dFunctionReturn(0);
 }

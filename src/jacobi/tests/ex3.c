@@ -17,19 +17,16 @@ static dErr MatRealView(dInt m,dInt n,const dReal *rvalues,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
+static dErr GetEFS(dJacobi jac,dRule **rules,dEFS **efs)
 {
-  dEntTopology topo[] = {dTOPO_HEX,dTOPO_HEX,dTOPO_HEX,dTOPO_HEX};
-  dPolynomialOrder rdegree[4],bdegree[4];
+  dErr err;
   const dJacobiType jtype;
   enum {TENSOR,MODAL} type;
-  dRule *rules;
-  dEFS *efs;
-  dQuadrature quad;
   dQuadratureMethod qmethod = dQUADRATURE_METHOD_FAST;
-  dBool just_view = dFALSE;
+  dEntTopology topo[] = {dTOPO_HEX,dTOPO_HEX,dTOPO_HEX,dTOPO_HEX};
+  dPolynomialOrder rdegree[4],bdegree[4];
+  dQuadrature quad;
   dInt rp = 6;
-  dErr err;
 
   dFunctionBegin;
   err = dJacobiGetType(jac,&jtype);dCHK(err);
@@ -39,7 +36,6 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
 
   err = PetscOptionsGetEnum(NULL,"-qmethod",dQuadratureMethods,(PetscEnum*)&qmethod,NULL);dCHK(err);
   err = PetscOptionsGetInt(NULL,"-rule_degree",&rp,NULL);dCHK(err);
-  err = PetscOptionsGetBool(NULL,"-just_view",&just_view,NULL);dCHK(err);
   for (dInt i=0; i<4; i++) {
     switch (type) {
       case TENSOR:
@@ -52,8 +48,21 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
     }
   }
   err = dJacobiGetQuadrature(jac,qmethod,&quad);dCHK(err);
-  err = dQuadratureGetRules(quad,4,topo,rdegree,&rules);dCHK(err);
-  err = dJacobiGetEFS(jac,4,topo,bdegree,rules,&efs);dCHK(err);
+  err = dQuadratureGetRules(quad,4,topo,rdegree,rules);dCHK(err);
+  err = dJacobiGetEFS(jac,4,topo,bdegree,*rules,efs);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
+{
+  dRule *rules;
+  dEFS *efs;
+  dBool just_view = dFALSE;
+  dErr err;
+
+  dFunctionBegin;
+  err = GetEFS(jac,&rules,&efs);dCHK(err);
+  err = PetscOptionsGetBool(NULL,"-just_view",&just_view,NULL);dCHK(err);
 
   for (dInt i=0; i<4; i++) {
     dScalar *values,*derivs;
@@ -95,12 +104,40 @@ static dErr TestExplicitBases(dJacobi jac,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
+static dErr TestExplicitSparseBases(dJacobi jac,PetscViewer viewer)
+{
+  dErr err;
+  dRule *rules;
+  dEFS *efs;
+
+  dFunctionBegin;
+  err = GetEFS(jac,&rules,&efs);dCHK(err);
+  for (dInt i=0; i<4; i++) {
+    dInt npieces;
+    const dInt *Q,*const*qidx,*P,*const*eidx;
+    const dReal *const*interp,*const*deriv;
+    err = dEFSGetExplicitSparse(efs[i],&npieces,&Q,&qidx,&P,&eidx,&interp,&deriv);dCHK(err);
+    for (dInt j=0; j<npieces; j++) {
+      char name[dNAME_LEN];
+      err = PetscIntView(Q[j],qidx[j],viewer);dCHK(err);
+      err = PetscIntView(P[j],eidx[j],viewer);dCHK(err);
+      err = PetscSNPrintf(name,sizeof name,"elem %D  piece %D  interp",i,j);dCHK(err);
+      err = dRealTableView(Q[j],P[j],interp[j],name,viewer);dCHK(err);
+      err = PetscSNPrintf(name,sizeof name,"elem %D  piece %D  deriv",i,j);dCHK(err);
+      err = dRealTableView(Q[j],P[j],interp[j],name,viewer);dCHK(err);
+    }
+  }
+  dFunctionReturn(0);
+}
+
+
 int main(int argc,char *argv[])
 {
   dJacobi jac;
   MPI_Comm comm;
   PetscViewer viewer;
   dErr err;
+  dBool sparse = dFALSE;
 
   err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
@@ -108,7 +145,12 @@ int main(int argc,char *argv[])
 
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
-  err = TestExplicitBases(jac,viewer);dCHK(err);
+  err = PetscOptionsGetBool(NULL,"-sparse",&sparse,NULL);dCHK(err);
+  if (sparse) {
+    err = TestExplicitSparseBases(jac,viewer);dCHK(err);
+  } else {
+    err = TestExplicitBases(jac,viewer);dCHK(err);
+  }
   err = dJacobiDestroy(jac);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;

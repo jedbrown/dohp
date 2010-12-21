@@ -564,6 +564,24 @@ dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal
   dFunctionReturn(0);
 }
 
+dErr dEFSGetExplicitSparse(dEFS efs,dInt *npieces,const dInt **Q,const dInt *const**qidx,const dInt **P,const dInt *const**eidx,const dReal *const**basis,const dReal *const**deriv)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(efs,1);
+  dValidPointer(npieces,2);
+  dValidPointer(Q,3);
+  dValidPointer(qidx,4);
+  dValidPointer(P,5);
+  dValidPointer(eidx,6);
+  dValidPointer(basis,7);
+  dValidPointer(deriv,8);
+  if (!efs->ops.getExplicitSparse) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not available");
+  err = (*efs->ops.getExplicitSparse)(efs,npieces,Q,qidx,P,eidx,basis,deriv);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /** Get constraint counts for element assembly matrices.
 *
 * @note This function (and dJacobiAddConstraints()) will be difficult to implement on mixed spaces.  Looking for a
