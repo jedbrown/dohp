@@ -659,8 +659,8 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
     err = MatMPIAIJSetPreallocation(J,bs*27,NULL,bs*25,NULL);dCHK(err);
   }
   err = MatSetBlockSize(J,bs);dCHK(err);
-  err = MatSetLocalToGlobalMappingBlock(J,fs->bmapping);dCHK(err);
-  err = MatSetLocalToGlobalMapping(J,fs->mapping);dCHK(err);
+  err = MatSetLocalToGlobalMappingBlock(J,fs->bmapping,fs->bmapping);dCHK(err);
+  err = MatSetLocalToGlobalMapping(J,fs->mapping,fs->mapping);dCHK(err);
 
   /* We want the resulting matrices to be usable with matrix-free operations based on this FS */
   err = PetscObjectCompose((dObject)J,"DohpFS",(dObject)fs);dCHK(err);

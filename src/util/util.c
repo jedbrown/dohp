@@ -40,12 +40,12 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer vie
     if (name) {
       err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
     }
-    err = PetscViewerASCIIUseTabs(viewer,PETSC_NO);dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_FALSE);dCHK(err);
     for (dInt j=0; j<n; j++) {
       err = PetscViewerASCIIPrintf(viewer," % 9.5f",mat[i*n+j]);dCHK(err);
     }
     err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
-    err = PetscViewerASCIIUseTabs(viewer,PETSC_YES);dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_TRUE);dCHK(err);
   }
   dFunctionReturn(0);
 }
