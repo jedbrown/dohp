@@ -495,6 +495,24 @@ static dErr TensorGetBasis(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord[],
   dFunctionReturn(0);
 }
 
+static dErr dEFSSparseSetUp_Tensor_Default(dEFS_Tensor *tefs)
+{
+  struct dEFS_TensorSparse *sparse = &tefs->sparse;
+  const dReal *interp,*deriv;
+  dInt Q,P;
+  dErr err;
+
+  dFunctionBegin;
+  err = dEFSGetExplicit((dEFS)tefs,NULL,&Q,&P,&interp,&deriv);dCHK(err);
+  sparse->npieces = 1;
+  err = dMallocA6(1,&sparse->Q,1,&sparse->P,1,&sparse->qidx,1,&sparse->eidx,1,&sparse->interp,1,&sparse->deriv);dCHK(err);
+  err = dMallocA4(Q,&sparse->qidx[0],P,&sparse->eidx[0],Q*P,&sparse->interp[0],Q*P*3,&sparse->deriv[0]);dCHK(err);
+  err = dMemcpy(sparse->interp[0],interp,Q*P*sizeof(interp[0]));dCHK(err);
+  err = dMemcpy(sparse->deriv[0],deriv,Q*P*3*sizeof(deriv[0]));dCHK(err);
+  err = dEFSRestoreExplicit((dEFS)tefs,NULL,&Q,&P,&interp,&deriv);dCHK(err);
+  dFunctionReturn(0);
+}
+
 static dErr dEFSSparseSetUp_Tensor(dEFS_Tensor *tefs)
 {
   struct dEFS_TensorSparse *sparse = &tefs->sparse;
@@ -506,8 +524,11 @@ static dErr dEFSSparseSetUp_Tensor(dEFS_Tensor *tefs)
     const dInt P[3] = {tefs->basis[0]->P,tefs->basis[1]->P,tefs->basis[2]->P},Q[3] = {tefs->basis[0]->Q,tefs->basis[1]->Q,tefs->basis[2]->Q};
     dInt N,QQ,qperpiece,eperpiece,*qidx,*eidx;
     dReal *interp,*deriv;
-    if (Q[0] != 2*P[0] || Q[1] != 2*P[1] || Q[2] != 2*P[2])
-      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Sparse assembly not possible with this order-quadrature");
+    if (Q[0] != 2*P[0] || Q[1] != 2*P[1] || Q[2] != 2*P[2]) {
+      /* Sparse assembly not possible with this order quadrature */
+      err = dEFSSparseSetUp_Tensor_Default(tefs);dCHK(err);
+      dFunctionReturn(0);
+    }
     sparse->npieces = N = P[0] * P[1] * P[2];
     QQ = Q[0]*Q[1]*Q[2];
     qperpiece = 8;              /* Sloppy, assumes 2^3 quadrature on each piece */
@@ -562,6 +583,7 @@ static dErr dJacobiGetEFS_Tensor(dJacobi jac,dInt n,const dEntTopology topo[],co
           newefs->ops = *tnsr->efsOpsQuad;
           err = TensorGetBasis(tnsr,rsize[0],rcoord[0],dPolynomialOrder1D(order[i],0),&newefs->basis[0]);dCHK(err);
           err = TensorGetBasis(tnsr,rsize[1],rcoord[1],dPolynomialOrder1D(order[i],1),&newefs->basis[1]);dCHK(err);
+          err = dEFSSparseSetUp_Tensor(newefs);dCHK(err);
           break;
         case dTOPO_HEX:
           if (rdim != 3) dERROR(PETSC_COMM_SELF,1,"Incompatible Rule dim %d, expected 3",rdim);
