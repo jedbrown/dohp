@@ -691,7 +691,7 @@ int main(int argc,char *argv[])
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
     gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1;
-    gopt.jac_qmethod = dQUADRATURE_METHOD_FAST; gopt.q1scale = 1.0;
+    gopt.jac_qmethod = dQUADRATURE_METHOD_SPARSE; gopt.q1scale = 1.0;
     gopt.frequency[0] = 1; gopt.frequency[1] = 1; gopt.frequency[2] = 1;
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
