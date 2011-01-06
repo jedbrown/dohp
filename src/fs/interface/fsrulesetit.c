@@ -3,38 +3,46 @@
 #include <stdarg.h>
 
 struct dRulesetIteratorLink {
-  dFS fs;
-  const dEFS *efs;
-  Vec X,Xexp,Y,Yexp;
-  dScalar *x;                   /* Entries from expanded vector */
-  dScalar *y;
-  dScalar *u,*du,*v,*dv;
-  dInt *rowcol;
-  dInt maxP;
-  dInt nefs;
-  dInt off;
-  dInt bs;
+  dFS fs;                       /**< Function space for this link */
+  const dEFS *efs;              /**< Array of element function spaces for all patches in this iterator */
+  Vec X,Xexp;                   /**< Trial global and expanded vectors for residuals and Jacobian assembly */
+  Vec Y,Yexp;                   /**< Test global and expanded vectors for residuals */
+  dScalar *x;                   /**< Entries from trial expanded vector */
+  dScalar *y;                   /**< Entries from test expanded vector */
+  dScalar *u,*du,*v,*dv;        /**< Test and trial values at quadrature points */
+  dInt *rowcol;                 /**< Work array to hold row and column indices */
+  dInt maxP;                    /**< Largest number of basis functions with support on this element */
+  dInt nefs;                    /**< Number of dEFS */
+  dInt off;                     /**< Offset into expanded vector */
+  dInt bs;                      /**< Block size */
   struct dRulesetIteratorLink *next;
 };
 
+/** User-defined storage associated with the iterator.
+ *
+ * Can have an arbitrary number of bytes per patch and per quadrature node.
+ */
 struct dRulesetIteratorStash {
-  char *patch;
-  char *node;
-  dInt *patchoffset;
-  dInt patchbytes,nodebytes;
+  char *patch;                  /**< Private data associated with the patch */
+  char *node;                   /**< Private data associated with each quadrature node */
+  dInt *patchoffset;            /**< Node index for the first node of each patch */
+  dInt patchbytes;              /**< Number of bytes per patch (typically storing some metadata) */
+  dInt nodebytes;               /**< Number of bytes per node (typically storing matrix-free Jacobian information) */
 };
 
 struct _n_dRulesetIterator {
-  dRuleset ruleset;
-  dInt curpatch;
-  dInt npatches,nnodes;
-  dInt maxQ;
-  dInt nlinks;
-  dInt Q;
-  dReal *cjinv,*jw;
-  dScalar **Ksplit;
-  struct dRulesetIteratorStash stash;
-  struct dRulesetIteratorLink *link;
+  dRuleset ruleset;             /**< Ruleset containing quadrature rules for each patch */
+  dInt curpatch;                /**< Index of the current patch with respect to expanded space */
+  dInt npatches;                /**< Number of patches in expanded space */
+  dInt nnodes;                  /**< Total number of nodes in expanded space */
+  dInt maxQ;                    /**< Largest number of quadrature nodes in a single patch */
+  dInt nlinks;                  /**< Number of dFS registered with this iterator */
+  dInt Q;                       /**< Number of quadrature nodes in current patch */
+  dReal *cjinv;                 /**< Inverse Jacobian of coordinate transformation at each quadrature node of this patch */
+  dReal *jw;                    /**< Physical quadrature weight (determinant of coordinate Jacobian times reference quadrature weight) at each quadrature node */
+  dScalar **Ksplit;             /**< Work space for matrix assembly between each pair of registered function spaces */
+  struct dRulesetIteratorStash stash; /**< Private storage for the user */
+  struct dRulesetIteratorLink *link;  /**< Links for each registered function space */
 };
 
 /** Get an iterator for performing an integral on the given rule set, with coordinate vectors lying in space cfs.
@@ -131,6 +139,10 @@ static dErr dRulesetIteratorFreeMatrixSpace_Private(dRulesetIterator it)
   dFunctionReturn(0);
 }
 
+/** Start iterating using trial vector \a X (...) and test vector \a Y (...)
+ *
+ * @note Collective
+ */
 dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
 {
   dErr err;
@@ -183,6 +195,10 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
   dFunctionReturn(0);
 }
 
+/** Releases resources that were acquired for iteration and perform any collective operations to vector assembly
+ *
+ * @note Collective
+ */
 dErr dRulesetIteratorFinish(dRulesetIterator it)
 {
   dErr err;
@@ -197,6 +213,8 @@ dErr dRulesetIteratorFinish(dRulesetIterator it)
   dFunctionReturn(0);
 }
 
+/** Move to the next patch in iterator.
+ */
 dErr dRulesetIteratorNextPatch(dRulesetIterator it)
 {
   dErr err;
@@ -211,11 +229,17 @@ dErr dRulesetIteratorNextPatch(dRulesetIterator it)
   dFunctionReturn(0);
 }
 
+/** Check whether the iterator still has a patch.  This function cannot fail.
+ *
+ * @note Not collective
+ */
 bool dRulesetIteratorHasPatch(dRulesetIterator it)
 {return it->curpatch < it->npatches;}
 
 /** dRulesetIteratorGetPatch - Get dRule, dEFSs, and fields to be evaluated on the patch
  *
+ * @note Not collective
+ * @note dRulesetIteratorStart() must have been called with non-NULL vector for each element trial function requested.
  */
 dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...)
 {
@@ -244,6 +268,7 @@ dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar 
 
 /** dRulesetIteratorGetPatchSpace - Gets space to store function values at quadrature points on the current patch
  *
+ * @note Not collective
  */
 dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dReal **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
 {
@@ -269,6 +294,7 @@ dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dReal **cjinv,dReal **jw,
   dFunctionReturn(0);
 }
 
+/** Release patch space memory */
 dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dReal **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
 {
   va_list ap;
@@ -293,8 +319,10 @@ dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dReal **cjinv,dReal *
   dFunctionReturn(0);
 }
 
-/** dRulesetIteratorCommitPatch - Adds contribution from the current patch to a residual vector
+/** dRulesetIteratorCommitPatch - Adds contribution from coefficients of test functions on the current patch to a residual vector
  *
+ * @note Not collective, but dRulesetIteratorFinish() must be called before results are guaranteed to be visible.
+ * @note See dRulesetIteratorCommitPatchApplied() for a version that operators on coefficients of test functions at quadrature points
  */
 dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...)
 {
@@ -314,6 +342,8 @@ dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...)
 
 /** dRulesetIteratorGetPatchApplied - Gets a patch with function values and derivatives already evaluated on quadrature points
  *
+ * @note Not collective
+ * @note dRulesetIteratorStart() must have been called with global trial vectors for any trial values that are requested here.
  */
 dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...)
 {
@@ -362,6 +392,7 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
 
 /** dRulesetIteratorCommitPatchApplied - Commits coefficients of test functions evaluated at quadrature points
  *
+ * @note Not collective, but dRulesetIteratorFinish() must be called before results are guaranteed to be visible.
  */
 dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,const dScalar *v,const dScalar *dv,...)
 {
@@ -393,6 +424,15 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
 
 /** dRulesetIteratorGetPatchAssembly - Gets explicit bases for each function space on a patch
  *
+ * @param[in] it iterator
+ * @param[out] P number of basis functions with support on this patch (one per block)
+ * @param[out] rowcol Expanded indices for each of the \a P basis functions
+ * @param[out] interp Interpolation matrix for this patch, \c interp[q*P+k] is the value of basis function \c k at quadrature point \c q
+ * @param[out] deriv Derivative matrix for this patch, \c deriv[(q*P+k)*3+d] is the derivative of basis function \c k at quadrature point \c q in direction \c d
+ *
+ * @note The vararg output tuple \c (P,rowcol,interp,deriv) is repeated once for each function space registered with dRulesetIteratorAddFS().
+ *
+ * @note Pass \c NULL for any of \a P, \a rowcol, \a interp, \a deriv that you are not interested in.
  */
 dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...)
 {
@@ -499,6 +539,11 @@ dErr dRulesetIteratorGetStash(dRulesetIterator it,void *patchstash,void *nodesta
   dFunctionReturn(0);
 }
 
+/** Destroy an iterator when it is no longer needed.
+ *
+ * @note This function should only be called after dRulesetIteratorFinish().
+ * @note Iterators can be reused by calling dRulesetIteratorStart() again.
+ */
 dErr dRulesetIteratorDestroy(dRulesetIterator it)
 {
   dErr err;

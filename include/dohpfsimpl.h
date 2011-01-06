@@ -41,14 +41,14 @@ struct dRulesetWorkspace {
 };
 
 struct _n_dRuleset {
-  dMesh mesh;
-  dMeshESH set;
-  dEntType type;
-  dEntTopology topo;
-  dInt n;
-  dRule *rules;
-  dInt maxQ;
-  struct dRulesetWorkspace *workspace;
+  dMesh mesh;                   /**< Mesh on which the rules are defined */
+  dMeshESH set;                 /**< Set containing all entities needing integration (and perhaps others of different type/topology) */
+  dEntType type;                /**< Type of entities in the set on which integration is to be done */
+  dEntTopology topo;            /**< Topology of entities in the set on which integration is to be done */
+  dInt n;                       /**< Number of entities in set */
+  dRule *rules;                 /**< Array of rules, one for each patch */
+  dInt maxQ;                    /**< Max number of quadrature points in any patch */
+  struct dRulesetWorkspace *workspace; /**< Manages workspace storage for evaluations based on dRules in this set */
 };
 
 struct _dFSIntegrationLink {
