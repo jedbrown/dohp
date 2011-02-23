@@ -4,7 +4,7 @@
 
 struct dRulesetIteratorLink {
   dFS fs;                       /**< Function space for this link */
-  const dEFS *efs;              /**< Array of element function spaces for all patches in this iterator */
+  const dEFS *efs;              /**< Array of element function spaces for all elements in this iterator */
   Vec X,Xexp;                   /**< Trial global and expanded vectors for residuals and Jacobian assembly */
   Vec Y,Yexp;                   /**< Test global and expanded vectors for residuals */
   dScalar *x;                   /**< Entries from trial expanded vector */
@@ -32,6 +32,10 @@ struct dRulesetIteratorStash {
 
 struct _n_dRulesetIterator {
   dRuleset ruleset;             /**< Ruleset containing quadrature rules for each patch */
+  dInt curelem;                 /**< Current element number (there may be multiple patches per element) */
+  dInt nelems;                  /**< Total number of elements */
+  dInt curpatch_in_elem;        /**< Index of current patch in this element */
+  dInt npatches_in_elem;        /**< Number of patches in current element */
   dInt curpatch;                /**< Index of the current patch with respect to expanded space */
   dInt npatches;                /**< Number of patches in expanded space */
   dInt nnodes;                  /**< Total number of nodes in expanded space */
@@ -44,6 +48,32 @@ struct _n_dRulesetIterator {
   struct dRulesetIteratorStash stash; /**< Private storage for the user */
   struct dRulesetIteratorLink *link;  /**< Links for each registered function space */
 };
+
+/** @struct dRulesetIterator
+ *
+ * This iterator is for efficient integration over regions and/or faces in a domain.
+ *
+ * Some definitions
+ *
+ *   An \e element is a natural unit of evaluation, such as an entire high-order element or a spline.  It is often
+ *   asymptotically more efficient to evaluate a whole element than to evaluate any smaller unit.
+ *
+ *   A \e patch is a natural unit of integration.  It is typically the largest region with maximal order continuity and
+ *   can be no larger than an element.  This is a "subelement" for composite elements and the patch between knots within
+ *   a spline element.  For standard finite element methods, there is exactly one \e patch per \e element so the
+ *   distinction is not normally made.
+ *
+ * We distinguish between \e elements and \e patches so as to maintain sparsity in the following cases:
+ *
+ *   \li Q_1 subelements of a nodal Q_k discretization
+ *   \li splines in isogeometric analysis
+ *   \li other composite elements
+ *   \li reconstruction in finite volume or some discontinuous Galerkin methods
+ *
+ * For face patches, two elements are needed for evaluation of derivatives (provided jump terms are needed).
+ *
+ * This iterator hides details of the nested iteration and evaluation: the user only needs to iterate over patches.
+ */
 
 /** Get an iterator for performing an integral on the given rule set, with coordinate vectors lying in space cfs.
  *
@@ -58,9 +88,9 @@ dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter)
   *iter = 0;
   err = dCallocA(1,&it);dCHK(err);
   it->ruleset = rset;
-  err = dRulesetGetSize(rset,&it->npatches);dCHK(err);
+  err = dRulesetGetSize(rset,&it->nelems);dCHK(err);
   it->nnodes = 0;
-  for (dInt i=0; i<it->npatches; i++) {
+  for (dInt i=0; i<it->nelems; i++) {
     dInt nnodes;
     err = dRuleGetSize(it->ruleset->rules[i],NULL,&nnodes);dCHK(err);
     it->nnodes += nnodes;
@@ -178,7 +208,7 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
         p->maxP = dMaxInt(p->maxP,P);
       }
     }
-    if (p->nefs != it->npatches) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Got an invalid EFS list");
+    if (p->nefs != it->nelems) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Got an invalid EFS list");
     err = dRulesetIteratorLinkCreatePatchSpace_Private(p,it->maxQ);dCHK(err);
     if (!p->rowcol) {err = dMallocA(p->maxP,&p->rowcol);dCHK(err);}
   }
@@ -191,7 +221,9 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
     /* Allocate space for the stash */
     err = dMallocA2(it->stash.patchbytes*it->npatches,&it->stash.patch,it->stash.nodebytes*it->nnodes,&it->stash.node);dCHK(err);
   }
-  it->curpatch = 0;
+  it->curelem          = 0;
+  it->curpatch_in_elem = 0;
+  it->curpatch         = 0;
   dFunctionReturn(0);
 }
 
