@@ -221,7 +221,10 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
 
   /* We don't solve systems with these so it will never make sense for them to use a different format */
   err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nloc,1,nnz,&E);dCHK(err);
-  Ep = E;
+  if (1) {
+    Ep = E;
+    err = PetscObjectReference((PetscObject)Ep);dCHK(err);
+  }
 
   err = dJacobiAddConstraints(fs->jacobi,fs->nelem,idx,xstart,loffset,deg,ma,E,Ep);dCHK(err);
 
@@ -233,11 +236,13 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
   if (E != Ep) {err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);}
 
   err = MatCreateMAIJ(E,bs,inE);dCHK(err);
-  if (E == Ep) *inEp = *inE;
-  else {err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);}
+  if (E == Ep) {
+    *inEp = *inE;
+    err = PetscObjectReference((PetscObject)*inEp);dCHK(err);
+  } else {err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);}
 
   err = MatDestroy(E);dCHK(err);
-  if (E != Ep) {err = MatDestroy(Ep);dCHK(err);}
+  err = MatDestroy(Ep);dCHK(err);
   dFunctionReturn(0);
 }
 
