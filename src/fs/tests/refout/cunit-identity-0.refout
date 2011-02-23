@@ -8,7 +8,7 @@ Boundary Unit test object (CU)
     Block size 1: global dofs 45, ghost dofs 0, closure dofs 45
     Continuous Galerkin function space
 Expanded vector (-expanded_view)
-Vector Object:
+Vector Object: 1 MPI processes
   type: seq
 1000
 1023
