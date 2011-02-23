@@ -36,6 +36,10 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer vie
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
+  if (!mat) {
+    err = PetscViewerASCIIPrintf(viewer,"%10s: null %D*%D\n",name,m,n);dCHK(err);
+    dFunctionReturn(0);
+  }
   for (dInt i=0; i<m; i++) {
     if (name) {
       err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
@@ -43,6 +47,32 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer vie
     err = PetscViewerASCIIUseTabs(viewer,PETSC_FALSE);dCHK(err);
     for (dInt j=0; j<n; j++) {
       err = PetscViewerASCIIPrintf(viewer," % 9.5f",mat[i*n+j]);dCHK(err);
+    }
+    err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_TRUE);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+dErr dIntTableView(dInt m,dInt n,const dInt mat[],const char *name,dViewer viewer)
+{
+  dBool ascii;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  if (!ascii) dFunctionReturn(0);
+  if (!mat) {
+    err = PetscViewerASCIIPrintf(viewer,"%10s: null %D*%D\n",name,m,n);dCHK(err);
+    dFunctionReturn(0);
+  }
+  for (dInt i=0; i<m; i++) {
+    if (name) {
+      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
+    }
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_FALSE);dCHK(err);
+    for (dInt j=0; j<n; j++) {
+      err = PetscViewerASCIIPrintf(viewer," %3D",mat[i*n+j]);dCHK(err);
     }
     err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
     err = PetscViewerASCIIUseTabs(viewer,PETSC_TRUE);dCHK(err);

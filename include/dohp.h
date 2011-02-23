@@ -70,6 +70,7 @@
 extern dErr dObjectGetComm(dObject obj,MPI_Comm *comm);
 
 extern dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer viewer);
+extern dErr dIntTableView(dInt m,dInt n,const dInt mat[],const char *name,dViewer viewer);
 
 static inline dInt dMaxInt(dInt a,dInt b) { return (a > b) ? a : b; }
 static inline dInt dMinInt(dInt a,dInt b) { return (a < b) ? a : b; }
