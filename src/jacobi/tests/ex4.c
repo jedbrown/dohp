@@ -21,7 +21,7 @@ static dErr TestPatches(dJacobi jac,PetscViewer viewer)
   err = PetscOptionsEnum("-quadrature_method","Method to use for sample quadrature",NULL,dQuadratureMethods,(PetscEnum)method,(PetscEnum*)&method,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
   for (dInt i=0; i<4; i++) {
-    rdegree[i] = dPolynomialOrderCreate(0,i+1,i+1,i+1);
+    rdegree[i] = dPolynomialOrderCreate(0,(i+1)*2-2,(i+1)*2-2,(i+1)*2-2);
     bdegree[i] = dPolynomialOrderCreate(0,bp,bp,bp);
   }
   err = dJacobiGetQuadrature(jac,method,&quad);dCHK(err);

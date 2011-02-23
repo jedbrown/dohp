@@ -70,7 +70,7 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
          * we just assume a Legendre-Gauss-Lobatto tensor product basis, and construct a quadrature (either Gauss or
          * Lobatto) on the patches.  A better system would somehow have the subelement details available explicitly.
          */
-        size = 2*order;
+        size = order > 0 ? order : 1;
         if (tnsr->alpha != 0 || tnsr->beta != 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only alpha=0, beta=0 (Legendre)");
         switch (tnsr->family) {
           case dGAUSS_GAUSS: nodes_and_weights = two_point_gauss; break;
