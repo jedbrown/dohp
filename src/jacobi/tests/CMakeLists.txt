@@ -1,4 +1,4 @@
-foreach (i RANGE 1 3)
+foreach (i RANGE 1 4)
   dohp_link_executable("jacobi-ex${i}" "ex${i}.c")
 endforeach ()
 
@@ -11,3 +11,5 @@ dohp_add_test (jacobi-3-modal-gauss 1 jacobi-ex3 -djac_type modal -rule_degree 6
 dohp_add_test (jacobi-3-tensor-gauss 1 jacobi-ex3 -djac_type tensor -rule_degree 8 -dquad_tensor_gauss_family gauss)
 dohp_add_test (jacobi-3-tensor-lobatto 1 jacobi-ex3 -djac_type tensor -rule_degree 6 -dquad_tensor_gauss_family lobatto)
 dohp_add_test (jacobi-3-tensor-sparse-gauss 1 jacobi-ex3 -djac_type tensor -rule_degree 4 -dquad_tensor_gauss_family gauss -qmethod sparse -just_view)
+dohp_add_test (jacobi-4-tensor-sparse 1 jacobi-ex4 -quadrature_method sparse)
+dohp_add_test (jacobi-4-tensor-fast 1 jacobi-ex4 -quadrature_method fast)

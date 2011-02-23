@@ -17,6 +17,9 @@ struct s_TensorRule {
 typedef struct {
   dRuleHEADER;
   dEntTopology topo;
+  dInt npatches,patchsize;
+  dInt *patchind;
+  dReal *patchweight;
   TensorRule trule[3];
 } dRule_Tensor;
 

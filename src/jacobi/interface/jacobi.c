@@ -290,6 +290,8 @@ dErr dRuleView(dRule rule,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
+/** Get topological dimension of rule and total number of nodes
+ */
 dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes)
 {
   dErr err;
@@ -300,6 +302,28 @@ dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes)
   dFunctionReturn(0);
 }
 
+/** Decompose a composite rule into patches that preserve additional sparsity.
+ *
+ * @note Rationale: There is a one-many relationship between elements and patches.  High-order quadratures cannot be
+ * decomposed and are used during traversals that require it.  When a high-order rule has embedded low-order rules,
+ * additional sparsity can be preserved by using the low-order rules instead of the single high-order rule.  However,
+ * such low-order quadrature involves smaller inner loops and may not be the fastest way to evaluate residuals (where
+ * tensor products can be used and sparsity does not appear explicitly).
+ */
+dErr dRuleGetPatches(dRule rule,dInt *npatches,dInt *patchsize,const dInt **ind,const dReal **weights)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidPointer(rule,1);
+  if (rule->ops.getPatches) {
+    err = (*rule->ops.getPatches)(rule,npatches,patchsize,ind,weights);dCHK(err);
+  } else dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Rule does not have patches.  Maybe trivial patches should be implemented?");
+  dFunctionReturn(0);
+}
+
+/** Get location of nodes and associated weights on reference element
+ */
 dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight)
 {
   dErr err;
@@ -337,7 +361,9 @@ dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight)
   dFunctionReturn(0);
 }
 
-dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[])
+/** Get tensor-product representation of coordinate nodes and weights on reference element
+ */
+dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt nnodes[3],const dReal *coord[3],const dReal *weight[3])
 {
   dErr err;
 

@@ -170,6 +170,7 @@ extern dErr dJacobiAddConstraints(dJacobi,dInt,const dInt[],const dInt[],const d
 
 extern dErr dRuleView(dRule rule,dViewer);
 extern dErr dRuleGetSize(dRule rule,dInt *dim,dInt *nnodes);
+extern dErr dRuleGetPatches(dRule rule,dInt *npatches,dInt *off,const dInt **ind,const dReal **weight);
 extern dErr dRuleGetNodeWeight(dRule rule,dReal *coord,dReal *weight);
 extern dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dReal *coord[],const dReal *weight[]);
 extern dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);

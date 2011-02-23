@@ -68,9 +68,9 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
       case dQUADRATURE_METHOD_SPARSE:
         /* The meaning of this option is somewhat unfortunate, but I don't see a clearly better API at the moment.  Here
          * we just assume a Legendre-Gauss-Lobatto tensor product basis, and construct a quadrature (either Gauss or
-         * Lobatto) on the subelements.  A better system would somehow have the subelement details available explicitly.
+         * Lobatto) on the patches.  A better system would somehow have the subelement details available explicitly.
          */
-        size = order;
+        size = 2*order;
         if (tnsr->alpha != 0 || tnsr->beta != 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only alpha=0, beta=0 (Legendre)");
         switch (tnsr->family) {
           case dGAUSS_GAUSS: nodes_and_weights = two_point_gauss; break;
@@ -115,6 +115,57 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
   dFunctionReturn(0);
 }
 
+static dErr dRulePatchSetup_Tensor(dRule_Tensor *rule,dQuadratureMethod method)
+{
+  dErr err;
+  dInt i,j,k,ii,jj,kk,dim,N[3],Q[3],P[3],NN,PP;
+  const dReal *W[3];
+
+  dFunctionBegin;
+  err = dRuleGetTensorNodeWeight((dRule)rule,&dim,Q,NULL,W);dCHK(err);
+  switch (method) {
+  case dQUADRATURE_METHOD_SPARSE: /* Tile the element with 2*2*2 quadrature point patches */
+    for (i=0; i<3; i++) {
+      P[i] = Q[i] > 1 ? 2 : 1;
+      N[i] = Q[i] / P[i];
+      if (N[i]*P[i] != Q[i]) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Trying to use sparse quadrature, but the number of points %D is not even",Q[i]);
+    }
+    break;
+  default:                      /* Use one big patch for the whole element */
+    N[0] = N[1] = N[2] = 1;
+    err = dMemcpy(P,Q,sizeof(Q));dCHK(err);
+  }
+  rule->npatches = NN = N[0]*N[1]*N[2];          /* Number of patches in this element */
+  rule->patchsize = PP = P[0]*P[1]*P[2];          /* Number of nodes per patch */
+  err = dMallocA2(NN*PP,&rule->patchind,NN*PP,&rule->patchweight);dCHK(err);
+  /* 3 nested loops over the patches */
+  for (i=0; i<N[0]; i++) {
+    for (j=0; j<N[1]; j++) {
+      for (k=0; k<N[2]; k++) {
+        /* 3 nested loops over quadrature points on each patch */
+        for (ii=0; ii<P[0]; ii++) {
+          for (jj=0; jj<P[1]; jj++) {
+            for (kk=0; kk<P[2]; kk++) {
+              const dInt
+                patch    = (i*N[1]+j)*N[2]+k,    /* Patch number within element */
+                patchidx = (ii*P[1]+jj)*P[2]+kk, /* Index of node within current patch */
+                ielem    = i*P[0]+ii,
+                jelem    = j*P[1]+jj,
+                kelem    = k*P[2]+kk,
+                elemidx  = (ielem*Q[1] + jelem)*Q[2] + kelem; /* Index of node within current element */
+              rule->patchind[patch*PP+patchidx] = elemidx;
+              rule->patchweight[patch*PP+patchidx] = (rule->trule[0]->weight[ielem]
+                                                     * (dim < 2 ? 1 : rule->trule[1]->weight[jelem])
+                                                     * (dim < 3 ? 1 : rule->trule[2]->weight[jelem]));
+            }
+          }
+        }
+      }
+    }
+  }
+  dFunctionReturn(0);
+}
+
 static dErr dQuadratureGetRules_Tensor_Private(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule rules[],dQuadratureMethod method)
 {
   dQuadrature_Tensor *tnsr = quad->data;
@@ -147,6 +198,7 @@ static dErr dQuadratureGetRules_Tensor_Private(dQuadrature quad,dInt n,const dEn
           break;
         default: dERROR(PETSC_COMM_SELF,1,"no rule available for given topology %s",dMeshEntTopologyName(topo[i]));
       }
+      err = dRulePatchSetup_Tensor(newrule,method);dCHK(err);
       kh_val(tnsr->rules,kiter) = newrule;
     }
     rules[i] = (dRule)kh_val(tnsr->rules,kiter);
@@ -323,8 +375,11 @@ static dErr dQuadratureDestroy_Tensor(dQuadrature quad)
   kh_destroy_facetrule(tnsr->facetrules);
   /* Destroy all the cached (n-dimensional) rules */
   for (k=kh_begin(tnsr->rules); k!=kh_end(tnsr->rules); k++) {
+    dRule_Tensor *rule;
     if (!kh_exist(tnsr->rules,k)) continue;
-    err = dFree(kh_val(tnsr->rules,k));dCHK(err);
+    rule = kh_val(tnsr->rules,k);
+    err = dFree2(rule->patchind,rule->patchweight);dCHK(err);
+    err = dFree(rule);dCHK(err);
   }
   kh_destroy_rule(tnsr->rules);
   /* Destroy all cached 1D tensor rules */

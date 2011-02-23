@@ -2,6 +2,8 @@
 #include "tensorquad.h"
 
 static dErr dRuleView_Tensor_Private(const char*,dInt,TensorRule*,PetscViewer);
+static dErr dRuleGetPatches_Tensor_All(dRule,dInt*,dInt*,const dInt **,const dReal**);
+
 #define _F(f) static dErr f(dRule,PetscViewer)
 _F(dRuleView_Tensor_Line);
 _F(dRuleView_Tensor_Quad);
@@ -231,6 +233,17 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
   dFunctionReturn(0);
 }
 
+static dErr dRuleGetPatches_Tensor_All(dRule grule,dInt *npatches,dInt *patchsize,const dInt **ind,const dReal **weight)
+{
+  dRule_Tensor *rule = (dRule_Tensor*)grule;
+  dFunctionBegin;
+  *npatches  = rule->npatches;
+  *patchsize = rule->patchsize;
+  *ind       = rule->patchind;
+  *weight    = rule->patchweight;
+  dFunctionReturn(0);
+}
+
 dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
 {
   static const struct _dRuleOps ruleOpsLine = {
@@ -238,6 +251,7 @@ dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
     .getSize             = dRuleGetSize_Tensor_Line,
     .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Line, */
     .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Line,
+    .getPatches          = dRuleGetPatches_Tensor_All,
     .computeGeometry     = NULL, /* Not implemented */
   };
   static const struct _dRuleOps ruleOpsQuad = {
@@ -245,6 +259,7 @@ dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
     .getSize             = dRuleGetSize_Tensor_Quad,
     .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Quad, */
     .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Quad,
+    .getPatches          = dRuleGetPatches_Tensor_All,
     .computeGeometry     = NULL, /* Not implemented */
   };
   static const struct _dRuleOps ruleOpsHex  = {
@@ -252,6 +267,7 @@ dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
     .getSize             = dRuleGetSize_Tensor_Hex,
     .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Hex, */
     .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Hex,
+    .getPatches          = dRuleGetPatches_Tensor_All,
     .computeGeometry     = dRuleComputeGeometry_Tensor_Hex,
   };
   dQuadrature_Tensor *tnsr = quad->data;

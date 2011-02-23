@@ -20,6 +20,7 @@ struct _dRuleOps {
   dErr (*view)(dRule,dViewer);
   dErr (*getSize)(dRule,dInt*,dInt*); /**< topological dimension of the space, total number of nodes */
   dErr (*getNodeWeight)(dRule,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
+  dErr (*getPatches)(dRule,dInt*,dInt*,const dInt **,const dReal**);
   dErr (*getTensorNodeWeight)(dRule,dInt*,dInt[],const dReal**,const dReal**); /**< topological dimension, number of
                                                                                * nodes in each direction, weights in
                                                                                * each direction.  Does not copy, may not
