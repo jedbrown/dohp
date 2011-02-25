@@ -13,20 +13,20 @@ struct dRulesetIteratorLink {
   dInt *rowcol;                 /**< Work array to hold row and column indices */
   dInt maxP;                    /**< Largest number of basis functions with support on this element */
   dInt nefs;                    /**< Number of dEFS */
-  dInt off;                     /**< Offset into expanded vector */
+  dInt elemstart;               /**< Offset of current element in expanded vector */
   dInt bs;                      /**< Block size */
   struct dRulesetIteratorLink *next;
 };
 
 /** User-defined storage associated with the iterator.
  *
- * Can have an arbitrary number of bytes per patch and per quadrature node.
+ * Can have an arbitrary number of bytes per element and per quadrature node.
  */
 struct dRulesetIteratorStash {
-  char *patch;                  /**< Private data associated with the patch */
+  char *elem;                   /**< Private data associated with the element */
   char *node;                   /**< Private data associated with each quadrature node */
-  dInt *patchoffset;            /**< Node index for the first node of each patch */
-  dInt patchbytes;              /**< Number of bytes per patch (typically storing some metadata) */
+  dInt *elemoffset;             /**< Node index for the first node of each element */
+  dInt elembytes;               /**< Number of bytes per element (typically storing some metadata) */
   dInt nodebytes;               /**< Number of bytes per node (typically storing matrix-free Jacobian information) */
 };
 
@@ -36,8 +36,10 @@ struct _n_dRulesetIterator {
   dInt nelems;                  /**< Total number of elements */
   dInt curpatch_in_elem;        /**< Index of current patch in this element */
   dInt npatches_in_elem;        /**< Number of patches in current element */
-  dInt curpatch;                /**< Index of the current patch with respect to expanded space */
-  dInt npatches;                /**< Number of patches in expanded space */
+  dInt patchsize;               /**< Number of nodes on each patch in current element */
+  const dInt *patchind;         /**< Indices in evaluated element for each patch in current element */
+  const dReal *patchweight;     /**< Patch weights for each patch in current element */
+  dInt elempatch;               /**< Index of the first patch on current element with respect to expanded space */
   dInt nnodes;                  /**< Total number of nodes in expanded space */
   dInt maxQ;                    /**< Largest number of quadrature nodes in a single patch */
   dInt nlinks;                  /**< Number of dFS registered with this iterator */
@@ -74,6 +76,10 @@ struct _n_dRulesetIterator {
  *
  * This iterator hides details of the nested iteration and evaluation: the user only needs to iterate over patches.
  */
+
+dErr dRulesetIteratorNextElement(dRulesetIterator it);
+static dErr dRulesetIteratorClearElement(dRulesetIterator it);
+static dErr dRulesetIteratorSetupElement(dRulesetIterator it);
 
 /** Get an iterator for performing an integral on the given rule set, with coordinate vectors lying in space cfs.
  *
@@ -217,13 +223,12 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
     err = dMallocA2(it->maxQ*9,&it->cjinv,it->maxQ,&it->jw);dCHK(err);
   }
   err = dRulesetIteratorCreateMatrixSpace_Private(it);dCHK(err);
-  if ((it->stash.patchbytes && !it->stash.patch) || (it->stash.nodebytes && !it->stash.node)) {
+  if ((it->stash.elembytes && !it->stash.elem) || (it->stash.nodebytes && !it->stash.node)) {
     /* Allocate space for the stash */
-    err = dMallocA2(it->stash.patchbytes*it->npatches,&it->stash.patch,it->stash.nodebytes*it->nnodes,&it->stash.node);dCHK(err);
+    err = dMallocA2(it->stash.elembytes*it->nelems,&it->stash.elem,it->stash.nodebytes*it->nnodes,&it->stash.node);dCHK(err);
   }
-  it->curelem          = 0;
-  it->curpatch_in_elem = 0;
-  it->curpatch         = 0;
+  it->curelem   = 0;
+  it->elempatch = 0;
   dFunctionReturn(0);
 }
 
@@ -236,12 +241,64 @@ dErr dRulesetIteratorFinish(dRulesetIterator it)
   dErr err;
 
   dFunctionBegin;
+  err = dRulesetIteratorClearElement(it);dCHK(err);
   for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
     err = VecRestoreArray(p->Xexp,&p->x);dCHK(err);
     err = VecRestoreArray(p->Yexp,&p->y);dCHK(err);
     if (!p->Y) continue;        /* This field is not being assembled */
     err = dFSExpandedToGlobal(p->fs,p->Yexp,p->Y,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
   }
+  dFunctionReturn(0);
+}
+
+dErr dRulesetIteratorNextElement(dRulesetIterator it)
+{
+  dErr err;
+
+  dFunctionBegin;
+  for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
+    dInt n;
+    err = dEFSGetSizes(p->efs[it->curelem],NULL,NULL,&n);dCHK(err);
+    p->elemstart += n*p->bs;
+  }
+  it->elempatch += it->npatches_in_elem;
+  it->curelem++;
+
+  err = dRulesetIteratorClearElement(it);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr dRulesetIteratorClearElement(dRulesetIterator it)
+{
+  dErr err;
+
+  dFunctionBegin;
+  it->curpatch_in_elem = 0;
+  it->npatches_in_elem = 0;
+  it->patchsize = 0;
+  it->patchind = NULL;
+  it->patchweight = NULL;
+
+  for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
+    err = dMemzero(p->u,p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
+    err = dMemzero(p->v,p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
+    err = dMemzero(p->du,3*p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
+    err = dMemzero(p->dv,3*p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
+  }
+  err = dMemzero(it->cjinv,3*3*it->maxQ*sizeof(dReal));dCHK(err);
+  err = dMemzero(it->jw,it->maxQ*sizeof(dReal));dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr dRulesetIteratorSetupElement(dRulesetIterator it)
+{
+  dErr  err;
+  dRule rule;
+
+  dFunctionBegin;
+  err = dEFSGetRule(it->link->efs[it->curelem],&rule);dCHK(err);
+  err = dRuleGetSize(rule,NULL,&it->Q);dCHK(err);
+  err = dRuleGetPatches(rule,&it->npatches_in_elem,&it->patchsize,&it->patchind,&it->patchweight);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -252,12 +309,11 @@ dErr dRulesetIteratorNextPatch(dRulesetIterator it)
   dErr err;
 
   dFunctionBegin;
-  for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
-    dInt n;
-    err = dEFSGetSizes(p->efs[it->curpatch],NULL,NULL,&n);dCHK(err);
-    p->off += n*p->bs;
+  if (it->curpatch_in_elem < it->npatches_in_elem-1) { /* We still have patches left in the current element */
+    it->curpatch_in_elem++;
+  } else {
+    err = dRulesetIteratorNextElement(it);dCHK(err);
   }
-  it->curpatch++;
   dFunctionReturn(0);
 }
 
@@ -266,14 +322,17 @@ dErr dRulesetIteratorNextPatch(dRulesetIterator it)
  * @note Not collective
  */
 bool dRulesetIteratorHasPatch(dRulesetIterator it)
-{return it->curpatch < it->npatches;}
+{
+  /* When patches on an element run out, curelem is advanced */
+  return it->curelem < it->nelems;
+}
 
-/** dRulesetIteratorGetPatch - Get dRule, dEFSs, and fields to be evaluated on the patch
+/** dRulesetIteratorGetElement - Get dRule, dEFSs, and fields to be evaluated on the element
  *
  * @note Not collective
  * @note dRulesetIteratorStart() must have been called with non-NULL vector for each element trial function requested.
  */
-dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...)
+dErr dRulesetIteratorGetElement(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...)
 {
   dErr err;
   va_list ap;
@@ -281,7 +340,9 @@ dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar 
   struct dRulesetIteratorLink *p;
 
   dFunctionBegin;
-  err = dEFSGetRule(it->link->efs[it->curpatch],rule);dCHK(err);
+  err = dRulesetIteratorSetupElement(it);dCHK(err);
+  if (rule) {err = dEFSGetRule(it->link->efs[it->curelem],rule);dCHK(err);}
+
   va_start(ap,ey);
   for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
     if (i) {
@@ -289,9 +350,9 @@ dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar 
       ex = va_arg(ap,dScalar**);
       ey = va_arg(ap,dScalar**);
     }
-    if (efs) *efs = p->efs[it->curpatch];
-    if (ex)  *ex = &p->x[p->off];
-    if (ey)  *ey = &p->y[p->off];
+    if (efs) *efs = p->efs[it->curelem];
+    if (ex)  *ex = &p->x[p->elemstart];
+    if (ey)  *ey = &p->y[p->elemstart];
   }
   if (p) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"dRulesetIterator claims to have nlinks %D but linked list has more",it->nlinks);
   va_end(ap);
@@ -388,7 +449,8 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
 
   dFunctionBegin;
   dValidPointer(jw,3);
-  err = dEFSGetRule(it->link->efs[it->curpatch],&rule);dCHK(err);
+  if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
+  err = dEFSGetRule(it->link->efs[it->curelem],&rule);dCHK(err);
   err = dRuleGetSize(rule,0,Q);dCHK(err);
   va_start(ap,dv);
   for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
@@ -400,8 +462,8 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
       v = va_arg(ap,dScalar**);
       dv = va_arg(ap,dScalar**);
     }
-    efs = p->efs[it->curpatch];
-    ex = &p->x[p->off];
+    efs = p->efs[it->curelem];
+    ex = &p->x[p->elemstart];
     if (u) {
       err = dEFSApply(efs,cjinv,p->bs,ex,p->u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
       *u = p->u;
@@ -434,10 +496,11 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
   struct dRulesetIteratorLink *p;
 
   dFunctionBegin;
+  if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
   va_start(ap,dv);
   for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-    dEFS efs = p->efs[it->curpatch];
-    dScalar *ey = &p->y[p->off];
+    dEFS efs = p->efs[it->curelem];
+    dScalar *ey = &p->y[p->elemstart];
     if (i) {
       v = va_arg(ap,const dScalar*);
       dv = va_arg(ap,const dScalar*);
@@ -485,11 +548,11 @@ dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **r
       deriv = va_arg(ap,const dReal**);
     }
     if (!(P || rowcol || interp || deriv)) continue;
-    err = dEFSGetExplicit(p->efs[it->curpatch],cjinv,&Q,&PP,interp,deriv);dCHK(err);
+    err = dEFSGetExplicit(p->efs[it->curelem],cjinv,&Q,&PP,interp,deriv);dCHK(err);
     if (P) *P = PP;
     if (rowcol) {
       *rowcol = p->rowcol;
-      for (dInt j=0; j<PP; j++) p->rowcol[j] = p->off + j*p->bs;
+      for (dInt j=0; j<PP; j++) p->rowcol[j] = p->elemstart + j*p->bs;
     }
     cjinv = it->cjinv;
   }
@@ -509,6 +572,7 @@ dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt
   const dReal *cjinv = NULL;
 
   dFunctionBegin;
+  if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
   va_start(ap,deriv);
   for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
     dInt Q,PP;
@@ -519,7 +583,7 @@ dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt
       deriv = va_arg(ap,const dReal**);
     }
     if (!(P || rowcol || interp || deriv)) continue;
-    err = dEFSRestoreExplicit(p->efs[it->curpatch],cjinv,&Q,&PP,interp,deriv);dCHK(err);
+    err = dEFSRestoreExplicit(p->efs[it->curelem],cjinv,&Q,&PP,interp,deriv);dCHK(err);
     if (P) *P = PP;
     if (rowcol) *rowcol = NULL;
     cjinv = it->cjinv;
@@ -549,25 +613,25 @@ dErr dRulesetIteratorGetMatrixSpaceSplit(dRulesetIterator it,dScalar **K,...)
 /** dRulesetIteratorAddStash - Attach some private memory to quadrature points and integration patches
  *
  */
-dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt patchbytes,dInt nodebytes)
+dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt elembytes,dInt nodebytes)
 {
   dErr err;
 
   dFunctionBegin;
-  err = dFree(it->stash.patchoffset);dCHK(err);
-  err = dFree2(it->stash.patch,it->stash.node);dCHK(err);
-  it->stash.patchbytes = patchbytes;
+  err = dFree(it->stash.elemoffset);dCHK(err);
+  err = dFree2(it->stash.elem,it->stash.node);dCHK(err);
+  it->stash.elembytes = elembytes;
   it->stash.nodebytes  = nodebytes;
   dFunctionReturn(0);
 }
 
-/** dRulesetIteratorGetStash - Gets a pointer to the stash for the current patch
+/** dRulesetIteratorGetStash - Gets a pointer to the stash for the current element
  */
-dErr dRulesetIteratorGetStash(dRulesetIterator it,void *patchstash,void *nodestash)
+dErr dRulesetIteratorGetStash(dRulesetIterator it,void *elemstash,void *nodestash)
 {
   dFunctionBegin;
-  if (patchstash) *(void**)patchstash = &it->stash.patch[it->curpatch*it->stash.patchbytes];
-  if (nodestash) *(void**)nodestash = &it->stash.node[it->stash.patchoffset[it->curpatch]*it->stash.nodebytes];
+  if (elemstash) *(void**)elemstash = &it->stash.elem[it->curelem*it->stash.elembytes];
+  if (nodestash) *(void**)nodestash = &it->stash.node[it->stash.elemoffset[it->curelem]*it->stash.nodebytes];
   dFunctionReturn(0);
 }
 

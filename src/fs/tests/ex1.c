@@ -354,7 +354,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
     dScalar *ex,*eu,*ev;
     dScalar *cjinv,*jw,*x,*dx,*u,*du,*v,*dv;
     dInt Q;
-    err = dRulesetIteratorGetPatch(iter,&rule,&cefs,&ex,NULL,&efs,&eu,&ev);dCHK(err);
+    err = dRulesetIteratorGetElement(iter,&rule,&cefs,&ex,NULL,&efs,&eu,&ev);dCHK(err);
     err = dRulesetIteratorGetPatchSpace(iter,&cjinv,&jw,&x,&dx,NULL,NULL,&u,&du,&v,&dv);dCHK(err);
     err = dEFSApply(cefs,NULL,3,ex,x,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
     err = dEFSApply(cefs,NULL,3,ex,dx,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
