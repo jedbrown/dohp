@@ -1,0 +1,9 @@
+expanded size 432, global size 396, range 0 .. 396 
+|x| = 432.000000, |g| = 432.000000, |y| = 504.000000
+  0 SNES Function norm 0.353633 
+  Linear solve converged due to CONVERGED_RTOL iterations 97
+  1 SNES Function norm 3.22358e-06 
+  Linear solve converged due to CONVERGED_RTOL iterations 206
+  2 SNES Function norm 3.263e-11 
+  Linear solve converged due to CONVERGED_RTOL iterations 209
+  3 SNES Function norm < 1.e-11
