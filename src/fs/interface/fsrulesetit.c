@@ -13,7 +13,7 @@ struct ValueCachePhysical {
   dReal *cjinv,*cjinv_alloc;
 };
 static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax);
-static dErr ValueCacheReset(struct ValueCache *vc);
+static dErr ValueCacheReset(struct ValueCache *vc,dBool self);
 static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt ind[],dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
 static dErr ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt ind[],dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
 static dErr ValueCacheDestroy(struct ValueCache *vc);
@@ -285,8 +285,8 @@ static dErr dRulesetIteratorClearElement(dRulesetIterator it)
   it->patchweight = NULL;
 
   for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
-    err = ValueCacheReset(&p->vc_elem);dCHK(err);
-    err = ValueCacheReset(&p->vc_patch);dCHK(err);
+    err = ValueCacheReset(&p->vc_elem,dFALSE);dCHK(err);
+    err = ValueCacheReset(&p->vc_patch,dFALSE);dCHK(err);
   }
 #if defined dUSE_DEBUG
   err = dMemzero(it->cjinv_elem,3*3*it->maxQ*sizeof(dReal));dCHK(err);
@@ -448,20 +448,18 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
 {
   dErr err;
   va_list ap;
-  dRule rule;
   dInt i;
   dReal *cjinv = NULL;
   struct dRulesetIteratorLink *p;
 
   dFunctionBegin;
   dValidPointer(jw,3);
-  if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
-  err = dEFSGetRule(it->link->efs[it->curelem],&rule);dCHK(err);
-  err = dRuleGetSize(rule,0,Q);dCHK(err);
+  *jw = NULL;
 
   va_start(ap,dv);
   if (it->curpatch_in_elem == 0) { /* We just got to this element */
     err = dRulesetIteratorSetupElement(it);dCHK(err);
+    *Q = it->patchsize;
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
       const dBool identity = (dBool)(it->npatches_in_elem == 1); /* Element ordering is patch ordering. Should use a better heuristic. */
       const bool has_coords = (i == 0);
@@ -475,23 +473,25 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
       }
       efs = p->efs[it->curelem];
       ex = &p->x[p->elemstart];
-      err = ValueCacheReset(&p->vc_elem);dCHK(err);
-      p->vc_elem.n = *Q;
+      err = ValueCacheReset(&p->vc_elem,dTRUE);dCHK(err);
+      p->vc_elem.n = it->Q;
       if (u) {
         err = dEFSApply(efs,cjinv,p->bs,ex,p->vc_elem.u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
       }
       if (du || has_coords) {
         err = dEFSApply(efs,cjinv,p->bs,ex,p->vc_elem.du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+        if (has_coords) {
+          dRule rule;
+          err = dEFSGetRule(efs,&rule);dCHK(err);
+          err = dRuleComputePhysical(rule,p->vc_elem.du,it->cjinv_elem,it->jw_elem);dCHK(err);
+          err = ValueCachePhysicalExtract(&it->phys,it->Q,it->patchind,identity,it->cjinv_elem,it->jw_elem);dCHK(err);
+          cjinv = it->cjinv_elem;      /* These coordinates are used so that the following links are mapped to the physical space */
+          *jw = it->phys.jw;
+        }
       }
-      /* Everything is evaluated in element ordering, now get access to it in patch ordering, no-copy if identity == true */
-      err = ValueCacheExtract(&p->vc_patch,*Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
 
-      if (has_coords) {
-        err = dRuleComputePhysical(rule,p->vc_patch.du,it->cjinv_elem,it->jw_elem);dCHK(err);
-        err = ValueCachePhysicalExtract(&it->phys,*Q,it->patchind,identity,it->cjinv_elem,it->jw_elem);dCHK(err);
-        cjinv = it->cjinv_elem;      /* These coordinates are used so that the following links are mapped to the physical space */
-        *jw = it->phys.jw;
-      }
+      /* Everything is evaluated in element ordering, now get access to it in patch ordering, no-copy if identity == true */
+      err = ValueCacheExtract(&p->vc_patch,it->Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
 
       if (u)  *u  = p->vc_patch.u;
       if (du) *du = p->vc_patch.du;
@@ -530,28 +530,34 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
   struct dRulesetIteratorLink *p;
 
   dFunctionBegin;
-  if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
-  va_start(ap,dv);
-  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-    const dBool identity = (dBool)(i == 0); /* need better heuristic */
-    dEFS efs = p->efs[it->curelem];
-    dScalar *ey = &p->y[p->elemstart];
-    if (i) {
-      v = va_arg(ap,const dScalar*);
-      dv = va_arg(ap,const dScalar*);
+  if (it->curpatch_in_elem < it->npatches_in_elem-1) {
+    /* Still have more patches to go in this element, no need to do anything yet. */
+    dFunctionReturn(0);
+  } else {
+    va_start(ap,dv);
+    for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      const dBool identity = (dBool)(i == 0); /* need better heuristic */
+      dEFS efs = p->efs[it->curelem];
+      dScalar *ey = &p->y[p->elemstart];
+      if (i) {
+        v = va_arg(ap,const dScalar*);
+        dv = va_arg(ap,const dScalar*);
+      }
+      if (v || dv) {
+        /* We don't actually reference v or dv because that memory is owned by us and sitting in vc_patch.v and
+         * vc_patch.dv. Instead, we just map everything in vc_patch to vc_elem where it can be tested. */
+        err = ValueCacheDistribute(&p->vc_patch,it->Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
+      }
+      if (v) {
+        err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.v,ey,dAPPLY_INTERP_TRANSPOSE,imode);dCHK(err);
+        imode = ADD_VALUES;
+      }
+      if (dv) {
+        err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.dv,ey,dAPPLY_GRAD_TRANSPOSE,imode);dCHK(err);
+      }
     }
-    if (v || dv) {
-      err = ValueCacheDistribute(&p->vc_patch,it->Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
-    }
-    if (v) {
-      err = dEFSApply(efs,it->cjinv_elem,p->bs,v,ey,dAPPLY_INTERP_TRANSPOSE,imode);dCHK(err);
-      imode = ADD_VALUES;
-    }
-    if (dv) {
-      err = dEFSApply(efs,it->cjinv_elem,p->bs,dv,ey,dAPPLY_GRAD_TRANSPOSE,imode);dCHK(err);
-    }
+    va_end(ap);
   }
-  va_end(ap);
   dFunctionReturn(0);
 }
 
@@ -714,22 +720,29 @@ static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax)
   dFunctionReturn(0);
 }
 
-static dErr ValueCacheReset(struct ValueCache *vc)
+static dErr ValueCacheReset(struct ValueCache *vc,dBool self)
 {
   dErr err;
   const dInt nbs = vc->n_alloc * vc->bs;
 
   dFunctionBegin;
-  vc->bs = 0;
-  vc->u  = vc->u_alloc;
-  vc->du = vc->du_alloc;
-  vc->v  = vc->v_alloc;
-  vc->dv = vc->dv_alloc;
+  vc->n = 0;
+  if (self) {
+    vc->u  = vc->u_alloc;
+    vc->du = vc->du_alloc;
+    vc->v  = vc->v_alloc;
+    vc->dv = vc->dv_alloc;
+  } else {
+    vc->u  = NULL;
+    vc->du = NULL;
+    vc->v  = NULL;
+    vc->dv = NULL;
+  }
 #if defined dUSE_DEBUG
-  err = dMemzero(vc->u,nbs*sizeof(dScalar));dCHK(err);
-  err = dMemzero(vc->du,3*nbs*sizeof(dScalar));dCHK(err);
-  err = dMemzero(vc->v,nbs*sizeof(dScalar));dCHK(err);
-  err = dMemzero(vc->dv,3*nbs*sizeof(dScalar));dCHK(err);
+  err = dMemzero(vc->u_alloc,nbs*sizeof(dScalar));dCHK(err);
+  err = dMemzero(vc->du_alloc,3*nbs*sizeof(dScalar));dCHK(err);
+  err = dMemzero(vc->v_alloc,nbs*sizeof(dScalar));dCHK(err);
+  err = dMemzero(vc->dv_alloc,3*nbs*sizeof(dScalar));dCHK(err);
 #endif
   dFunctionReturn(0);
 }
@@ -741,15 +754,16 @@ static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt *ind,dBool
 
   dFunctionBegin;
   if (n > vc->n_alloc) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Attempt to extract %D values, but cache size is %D",n,vc->n_alloc);
-  vc->n = n;
   if (identity) {
+    vc->n = n;
     vc->u  = su;
     vc->du = sdu;
     vc->v  = sv;
     vc->dv = sdv;
   } else {
     const dInt bs = vc->bs;
-    err = ValueCacheReset(vc);dCHK(err);
+    err = ValueCacheReset(vc,dTRUE);dCHK(err);
+    vc->n = n;
     for (dInt i=0; i<n; i++) {
       for (dInt j=0; j<bs; j++) {
         vc->u[i*bs+j]        = su[ind[i]*bs+j];

@@ -15,6 +15,7 @@ struct Options {
   dBool  showsoln;
   dInt cycles;
   dInt  proj_version;
+  dQuadratureMethod proj_qmethod;
   dQuadratureMethod jac_qmethod;
   dReal q1scale;
   dReal frequency[3];
@@ -289,7 +290,7 @@ static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = VecGetArrayRead(proj->x,&x);dCHK(err);
   err = VecZeroEntries(proj->y);dCHK(err);
   err = VecGetArray(proj->y,&y);dCHK(err);
-  err = ProjGetRuleset(proj,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
+  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
   err = dFSGetEFS(fs,ruleset,&nelem,&efs);dCHK(err);
 
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
@@ -340,7 +341,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = ProjGetRuleset(proj,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
+  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
@@ -393,7 +394,7 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = ProjGetRuleset(proj,dQUADRATURE_METHOD_FAST,&ruleset);dCHK(err);
+  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
@@ -691,6 +692,7 @@ int main(int argc,char *argv[])
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
     gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1;
+    gopt.proj_qmethod = dQUADRATURE_METHOD_FAST;
     gopt.jac_qmethod = dQUADRATURE_METHOD_SPARSE; gopt.q1scale = 1.0;
     gopt.frequency[0] = 1; gopt.frequency[1] = 1; gopt.frequency[2] = 1;
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
@@ -700,6 +702,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
     err = PetscOptionsInt("-proj_version","Residual evaluation version",NULL,gopt.proj_version,&gopt.proj_version,NULL);dCHK(err);
+    err = PetscOptionsEnum("-proj_qmethod","Quadrature method for residual evaluation",NULL,dQuadratureMethods,(PetscEnum)gopt.proj_qmethod,(PetscEnum*)&gopt.proj_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-jac_qmethod","Quadrature method for Jacobian evaluation",NULL,dQuadratureMethods,(PetscEnum)gopt.jac_qmethod,(PetscEnum*)&gopt.jac_qmethod,NULL);dCHK(err);
     err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
     nset = 3;
