@@ -2,6 +2,17 @@
 #include <dohpvec.h>
 #include <stdarg.h>
 
+struct ValueCache {
+  dInt bs,n,n_alloc;
+  dScalar *u,*du,*v,*dv;
+  dScalar *u_alloc,*du_alloc,*v_alloc,*dv_alloc;
+};
+static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax);
+static dErr ValueCacheReset(struct ValueCache *vc);
+static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
+static dErr ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
+static dErr ValueCacheDestroy(struct ValueCache *vc);
+
 struct dRulesetIteratorLink {
   dFS fs;                       /**< Function space for this link */
   const dEFS *efs;              /**< Array of element function spaces for all elements in this iterator */
@@ -9,7 +20,8 @@ struct dRulesetIteratorLink {
   Vec Y,Yexp;                   /**< Test global and expanded vectors for residuals */
   dScalar *x;                   /**< Entries from trial expanded vector */
   dScalar *y;                   /**< Entries from test expanded vector */
-  dScalar *u,*du,*v,*dv;        /**< Test and trial values at quadrature points */
+  struct ValueCache vc_elem;    /**< Values in element-natural ordering */
+  struct ValueCache vc_patch;   /**< Values in patch-natural ordering */
   dInt *rowcol;                 /**< Work array to hold row and column indices */
   dInt maxP;                    /**< Largest number of basis functions with support on this element */
   dInt nefs;                    /**< Number of dEFS */
@@ -128,26 +140,6 @@ dErr dRulesetIteratorAddFS(dRulesetIterator it,dFS fs)
   dFunctionReturn(0);
 }
 
-static dErr dRulesetIteratorLinkCreatePatchSpace_Private(struct dRulesetIteratorLink *link,dInt maxQ)
-{
-  dErr err;
-  dInt bs = link->bs;
-
-  dFunctionBegin;
-  if (link->u) dFunctionReturn(0);
-  err = dMallocA4(maxQ*bs,&link->u,maxQ*bs*3,&link->du,maxQ*bs,&link->v,maxQ*bs*3,&link->dv);dCHK(err);
-  dFunctionReturn(0);
-}
-
-static dErr dRulesetIteratorLinkFreePatchSpace_Private(struct dRulesetIteratorLink *link)
-{
-  dErr err;
-
-  dFunctionBegin;
-  err = dFree4(link->u,link->du,link->v,link->dv);dCHK(err);
-  dFunctionReturn(0);
-}
-
 static dErr dRulesetIteratorCreateMatrixSpace_Private(dRulesetIterator it)
 {
   dErr err;
@@ -189,6 +181,7 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
   dFunctionBegin;
   va_start(ap,Y);
   for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+    p->elemstart = 0;
     if (i) {
       X = va_arg(ap,Vec);
       Y = va_arg(ap,Vec);
@@ -215,7 +208,8 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
       }
     }
     if (p->nefs != it->nelems) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Got an invalid EFS list");
-    err = dRulesetIteratorLinkCreatePatchSpace_Private(p,it->maxQ);dCHK(err);
+    err = ValueCacheSetUp(&p->vc_elem,p->bs,it->maxQ);dCHK(err);
+    err = ValueCacheSetUp(&p->vc_patch,p->bs,it->maxQ);dCHK(err);
     if (!p->rowcol) {err = dMallocA(p->maxP,&p->rowcol);dCHK(err);}
   }
   va_end(ap);
@@ -280,13 +274,13 @@ static dErr dRulesetIteratorClearElement(dRulesetIterator it)
   it->patchweight = NULL;
 
   for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
-    err = dMemzero(p->u,p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
-    err = dMemzero(p->v,p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
-    err = dMemzero(p->du,3*p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
-    err = dMemzero(p->dv,3*p->bs*it->maxQ*sizeof(dScalar));dCHK(err);
+    err = ValueCacheReset(&p->vc_elem);dCHK(err);
+    err = ValueCacheReset(&p->vc_patch);dCHK(err);
   }
+#if defined dUSE_DEBUG
   err = dMemzero(it->cjinv,3*3*it->maxQ*sizeof(dReal));dCHK(err);
   err = dMemzero(it->jw,it->maxQ*sizeof(dReal));dCHK(err);
+#endif
   dFunctionReturn(0);
 }
 
@@ -378,10 +372,10 @@ dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dReal **cjinv,dReal **jw,
       v  = va_arg(ap,dScalar**);
       dv = va_arg(ap,dScalar**);
     }
-    if (u)  *u  = p->u;
-    if (du) *du = p->du;
-    if (v)  *v  = p->v;
-    if (dv) *dv = p->dv;
+    if (u)  *u  = p->vc_patch.u;
+    if (du) *du = p->vc_patch.du;
+    if (v)  *v  = p->vc_patch.v;
+    if (dv) *dv = p->vc_patch.dv;
   }
   va_end(ap);
   dFunctionReturn(0);
@@ -452,33 +446,57 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
   if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
   err = dEFSGetRule(it->link->efs[it->curelem],&rule);dCHK(err);
   err = dRuleGetSize(rule,0,Q);dCHK(err);
+
   va_start(ap,dv);
-  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-    dEFS efs;
-    dScalar *ex;
-    if (i) {
-      u = va_arg(ap,dScalar**);
-      du = va_arg(ap,dScalar**);
-      v = va_arg(ap,dScalar**);
-      dv = va_arg(ap,dScalar**);
-    }
-    efs = p->efs[it->curelem];
-    ex = &p->x[p->elemstart];
-    if (u) {
-      err = dEFSApply(efs,cjinv,p->bs,ex,p->u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-      *u = p->u;
-    }
-    if (du || !i) {
-      err = dEFSApply(efs,cjinv,p->bs,ex,p->du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
-      if (du) *du = p->du;
-      if (!i) {
-        cjinv = it->cjinv;
-        err = dRuleComputePhysical(rule,p->du,cjinv,it->jw);dCHK(err);
-        *jw = it->jw;
+  if (it->curpatch_in_elem == 0) { /* We just got to this element */
+    err = dRulesetIteratorSetupElement(it);dCHK(err);
+    for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      dBool identity;
+      dEFS efs;
+      dScalar *ex;
+      if (i) {
+        u = va_arg(ap,dScalar**);
+        du = va_arg(ap,dScalar**);
+        v = va_arg(ap,dScalar**);
+        dv = va_arg(ap,dScalar**);
       }
+      efs = p->efs[it->curelem];
+      ex = &p->x[p->elemstart];
+      err = ValueCacheReset(&p->vc_elem);dCHK(err);
+      p->vc_elem.n = *Q;
+      if (u) {
+        err = dEFSApply(efs,cjinv,p->bs,ex,p->vc_elem.u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+      }
+      if (du || !i) {
+        err = dEFSApply(efs,cjinv,p->bs,ex,p->vc_elem.du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+        if (i == 0) {
+          cjinv = it->cjinv;    /* Used by the subseqent links */
+          err = dRuleComputePhysical(rule,p->vc_elem.du,cjinv,it->jw);dCHK(err);
+          *jw = it->jw;
+        }
+      }
+      /* Everything is evaluated in element ordering, now get access to it in patch ordering, no-copy if identity == true */
+      identity = (dBool)(it->npatches_in_elem == 1); /* Element ordering is patch ordering. Should use a better heuristic. */
+      err = ValueCacheExtract(&p->vc_patch,*Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
+      if (u)  *u  = p->vc_patch.u;
+      if (du) *du = p->vc_patch.du;
+      if (v)  *v  = p->vc_patch.v;
+      if (dv) *dv = p->vc_patch.dv;
     }
-    if (v) *v = p->v;
-    if (dv) *dv = p->dv;
+  } else {                      /* Everything has already been mapped into patch-oriented storage */
+    for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      const dInt offbs = it->patchsize*it->curpatch_in_elem*p->bs;
+      if (i) {
+        u = va_arg(ap,dScalar**);
+        du = va_arg(ap,dScalar**);
+        v = va_arg(ap,dScalar**);
+        dv = va_arg(ap,dScalar**);
+      }
+      if (u)  *u  = p->vc_patch.u  + offbs;
+      if (du) *du = p->vc_patch.du + offbs*3;
+      if (v)  *v  = p->vc_patch.v  + offbs;
+      if (dv) *dv = p->vc_patch.dv + offbs*3;
+    }
   }
   va_end(ap);
   dFunctionReturn(0);
@@ -650,7 +668,8 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
     err = dFSDestroy(p->fs);dCHK(err);
     err = VecDestroy(p->Xexp);dCHK(err);
     err = VecDestroy(p->Yexp);dCHK(err);
-    err = dRulesetIteratorLinkFreePatchSpace_Private(p);dCHK(err);
+    err = ValueCacheDestroy(&p->vc_elem);dCHK(err);
+    err = ValueCacheDestroy(&p->vc_patch);dCHK(err);
     err = dFree(p->rowcol);dCHK(err);
     n = p->next;
     err = dFree(p);dCHK(err);
@@ -658,5 +677,103 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
   err = dRulesetIteratorFreeMatrixSpace_Private(it);dCHK(err);
   err = dFree2(it->cjinv,it->jw);dCHK(err);
   err = dFree(it);dCHK(err);
+  dFunctionReturn(0);
+}
+
+
+static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dMemzero(vc,sizeof(*vc));dCHK(err);
+  vc->bs = bs;
+  vc->n_alloc = nmax;
+  err = dMallocA4(bs*nmax,&vc->u_alloc,bs*nmax*3,&vc->du_alloc,bs*nmax,&vc->v_alloc,bs*nmax*3,&vc->dv_alloc);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr ValueCacheReset(struct ValueCache *vc)
+{
+  dErr err;
+  const dInt nbs = vc->n_alloc * vc->bs;
+
+  dFunctionBegin;
+  vc->bs = 0;
+  vc->u  = vc->u_alloc;
+  vc->du = vc->du_alloc;
+  vc->v  = vc->v_alloc;
+  vc->dv = vc->dv_alloc;
+#if defined dUSE_DEBUG
+  err = dMemzero(vc->u,nbs*sizeof(dScalar));dCHK(err);
+  err = dMemzero(vc->du,3*nbs*sizeof(dScalar));dCHK(err);
+  err = dMemzero(vc->v,nbs*sizeof(dScalar));dCHK(err);
+  err = dMemzero(vc->dv,3*nbs*sizeof(dScalar));dCHK(err);
+#endif
+  dFunctionReturn(0);
+}
+/** Extract values from a scattered array into a contiguous one, shares memory if identity == true */
+static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (n > vc->n_alloc) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Attempt to extract %D values, but cache size is %D",n,vc->n_alloc);
+  vc->n = n;
+  if (identity) {
+    vc->u  = su;
+    vc->du = sdu;
+    vc->v  = sv;
+    vc->dv = sdv;
+  } else {
+    const dInt bs = vc->bs;
+    err = ValueCacheReset(vc);dCHK(err);
+    for (dInt i=0; i<n; i++) {
+      for (dInt j=0; j<bs; j++) {
+        vc->u[i*bs+j]        = su[ind[i]*bs+j];
+        vc->du[(i*bs+j)*3+0] = sdu[(ind[i]*bs+j)*3+0];
+        vc->du[(i*bs+j)*3+1] = sdu[(ind[i]*bs+j)*3+1];
+        vc->du[(i*bs+j)*3+2] = sdu[(ind[i]*bs+j)*3+2];
+      }
+    }
+  }
+  dFunctionReturn(0);
+}
+static dErr dUNUSED ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[])
+{
+
+  dFunctionBegin;
+  if (n > vc->n_alloc) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Attempt to extract %D values, but cache size is %D",n,vc->n_alloc);
+  if (n != vc->n) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Distribute size %D different from extracted size %D",n,vc->n);
+  if (!vc->v || !vc->dv) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Cache is empty");
+  if (identity) {
+    if (!(sv == vc->v && sdv == vc->dv)) { /* This case is recoverable, but probably a logic error */
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,
+             ((vc->v == vc->v_alloc)
+              ? "Identity was not used when the cache was filled but new vector came from a different source" /* Recoverable but probably a logic error */
+              : "Cache is aliasing a different vector"));
+    }
+    if (!(su == vc->u && sdu == vc->du)) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Outgoing vectors match, but incoming vectors are not aliased as expected, suspect logic error");
+    /* Do nothing because vectors are aliased so values already went into dest */
+  } else {
+    const dInt bs = vc->bs;
+    for (dInt i=0; i<n; i++) {
+      for (dInt j=0; j<bs; j++) {
+        const dInt ibs = i*bs+j,sibs = ind[i]*bs+j;
+        sv[sibs] = vc->v[ibs];
+        sdv[sibs*3+0] = vc->dv[ibs*3+0];
+        sdv[sibs*3+1] = vc->dv[ibs*3+1];
+        sdv[sibs*3+2] = vc->dv[ibs*3+2];
+      }
+    }
+  }
+  dFunctionReturn(0);
+}
+static dErr ValueCacheDestroy(struct ValueCache *vc)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dFree4(vc->u_alloc,vc->du_alloc,vc->v_alloc,vc->dv_alloc);dCHK(err);
+  err = dMemzero(vc,sizeof(*vc));dCHK(err);
   dFunctionReturn(0);
 }
