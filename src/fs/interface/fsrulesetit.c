@@ -7,11 +7,20 @@ struct ValueCache {
   dScalar *u,*du,*v,*dv;
   dScalar *u_alloc,*du_alloc,*v_alloc,*dv_alloc;
 };
+struct ValueCachePhysical {
+  dInt n_alloc;
+  dReal *jw,*jw_alloc;
+  dReal *cjinv,*cjinv_alloc;
+};
 static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax);
 static dErr ValueCacheReset(struct ValueCache *vc);
-static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
-static dErr ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
+static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt ind[],dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
+static dErr ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt ind[],dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[]);
 static dErr ValueCacheDestroy(struct ValueCache *vc);
+static dErr ValueCachePhysicalSetUp(struct ValueCachePhysical *phys,dInt nmax);
+static dErr ValueCachePhysicalExtract(struct ValueCachePhysical *phys,dInt n,const dInt ind[],dBool identity,dScalar *cjinv_elem,dScalar *jw_elem);
+static dErr ValueCachePhysicalReset(struct ValueCachePhysical *phys);
+static dErr ValueCachePhysicalDestroy(struct ValueCachePhysical *phys);
 
 struct dRulesetIteratorLink {
   dFS fs;                       /**< Function space for this link */
@@ -56,8 +65,9 @@ struct _n_dRulesetIterator {
   dInt maxQ;                    /**< Largest number of quadrature nodes in a single patch */
   dInt nlinks;                  /**< Number of dFS registered with this iterator */
   dInt Q;                       /**< Number of quadrature nodes in current patch */
-  dReal *cjinv;                 /**< Inverse Jacobian of coordinate transformation at each quadrature node of this patch */
-  dReal *jw;                    /**< Physical quadrature weight (determinant of coordinate Jacobian times reference quadrature weight) at each quadrature node */
+  dReal *cjinv_elem;            /**< Inverse Jacobian of coordinate transformation at each quadrature node of this patch, element-natural */
+  dReal *jw_elem;               /**< Physical quadrature weight (determinant of coordinate Jacobian times reference quadrature weight), element-natural */
+  struct ValueCachePhysical phys; /**< Physical weights and coordinate transformation at quadrature points in patch-natural ordering */
   dScalar **Ksplit;             /**< Work space for matrix assembly between each pair of registered function spaces */
   struct dRulesetIteratorStash stash; /**< Private storage for the user */
   struct dRulesetIteratorLink *link;  /**< Links for each registered function space */
@@ -213,8 +223,9 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
     if (!p->rowcol) {err = dMallocA(p->maxP,&p->rowcol);dCHK(err);}
   }
   va_end(ap);
-  if (!it->cjinv) {
-    err = dMallocA2(it->maxQ*9,&it->cjinv,it->maxQ,&it->jw);dCHK(err);
+  if (!it->cjinv_elem) {
+    err = dMallocA2(it->maxQ*9,&it->cjinv_elem,it->maxQ,&it->jw_elem);dCHK(err);
+    err = ValueCachePhysicalSetUp(&it->phys,it->maxQ);dCHK(err);
   }
   err = dRulesetIteratorCreateMatrixSpace_Private(it);dCHK(err);
   if ((it->stash.elembytes && !it->stash.elem) || (it->stash.nodebytes && !it->stash.node)) {
@@ -278,8 +289,9 @@ static dErr dRulesetIteratorClearElement(dRulesetIterator it)
     err = ValueCacheReset(&p->vc_patch);dCHK(err);
   }
 #if defined dUSE_DEBUG
-  err = dMemzero(it->cjinv,3*3*it->maxQ*sizeof(dReal));dCHK(err);
-  err = dMemzero(it->jw,it->maxQ*sizeof(dReal));dCHK(err);
+  err = dMemzero(it->cjinv_elem,3*3*it->maxQ*sizeof(dReal));dCHK(err);
+  err = dMemzero(it->jw_elem,it->maxQ*sizeof(dReal));dCHK(err);
+  err = ValueCachePhysicalReset(&it->phys);dCHK(err);
 #endif
   dFunctionReturn(0);
 }
@@ -362,8 +374,8 @@ dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dReal **cjinv,dReal **jw,
   va_list ap;
 
   dFunctionBegin;
-  if (cjinv) *cjinv = it->cjinv;
-  if (jw)     *jw   = it->jw;
+  if (cjinv) *cjinv = it->phys.cjinv;
+  if (jw)     *jw   = it->phys.jw;
   va_start(ap,dv);
   for (struct dRulesetIteratorLink *p=it->link; p; p = p->next) {
     if (p != it->link) {
@@ -451,7 +463,8 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
   if (it->curpatch_in_elem == 0) { /* We just got to this element */
     err = dRulesetIteratorSetupElement(it);dCHK(err);
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-      dBool identity;
+      const dBool identity = (dBool)(it->npatches_in_elem == 1); /* Element ordering is patch ordering. Should use a better heuristic. */
+      const bool has_coords = (i == 0);
       dEFS efs;
       dScalar *ex;
       if (i) {
@@ -467,23 +480,26 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
       if (u) {
         err = dEFSApply(efs,cjinv,p->bs,ex,p->vc_elem.u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
       }
-      if (du || !i) {
+      if (du || has_coords) {
         err = dEFSApply(efs,cjinv,p->bs,ex,p->vc_elem.du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
-        if (i == 0) {
-          cjinv = it->cjinv;    /* Used by the subseqent links */
-          err = dRuleComputePhysical(rule,p->vc_elem.du,cjinv,it->jw);dCHK(err);
-          *jw = it->jw;
-        }
       }
       /* Everything is evaluated in element ordering, now get access to it in patch ordering, no-copy if identity == true */
-      identity = (dBool)(it->npatches_in_elem == 1); /* Element ordering is patch ordering. Should use a better heuristic. */
       err = ValueCacheExtract(&p->vc_patch,*Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
+
+      if (has_coords) {
+        err = dRuleComputePhysical(rule,p->vc_patch.du,it->cjinv_elem,it->jw_elem);dCHK(err);
+        err = ValueCachePhysicalExtract(&it->phys,*Q,it->patchind,identity,it->cjinv_elem,it->jw_elem);dCHK(err);
+        cjinv = it->cjinv_elem;      /* These coordinates are used so that the following links are mapped to the physical space */
+        *jw = it->phys.jw;
+      }
+
       if (u)  *u  = p->vc_patch.u;
       if (du) *du = p->vc_patch.du;
       if (v)  *v  = p->vc_patch.v;
       if (dv) *dv = p->vc_patch.dv;
     }
   } else {                      /* Everything has already been mapped into patch-oriented storage */
+    *jw = it->phys.jw + it->patchsize*it->curpatch_in_elem;
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
       const dInt offbs = it->patchsize*it->curpatch_in_elem*p->bs;
       if (i) {
@@ -517,18 +533,22 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
   if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
   va_start(ap,dv);
   for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+    const dBool identity = (dBool)(i == 0); /* need better heuristic */
     dEFS efs = p->efs[it->curelem];
     dScalar *ey = &p->y[p->elemstart];
     if (i) {
       v = va_arg(ap,const dScalar*);
       dv = va_arg(ap,const dScalar*);
     }
+    if (v || dv) {
+      err = ValueCacheDistribute(&p->vc_patch,it->Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
+    }
     if (v) {
-      err = dEFSApply(efs,it->cjinv,p->bs,v,ey,dAPPLY_INTERP_TRANSPOSE,imode);dCHK(err);
+      err = dEFSApply(efs,it->cjinv_elem,p->bs,v,ey,dAPPLY_INTERP_TRANSPOSE,imode);dCHK(err);
       imode = ADD_VALUES;
     }
     if (dv) {
-      err = dEFSApply(efs,it->cjinv,p->bs,dv,ey,dAPPLY_GRAD_TRANSPOSE,imode);dCHK(err);
+      err = dEFSApply(efs,it->cjinv_elem,p->bs,dv,ey,dAPPLY_GRAD_TRANSPOSE,imode);dCHK(err);
     }
   }
   va_end(ap);
@@ -572,7 +592,7 @@ dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **r
       *rowcol = p->rowcol;
       for (dInt j=0; j<PP; j++) p->rowcol[j] = p->elemstart + j*p->bs;
     }
-    cjinv = it->cjinv;
+    cjinv = it->cjinv_elem;
   }
   va_end(ap);
   dFunctionReturn(0);
@@ -604,7 +624,7 @@ dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt
     err = dEFSRestoreExplicit(p->efs[it->curelem],cjinv,&Q,&PP,interp,deriv);dCHK(err);
     if (P) *P = PP;
     if (rowcol) *rowcol = NULL;
-    cjinv = it->cjinv;
+    cjinv = it->cjinv_elem;
   }
   va_end(ap);
   dFunctionReturn(0);
@@ -675,7 +695,8 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
     err = dFree(p);dCHK(err);
   }
   err = dRulesetIteratorFreeMatrixSpace_Private(it);dCHK(err);
-  err = dFree2(it->cjinv,it->jw);dCHK(err);
+  err = dFree2(it->cjinv_elem,it->jw_elem);dCHK(err);
+  err = ValueCachePhysicalDestroy(&it->phys);dCHK(err);
   err = dFree(it);dCHK(err);
   dFunctionReturn(0);
 }
@@ -692,6 +713,7 @@ static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax)
   err = dMallocA4(bs*nmax,&vc->u_alloc,bs*nmax*3,&vc->du_alloc,bs*nmax,&vc->v_alloc,bs*nmax*3,&vc->dv_alloc);dCHK(err);
   dFunctionReturn(0);
 }
+
 static dErr ValueCacheReset(struct ValueCache *vc)
 {
   dErr err;
@@ -711,6 +733,7 @@ static dErr ValueCacheReset(struct ValueCache *vc)
 #endif
   dFunctionReturn(0);
 }
+
 /** Extract values from a scattered array into a contiguous one, shares memory if identity == true */
 static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[])
 {
@@ -738,6 +761,7 @@ static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt *ind,dBool
   }
   dFunctionReturn(0);
 }
+
 static dErr dUNUSED ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[])
 {
 
@@ -768,6 +792,7 @@ static dErr dUNUSED ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt
   }
   dFunctionReturn(0);
 }
+
 static dErr ValueCacheDestroy(struct ValueCache *vc)
 {
   dErr err;
@@ -775,5 +800,59 @@ static dErr ValueCacheDestroy(struct ValueCache *vc)
   dFunctionBegin;
   err = dFree4(vc->u_alloc,vc->du_alloc,vc->v_alloc,vc->dv_alloc);dCHK(err);
   err = dMemzero(vc,sizeof(*vc));dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr ValueCachePhysicalSetUp(struct ValueCachePhysical *phys,dInt nmax)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (phys->n_alloc) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Cache already set up");
+  phys->n_alloc = nmax;
+  err = dMallocA2(nmax*9,&phys->cjinv_alloc,nmax,&phys->jw_alloc);dCHK(err);
+  phys->cjinv = NULL;
+  phys->jw = NULL;
+  dFunctionReturn(0);
+}
+
+static dErr ValueCachePhysicalExtract(struct ValueCachePhysical *phys,dInt n,const dInt ind[],dBool identity,dScalar cjinv_elem[],dScalar jw_elem[])
+{
+  dFunctionBegin;
+  if (n > phys->n_alloc) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Not enough space allocated in the physical map cache");
+  if (identity) {
+    phys->cjinv = cjinv_elem;
+    phys->jw = jw_elem;
+  } else {
+    phys->cjinv = phys->cjinv_alloc;
+    phys->jw = phys->jw_alloc;
+    for (dInt i=0; i<n; i++) {
+      for (dInt j=0; j<9; j++) phys->cjinv[i*9+j] = cjinv_elem[ind[i]*9+j];
+      phys->jw[i] = jw_elem[ind[i]];
+    }
+  }
+  dFunctionReturn(0);
+}
+
+static dErr ValueCachePhysicalReset(struct ValueCachePhysical *phys)
+{
+  dErr err;
+  dInt n = phys->n_alloc;
+
+  dFunctionBegin;
+  err = dMemzero(phys->cjinv_alloc,9*n*sizeof(dReal));dCHK(err);
+  err = dMemzero(phys->jw_alloc,n*sizeof(dReal));dCHK(err);
+  phys->cjinv = NULL;
+  phys->jw = NULL;
+  dFunctionReturn(0);
+}
+
+static dErr ValueCachePhysicalDestroy(struct ValueCachePhysical *phys)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dFree2(phys->cjinv_alloc,phys->jw_alloc);dCHK(err);
+  err = dMemzero(phys,sizeof(*phys));dCHK(err);
   dFunctionReturn(0);
 }
