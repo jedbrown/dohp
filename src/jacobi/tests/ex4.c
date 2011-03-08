@@ -38,8 +38,8 @@ static dErr TestPatches(dJacobi jac,PetscViewer viewer)
     err = dRuleGetPatches(rule,&npatches,&patchsize,&ind,&weight);dCHK(err);
     if (npatches*patchsize != tsize[0]*tsize[1]*tsize[2]) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Inconsistent patch sizes");
     err = PetscViewerASCIIPrintf(viewer,"Element %D: npatches %D  patchsize %D\n",i,npatches,patchsize);dCHK(err);
-    err = dIntTableView(npatches,patchsize,ind,"indices",viewer);dCHK(err);
-    err = dRealTableView(npatches,patchsize,weight,"weights",viewer);dCHK(err);
+    err = dIntTableView(npatches,patchsize,ind,viewer,"indices");dCHK(err);
+    err = dRealTableView(npatches,patchsize,weight,viewer,"weights");dCHK(err);
   }
   err = dFree(rules);dCHK(err);
   err = dFree(efs);dCHK(err);

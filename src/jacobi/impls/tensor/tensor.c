@@ -126,9 +126,9 @@ dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so 
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis with rule=%d basis=%d.\n",basis->Q,basis->P);dCHK(err);
-  err = dRealTableView(basis->Q,basis->P,basis->interp,"interp",viewer);dCHK(err);
-  err = dRealTableView(basis->Q,3*basis->P,basis->deriv,"deriv",viewer);dCHK(err);
-  err = dRealTableView(1,basis->P,basis->node,"node",viewer);dCHK(err);
+  err = dRealTableView(basis->Q,basis->P,basis->interp,viewer,"interp");dCHK(err);
+  err = dRealTableView(basis->Q,basis->P,basis->deriv,viewer,"deriv");dCHK(err);
+  err = dRealTableView(1,basis->P,basis->node,viewer,"node");dCHK(err);
   dFunctionReturn(0);
 }
 

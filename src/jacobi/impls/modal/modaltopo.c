@@ -11,8 +11,8 @@ static dErr ModalBasisView(dInt Q,dInt P,const dReal interp[],const dReal deriv[
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"Modal basis with %d point rule and %d point basis.\n",Q,P);dCHK(err);
-  err = dRealTableView(Q,P,interp,"interp",viewer);dCHK(err);
-  err = dRealTableView(Q,3*P,deriv,"deriv",viewer);dCHK(err);
+  err = dRealTableView(Q,P,interp,viewer,"interp");dCHK(err);
+  err = dRealTableView(Q,3*P,deriv,viewer,"deriv");dCHK(err);
   dFunctionReturn(0);
 }
 

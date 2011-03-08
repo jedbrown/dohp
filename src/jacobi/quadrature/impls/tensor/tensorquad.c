@@ -12,8 +12,8 @@ dErr TensorRuleView(TensorRule rule,PetscViewer viewer)
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"TensorRule with %d nodes.\n",rule->size);dCHK(err);
-  err = dRealTableView(1,rule->size,rule->coord,"q",viewer);dCHK(err);
-  err = dRealTableView(1,rule->size,rule->weight,"w",viewer);dCHK(err);
+  err = dRealTableView(1,rule->size,rule->coord,viewer,"q");dCHK(err);
+  err = dRealTableView(1,rule->size,rule->weight,viewer,"w");dCHK(err);
   dFunctionReturn(0);
 }
 

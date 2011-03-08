@@ -28,12 +28,17 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
 dErr dObjectGetComm(dObject obj,MPI_Comm *comm)
 { return PetscObjectGetComm(obj,comm); }
 
-dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer viewer)
+dErr dRealTableView(dInt m,dInt n,const dReal mat[],dViewer viewer,const char *format,...)
 {
+  va_list Argp;
+  size_t fullLen;
+  char name[4096];
   dBool ascii;
   dErr err;
 
   dFunctionBegin;
+  va_start(Argp,format);
+  err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   if (!mat) {
@@ -41,9 +46,7 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer vie
     dFunctionReturn(0);
   }
   for (dInt i=0; i<m; i++) {
-    if (name) {
-      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
-    }
+    err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
     err = PetscViewerASCIIUseTabs(viewer,PETSC_FALSE);dCHK(err);
     for (dInt j=0; j<n; j++) {
       err = PetscViewerASCIIPrintf(viewer," % 9.5f",mat[i*n+j]);dCHK(err);
@@ -54,12 +57,17 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer vie
   dFunctionReturn(0);
 }
 
-dErr dIntTableView(dInt m,dInt n,const dInt mat[],const char *name,dViewer viewer)
+dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *format,...)
 {
+  va_list Argp;
+  size_t fullLen;
+  char name[4096];
   dBool ascii;
   dErr err;
 
   dFunctionBegin;
+  va_start(Argp,format);
+  err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   if (!mat) {
@@ -67,9 +75,7 @@ dErr dIntTableView(dInt m,dInt n,const dInt mat[],const char *name,dViewer viewe
     dFunctionReturn(0);
   }
   for (dInt i=0; i<m; i++) {
-    if (name) {
-      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
-    }
+    err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
     err = PetscViewerASCIIUseTabs(viewer,PETSC_FALSE);dCHK(err);
     for (dInt j=0; j<n; j++) {
       err = PetscViewerASCIIPrintf(viewer," %3D",mat[i*n+j]);dCHK(err);
