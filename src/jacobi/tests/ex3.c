@@ -112,24 +112,30 @@ static dErr TestExplicitSparseBases(dJacobi jac,PetscViewer viewer)
 
   dFunctionBegin;
   err = GetEFS(jac,&rules,&efs);dCHK(err);
-  for (dInt i=0; i<4; i++) {
-    dInt npieces;
-    const dInt *Q,*const*qidx,*P,*const*eidx;
-    const dReal *const*interp,*const*deriv;
-    err = dEFSGetExplicitSparse(efs[i],&npieces,&Q,&qidx,&P,&eidx,&interp,&deriv);dCHK(err);
-    for (dInt j=0; j<npieces; j++) {
-      char name[dNAME_LEN];
-      err = PetscIntView(Q[j],qidx[j],viewer);dCHK(err);
-      err = PetscIntView(P[j],eidx[j],viewer);dCHK(err);
-      err = PetscSNPrintf(name,sizeof name,"elem %D  piece %D  interp",i,j);dCHK(err);
-      err = dRealTableView(Q[j],P[j],interp[j],name,viewer);dCHK(err);
-      err = PetscSNPrintf(name,sizeof name,"elem %D  piece %D  deriv",i,j);dCHK(err);
-      err = dRealTableView(Q[j],P[j],interp[j],name,viewer);dCHK(err);
+  for (dInt i=0; i<3; i++) {
+    dRule rule;
+    dInt npatches,Q,P;
+    const dInt *qidx;
+    const dReal *jdet;
+    dInt *bidx;
+    dReal *interp,*deriv;
+    err = dEFSGetRule(efs[i],&rule);dCHK(err);
+    err = dEFSGetSizes(efs[i],NULL,NULL,&P);dCHK(err); /* Patch support may be smaller, P will be redefined below */
+    err = dRuleGetPatches(rule,&npatches,&Q,&qidx,&jdet);dCHK(err);
+    err = dMallocA3(npatches*P,&bidx,npatches*Q*P,&interp,npatches*Q*P*3,&deriv);dCHK(err);
+    err = dEFSGetExplicitSparse(efs[i],npatches,Q,qidx,NULL,0,&P,bidx,interp,deriv);dCHK(err);
+    err = dIntTableView(npatches,Q,qidx,viewer,"elem %D: qidx(patch,q)",i);dCHK(err);
+    err = dIntTableView(npatches,P,bidx,viewer,"elem %D: bidx(patch,b)",i);dCHK(err);
+    for (dInt j=0; j<npatches; j++) {
+      err = dRealTableView(Q,P,interp+Q*P*j,viewer,"elem %D  patch %D  interp",i,j);dCHK(err);
+      err = dRealTableView(Q,P*3,deriv+Q*P*3*j,viewer,"elem %D  patch %D  deriv",i,j);dCHK(err);
     }
+    err = dFree3(bidx,interp,deriv);dCHK(err);
   }
+  err = dFree(rules);dCHK(err);
+  err = dFree(efs);dCHK(err);
   dFunctionReturn(0);
 }
-
 
 int main(int argc,char *argv[])
 {

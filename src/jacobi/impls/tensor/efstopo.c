@@ -37,7 +37,7 @@ _F(dRuleMappingApply_Tensor_Line);
 _F(dRuleMappingApply_Tensor_Quad);
 //_F(dRuleMappingApply_Tensor_Hex);
 #undef _F
-static dErr dEFSGetExplicitSparse_Tensor_Any(dEFS efs,dInt *npieces,const dInt **Q,const dInt *const**qidx,const dInt **P,const dInt *const**eidx,const dReal *const**interp,const dReal *const**deriv);
+static dErr dEFSGetExplicitSparse_Tensor_Hex(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[]);
 
 static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
 static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
@@ -78,7 +78,7 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
                                              .getSizes             = dEFSGetSizes_Tensor_Hex,
                                              .getTensorNodes       = dEFSGetTensorNodes_Tensor_Hex,
                                              .apply                = dEFSApply_Tensor_Hex,
-                                             .getExplicitSparse    = dEFSGetExplicitSparse_Tensor_Any,
+                                             .getExplicitSparse    = dEFSGetExplicitSparse_Tensor_Hex,
                                              .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex};
   dJacobi_Tensor *tnsr = jac->data;
   dErr err;
@@ -657,18 +657,61 @@ static dErr dRuleMappingApply_Tensor_Quad(dRule rule,const dReal jinv[],dInt D,c
   dFunctionReturn(0);
 }
 
-static dErr dEFSGetExplicitSparse_Tensor_Any(dEFS efs,dInt *npieces,const dInt **Q,const dInt *const**qidx,const dInt **P,const dInt *const**eidx,const dReal *const**interp,const dReal *const**deriv)
+static dErr dEFSGetExplicitSparse_Tensor_Hex(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[])
 {
+  dErr err;
   dEFS_Tensor *efst = (dEFS_Tensor*)efs;
-  struct dEFS_TensorSparse *sparse = &efst->sparse;
+  const dInt px = efst->basis[0]->P-1,py = efst->basis[1]->P-1,pz = efst->basis[2]->P-1,PP=8;
+  const dReal interp1[2][2] = {{0.78867513459481287,0.21132486540518713},{0.21132486540518713,0.78867513459481287}};
+  const dReal deriv1[2][2] = {{-1.,1.},{-1.,1.}};
 
   dFunctionBegin;
-  *npieces = sparse->npieces;
-  *Q       = sparse->Q;
-  *qidx    = (const dInt*const*)sparse->qidx;
-  *P       = sparse->P;
-  *eidx    = (const dInt*const*)sparse->eidx;
-  *interp  = (const dReal*const*)sparse->interp;
-  *deriv   = (const dReal*const*)sparse->deriv;
+  if (Q != 8 || px*py*pz != npatches) {
+    err = dEFSGetExplicitSparse_Basic(efs,npatches,Q,qidx,cjinv,eoffset,P,eidx,interp,deriv);dCHK(err);
+    dFunctionReturn(0);
+  }
+  *P = PP;
+  for (dInt i=0; i<px; i++) {
+    for (dInt j=0; j<py; j++) {
+      for (dInt k=0; k<pz; k++) {
+        const dInt pidx = (i*py+j)*pz+k;
+        for (dInt iii=0; iii<2; iii++) {
+          for (dInt jjj=0; jjj<2; jjj++) {
+            for (dInt kkk=0; kkk<2; kkk++) {
+              const dInt bidx = (iii*2+jjj)*2+kkk; /* Index of this basis function relative to patch */
+              const dInt nidx = ((i+iii)*(py+1) + j+jjj)*(pz+1) + k+kkk; /* Index of this basis function relative to element */
+              eidx[pidx*PP+bidx] = eoffset + nidx;
+            }
+          }
+        }
+        for (dInt ii=0; ii<2; ii++) {
+          for (dInt jj=0; jj<2; jj++) {
+            for (dInt kk=0; kk<2; kk++) {
+              const dInt pqidx = (ii*2+jj)*2+kk; /* Index of this quadrature node relative to patch */
+              const dReal eye3[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
+              const dReal (*dXdx)[3] = cjinv ? (const dReal(*)[3])&cjinv[(pidx*8+pqidx)*9] : eye3; /* Derivative of reference coordinates with respect to physical */
+              if (qidx[pidx*Q + pqidx] != ((i*2+ii)*py*2 + (j*2+jj))*pz*2 + (k*2+kk)) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Unexpected qidx");
+              for (dInt iii=0; iii<2; iii++) {
+                for (dInt jjj=0; jjj<2; jjj++) {
+                  for (dInt kkk=0; kkk<2; kkk++) {
+                    const dInt bidx = (iii*2+jjj)*2+kkk; /* Index of this basis function relative to patch */
+                    const dInt qboff = (pidx*Q + pqidx)*PP + bidx; /* Offset of (quadrature point, basis function) pair relative to element */
+                    const dReal
+                      dX =  deriv1[ii][iii] * interp1[jj][jjj] * interp1[kk][kkk],
+                      dY = interp1[ii][iii] *  deriv1[jj][jjj] * interp1[kk][kkk],
+                      dZ = interp1[ii][iii] * interp1[jj][jjj] *  deriv1[kk][kkk];
+                    interp[qboff] = interp1[ii][iii] * interp1[jj][jjj] * interp1[kk][kkk];
+                    deriv[qboff*3 + 0] = dX * dXdx[0][0] + dY * dXdx[1][0] + dZ * dXdx[2][0];
+                    deriv[qboff*3 + 1] = dX * dXdx[0][1] + dY * dXdx[1][1] + dZ * dXdx[2][1];
+                    deriv[qboff*3 + 2] = dX * dXdx[0][2] + dY * dXdx[1][2] + dZ * dXdx[2][2];
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
   dFunctionReturn(0);
 }

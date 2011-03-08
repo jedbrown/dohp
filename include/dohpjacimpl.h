@@ -47,7 +47,7 @@ struct _dEFSOps {
   dErr (*apply)(dEFS,const dReal[],dInt,const dScalar[],dScalar[],dApplyMode,InsertMode);
   dErr (*getGlobalCoordinates)(dEFS,const dReal(*)[3],dInt*,dInt[],dReal(*)[3]);
   dErr (*getExplicit)(dEFS,const dReal[],dInt*,dInt*,const dReal**,const dReal**);
-  dErr (*getExplicitSparse)(dEFS,dInt*,const dInt**,const dInt*const**,const dInt**,const dInt*const**,const dReal*const**,const dReal*const**);
+  dErr (*getExplicitSparse)(dEFS,dInt,dInt,const dInt[],const dReal[],dInt,dInt*,dInt[],dReal[],dReal[]);
 };
 
 /**
@@ -112,6 +112,7 @@ extern dErr dJacobiCreate_Modal(dJacobi);
 
 extern dErr dQuadratureCreate_Tensor(dQuadrature);
 
+extern dErr dEFSGetExplicitSparse_Basic(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[]);
 dEXTERN_C_END
 
 #endif

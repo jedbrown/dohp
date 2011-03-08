@@ -160,7 +160,7 @@ extern dErr dEFSGetRule(dEFS efs,dRule *rule);
 extern dErr dEFSApply(dEFS,const dReal[],dInt,const dScalar[],dScalar[restrict],dApplyMode,InsertMode);
 extern dErr dEFSGetExplicit(dEFS,const dReal geom[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
 extern dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal **basis,const dReal **deriv);
-extern dErr dEFSGetExplicitSparse(dEFS efs,dInt *npieces,const dInt **Q,const dInt *const**qidx,const dInt **P,const dInt *const**eidx,const dReal *const**basis,const dReal *const**deriv);
+extern dErr dEFSGetExplicitSparse(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[]);
 
 extern dErr dJacobiPropagateDown(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
 extern dErr dJacobiGetNodeCount(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],dInt[],dInt[]);

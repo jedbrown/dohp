@@ -590,23 +590,71 @@ dErr dEFSRestoreExplicit(dEFS efs,const dReal jinv[],dInt *Q,dInt *P,const dReal
   dFunctionReturn(0);
 }
 
-dErr dEFSGetExplicitSparse(dEFS efs,dInt *npieces,const dInt **Q,const dInt *const**qidx,const dInt **P,const dInt *const**eidx,const dReal *const**basis,const dReal *const**deriv)
+/**
+ * @param[in] efs Element function space
+ * @param[in] npatches Number of patches on this element
+ * @param[in] Q Number of quadrature points per patch
+ * @param[in] qidx Element-natural indices of quadrature nodes for each patch (concatenated)
+ * @param[in] cjinv Jacobian for the whole element in patch-natural ordering (concatenated)
+ * @param[in] eoffset Offset of element in expanded ordering, \a eidx results will be offset by this amount
+ * @param[out] P Number of basis functions with support on each patch
+ * @param[in,out] eidx Element-natural indices of each basis function with support on each patch (concatenated)
+ * @param[in,out] interp Explicit interpolation matrices for each patch (concatenated)
+ * @param[in,out] deriv Explicit derivative evaluation matrices for each patch (concatenated)
+ */
+dErr dEFSGetExplicitSparse(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[])
 {
   dErr err;
 
   dFunctionBegin;
   dValidPointer(efs,1);
-  dValidPointer(npieces,2);
-  dValidPointer(Q,3);
-  dValidPointer(qidx,4);
-  dValidPointer(P,5);
-  dValidPointer(eidx,6);
-  dValidPointer(basis,7);
-  dValidPointer(deriv,8);
+  dASSERT(npatches > 0);
+  dASSERT(Q > 0);
+  dValidIntPointer(qidx,4);
+  if (cjinv) dValidRealPointer(cjinv,5);
+  dValidPointer(P,7);
+  dValidPointer(eidx,8);
+  dValidPointer(interp,9);
+  dValidPointer(deriv,10);
   if (!efs->ops.getExplicitSparse) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not available");
-  err = (*efs->ops.getExplicitSparse)(efs,npieces,Q,qidx,P,eidx,basis,deriv);dCHK(err);
+  err = (*efs->ops.getExplicitSparse)(efs,npatches,Q,qidx,cjinv,eoffset,P,eidx,interp,deriv);dCHK(err);
   dFunctionReturn(0);
 }
+
+dErr dEFSGetExplicitSparse_Basic(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[])
+{
+  dErr err;
+  dReal *ecjinv = NULL;
+  const dReal *einterp,*ederiv;
+  dInt eQ,eP;
+
+  dFunctionBegin;
+  if (cjinv) {
+    /* Translate cjinv into element-natural ordering */
+    err = dMallocA(npatches*Q*9,&ecjinv);dCHK(err);
+    for (dInt i=0; i<npatches*Q; i++) {
+      for (dInt j=0; j<9; j++) ecjinv[i*9+j] = cjinv[qidx[i]*9+j];
+    }
+  }
+  err = dEFSGetExplicit(efs,ecjinv,&eQ,&eP,&einterp,&ederiv);dCHK(err);
+  *P = eP;
+  for (dInt i=0; i<npatches; i++) {
+    for (dInt k=0; k<eP; k++) eidx[i*eP+k] = eoffset + k;
+    for (dInt j=0; j<Q; j++) {
+      const dInt
+        pq = i*Q+j,             /* quadrature node in patch-natural ordering */
+        eq = qidx[pq];          /* quadrature node in element-natural ordering */
+      for (dInt k=0; k<eP; k++) {
+        interp[pq*eP+k] = einterp[eq*eP+k];
+        for (dInt l=0; l<3; l++) deriv[(pq*eP+k)*3+l] = ederiv[(eq*eP+k)*3+l];
+      }
+    }
+  }
+  err = dEFSRestoreExplicit(efs,ecjinv,&eQ,&eP,&einterp,&ederiv);dCHK(err);
+  err = dFree(ecjinv);dCHK(err);
+  dFunctionReturn(0);
+}
+
 
 /** Get constraint counts for element assembly matrices.
 *
