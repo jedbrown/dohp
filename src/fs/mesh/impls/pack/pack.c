@@ -559,7 +559,7 @@ static dErr dMeshLoad_Pack(dMesh mesh)
 
   /* Get the interface sets */
   iMesh_getTagHandle(mi,PARALLEL_STATUS_TAG_NAME,&pstatusTag,&err,strlen(PARALLEL_STATUS_TAG_NAME));dICHK(mi,err);
-  iMesh_getNumEntSets(mi,mesh->root,1,&nallset,&err);dICHK(mi,err);
+  iMesh_getNumEntSets(mi,mesh->root,0,&nallset,&err);dICHK(mi,err);
   {
     dInt alloc = nallset;
     err = dMalloc(nallset*sizeof(dMeshESH),&allset);dCHK(err);

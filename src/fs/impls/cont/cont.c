@@ -296,10 +296,10 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->set.explicit,&ierr);dICHK(mi,ierr);
     iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->set.ghost,&ierr);dICHK(mi,ierr);
     /* Move owned Dirichlet ents from \a explicitSet to \a dirichletSet */
-    err = dMeshGetNumSubsets(mesh,fs->set.boundaries,1,&nboundaries);dCHK(err);
+    err = dMeshGetNumSubsets(mesh,fs->set.boundaries,0,&nboundaries);dCHK(err);
     if (!nboundaries) goto after_boundaries;
     err = dMallocA2(nboundaries,&bdysets,nboundaries,&bstat);dCHK(err);
-    err = dMeshGetSubsets(mesh,fs->set.boundaries,1,bdysets,nboundaries,NULL);dCHK(err);
+    err = dMeshGetSubsets(mesh,fs->set.boundaries,0,bdysets,nboundaries,NULL);dCHK(err);
     err = dMeshTagSGetData(mesh,fs->tag.bstatus,bdysets,nboundaries,bstat,nboundaries,dDATA_INT);dCHK(err);
     for (int i=0; i<nboundaries; i++) {
       if (bstat[i] & dFSBSTATUS_DIRICHLET) {

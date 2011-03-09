@@ -599,6 +599,7 @@ dErr dMeshGetNumSubsets(dMesh mesh,dMeshESH set,dInt hops,dInt *nsubsets)
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(nsubsets,4);
+  *nsubsets = -1;
   iMesh_getNumEntSets(mesh->mi,set,hops,&n,&ierr);dICHK(mesh->mi,ierr);
   *nsubsets = n;
   dFunctionReturn(0);

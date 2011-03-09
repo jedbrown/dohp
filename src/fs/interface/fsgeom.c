@@ -291,9 +291,9 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
   case dFS_INTERIOR: {
     dMeshESH *bsets;
     dInt nsets;
-    err = dMeshGetNumSubsets(fs->mesh,fs->set.boundaries,1,&nsets);dCHK(err);
+    err = dMeshGetNumSubsets(fs->mesh,fs->set.boundaries,0,&nsets);dCHK(err);
     err = dMallocA(nsets,&bsets);dCHK(err);
-    err = dMeshGetSubsets(fs->mesh,fs->set.boundaries,1,bsets,nsets,NULL);dCHK(err);dCHK(err);
+    err = dMeshGetSubsets(fs->mesh,fs->set.boundaries,0,bsets,nsets,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<nsets; i++) {
       dFSBStatus bstat;
       err = dMeshTagSGetData(fs->mesh,fs->tag.bstatus,&bsets[i],1,&bstat,sizeof(bstat),dDATA_BYTE);dCHK(err);
