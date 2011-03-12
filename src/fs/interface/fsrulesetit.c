@@ -74,6 +74,7 @@ struct _n_dRulesetIterator {
   dInt nnodes;                  /**< Total number of nodes in expanded space */
   dInt maxnpatches;             /**< Maximum number of patches in any element in iterator */
   dInt maxQ;                    /**< Largest number of quadrature nodes in a single patch */
+  dInt maxQelem;                /**< Largest number of quadrature nodes in a single element */
   dInt nlinks;                  /**< Number of dFS registered with this iterator */
   dInt Q;                       /**< Number of quadrature nodes in current patch */
   dReal *cjinv_elem;            /**< Inverse Jacobian of coordinate transformation at each quadrature node of this patch, element-natural */
@@ -138,8 +139,7 @@ dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter)
     err = dRuleGetSize(it->ruleset->rules[i],NULL,&nnodes);dCHK(err);
     it->nnodes += nnodes;
   }
-  err = dRulesetGetMaxQ(rset,&it->maxQ);dCHK(err);
-  err = dRulesetGetMaxNumPatches(rset,&it->maxnpatches);dCHK(err);
+  err = dRulesetGetMaxQ(rset,&it->maxQ,&it->maxnpatches,&it->maxQelem);dCHK(err);
   err = dRulesetIteratorAddFS(it,cfs);dCHK(err);
   *iter = it;
   dFunctionReturn(0);
@@ -234,15 +234,15 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
       }
     }
     if (p->nefs != it->nelems) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Got an invalid EFS list");
-    err = ValueCacheSetUp(&p->vc_elem,p->bs,it->maxnpatches*it->maxQ);dCHK(err);
-    err = ValueCacheSetUp(&p->vc_patch,p->bs,it->maxnpatches*it->maxQ);dCHK(err);
+    err = ValueCacheSetUp(&p->vc_elem,p->bs,it->maxQelem);dCHK(err);
+    err = ValueCacheSetUp(&p->vc_patch,p->bs,it->maxQelem);dCHK(err);
     err = ExplicitCacheSetUp(&p->explicit,it->maxnpatches,it->maxQ,p->maxP);dCHK(err);
     if (!p->rowcol) {err = dMallocA(p->maxP,&p->rowcol);dCHK(err);}
   }
   va_end(ap);
   if (!it->cjinv_elem) {
-    err = dMallocA2(it->maxnpatches*it->maxQ*9,&it->cjinv_elem,it->maxnpatches*it->maxQ,&it->jw_elem);dCHK(err);
-    err = ValueCachePhysicalSetUp(&it->phys,it->maxnpatches*it->maxQ);dCHK(err);
+    err = dMallocA2(it->maxQelem*9,&it->cjinv_elem,it->maxQelem,&it->jw_elem);dCHK(err);
+    err = ValueCachePhysicalSetUp(&it->phys,it->maxQelem);dCHK(err);
   }
   err = dRulesetIteratorCreateMatrixSpace_Private(it);dCHK(err);
   if ((it->stash.elembytes && !it->stash.elem) || (it->stash.nodebytes && !it->stash.node)) {
@@ -306,8 +306,8 @@ static dErr dRulesetIteratorClearElement(dRulesetIterator it)
     err = ValueCacheReset(&p->vc_patch,dFALSE);dCHK(err);
   }
 #if defined dUSE_DEBUG
-  err = dMemzero(it->cjinv_elem,3*3*it->maxnpatches*it->maxQ*sizeof(dReal));dCHK(err);
-  err = dMemzero(it->jw_elem,it->maxnpatches*it->maxQ*sizeof(dReal));dCHK(err);
+  err = dMemzero(it->cjinv_elem,3*3*it->maxQelem*sizeof(dReal));dCHK(err);
+  err = dMemzero(it->jw_elem,it->maxQelem*sizeof(dReal));dCHK(err);
   err = ValueCachePhysicalReset(&it->phys);dCHK(err);
 #endif
   dFunctionReturn(0);

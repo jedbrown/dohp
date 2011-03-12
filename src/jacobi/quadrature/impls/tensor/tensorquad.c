@@ -268,7 +268,7 @@ static dErr dRuleGetTensorNodeWeight_Transformed(dRule grule,dInt *dim,dInt P[3]
         goto tensor_done;
       }
       /* This output direction is empty */
-      dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"What do do here?");
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"What to do here?");
       tensor_done:
       rule->trule[i] = tensor;
     }

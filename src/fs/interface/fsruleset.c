@@ -77,33 +77,24 @@ dErr dRulesetDestroy(dRuleset rset)
   dFunctionReturn(0);
 }
 
-dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ)
+dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ,dInt *maxnpatches,dInt *maxQelem)
 {
   dErr err;
 
   dFunctionBegin;
   if (!rset->maxQ) {
-    for (dInt i=0,Q; i<rset->n; i++) {
+    for (dInt i=0,Q,npatches; i<rset->n; i++) {
       err = dRuleGetSize(rset->rules[i],NULL,&Q);dCHK(err);
-      rset->maxQ = dMaxInt(rset->maxQ,Q);dCHK(err);
-    }
-  }
-  *maxQ = rset->maxQ;
-  dFunctionReturn(0);
-}
-
-dErr dRulesetGetMaxNumPatches(dRuleset rset,dInt *maxnpatches)
-{
-  dErr err;
-
-  dFunctionBegin;
-  if (!rset->maxnpatches) {
-    for (dInt i=0,npatches; i<rset->n; i++) {
       err = dRuleGetPatches(rset->rules[i],&npatches,NULL,NULL,NULL);dCHK(err);
-      rset->maxnpatches = dMaxInt(rset->maxnpatches,npatches);dCHK(err);
+      if (Q % npatches) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Number of quadrature points in element %D not divisible by number of patches %D",Q,npatches);
+      rset->maxQ = dMaxInt(rset->maxQ,Q/npatches);dCHK(err);
+      rset->maxnpatches = dMaxInt(rset->maxnpatches,npatches);
+      rset->maxQelem = dMaxInt(rset->maxQelem,Q);
     }
   }
-  *maxnpatches = rset->maxnpatches;
+  if (maxQ) *maxQ = rset->maxQ;
+  if (maxnpatches) *maxnpatches = rset->maxnpatches;
+  if (maxQelem) *maxQelem = rset->maxQelem;
   dFunctionReturn(0);
 }
 
@@ -122,7 +113,7 @@ dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cji
   struct dRulesetWorkspace *ws;
 
   dFunctionBegin;
-  err = dRulesetGetMaxQ(rset,&Q);dCHK(err);
+  err = dRulesetGetMaxQ(rset,&Q,NULL,NULL);dCHK(err);
   if (!rset->workspace) {
     err = dCallocA(1,&rset->workspace);dCHK(err);
   }

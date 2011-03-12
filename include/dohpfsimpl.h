@@ -49,6 +49,7 @@ struct _n_dRuleset {
   dRule *rules;                 /**< Array of rules, one for each patch */
   dInt maxQ;                    /**< Max number of quadrature points in any patch */
   dInt maxnpatches;             /**< Max number of patches in any element */
+  dInt maxQelem;                /**< Max number of quadrature points in any element */
   struct dRulesetWorkspace *workspace; /**< Manages workspace storage for evaluations based on dRules in this set */
 };
 
