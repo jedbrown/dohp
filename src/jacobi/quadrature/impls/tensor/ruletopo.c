@@ -237,10 +237,10 @@ static dErr dRuleGetPatches_Tensor_All(dRule grule,dInt *npatches,dInt *patchsiz
 {
   dRule_Tensor *rule = (dRule_Tensor*)grule;
   dFunctionBegin;
-  *npatches  = rule->npatches;
-  *patchsize = rule->patchsize;
-  *ind       = rule->patchind;
-  *weight    = rule->patchweight;
+  if (npatches)  *npatches  = rule->npatches;
+  if (patchsize) *patchsize = rule->patchsize;
+  if (ind)       *ind       = rule->patchind;
+  if (weight)    *weight    = rule->patchweight;
   dFunctionReturn(0);
 }
 
