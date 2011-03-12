@@ -22,6 +22,15 @@ static dErr ValueCachePhysicalExtract(struct ValueCachePhysical *phys,dInt n,con
 static dErr ValueCachePhysicalReset(struct ValueCachePhysical *phys);
 static dErr ValueCachePhysicalDestroy(struct ValueCachePhysical *phys);
 
+struct ExplicitCache {
+  dInt  P;                     /**< number of finite element modes on each patch */
+  dInt  *bidx;                 /**< For each patch, indices of modes with support on patch. Indices are relative to expanded space. */
+  dReal *interp;               /**< Interpolation: u_quad[patch*Q+i] = sum_j interp[patch*Q*P+i*P+j] * u_patch[eidx[patch*P+j]] */
+  dReal *deriv;                /**< Derivatives, as above, but with gradients */
+};
+static dErr ExplicitCacheSetUp(struct ExplicitCache *explicit,dInt maxnpatches,dInt maxQ,dInt maxP);
+static dErr ExplicitCacheDestroy(struct ExplicitCache *explicit);
+
 struct dRulesetIteratorLink {
   dFS fs;                       /**< Function space for this link */
   const dEFS *efs;              /**< Array of element function spaces for all elements in this iterator */
@@ -36,6 +45,7 @@ struct dRulesetIteratorLink {
   dInt nefs;                    /**< Number of dEFS */
   dInt elemstart;               /**< Offset of current element in expanded vector */
   dInt bs;                      /**< Block size */
+  struct ExplicitCache explicit; /* Sparse explicit values on element */
   struct dRulesetIteratorLink *next;
 };
 
@@ -62,6 +72,7 @@ struct _n_dRulesetIterator {
   const dReal *patchweight;     /**< Patch weights for each patch in current element */
   dInt elempatch;               /**< Index of the first patch on current element with respect to expanded space */
   dInt nnodes;                  /**< Total number of nodes in expanded space */
+  dInt maxnpatches;             /**< Maximum number of patches in any element in iterator */
   dInt maxQ;                    /**< Largest number of quadrature nodes in a single patch */
   dInt nlinks;                  /**< Number of dFS registered with this iterator */
   dInt Q;                       /**< Number of quadrature nodes in current patch */
@@ -103,6 +114,10 @@ dErr dRulesetIteratorNextElement(dRulesetIterator it);
 static dErr dRulesetIteratorClearElement(dRulesetIterator it);
 static dErr dRulesetIteratorSetupElement(dRulesetIterator it);
 
+#define dRulesetIteratorAssertElementSetUp(it) do { \
+    if (!it->npatches_in_elem) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Element has not been set up"); \
+  } while (0)
+
 /** Get an iterator for performing an integral on the given rule set, with coordinate vectors lying in space cfs.
  *
  * Collective on dFS
@@ -124,6 +139,7 @@ dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter)
     it->nnodes += nnodes;
   }
   err = dRulesetGetMaxQ(rset,&it->maxQ);dCHK(err);
+  err = dRulesetGetMaxNumPatches(rset,&it->maxnpatches);dCHK(err);
   err = dRulesetIteratorAddFS(it,cfs);dCHK(err);
   *iter = it;
   dFunctionReturn(0);
@@ -218,14 +234,15 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
       }
     }
     if (p->nefs != it->nelems) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Got an invalid EFS list");
-    err = ValueCacheSetUp(&p->vc_elem,p->bs,it->maxQ);dCHK(err);
-    err = ValueCacheSetUp(&p->vc_patch,p->bs,it->maxQ);dCHK(err);
+    err = ValueCacheSetUp(&p->vc_elem,p->bs,it->maxnpatches*it->maxQ);dCHK(err);
+    err = ValueCacheSetUp(&p->vc_patch,p->bs,it->maxnpatches*it->maxQ);dCHK(err);
+    err = ExplicitCacheSetUp(&p->explicit,it->maxnpatches,it->maxQ,p->maxP);dCHK(err);
     if (!p->rowcol) {err = dMallocA(p->maxP,&p->rowcol);dCHK(err);}
   }
   va_end(ap);
   if (!it->cjinv_elem) {
-    err = dMallocA2(it->maxQ*9,&it->cjinv_elem,it->maxQ,&it->jw_elem);dCHK(err);
-    err = ValueCachePhysicalSetUp(&it->phys,it->maxQ);dCHK(err);
+    err = dMallocA2(it->maxnpatches*it->maxQ*9,&it->cjinv_elem,it->maxnpatches*it->maxQ,&it->jw_elem);dCHK(err);
+    err = ValueCachePhysicalSetUp(&it->phys,it->maxnpatches*it->maxQ);dCHK(err);
   }
   err = dRulesetIteratorCreateMatrixSpace_Private(it);dCHK(err);
   if ((it->stash.elembytes && !it->stash.elem) || (it->stash.nodebytes && !it->stash.node)) {
@@ -289,8 +306,8 @@ static dErr dRulesetIteratorClearElement(dRulesetIterator it)
     err = ValueCacheReset(&p->vc_patch,dFALSE);dCHK(err);
   }
 #if defined dUSE_DEBUG
-  err = dMemzero(it->cjinv_elem,3*3*it->maxQ*sizeof(dReal));dCHK(err);
-  err = dMemzero(it->jw_elem,it->maxQ*sizeof(dReal));dCHK(err);
+  err = dMemzero(it->cjinv_elem,3*3*it->maxnpatches*it->maxQ*sizeof(dReal));dCHK(err);
+  err = dMemzero(it->jw_elem,it->maxnpatches*it->maxQ*sizeof(dReal));dCHK(err);
   err = ValueCachePhysicalReset(&it->phys);dCHK(err);
 #endif
   dFunctionReturn(0);
@@ -303,8 +320,10 @@ static dErr dRulesetIteratorSetupElement(dRulesetIterator it)
 
   dFunctionBegin;
   err = dEFSGetRule(it->link->efs[it->curelem],&rule);dCHK(err);
-  err = dRuleGetSize(rule,NULL,&it->Q);dCHK(err);
   err = dRuleGetPatches(rule,&it->npatches_in_elem,&it->patchsize,&it->patchind,&it->patchweight);dCHK(err);
+  err = dRuleGetSize(rule,NULL,&it->Q);dCHK(err);
+  if (it->Q % it->npatches_in_elem) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Number of quadrature points %D is not divisible by number of patches %D");
+  it->Q /= it->npatches_in_elem;
   dFunctionReturn(0);
 }
 
@@ -484,7 +503,7 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
           dRule rule;
           err = dEFSGetRule(efs,&rule);dCHK(err);
           err = dRuleComputePhysical(rule,p->vc_elem.du,it->cjinv_elem,it->jw_elem);dCHK(err);
-          err = ValueCachePhysicalExtract(&it->phys,it->Q,it->patchind,identity,it->cjinv_elem,it->jw_elem);dCHK(err);
+          err = ValueCachePhysicalExtract(&it->phys,it->npatches_in_elem*it->Q,it->patchind,identity,it->cjinv_elem,it->jw_elem);dCHK(err);
           cjinv = it->cjinv_elem;      /* These coordinates are used so that the following links are mapped to the physical space */
           *jw = it->phys.jw;
         }
@@ -561,7 +580,7 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
   dFunctionReturn(0);
 }
 
-/** dRulesetIteratorGetPatchAssembly - Gets explicit bases for each function space on a patch
+/** Gets explicit bases for each function space on a patch
  *
  * @param[in] it iterator
  * @param[out] P number of basis functions with support on this patch (one per block)
@@ -582,23 +601,37 @@ dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **r
   const dReal *cjinv = NULL;
 
   dFunctionBegin;
+  dRulesetIteratorAssertElementSetUp(it);
   va_start(ap,deriv);
-  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-    dInt Q,PP;
-    if (i) {
-      P = va_arg(ap,dInt*);
-      rowcol = va_arg(ap,const dInt**);
-      interp = va_arg(ap,const dReal**);
-      deriv = va_arg(ap,const dReal**);
+  if (it->curpatch_in_elem == 0) { /* We just got to this element */
+    for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      if (i) {
+        P = va_arg(ap,dInt*);
+        rowcol = va_arg(ap,const dInt**);
+        interp = va_arg(ap,const dReal**);
+        deriv = va_arg(ap,const dReal**);
+      }
+      if (!(P || rowcol || interp || deriv)) continue;
+      err = dEFSGetExplicitSparse(p->efs[it->curelem],it->npatches_in_elem,it->Q,it->patchind,cjinv,p->elemstart,&p->explicit.P,p->explicit.bidx,p->explicit.interp,p->explicit.deriv);dCHK(err);
+      if (P) *P = p->explicit.P;
+      if (rowcol) *rowcol = p->explicit.bidx;
+      if (interp) *interp = p->explicit.interp;
+      if (deriv)  *deriv  = p->explicit.deriv;
+      cjinv = it->cjinv_elem;
     }
-    if (!(P || rowcol || interp || deriv)) continue;
-    err = dEFSGetExplicit(p->efs[it->curelem],cjinv,&Q,&PP,interp,deriv);dCHK(err);
-    if (P) *P = PP;
-    if (rowcol) {
-      *rowcol = p->rowcol;
-      for (dInt j=0; j<PP; j++) p->rowcol[j] = p->elemstart + j*p->bs;
+  } else {
+    for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      if (i) {
+        P = va_arg(ap,dInt*);
+        rowcol = va_arg(ap,const dInt**);
+        interp = va_arg(ap,const dReal**);
+        deriv = va_arg(ap,const dReal**);
+      }
+      if (P) *P = p->explicit.P;
+      if (rowcol) *rowcol = p->explicit.bidx   + p->explicit.P*it->curpatch_in_elem;
+      if (interp) *interp = p->explicit.interp + it->Q*p->explicit.P*it->curpatch_in_elem;
+      if (deriv)  *deriv  = p->explicit.deriv  + it->Q*p->explicit.P*it->curpatch_in_elem*3;
     }
-    cjinv = it->cjinv_elem;
   }
   va_end(ap);
   dFunctionReturn(0);
@@ -609,28 +642,42 @@ dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **r
  */
 dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...)
 {
-  dErr err;
   va_list ap;
   dInt i;
   struct dRulesetIteratorLink *p;
   const dReal *cjinv = NULL;
 
   dFunctionBegin;
-  if (it->curpatch_in_elem > 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented for more than one patch per element");
   va_start(ap,deriv);
-  for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-    dInt Q,PP;
-    if (i) {
-      P = va_arg(ap,dInt*);
-      rowcol = va_arg(ap,const dInt**);
-      interp = va_arg(ap,const dReal**);
-      deriv = va_arg(ap,const dReal**);
+  if (it->curpatch_in_elem < it->npatches_in_elem-1) {
+    for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      if (i) {
+        P = va_arg(ap,dInt*);
+        rowcol = va_arg(ap,const dInt**);
+        interp = va_arg(ap,const dReal**);
+        deriv = va_arg(ap,const dReal**);
+      }
+      if (P) *P = -1;
+      if (rowcol) *rowcol = NULL;
+      if (interp) *interp = NULL;
+      if (deriv)  *deriv  = NULL;
     }
-    if (!(P || rowcol || interp || deriv)) continue;
-    err = dEFSRestoreExplicit(p->efs[it->curelem],cjinv,&Q,&PP,interp,deriv);dCHK(err);
-    if (P) *P = PP;
-    if (rowcol) *rowcol = NULL;
-    cjinv = it->cjinv_elem;
+  } else {
+    for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      if (i) {
+        P = va_arg(ap,dInt*);
+        rowcol = va_arg(ap,const dInt**);
+        interp = va_arg(ap,const dReal**);
+        deriv = va_arg(ap,const dReal**);
+      }
+      if (!(P || rowcol || interp || deriv)) continue;
+      /* dEFSRestoreExplicitSparse() if it existed */
+      if (P) *P = -1;
+      if (rowcol) *rowcol = NULL;
+      if (interp) *interp = NULL;
+      if (deriv)  *deriv  = NULL;
+      cjinv = it->cjinv_elem;
+    }
   }
   va_end(ap);
   dFunctionReturn(0);
@@ -696,6 +743,7 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
     err = VecDestroy(p->Yexp);dCHK(err);
     err = ValueCacheDestroy(&p->vc_elem);dCHK(err);
     err = ValueCacheDestroy(&p->vc_patch);dCHK(err);
+    err = ExplicitCacheDestroy(&p->explicit);dCHK(err);
     err = dFree(p->rowcol);dCHK(err);
     n = p->next;
     err = dFree(p);dCHK(err);
@@ -722,7 +770,6 @@ static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax)
 
 static dErr ValueCacheReset(struct ValueCache *vc,dBool self)
 {
-  dErr err;
   const dInt nbs = vc->n_alloc * vc->bs;
 
   dFunctionBegin;
@@ -823,6 +870,7 @@ static dErr ValueCachePhysicalSetUp(struct ValueCachePhysical *phys,dInt nmax)
   if (phys->n_alloc) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Cache already set up");
   phys->n_alloc = nmax;
   err = dMallocA2(nmax*9,&phys->cjinv_alloc,nmax,&phys->jw_alloc);dCHK(err);
+  for (dInt i=0; i<nmax; i++) phys->jw_alloc[i] = -1;
   phys->cjinv = NULL;
   phys->jw = NULL;
   dFunctionReturn(0);
@@ -866,5 +914,27 @@ static dErr ValueCachePhysicalDestroy(struct ValueCachePhysical *phys)
   dFunctionBegin;
   err = dFree2(phys->cjinv_alloc,phys->jw_alloc);dCHK(err);
   err = dMemzero(phys,sizeof(*phys));dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr ExplicitCacheSetUp(struct ExplicitCache *explicit,dInt maxnpatches,dInt maxQ,dInt maxP)
+{
+  dErr err;
+
+  dFunctionBegin;
+  explicit->P = -1;
+  err = dMallocA3(maxnpatches*maxP,&explicit->bidx,maxnpatches*maxQ*maxP,&explicit->interp,maxnpatches*maxQ*maxP*3,&explicit->deriv);dCHK(err);
+  err = dMemzero(explicit->bidx,maxnpatches*maxP*sizeof(explicit->bidx[0]));dCHK(err);
+  err = dMemzero(explicit->interp,maxnpatches*maxQ*maxP*sizeof(explicit->interp[0]));dCHK(err);
+  err = dMemzero(explicit->deriv,maxnpatches*maxQ*maxP*3*sizeof(explicit->deriv[0]));dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr ExplicitCacheDestroy(struct ExplicitCache *explicit)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dFree3(explicit->bidx,explicit->interp,explicit->deriv);dCHK(err);
   dFunctionReturn(0);
 }
