@@ -92,6 +92,21 @@ dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ)
   dFunctionReturn(0);
 }
 
+dErr dRulesetGetMaxNumPatches(dRuleset rset,dInt *maxnpatches)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!rset->maxnpatches) {
+    for (dInt i=0,npatches; i<rset->n; i++) {
+      err = dRuleGetPatches(rset->rules[i],&npatches,NULL,NULL,NULL);dCHK(err);
+      rset->maxnpatches = dMaxInt(rset->maxnpatches,npatches);dCHK(err);
+    }
+  }
+  *maxnpatches = rset->maxnpatches;
+  dFunctionReturn(0);
+}
+
 dErr dRulesetGetSize(dRuleset rset,dInt *size)
 {
   dFunctionBegin;
