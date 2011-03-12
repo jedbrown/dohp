@@ -738,12 +738,10 @@ static dErr ValueCacheReset(struct ValueCache *vc,dBool self)
     vc->v  = NULL;
     vc->dv = NULL;
   }
-#if defined dUSE_DEBUG
-  err = dMemzero(vc->u_alloc,nbs*sizeof(dScalar));dCHK(err);
-  err = dMemzero(vc->du_alloc,3*nbs*sizeof(dScalar));dCHK(err);
-  err = dMemzero(vc->v_alloc,nbs*sizeof(dScalar));dCHK(err);
-  err = dMemzero(vc->dv_alloc,3*nbs*sizeof(dScalar));dCHK(err);
-#endif
+  dMakeMemUndefined(vc->u_alloc,nbs*sizeof(dScalar));
+  dMakeMemUndefined(vc->du_alloc,3*nbs*sizeof(dScalar));
+  dMakeMemUndefined(vc->v_alloc,nbs*sizeof(dScalar));
+  dMakeMemUndefined(vc->dv_alloc,3*nbs*sizeof(dScalar));
   dFunctionReturn(0);
 }
 

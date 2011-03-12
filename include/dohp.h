@@ -5,6 +5,17 @@
 #include <stdint.h>
 #include <petscsys.h>
 
+#if defined dUSE_VALGRIND && 0
+#  include <valgrind/memcheck.h>
+#  define dMakeMemUndefined(mem,bytes) do {                     \
+    if (VALGRIND_MAKE_MEM_UNDEFINED((mem),(bytes))) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Valgrind returned an error"); \
+  } while (0)
+#else
+#  define dMakeMemUndefined(mem,bytes) do {     \
+    if (dMemzero((mem),(bytes))) dERROR(PETSC_COMM_SELF,PETSC_ERR_MEMC,"Memory " #mem " is corrupt"); \
+  } while (0)
+#endif
+
 #define dSTATUS_UNOWNED   (dEntStatus)0x1
 #define dSTATUS_SHARED    (dEntStatus)0x2
 #define dSTATUS_INTERFACE (dEntStatus)0x4
