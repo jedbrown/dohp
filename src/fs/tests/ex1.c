@@ -239,7 +239,6 @@ static dErr useFS(dFS fs)
   dFunctionReturn(0);
 }
 
-#if 0
 static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],const dReal required[3])
 {
   static const char *normName[3] = {"1","2","infty"};
@@ -250,7 +249,6 @@ static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],
   }
   dFunctionReturn(0);
 }
-#endif
 
 struct ProjContext {
   dFS fs;
@@ -387,9 +385,8 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 {
   dErr err;
   struct ProjContext *proj = ctx;
-  dFS fs = proj->fs;
+  dFS cfs,fs = proj->fs;
   dRuleset ruleset;
-  dFS cfs;
   Vec Coords;
   dRulesetIterator iter;
 
@@ -543,38 +540,38 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
   *structure = DIFFERENT_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
+#endif
 
 static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorms[static 3],dReal gresidualNorms[static 3])
 {
-  dFS fs = proj->fs;
-  dInt n,*off,*geomoff;
-  dRule *rule;
-  dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,*u,(*du)[1][3];
+  dFS cfs,fs = proj->fs;
+  dRuleset ruleset;
+  Vec Coords;
+  dRulesetIterator iter;
   dErr err;
 
   dFunctionBegin;
   err = dMemzero(residualNorms,3*sizeof(residualNorms));dCHK(err);
   err = dMemzero(gresidualNorms,3*sizeof(gresidualNorms));dCHK(err);
-  err = dFSGlobalToExpanded(fs,gx,proj->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(proj->x,&x);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);
-  for (dInt e=0; e<n; e++) {
+  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
+  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,NULL,gx,NULL);dCHK(err);
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar *x,*dx,*u,*du;
     dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],&du[0][0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar f[1],df[1][3],r[1],gr[1][3],grsum;             /* Scalar problem */
-      err = exact.function(q[i],f);dCHK(err);
-      err = exact.gradient(q[i],df);dCHK(err);
+      err = exact.function(&x[i*3],f);dCHK(err);
+      err = exact.gradient(&x[i*3],df);dCHK(err);
       r[0] = u[i*1+0] - f[0];
-      gr[0][0] = du[i][0][0] - df[0][0];
-      gr[0][1] = du[i][0][1] - df[0][1];
-      gr[0][2] = du[i][0][2] - df[0][2];
+      gr[0][0] = du[i*3+0] - df[0][0];
+      gr[0][1] = du[i*3+1] - df[0][1];
+      gr[0][2] = du[i*3+2] - df[0][2];
       grsum = dSqr(gr[0][0]) + dSqr(gr[0][1]) + dSqr(gr[0][2]);
       residualNorms[0] += dAbs(r[0]) * jw[i];               /* 1-norm */
       residualNorms[1] += dSqr(r[0]) * jw[i];               /* 2-norm */
@@ -591,15 +588,14 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
              jinv[i][2][0],jinv[i][2][1],jinv[i][2][2]);
 #endif
     }
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(proj->x,&x);dCHK(err);
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  err = dRulesetIteratorDestroy(iter);dCHK(err);
   residualNorms[1] = dSqrt(residualNorms[1]);
   gresidualNorms[1] = dSqrt(gresidualNorms[1]);
   dFunctionReturn(0);
 }
-#endif
 
 static dErr doProjection(dFS fs)
 {
@@ -644,12 +640,8 @@ static dErr doProjection(dFS fs)
     err = SNESSolve(snes,NULL,x);dCHK(err);
   }
   if (gopt.showsoln) {err = VecView(x,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
-  #if 0
   {
-    Vec *coords;
     dReal norm[2],norminf,resNorms[3],gresNorms[3];
-    err = VecDuplicateVecs(x,3,&coords);dCHK(err);
-    err = VecDestroyVecs(coords,3);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,norm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&norminf);dCHK(err);
     err = dPrintf(PETSC_COMM_WORLD,"Algebraic projection residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",norm[0],norm[1],norminf);dCHK(err);
@@ -659,7 +651,6 @@ static dErr doProjection(dFS fs)
     err = confirmSufficientResiduals("Pointwise residuals",resNorms,gopt.normRequirePtwise);dCHK(err);
     err = confirmSufficientResiduals("Pointwise gradients",gresNorms,gopt.normRequireGrad);dCHK(err);
   }
-  #endif
   err = SNESDestroy(snes);dCHK(err);
   err = MatDestroy(Jp);dCHK(err);
   err = VecDestroy(r);dCHK(err);
