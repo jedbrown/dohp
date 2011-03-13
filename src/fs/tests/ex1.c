@@ -353,18 +353,13 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   dErr err;
   struct ProjContext *proj = ctx;
   dFS fs = proj->fs;
-  dRuleset ruleset;
-  dFS cfs;
   Vec Coords;
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err);
-  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
-  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
-  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,NULL,gx,gy);dCHK(err);
 
   while (dRulesetIteratorHasPatch(iter)) {
@@ -397,7 +392,6 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   }
 
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  err = dRulesetIteratorDestroy(iter);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -405,13 +399,12 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 {
   dErr err;
   struct ProjContext *proj = ctx;
-  dFS fs = proj->fs;
   Vec Coords;
   dRulesetIterator iter;
 
   dFunctionBegin;
   err = VecZeroEntries(gy);dCHK(err);
-  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
   err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,NULL,gx,gy);dCHK(err);
 
@@ -439,8 +432,6 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
   struct ProjContext *proj = ctx;
-  dFS fs = proj->fs,cfs;
-  dRuleset ruleset;
   dRulesetIterator iter;
   dScalar *Kflat;
   dErr err;
@@ -448,11 +439,8 @@ static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
 
   dFunctionBegin;
   err = MatZeroEntries(*Jp);dCHK(err);
-  err = ProjGetRuleset(proj,gopt.jac_qmethod,&ruleset);dCHK(err);
-  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
-  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
-  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
-  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.jac_qmethod,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,NULL,gx,NULL);dCHK(err);
   err = dRulesetIteratorGetMatrixSpaceSplit(iter,NULL,NULL,NULL,&Kflat);dCHK(err);
 
@@ -474,14 +462,13 @@ static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
           }
         }
       }
-      err = dFSMatSetValuesBlockedExpanded(fs,*Jp,P,rowcol,P,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+      err = dFSMatSetValuesBlockedExpanded(proj->fs,*Jp,P,rowcol,P,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
     }
     err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
 
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  err = dRulesetIteratorDestroy(iter);dCHK(err);
 
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -559,8 +546,6 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
 
 static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorms[static 3],dReal gresidualNorms[static 3])
 {
-  dFS cfs,fs = proj->fs;
-  dRuleset ruleset;
   Vec Coords;
   dRulesetIterator iter;
   dErr err;
@@ -568,12 +553,10 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
   dFunctionBegin;
   err = dMemzero(residualNorms,3*sizeof(residualNorms));dCHK(err);
   err = dMemzero(gresidualNorms,3*sizeof(gresidualNorms));dCHK(err);
-  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
-  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
-  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
-  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
-  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,NULL,gx,NULL);dCHK(err);
+
   while (dRulesetIteratorHasPatch(iter)) {
     const dScalar *jw;
     dScalar *x,*dx,*u,*du;
@@ -606,7 +589,6 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  err = dRulesetIteratorDestroy(iter);dCHK(err);
   residualNorms[1] = dSqrt(residualNorms[1]);
   gresidualNorms[1] = dSqrt(gresidualNorms[1]);
   dFunctionReturn(0);
