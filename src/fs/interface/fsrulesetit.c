@@ -510,7 +510,7 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
       }
 
       /* Everything is evaluated in element ordering, now get access to it in patch ordering, no-copy if identity == true */
-      err = ValueCacheExtract(&p->vc_patch,it->Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
+      err = ValueCacheExtract(&p->vc_patch,it->Q*it->npatches_in_elem,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
 
       if (u)  *u  = p->vc_patch.u;
       if (du) *du = p->vc_patch.du;
@@ -555,7 +555,7 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
   } else {
     va_start(ap,dv);
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-      const dBool identity = (dBool)(i == 0); /* need better heuristic */
+      const dBool identity = (dBool)(it->npatches_in_elem == 1); /* need better heuristic */
       dEFS efs = p->efs[it->curelem];
       dScalar *ey = &p->y[p->elemstart];
       if (i) {
@@ -565,7 +565,7 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
       if (v || dv) {
         /* We don't actually reference v or dv because that memory is owned by us and sitting in vc_patch.v and
          * vc_patch.dv. Instead, we just map everything in vc_patch to vc_elem where it can be tested. */
-        err = ValueCacheDistribute(&p->vc_patch,it->Q,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
+        err = ValueCacheDistribute(&p->vc_patch,it->Q*it->npatches_in_elem,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
       }
       if (v) {
         err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.v,ey,dAPPLY_INTERP_TRANSPOSE,imode);dCHK(err);
@@ -842,10 +842,10 @@ static dErr dUNUSED ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt
     for (dInt i=0; i<n; i++) {
       for (dInt j=0; j<bs; j++) {
         const dInt ibs = i*bs+j,sibs = ind[i]*bs+j;
-        sv[sibs] = vc->v[ibs];
-        sdv[sibs*3+0] = vc->dv[ibs*3+0];
-        sdv[sibs*3+1] = vc->dv[ibs*3+1];
-        sdv[sibs*3+2] = vc->dv[ibs*3+2];
+        sv[sibs] += vc->v[ibs];
+        sdv[sibs*3+0] += vc->dv[ibs*3+0];
+        sdv[sibs*3+1] += vc->dv[ibs*3+1];
+        sdv[sibs*3+2] += vc->dv[ibs*3+2];
       }
     }
   }
