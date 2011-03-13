@@ -23,6 +23,7 @@ static dErr ValueCachePhysicalReset(struct ValueCachePhysical *phys);
 static dErr ValueCachePhysicalDestroy(struct ValueCachePhysical *phys);
 
 struct ExplicitCache {
+  dInt maxnpatches,maxQ,maxP;
   dInt  P;                     /**< number of finite element modes on each patch */
   dInt  *bidx;                 /**< For each patch, indices of modes with support on patch. Indices are relative to expanded space. */
   dReal *interp;               /**< Interpolation: u_quad[patch*Q+i] = sum_j interp[patch*Q*P+i*P+j] * u_patch[eidx[patch*P+j]] */
@@ -761,10 +762,14 @@ static dErr ValueCacheSetUp(struct ValueCache *vc,dInt bs,dInt nmax)
   dErr err;
 
   dFunctionBegin;
-  err = dMemzero(vc,sizeof(*vc));dCHK(err);
-  vc->bs = bs;
-  vc->n_alloc = nmax;
-  err = dMallocA4(bs*nmax,&vc->u_alloc,bs*nmax*3,&vc->du_alloc,bs*nmax,&vc->v_alloc,bs*nmax*3,&vc->dv_alloc);dCHK(err);
+  if (bs != vc->bs || nmax > vc->n_alloc) {
+    err = dFree4(vc->u_alloc,vc->du_alloc,vc->v_alloc,vc->dv_alloc);dCHK(err);
+    err = dMemzero(vc,sizeof(*vc));dCHK(err);
+    vc->bs = bs;
+    vc->n_alloc = nmax;
+    err = dMallocA4(bs*nmax,&vc->u_alloc,bs*nmax*3,&vc->du_alloc,bs*nmax,&vc->v_alloc,bs*nmax*3,&vc->dv_alloc);dCHK(err);
+  }
+  err = ValueCacheReset(vc,dFALSE);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -922,8 +927,14 @@ static dErr ExplicitCacheSetUp(struct ExplicitCache *explicit,dInt maxnpatches,d
   dErr err;
 
   dFunctionBegin;
-  explicit->P = -1;
-  err = dMallocA3(maxnpatches*maxP,&explicit->bidx,maxnpatches*maxQ*maxP,&explicit->interp,maxnpatches*maxQ*maxP*3,&explicit->deriv);dCHK(err);
+  if (!(maxnpatches <= explicit->maxnpatches && maxQ <= explicit->maxQ && maxP <= explicit->maxP)) {
+    err = dFree3(explicit->bidx,explicit->interp,explicit->deriv);dCHK(err);
+    explicit->maxnpatches = maxnpatches;
+    explicit->maxQ        = maxQ;
+    explicit->maxP        = maxP;
+    explicit->P = -1;
+    err = dMallocA3(maxnpatches*maxP,&explicit->bidx,maxnpatches*maxQ*maxP,&explicit->interp,maxnpatches*maxQ*maxP*3,&explicit->deriv);dCHK(err);
+  }
   err = dMemzero(explicit->bidx,maxnpatches*maxP*sizeof(explicit->bidx[0]));dCHK(err);
   err = dMemzero(explicit->interp,maxnpatches*maxQ*maxP*sizeof(explicit->interp[0]));dCHK(err);
   err = dMemzero(explicit->deriv,maxnpatches*maxQ*maxP*3*sizeof(explicit->deriv[0]));dCHK(err);

@@ -254,6 +254,7 @@ struct ProjContext {
   dFS fs;
   Vec x,y;
   dRuleset ruleset[dQUADRATURE_METHOD_INVALID];
+  dRulesetIterator regioniter[dQUADRATURE_METHOD_INVALID];
 };
 
 static dErr ProjGetRuleset(struct ProjContext *proj,dQuadratureMethod qmethod,dRuleset *ruleset)
@@ -267,6 +268,25 @@ static dErr ProjGetRuleset(struct ProjContext *proj,dQuadratureMethod qmethod,dR
     err = dFSGetPreferredQuadratureRuleSet(proj->fs,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&proj->ruleset[qmethod]);dCHK(err);
   }
   *ruleset = proj->ruleset[qmethod];
+  dFunctionReturn(0);
+}
+
+static dErr ProjGetRegionIterator(struct ProjContext *proj,dQuadratureMethod qmethod,dRulesetIterator *riter)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!proj->regioniter[qmethod]) {
+    dRulesetIterator iter;
+    dRuleset ruleset;
+    dFS cfs;
+    err = ProjGetRuleset(proj,qmethod,&ruleset);dCHK(err);
+    err = dFSGetCoordinateFS(proj->fs,&cfs);dCHK(err);
+    err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+    err = dRulesetIteratorAddFS(iter,proj->fs);dCHK(err);
+    proj->regioniter[qmethod] = iter;
+  }
+  *riter = proj->regioniter[qmethod];
   dFunctionReturn(0);
 }
 
@@ -385,18 +405,14 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
 {
   dErr err;
   struct ProjContext *proj = ctx;
-  dFS cfs,fs = proj->fs;
-  dRuleset ruleset;
+  dFS fs = proj->fs;
   Vec Coords;
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
   err = VecZeroEntries(gy);dCHK(err);
-  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
-  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
-  err = dRulesetIteratorAddFS(iter,fs);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,NULL,gx,gy);dCHK(err);
 
   while (dRulesetIteratorHasPatch(iter)) {
@@ -417,7 +433,6 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   }
 
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  err = dRulesetIteratorDestroy(iter);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -659,6 +674,9 @@ static dErr doProjection(dFS fs)
   err = VecDestroy(proj.y);dCHK(err);
   for (dInt i=0; i<ALEN(proj.ruleset); i++) {
     if (proj.ruleset[i]) {err = dRulesetDestroy(proj.ruleset[i]);dCHK(err);}
+  }
+  for (dInt i=0; i<ALEN(proj.regioniter); i++) {
+    if (proj.regioniter[i]) {err = dRulesetIteratorDestroy(proj.regioniter[i]);dCHK(err);}
   }
   dFunctionReturn(0);
 }
