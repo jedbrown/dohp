@@ -105,6 +105,9 @@ dErr dRulesetGetSize(dRuleset rset,dInt *size)
   dFunctionReturn(0);
 }
 
+/**
+ * @note pass dof=0 to terminate
+ */
 dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...)
 {
   dErr err;
