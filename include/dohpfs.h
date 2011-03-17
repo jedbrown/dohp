@@ -103,6 +103,7 @@ extern dErr dRulesetIteratorAddFS(dRulesetIterator it,dFS fs);
 extern dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...);
 extern dErr dRulesetIteratorNextPatch(dRulesetIterator it);
 extern bool dRulesetIteratorHasPatch(dRulesetIterator it);
+extern dErr dRulesetIteratorSetupElement(dRulesetIterator it);
 extern dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...);
 extern dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dScalar **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
 extern dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dScalar **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);

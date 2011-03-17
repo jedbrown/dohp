@@ -114,10 +114,10 @@ struct _n_dRulesetIterator {
 
 dErr dRulesetIteratorNextElement(dRulesetIterator it);
 static dErr dRulesetIteratorClearElement(dRulesetIterator it);
-static dErr dRulesetIteratorSetupElement(dRulesetIterator it);
 
+#define dRulesetIteratorElementIsSetUp(it) (!!(it)->npatches_in_elem)
 #define dRulesetIteratorAssertElementSetUp(it) do { \
-    if (!it->npatches_in_elem) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Element has not been set up"); \
+    if (!dRulesetIteratorElementIsSetUp(it)) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Element has not been set up"); \
   } while (0)
 
 /** Get an iterator for performing an integral on the given rule set, with coordinate vectors lying in space cfs.
@@ -220,8 +220,13 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
     {
       dBool flg;
       err = PetscTypeCompare((PetscObject)p->X,VECDOHP,&flg);dCHK(err);
-      if (flg) {err = dFSGlobalToExpanded(p->fs,p->X,p->Xexp,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);}
-      else {err = VecCopy(p->X,p->Xexp);dCHK(err);}
+      if (flg) {                /* A global Vec was passed in so we need to map it to the expanded space */
+        err = dFSGlobalToExpanded(p->fs,p->X,p->Xexp,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+      } else if (p->X) {        /* An expanded Vec was passed in so we just use it */
+        err = VecCopy(p->X,p->Xexp);dCHK(err);
+      } else {                  /* No Vec is being used for this traversal, zero the internal storage anyway */
+        err = VecZeroEntries(p->Xexp);dCHK(err);
+      }
     }
     err = VecGetArray(p->Xexp,&p->x);dCHK(err);
     err = VecGetArray(p->Yexp,&p->y);dCHK(err);
@@ -314,12 +319,14 @@ static dErr dRulesetIteratorClearElement(dRulesetIterator it)
   dFunctionReturn(0);
 }
 
-static dErr dRulesetIteratorSetupElement(dRulesetIterator it)
+/** Users only need to call this for topological traversals */
+dErr dRulesetIteratorSetupElement(dRulesetIterator it)
 {
   dErr  err;
   dRule rule;
 
   dFunctionBegin;
+  if (dRulesetIteratorElementIsSetUp(it)) dFunctionReturn(0);
   err = dEFSGetRule(it->link->efs[it->curelem],&rule);dCHK(err);
   err = dRuleGetPatches(rule,&it->npatches_in_elem,&it->patchsize,&it->patchind,&it->patchweight);dCHK(err);
   err = dRuleGetSize(rule,NULL,&it->Q);dCHK(err);
