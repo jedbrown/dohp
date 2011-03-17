@@ -44,7 +44,7 @@ struct dRulesetIteratorLink {
   dInt *rowcol;                 /**< Work array to hold row and column indices */
   dInt maxP;                    /**< Largest number of basis functions with support on this element */
   dInt nefs;                    /**< Number of dEFS */
-  dInt elemstart;               /**< Offset of current element in expanded vector */
+  dInt elemstart;               /**< Block offset of current element in expanded vector */
   dInt bs;                      /**< Block size */
   struct ExplicitCache explicit; /* Sparse explicit values on element */
   struct dRulesetIteratorLink *next;
@@ -287,7 +287,7 @@ dErr dRulesetIteratorNextElement(dRulesetIterator it)
   for (struct dRulesetIteratorLink *p=it->link; p; p=p->next) {
     dInt n;
     err = dEFSGetSizes(p->efs[it->curelem],NULL,NULL,&n);dCHK(err);
-    p->elemstart += n*p->bs;
+    p->elemstart += n;
   }
   it->elempatch += it->npatches_in_elem;
   it->curelem++;
@@ -384,8 +384,8 @@ dErr dRulesetIteratorGetElement(dRulesetIterator it,dRule *rule,dEFS *efs,dScala
       ey = va_arg(ap,dScalar**);
     }
     if (efs) *efs = p->efs[it->curelem];
-    if (ex)  *ex = &p->x[p->elemstart];
-    if (ey)  *ey = &p->y[p->elemstart];
+    if (ex)  *ex = &p->x[p->elemstart*p->bs];
+    if (ey)  *ey = &p->y[p->elemstart*p->bs];
   }
   if (p) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"dRulesetIterator claims to have nlinks %D but linked list has more",it->nlinks);
   va_end(ap);
@@ -499,7 +499,7 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
         dv = va_arg(ap,dScalar**);
       }
       efs = p->efs[it->curelem];
-      ex = &p->x[p->elemstart];
+      ex = &p->x[p->elemstart*p->bs];
       err = ValueCacheReset(&p->vc_elem,dTRUE);dCHK(err);
       p->vc_elem.n = it->Q;
       if (u) {
@@ -565,7 +565,7 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
       const dBool identity = (dBool)(it->npatches_in_elem == 1); /* need better heuristic */
       dEFS efs = p->efs[it->curelem];
-      dScalar *ey = &p->y[p->elemstart];
+      dScalar *ey = &p->y[p->elemstart*p->bs];
       if (i) {
         v = va_arg(ap,const dScalar*);
         dv = va_arg(ap,const dScalar*);
