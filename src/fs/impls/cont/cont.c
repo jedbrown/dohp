@@ -496,25 +496,56 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *n
 
 static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTopology subtopo[],dInt suboff[],dInt subind[])
 {
-  dErr       err;
-  //dReal (*nx)[3],(*geom)[3];
-  dInt dUNUSED n,sub,subc,*off,*geomoff,nnodes,*ai,*aj;
-  dBool      done;
+  dErr     err;
+  dMeshESH domain;
+  dRuleset ruleset;
+  dRulesetIterator iter;
+  dInt     sub,subc,nnz,*ai,*aj;
+  dBool    done;
+  dFS      cfs;
 
   dFunctionBegin;
   err = dMemzero(subtopo,sizeof(*subtopo)*nsubelems);dCHK(err);
   err = dMemzero(suboff,sizeof(*suboff)*(nsubelems+1));dCHK(err);
   err = dMemzero(subind,sizeof(*subind)*nsubconn);dCHK(err);
-
-  err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnodes,&ai,&aj,&done);dCHK(err);
+  err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not gotten");
   /*
-  In the following, we have to get a bit more than we actually need (topology only).  We'll change the interface if it
-  becomes a performance issue.
-  */
-#if 1
-  dERROR(PETSC_COMM_SELF,1,"In flux");
-#else
+   In the following, we have to get a bit more than we actually need (topology only).  We'll change the interface if it
+   becomes a performance issue.
+   */
+
+  err = dFSGetDomain(fs,&domain);dCHK(err);
+  err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_SPARSE,&ruleset);dCHK(err);
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,NULL,NULL);dCHK(err);
+
+  sub = subc = 0;
+  while (dRulesetIteratorHasPatch(iter)) {
+    dInt P;
+    const dInt *rowcol;
+    err = dRulesetIteratorSetupElement(iter);dCHK(err);
+    err = dRulesetIteratorGetPatchAssembly(iter,&P,&rowcol,NULL,NULL);dCHK(err);
+    dASSERT(P == 8);
+    subtopo[sub] = dTOPO_HEX;
+    suboff[sub] = subc;
+    for (dInt i=0; i<P; i++,subc++) {
+      static const dInt itaps_to_tensor[8] = {0,4,6,2,1,5,7,3}; /* Ugly to put this here */
+      const dInt ti = itaps_to_tensor[i];
+      subind[subc] = aj[ai[rowcol[ti]]];
+      if (ai[rowcol[ti]+1]-ai[rowcol[ti]] != 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Element assembly matrix is not boolean");
+      if (subc >= nsubconn) dERROR(PETSC_COMM_SELF,1,"Insufficient preallocation for connectivity");
+    }
+    err = dRulesetIteratorRestorePatchAssembly(iter,&P,&rowcol,NULL,NULL);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+    sub++;
+  }
+  dASSERT(subc == nsubconn);
+  suboff[nsubelems] = subc;
+
+
+#if 0
   err = dFSGetElements(fs,&n,&off,0,&efs,&geomoff,&geom);dCHK(err);
   err = dFSGetWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err); /* space for nodal coordinates (which we won't use) */
   sub = subc = 0;
@@ -531,7 +562,7 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
           subtopo[sub] = dTOPO_HEX;
           suboff[sub] = subc;
           for (dInt l=0; l<8; l++,subc++) {
-            dASSERT(0 <= rowcol[l] && rowcol[l] < nnodes);
+            dASSERT(0 <= rowcol[l] && rowcol[l] < nnz);
             subind[subc] = aj[ai[rowcol[l]]];
             if (ai[rowcol[l]+1]-ai[rowcol[l]] != 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Element assembly matrix is not boolean");
             if (subc >= nsubconn) dERROR(PETSC_COMM_SELF,1,"Insufficient preallocation for connectivity");
@@ -546,7 +577,7 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   err = dFSRestoreElements(fs,&n,&off,0,0,0,0);dCHK(err);
   err = dFSRestoreWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err);
 #endif
-  err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&n,&ai,&aj,&done);dCHK(err);
+  err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not restored");
   dFunctionReturn(0);
 }
