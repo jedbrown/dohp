@@ -1,4 +1,3 @@
-#include <petsc.h>
 #include <dohpjacimpl.h>
 #include <dohp.h>
 #include <dohpgeom.h>
