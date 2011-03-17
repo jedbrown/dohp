@@ -75,7 +75,7 @@ typedef int dIInt;
 typedef double dIReal;
 typedef char dIByte;
 
-typedef enum { dDATA_INT, dDATA_REAL, dDATA_EH, dDATA_BYTE } dDataType;
+typedef enum { dDATA_BYTE, dDATA_INT, dDATA_REAL, dDATA_EH, dDATA_ESH, dDATA_UB } dDataType;
 typedef enum { dTOPO_POINT, dTOPO_LINE, dTOPO_POLYGON, dTOPO_TRIANGLE,
                dTOPO_QUAD, dTOPO_POLYHEDRON, dTOPO_TET, dTOPO_HEX, dTOPO_PRISM,
                dTOPO_PYRAMID, dTOPO_SEPTAHEDRON, dTOPO_ALL } dEntTopology;

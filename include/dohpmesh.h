@@ -41,7 +41,7 @@ extern const char *const iBase_TagValueTypeName[];
 
 
 typedef struct {
-  char *v;
+  void *v;
   dMeshInt a,s;
 } MeshListData;
 

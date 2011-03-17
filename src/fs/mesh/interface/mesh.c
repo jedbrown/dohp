@@ -5,8 +5,6 @@
 #include <MBParallelConventions.h>
 #include <ctype.h>              /* needed for isprint() */
 
-static const dInt iBase_SizeFromType[4] = {sizeof(int),sizeof(double),sizeof(void*),sizeof(char)};
-
 const char *const iBase_ErrorString[] = {
   "iBase_SUCCESS",
   "iBase_MESH_ALREADY_LOADED",
@@ -33,6 +31,18 @@ const char *const iBase_ErrorString[] = {
   "iBase_NOT_SUPPORTED",
   "iBase_FAILURE"
 };
+
+static dInt iBase_SizeFromType(dDataType type) {
+  static const dInt sizes [dDATA_UB] = {
+    [dDATA_BYTE] = sizeof(char),
+    [dDATA_INT]  = sizeof(int),
+    [dDATA_REAL] = sizeof(dReal),
+    [dDATA_EH]   = sizeof(dMeshEH),
+    [dDATA_ESH]  = sizeof(dMeshESH),
+  };
+  return (type < sizeof(sizes)/sizeof(sizes[0]))
+    ? sizes[type] : -1;
+}
 
 const char *dMeshEntTopologyName(dEntTopology topo) {
   static const char *const iMesh_TopologyName[12] = {
@@ -424,6 +434,10 @@ dErr dMeshTagCreate(dMesh mesh,const char name[],dInt count,dDataType type,dMesh
   iMesh_getTagHandle(mi,name,&tag,&ierr,(dIInt)namelen);
   if (ierr == iBase_TAG_NOT_FOUND) {
     iMesh_createTag(mi,name,count,itype,&tag,&ierr,(dIInt)namelen);dICHK(mi,ierr);
+    {
+      dIInt bytes;
+      iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    }
   } else {
     dIInt existing_itype,existing_count;
     dICHK(mi,ierr);
@@ -457,7 +471,7 @@ dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,co
   dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(data,5);
-  size = count * iBase_SizeFromType[type];
+  size = count * iBase_SizeFromType(type);
   if (1) {
     dIInt bytes;
     iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
@@ -471,24 +485,23 @@ dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,co
 dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type)
 {
   iMesh_Instance mi = mesh->mi;
-  char *dptr = data;
   dIInt size,alloc,ierr;
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(data,5);
-  alloc = count * iBase_SizeFromType[type];
+  alloc = count * iBase_SizeFromType(type);
   size = 0;                     /* protect against degenerate case */
   if (1) {
     dIInt bytes;
     iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
-    if (ecount && bytes != iBase_SizeFromType[type]*count/ecount) {
-      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Trying ot retrieve tags of %D bytes, but caller expects %D",bytes,iBase_SizeFromType[type]*count/ecount);
+    if (ecount && bytes != iBase_SizeFromType(type)*count/ecount) {
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Trying ot retrieve tags of %D bytes, but caller expects %D",bytes,iBase_SizeFromType(type)*count/ecount);
     }
   }
-  iMesh_getArrData(mi,ents,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
-  if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type])
+  iMesh_getArrData(mi,ents,ecount,tag,&data,&alloc,&size,&ierr);dICHK(mi,ierr);
+  if (alloc != count * iBase_SizeFromType(type))
     dERROR(PETSC_COMM_SELF,1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
   if (size > alloc) dERROR(PETSC_COMM_SELF,1,"Insufficient allocation, iMesh should have thrown an error already");
   dFunctionReturn(0);
@@ -504,7 +517,7 @@ dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount
   dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(esets,3);
   dValidPointer(data,5);
-  size = count * iBase_SizeFromType[type];
+  size = count * iBase_SizeFromType(type);
   if (1) {
     dIInt bytes;
     iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
@@ -515,7 +528,7 @@ dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount
   iMesh_setArrData(mi,(const iBase_EntityHandle*)esets,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
 #else
   for (dInt i=0; i<ecount; i++) {
-    iMesh_setEntSetData(mi,esets[i],tag,dptr+i*iBase_SizeFromType[type],iBase_SizeFromType[type],&ierr);dICHK(mi,ierr);
+    iMesh_setEntSetData(mi,esets[i],tag,dptr+i*iBase_SizeFromType(type),iBase_SizeFromType(type),&ierr);dICHK(mi,ierr);
   }
 #endif
   dFunctionReturn(0);
@@ -524,14 +537,13 @@ dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount
 dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type)
 {
   iMesh_Instance mi = mesh->mi;
-  char *dptr = data;
   dIInt size,alloc,peritem,ierr;
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(esets,3);
   dValidPointer(data,5);
-  alloc = count * iBase_SizeFromType[type];
+  alloc = count * iBase_SizeFromType(type);
   peritem = alloc / ecount;
   size = 0;                     /* protect against degenerate case */
 #if 0
@@ -540,7 +552,7 @@ dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount
     dERROR(PETSC_COMM_SELF,1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
 #else
   for (dInt i=0; i<ecount; i++) {
-    char *ptr = dptr + i*iBase_SizeFromType[type];
+    void *ptr = (char*)data + i*iBase_SizeFromType(type);
     dIInt al = peritem,sz = 0;
     iMesh_getEntSetData(mi,esets[i],tag,&ptr,&al,&sz,&ierr);dICHK(mi,ierr);
   }
@@ -865,7 +877,6 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   mi = m->mi;
   if (!viewer) {
-    printf("Changing Viewer.");
     err = PetscViewerASCIIGetStdout(((PetscObject)m)->comm,&viewer);dCHK(err);
   }
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
@@ -949,15 +960,15 @@ dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer)
         case iBase_BYTES:
           iMesh_getEntSetData(mi,root,tag.v[i],&data.v,&data.a,&data.s,&err);dICHK(mi,err);
           canprint = PETSC_TRUE;
-          for (j=0; j<data.s && data.v[j]; j++) {
-            if (!isprint(data.v[i])) canprint = PETSC_FALSE;
+          for (j=0; j<data.s && ((char*)data.v)[j]; j++) {
+            if (!isprint(((char*)data.v)[i])) canprint = PETSC_FALSE;
           }
           if (canprint && false) {
             err = PetscSNPrintf(values,(size_t)data.s,"%s",data.v);dCHK(err); /* Just a copy, but ensures a NULL byte */
           } else {
             z = values;
-            for (j=0; j<data.s && data.v[j] && (size_t)(z-values) < valuesLen-5; j++) {
-              err = PetscSNPrintf(z,3,"%02uhhx ",data.v[j]);dCHK(err);
+            for (j=0; j<data.s && ((char*)data.v)[j] && (size_t)(z-values) < valuesLen-5; j++) {
+              err = PetscSNPrintf(z,3,"%02uhhx ",((char*)data.v)[j]);dCHK(err);
               z += 3;
               if (j%4 == 0) {
                 *(z++) = ' ';
@@ -1105,7 +1116,7 @@ dErr dMeshDestroyRuleTag(dMesh mesh,dMeshTag rtag)
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
-  iMesh_getEntSetData(mi,mesh->root,rtag,(char**)&base,&balloc,&bsize,&err);dICHK(mi,err);
+  iMesh_getEntSetData(mi,mesh->root,rtag,&base,&balloc,&bsize,&err);dICHK(mi,err);
   err = dFree(base);dCHK(err);
   dFunctionReturn(0);
 }
@@ -1182,7 +1193,6 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
     err = dMallocA(ma.nents,&allents);dCHK(err);
     err = dMeshGetEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,allents,ma.nents,NULL);dCHK(err);
     for (i=0; i<ma.nents; i++) {
-      printf("%d: %p %p\n",i,(void*)ma.ents[i],(void*)allents[i]);
       if (ma.ents[i] != allents[i]) {
         dERROR(PETSC_COMM_SELF,1,"mismatch: ents[%d]=%p  allents[%d]=%p\n",i,ma.ents[i],i,allents[i]);
       }

@@ -153,13 +153,13 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
     dInt r;
 
     sprocs = pd->setarr[s].ranks;
-    iMesh_getEntSetData(mi,sh[s],pstatusTag,&silly_status,&one_a,&one_s,&err);dICHK(mi,err);
+    iMesh_getEntSetData(mi,sh[s],pstatusTag,(void**)&silly_status,&one_a,&one_s,&err);dICHK(mi,err);
     if (!(pstatus & PSTATUS_SHARED)) dERROR(PETSC_COMM_SELF,1,"shared packer contains an unshared set");
 
     /* make \c sprocs[] contain the list of copies, terminated by -1 */
     iMesh_getEntSetIntData(mi,sh[s],sprocTag,&sproc,&err);dICHK(mi,err);
     if (sproc == -1) {        /* There are multiple sharing procs */
-      iMesh_getEntSetData(mi,sh[s],sprocsTag,(dIByte**)&sprocs,&sprocs_a,&sprocs_s,&err);dICHK(mi,err);
+      iMesh_getEntSetData(mi,sh[s],sprocsTag,(void**)&sprocs,&sprocs_a,&sprocs_s,&err);dICHK(mi,err);
     } else {
       sprocs[0] = sproc; for (dInt i=1; i<MAX_SHARING_PROCS; i++) sprocs[i] = -1;
     }
@@ -378,7 +378,7 @@ static dErr MeshPackDataLoad(dMesh mesh,PackData *pd)
   /* Load \a mine from the mesh */
   {
     dIInt used;
-    iMesh_getArrData(mi,pd->ents,pd->ne,pd->tag,(dIByte**)&pd->mine,&pd->minesize,&used,&err);dICHK(mi,err);
+    iMesh_getArrData(mi,pd->ents,pd->ne,pd->tag,(void**)&pd->mine,&pd->minesize,&used,&err);dICHK(mi,err);
   }
 
   /* Copy \a mine into \a data */
@@ -576,7 +576,7 @@ static dErr dMeshLoad_Pack(dMesh mesh)
       char pstatus,*stupid = &pstatus;
       int one_a=1,one_s;
 
-      iMesh_getEntSetData(mi,allset[i],pstatusTag,&stupid,&one_a,&one_s,&err);dICHK(mi,err);
+      iMesh_getEntSetData(mi,allset[i],pstatusTag,(void**)&stupid,&one_a,&one_s,&err);dICHK(mi,err);
       if (!(pstatus & PSTATUS_SHARED)) continue;
       if (pstatus & PSTATUS_NOT_OWNED) {
         uset[usi++] = allset[i];
