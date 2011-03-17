@@ -63,7 +63,7 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
 
   dFunctionBegin;
   err = dFSGetSubElementMeshSize(fs,&nelems,&nverts,&nconn);dCHK(err);
-  p = ex4->bdeg;
+  p = ex4->bdeg + 1;
   dASSERT(nelems == 3*(p-1)*(p-1)*(p-1));
   dASSERT(nverts == 3*p*p*p - 3*p*p + p);
   dASSERT(nconn  == 8*nelems);
@@ -78,11 +78,10 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
   err = dFree3(topo,off,conn);dCHK(err);
 
   err = PetscViewerASCIIPrintf(viewer,"Coordinates\n");dCHK(err);
-  err = dFSGetCoordinates(fs,&X);dCHK(err);
+  err = dFSGetNodalCoordinatesGlobal(fs,&X);dCHK(err);
   err = VecView(X,viewer);dCHK(err);
   err = VecGetArray(X,&coords);dCHK(err);
   err = VecRestoreArray(X,&coords);dCHK(err);
-  err = VecDestroy(X);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -123,7 +122,7 @@ int main(int argc,char *argv[])
   read_vec  = dFALSE;
   err = PetscOptionsBegin(comm,NULL,"FS-Ex4 Options","");dCHK(err);
   {
-    err = PetscOptionsInt("-bdeg","Number of nodes per element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
+    err = PetscOptionsInt("-bdeg","Polynomial order on each element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
     err = PetscOptionsBool("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
     if (read) {
       err = PetscOptionsBool("-read_back_vec","Read the Vec back in too","",read_vec,&read_vec,NULL);dCHK(err);
