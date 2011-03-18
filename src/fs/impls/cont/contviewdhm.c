@@ -352,7 +352,6 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
         }
       }
       herr = H5Dvlen_reclaim(mstring,strspace,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dvlen_reclaim);
-      err = dMeshDestroy(mesh);dCHK(err); /* Give ownership to FS */
     }
     herr = H5Dclose(meshobj);dH5CHK(herr,H5Aclose);
     // \bug herr = H5Dvlen_reclaim(&fs5);
@@ -364,7 +363,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 
   /* @todo Call private dFSBuildSpace pieces (once they exist) */
   {
-    dInt           i,n,bs,ents_a,ents_s,*inodes,*xnodes,*idx,*loffset;
+    dInt           i,n,bs,ents_a,ents_s,*inodes,*xnodes,*idx,*loffset,xcnt;
     dPolynomialOrder *bdeg;
     dEntTopology   *topo;
     dMeshEH        *ents;
@@ -379,6 +378,10 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     dASSERT(ents_a == ents_s);
     err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
     err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
+#if 0
+    /* Check for correct read */
+    for (dInt k=0; k<ents_s; k++) printf("bdeg[%2d] %d %d %d %d\n",k,dPolynomialOrderMax(bdeg[k]),dPolynomialOrder1D(bdeg[k],0),dPolynomialOrder1D(bdeg[k],1),dPolynomialOrder1D(bdeg[k],2));
+#endif
 
     err = dMallocA2(ents_s,&inodes,ents_s,&loffset);dCHK(err);
     err = dJacobiGetNodeCount(fs->jacobi,ents_s,topo,bdeg,inodes,xnodes);dCHK(err);
@@ -400,10 +403,9 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
 
     fs->nelem = ents_s;
-    dERROR(PETSC_COMM_SELF,1,"In flux");
+    //dERROR(PETSC_COMM_SELF,1,"In flux");
 #if 0
-    err = dMallocA3(ents_s,&fs->rule,ents_s,&fs->efs,ents_s+1,&fs->off);dCHK(err); /* Owned by FS */
-
+    err = dMallocA2(ents_s,&fs->rule,ents_s,&fs->efs);dCHK(err); /* Owned by FS */
     {
       dPolynomialOrder *rdeg;
       dQuadrature quad;
@@ -416,16 +418,19 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
       err = dJacobiGetEFS(fs->jacobi,ents_s,topo,bdeg,fs->rule,fs->efs);dCHK(err);
       err = dFree(rdeg);dCHK(err);
     }
-
+#endif
+    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
     err = dMeshTagGetData(mesh,meshadj->indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
+    /* Need to set offsets before calling dFSBuildSpace_Cont_CreateElemAssemblyMats() */
+    err = dMallocA(ents_s+1,&fs->off);dCHK(err);
     fs->off[0] = xcnt = 0;
     for (i=0; i<ents_s; i++) fs->off[i+1] = (xcnt += xnodes[idx[i]]);
 
     err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
-#endif
 
     err = dMeshRestoreAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
     err = dFree5(ents,topo,bdeg,xnodes,idx);dCHK(err);
+    fs->spacebuilt = dTRUE;
   }
 
   herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
