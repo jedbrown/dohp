@@ -1,4 +1,4 @@
-static const char help[] = "Tests modal bases for dJacobi.";
+static const char help[] = "Tests dRuleGetPatches for dJacobi.";
 
 #include <dohpjacobi.h>
 #include <dohpsys.h>
