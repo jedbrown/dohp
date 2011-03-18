@@ -59,7 +59,7 @@ Process [0]
 [0] DHM has 1 steps available
 [0] step 0  time 0.1
 fspace[0] 'dFS_0', blocks 1
-field[0] 'my_vec', fspace 'dFS_0', bs 1
+field[0] 'Vec_global_0', fspace 'dFS_0', bs 1
 Offsets for 3 subelements
 0: 0 8 16 24
 Connectivity

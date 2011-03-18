@@ -143,8 +143,12 @@ int main(int argc,char *argv[])
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
   err = dFSCreateGlobalVector(fs,&X);dCHK(err);
-  err = PetscObjectSetName((PetscObject)X,"my_vec");dCHK(err);
   err = FSEx4FillVec(X);dCHK(err);
+
+  /* Name the objects to write so that the output is deterministic */
+  err = PetscObjectSetName((PetscObject)fs,"dFS_0");dCHK(err);
+  err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
+  err = PetscObjectSetName((PetscObject)X,"Vec_global_0");dCHK(err);
 
   err = PetscViewerASCIIGetStdout(PETSC_COMM_WORLD,&viewnative);dCHK(err); /* Does not give us ownership */
   err = PetscViewerSetFormat(viewnative,PETSC_VIEWER_NATIVE);dCHK(err);
@@ -194,15 +198,16 @@ int main(int argc,char *argv[])
     err = dViewerDHMRestoreStepSummary(viewer,&nfspaces,&fspaces,&nfields,&fields);dCHK(err);
     err = dFSCreate(PETSC_COMM_SELF,&fs);dCHK(err);
     err = dFSSetType(fs,dFSCONT);dCHK(err);
-    err = dFSLoadIntoFS(viewer,"my_vec",fs);dCHK(err);
+    err = dFSSetOrderingType(fs,MATORDERINGNATURAL);dCHK(err);
+    err = dFSLoadIntoFS(viewer,"Vec_global_0",fs);dCHK(err);
 
     err = FSEx4CheckSubMesh(ex4,fs);dCHK(err);
 
     if (read_vec) {
       Vec Y;
       err = dFSCreateGlobalVector(fs,&Y);dCHK(err);
-      err = VecDohpLoadIntoVector(viewer,"my_vec",Y);dCHK(err);
-      err = dPrintf(PETSC_COMM_SELF,"Loaded vector \"my_vec\"\n");dCHK(err);
+      err = VecDohpLoadIntoVector(viewer,"Vec_global_0",Y);dCHK(err);
+      err = dPrintf(PETSC_COMM_SELF,"Loaded vector \"Vec_global_0\"\n");dCHK(err);
       err = VecView(Y,viewnative);dCHK(err);
       err = VecDestroy(Y);dCHK(err);
     }
