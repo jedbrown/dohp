@@ -43,6 +43,7 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTop
   rset->topo = etopo;
   rset->n = ents_s;
   err = dJacobiGetQuadrature(fs->jacobi,method,&quad);dCHK(err);
+  if (method == dQUADRATURE_METHOD_SELF) {err = dQuadratureTensorSetGaussFamily(quad,dGAUSS_LOBATTO);dCHK(err);}
   err = dQuadratureGetRules(quad,ents_s,topo,order,&rset->rules);dCHK(err);
   err = dFree3(ents,topo,order);dCHK(err);
   *ruleset = rset;
