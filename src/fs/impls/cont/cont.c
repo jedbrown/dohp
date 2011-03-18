@@ -205,6 +205,7 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
   Mat   E,Ep;
 
   dFunctionBegin;
+  if (!fs->off) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_WRONGSTATE,"Must set fs->off before calling this function");
   xcnt = xstart[fs->nelem];
   err = dMallocA3(xcnt,&nnz,xcnt,&pnnz,ma->nents,&loffset);dCHK(err);
   err = dMeshTagGetData(fs->mesh,fs->tag.loffset,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
