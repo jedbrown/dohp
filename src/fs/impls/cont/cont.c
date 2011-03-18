@@ -504,7 +504,6 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   dRulesetIterator iter;
   dInt     sub,subc,nnz,*ai,*aj;
   dBool    done;
-  dFS      cfs;
 
   dFunctionBegin;
   err = dMemzero(subtopo,sizeof(*subtopo)*nsubelems);dCHK(err);
@@ -512,15 +511,13 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   err = dMemzero(subind,sizeof(*subind)*nsubconn);dCHK(err);
   err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not gotten");
-  /*
-   In the following, we have to get a bit more than we actually need (topology only).  We'll change the interface if it
-   becomes a performance issue.
-   */
 
+  /* Traverse the domain extracting the connectivity of each sub-element.  It is okay to use the scalar FS in place of
+   * the coordinate FS because we only extract topology.
+   */
   err = dFSGetDomain(fs,&domain);dCHK(err);
   err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_SPARSE,&ruleset);dCHK(err);
-  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
-  err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+  err = dRulesetCreateIterator(ruleset,fs,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,NULL,NULL);dCHK(err);
 
   sub = subc = 0;
@@ -529,7 +526,7 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
     const dInt *rowcol;
     err = dRulesetIteratorSetupElement(iter);dCHK(err);
     err = dRulesetIteratorGetPatchAssembly(iter,&P,&rowcol,NULL,NULL);dCHK(err);
-    dASSERT(P == 8);
+    dASSERT(P == 8);            /* Only implemented for hex elements */
     subtopo[sub] = dTOPO_HEX;
     suboff[sub] = subc;
     for (dInt i=0; i<P; i++,subc++) {
