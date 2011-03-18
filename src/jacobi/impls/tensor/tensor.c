@@ -476,6 +476,10 @@ static dErr TensorGetBasis(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord[],
   if (bsize <= 0) dERROR(PETSC_COMM_SELF,1,"Basis size %d must be positive",bsize);
   *out = 0;
   key = ((int)tnsr->family << 24) | (rsize << 16) | bsize;
+  if (sizeof(dReal) != sizeof(int64_t)) dERROR(((dObject)tnsr)->comm,PETSC_ERR_SUP,"This clunky floating point hash (oh my!) only works when dReal is twice the size of an int");
+  for (dInt i=0; i<rsize; i++) {
+    key ^= kh_int64_hash_func((int64_t)(PetscExpScalar(1.*i)*rcoord[0]));
+  }
   k = kh_put_tensor(tnsr->tensor,key,&new);
   if (new) {
     TensorBasis b;
