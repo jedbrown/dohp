@@ -394,6 +394,7 @@ static dErr dQuadratureDestroy_Tensor(dQuadrature quad)
   if (tnsr->ruleOpsQuad) { err = dFree(tnsr->ruleOpsQuad);dCHK(err); }
   if (tnsr->ruleOpsHex)  { err = dFree(tnsr->ruleOpsHex);dCHK(err); }
   err = dFree(tnsr);dCHK(err);
+  err = PetscObjectComposeFunctionDynamic((PetscObject)quad,"dQuadratureTensorSetGaussFamily_C","",NULL);dCHK(err);
   dFunctionReturn(0);dCHK(err);
 }
 
@@ -446,7 +447,7 @@ dErr dQuadratureTensorSetGaussFamily(dQuadrature quad,dGaussFamily fam)
   dErr err;
   dFunctionBegin;
   dValidHeader(quad,dQUADRATURE_CLASSID,1);
-  err = PetscUseMethod(quad,"dQuadratureTensorSetGaussFamily_C",(dQuadrature,dGaussFamily),(quad,fam));dCHK(err);
+  err = PetscTryMethod(quad,"dQuadratureTensorSetGaussFamily_C",(dQuadrature,dGaussFamily),(quad,fam));dCHK(err);
   dFunctionReturn(0);
 }
 

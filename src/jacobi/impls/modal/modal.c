@@ -244,7 +244,7 @@ static dErr dJacobiDestroy_Modal(dJacobi jac)
   }
   err = dFree3(modal->efsOpsLine,modal->efsOpsQuad,modal->efsOpsHex);dCHK(err);
   err = dFree(modal);dCHK(err);
-  err = PetscObjectComposeFunctionDynamic((PetscObject)jac,"dJacobiModalSetFamily_C",NULL,NULL);dCHK(err);
+  err = PetscObjectComposeFunctionDynamic((PetscObject)jac,"dJacobiModalSetFamily_C","",NULL);dCHK(err);
   dFunctionReturn(0);
 }
 
