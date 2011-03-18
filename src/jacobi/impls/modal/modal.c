@@ -244,6 +244,7 @@ static dErr dJacobiDestroy_Modal(dJacobi jac)
   }
   err = dFree3(modal->efsOpsLine,modal->efsOpsQuad,modal->efsOpsHex);dCHK(err);
   err = dFree(modal);dCHK(err);
+  err = PetscObjectComposeFunctionDynamic((PetscObject)jac,"dJacobiModalSetFamily_C",NULL,NULL);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -409,12 +410,9 @@ dErr dJacobiCreate_Modal(dJacobi jac)
 
 dErr dJacobiModalSetFamily(dJacobi jac,dJacobiModalFamily fam)
 {
-  dErr err,(*f)(dJacobi,dJacobiModalFamily);
+  dErr err;
 
   dFunctionBegin;
-  err = PetscObjectQueryFunction((PetscObject)jac,"dJacobiModalSetFamily_C",(void (**)(void))&f);dCHK(err);
-  if (f) {
-    err = (*f)(jac,fam);dCHK(err);
-  }
+  err = PetscTryMethod(jac,"dJacobiModalFamily_C",(dJacobi,dJacobiModalFamily),(jac,fam));dCHK(err);
   PetscFunctionReturn(0);
 }
