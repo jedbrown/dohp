@@ -7,9 +7,6 @@ dEXTERN_C_BEGIN
 
 extern dLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 
-typedef enum { dGAUSS_GAUSS, dGAUSS_LOBATTO, dGAUSS_RADAU } dGaussFamily;
-extern const char *dGaussFamilies[];
-
 /**
 * The Ops table is directly included in the dRule struct.  There should only be one ops table for each quadrature order
 * (the dQuadrature object manages this), and it's common to have optimized versions of some of these operations.  Even

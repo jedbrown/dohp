@@ -43,7 +43,7 @@ static void two_point_private(double nodes[],double weights[],int npoints,double
   }
 }
 
-static void two_point_gauss(double nodes[],double weights[],int npoints,double alpha,double beta)
+static void two_point_legendre(double nodes[],double weights[],int npoints,double alpha,double beta)
 {two_point_private(nodes,weights,npoints,alpha,beta,-0.57735026918962573,0.57735026918962573);}
 static void two_point_lobatto(double nodes[],double weights[],int npoints,double alpha,double beta)
 {two_point_private(nodes,weights,npoints,alpha,beta,-1,1);}
@@ -65,40 +65,42 @@ static dErr TensorGetRule(dQuadrature_Tensor *tnsr,dQuadratureMethod method,dInt
     dInt size;
 
     switch (method) {
-      case dQUADRATURE_METHOD_SPARSE:
-        /* The meaning of this option is somewhat unfortunate, but I don't see a clearly better API at the moment.  Here
-         * we just assume a Legendre-Gauss-Lobatto tensor product basis, and construct a quadrature (either Gauss or
-         * Lobatto) on the patches.  A better system would somehow have the subelement details available explicitly.
-         */
-        size = order > 0 ? order : 1;
-        if (tnsr->alpha != 0 || tnsr->beta != 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only alpha=0, beta=0 (Legendre)");
-        switch (tnsr->family) {
-          case dGAUSS_GAUSS: nodes_and_weights = two_point_gauss; break;
-          case dGAUSS_LOBATTO: nodes_and_weights = two_point_lobatto; break;
-          default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"GaussFamily %d",tnsr->family);
-        }
+    case dQUADRATURE_METHOD_SPARSE:
+      /* The meaning of this option is somewhat unfortunate, but I don't see a clearly better API at the moment.  Here
+       * we just assume a Legendre-Gauss-Lobatto tensor product basis, and construct a quadrature (either Gauss or
+       * Lobatto) on the patches.  A better system would somehow have the subelement details available explicitly.
+       */
+      size = order > 0 ? order : 1;
+      if (tnsr->alpha != 0 || tnsr->beta != 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only alpha=0, beta=0 (Legendre)");
+      switch (tnsr->family) {
+      case dGAUSS_LEGENDRE: nodes_and_weights = two_point_legendre; break;
+      case dGAUSS_LOBATTO: nodes_and_weights = two_point_lobatto; break;
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"GaussFamily %s and dQuadratureMethod %s",dGaussFamilies[tnsr->family],dQuadratureMethods[method]);
+      }
+      break;
+    case dQUADRATURE_METHOD_FAST:
+      switch (tnsr->family) {
+      case dGAUSS_LEGENDRE:
+        size = 1 + order/2;       /* Gauss integrates a polynomial of order 2*size-1 exactly */
+        nodes_and_weights = zwgj;
         break;
-      case dQUADRATURE_METHOD_FAST:
-        switch (tnsr->family) {
-          case dGAUSS_GAUSS:
-            size = 1 + order/2;       /* Gauss integrates a polynomial of order 2*size-1 exactly */
-            nodes_and_weights = zwgj;
-            break;
-          case dGAUSS_LOBATTO:
-            size = 2 + order/2;     /* Lobatto integrates a polynomial of order 2*size-3 exactly */
-            nodes_and_weights = zwglj;
-            break;
-          default:
-            dERROR(PETSC_COMM_SELF,1,"GaussFamily %d not supported",tnsr->family);
-        }
-        break;
-      case dQUADRATURE_METHOD_SELF:
-        /* FIXME: Just assume that we are matching a Lobatto basis.
-         * Note that this does not integrate the mass matrix exactly. */
-        size = 1 + order/2;
+      case dGAUSS_LOBATTO:
+        size = 2 + order/2;     /* Lobatto integrates a polynomial of order 2*size-3 exactly */
         nodes_and_weights = zwglj;
         break;
-      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"quadrature method %d",method);
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"GaussFamily %s and dQuadratureMethod %s",dGaussFamilies[tnsr->family],dQuadratureMethods[method]);
+      }
+      break;
+    case dQUADRATURE_METHOD_SELF:
+      switch (tnsr->family) {
+      case dGAUSS_LOBATTO:
+        size = 1 + order/2;
+        nodes_and_weights = zwglj;
+        break;       /* Note that this does not integrate the mass matrix exactly. */
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"GaussFamily %s and dQuadratureMethod %s",dGaussFamilies[tnsr->family],dQuadratureMethods[method]);
+      }
+      break;
+    default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"quadrature method %d",method);
     }
     err = dNew(struct s_TensorRule,&r);dCHK(err);
     err = dMallocA2(size,&r->weight,size,&r->coord);dCHK(err);
@@ -439,6 +441,24 @@ static dErr dQuadratureSetMethod_Tensor(dQuadrature quad,dQuadratureMethod metho
   dFunctionReturn(0);
 }
 
+dErr dQuadratureTensorSetGaussFamily(dQuadrature quad,dGaussFamily fam)
+{
+  dErr err;
+  dFunctionBegin;
+  dValidHeader(quad,dQUADRATURE_CLASSID,1);
+  err = PetscUseMethod(quad,"dQuadratureTensorSetGaussFamily_C",(dQuadrature,dGaussFamily),(quad,fam));dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr dQuadratureTensorSetGaussFamily_Tensor(dQuadrature quad,dGaussFamily fam)
+{
+  dQuadrature_Tensor *tnsr = quad->data;
+
+  dFunctionBegin;
+  tnsr->family = fam;
+  dFunctionReturn(0);
+}
+
 static dErr dQuadratureSetFromOptions_Tensor(dQuadrature quad)
 {
   dQuadrature_Tensor *tnsr  = quad->data;
@@ -474,10 +494,12 @@ dErr dQuadratureCreate_Tensor(dQuadrature quad)
   err = dNewLog(quad,dQuadrature_Tensor,&tnsr);dCHK(err);
   quad->data = tnsr;
 
+  err = PetscObjectComposeFunctionDynamic((PetscObject)quad,"dQuadratureTensorSetGaussFamily_C","dQuadratureTensorSetGaussFamily_Tensor",dQuadratureTensorSetGaussFamily_Tensor);dCHK(err);
+
   tnsr->tensor     = kh_init_tensor();
   tnsr->rules      = kh_init_rule();
   tnsr->facetrules = kh_init_facetrule();
-  tnsr->family = dGAUSS_GAUSS;
+  tnsr->family = dGAUSS_LEGENDRE;
   tnsr->alpha = 0.;
   tnsr->beta = 0.;
 

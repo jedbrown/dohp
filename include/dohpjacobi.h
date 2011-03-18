@@ -197,7 +197,12 @@ typedef enum {
 } dJacobiModalFamily;
 extern const char *const dJacobiModalFamilies[];
 
+typedef enum { dGAUSS_LEGENDRE, dGAUSS_LOBATTO, dGAUSS_RADAU } dGaussFamily;
+extern const char *dGaussFamilies[];
+
 extern dErr dJacobiModalSetFamily(dJacobi,dJacobiModalFamily);
+
+extern dErr dQuadratureTensorSetGaussFamily(dQuadrature,dGaussFamily);
 
 dEXTERN_C_END
 
