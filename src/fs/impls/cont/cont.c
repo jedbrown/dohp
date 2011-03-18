@@ -488,6 +488,7 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *n
   err = VecDohpGetClosure(fs->gvec,&X);dCHK(err);
   err = VecGetLocalSize(X,&n);dCHK(err);
   err = VecDohpRestoreClosure(fs->gvec,&X);dCHK(err);
+  err = dFree2(ents,degree);dCHK(err);
   *nelem = nsub;
   *nvert = n/fs->bs;
   *nconn = nsub*8;              /* all hex */
@@ -541,42 +542,12 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
     sub++;
   }
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  err = dRulesetIteratorDestroy(iter);dCHK(err);
+  err = dRulesetDestroy(ruleset);dCHK(err);
+
   dASSERT(subc == nsubconn);
   suboff[nsubelems] = subc;
-
-
-#if 0
-  err = dFSGetElements(fs,&n,&off,0,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err); /* space for nodal coordinates (which we won't use) */
-  sub = subc = 0;
-  for (dInt e=0; e<n; e++) {
-    dInt three,P[3];
-    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    dASSERT(three == 3);
-    for (dInt i=0; i<P[0]-1; i++) {
-      for (dInt j=0; j<P[1]-1; j++) {
-        for (dInt k=0; k<P[2]-1; k++,sub++) {
-          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
-          dReal no_warn_unused;           /* \a corners is unused, but I don't want to see a warning about it until I get around */
-          no_warn_unused = corners[0][0]; /* to finding a replacement for dQ1CORNER_CONST_DECLARE. */
-          subtopo[sub] = dTOPO_HEX;
-          suboff[sub] = subc;
-          for (dInt l=0; l<8; l++,subc++) {
-            dASSERT(0 <= rowcol[l] && rowcol[l] < nnz);
-            subind[subc] = aj[ai[rowcol[l]]];
-            if (ai[rowcol[l]+1]-ai[rowcol[l]] != 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Element assembly matrix is not boolean");
-            if (subc >= nsubconn) dERROR(PETSC_COMM_SELF,1,"Insufficient preallocation for connectivity");
-          }
-        }
-      }
-    }
-  }
-  dASSERT(subc == nsubconn);
-  suboff[nsubelems] = subc;
-
-  err = dFSRestoreElements(fs,&n,&off,0,0,0,0);dCHK(err);
-  err = dFSRestoreWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err);
-#endif
   err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not restored");
   dFunctionReturn(0);
