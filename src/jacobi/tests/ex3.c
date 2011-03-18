@@ -39,8 +39,10 @@ static dErr GetEFS(dJacobi jac,dRule **rules,dEFS **efs)
   for (dInt i=0; i<4; i++) {
     switch (type) {
       case TENSOR:
-        rdegree[i] = dPolynomialOrderCreate(0,rp,rp,rp);
         bdegree[i] = dPolynomialOrderCreate(0,i+1,i+1,i+1);
+        rdegree[i] = (qmethod == dQUADRATURE_METHOD_SELF
+                      ? dPolynomialOrderCreate(0,2*(i+1),2*(i+1),2*(i+1)) /* Polynomial degree needed to integrate mass matrix */
+                      : dPolynomialOrderCreate(0,rp,rp,rp));
         break;
       case MODAL:
         rdegree[i] = dPolynomialOrderCreate(rp,0,0,0);
