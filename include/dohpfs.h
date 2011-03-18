@@ -70,6 +70,7 @@ extern dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*)
 extern dErr dFSRegisterBoundarySet(dFS,dMeshESH,dFSBStatus,dFSConstraintFunction,void*);
 extern dErr dFSSetFromOptions(dFS);
 extern dErr dFSSetType(dFS,const dFSType);
+extern dErr dFSSetOrderingType(dFS,const MatOrderingType);
 extern dErr dFSCreateExpandedVector(dFS,Vec*);
 extern dErr dFSCreateGlobalVector(dFS,Vec*);
 extern dErr dFSExpandedToLocal(dFS,Vec,Vec,InsertMode);

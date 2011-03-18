@@ -51,7 +51,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
   err = dMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof defaultFSDMOps);dCHK(err);
   err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);dCHK(err);
   /* RCM is a good default ordering because it improves the performance of smoothers and incomplete factorization */
-  err = dStrcpyS(fs->orderingtype,sizeof fs->orderingtype,MATORDERINGRCM);dCHK(err);
+  err = dFSSetOrderingType(fs,MATORDERINGRCM);dCHK(err);
 
   /* For implementation-defined operations */
   err = PetscNewLog(fs,struct _dFSOps,&fs->ops);dCHK(err);
@@ -81,6 +81,21 @@ dErr dFSSetType(dFS fs,const dFSType type)
   fs->spacebuilt = 0;
   err = (*r)(fs);dCHK(err);
   err = PetscObjectChangeTypeName((PetscObject)fs,type);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/* logically collective */
+dErr dFSSetOrderingType(dFS fs,const MatOrderingType order)
+{
+  dErr err,(*r)(Mat,const MatOrderingType,IS*,IS*);
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidCharPointer(order,2);
+  if (fs->spacebuilt) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_WRONGSTATE,"Must set ordering before building the space");
+  err = PetscFListFind(MatOrderingList,((dObject)fs)->comm,order,(void(**)(void))&r);dCHK(err);
+  if (!r) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_OUTOFRANGE,"Unknown or unregistered type: %s",order);
+  err = dStrcpyS(fs->orderingtype,sizeof(fs->orderingtype),order);dCHK(err);
   dFunctionReturn(0);
 }
 

@@ -304,7 +304,7 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
   default: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for dFSClosureMode %s",dFSClosureModes[mode]);
   }
   err = dFSSetType(rfs,((dObject)fs)->type_name);dCHK(err);
-  err = dMemcpy(rfs->orderingtype,fs->orderingtype,sizeof(fs->orderingtype));
+  err = dFSSetOrderingType(rfs,fs->orderingtype);dCHK(err);
   err = dFSBuildSpace(rfs);dCHK(err);
   *infs = rfs;
   dFunctionReturn(0);
