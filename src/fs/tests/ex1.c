@@ -447,9 +447,9 @@ static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   while (dRulesetIteratorHasPatch(iter)) {
     const dReal *jw,*interp_flat,*deriv;
     const dInt *rowcol;
-    dScalar *x,*dx,*u,*du,*v,*dv;
+    dScalar *x,*dx,*u,*du;
     dInt Q,P;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
     err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv);dCHK(err);
     {                           /* Scope so that we can declare new VLA pointers for convenient assembly */
       const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
