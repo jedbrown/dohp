@@ -9,8 +9,8 @@ static dErr VecStateSync_Private(Vec x,Vec y)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(x,VEC_COOKIE,1);
-  dValidHeader(y,VEC_COOKIE,2);
+  dValidHeader(x,VEC_CLASSID,1);
+  dValidHeader(y,VEC_CLASSID,2);
   err = PetscObjectStateQuery((dObject)x,&xstate);dCHK(err);
   err = PetscObjectStateQuery((dObject)y,&ystate);dCHK(err);
   err = PetscObjectSetState((dObject)x,dMaxInt(xstate,ystate));dCHK(err);
@@ -28,16 +28,16 @@ static dErr VecStateSync_Private(Vec x,Vec y)
 dErr VecDohpGetClosure(Vec v,Vec *c)
 {
   Vec_MPI *vmpi;
-  dTruth   isdohp;
+  dBool    isdohp;
   dErr     err;
 
   dFunctionBegin;
-  dValidHeader(v,VEC_COOKIE,1);
+  dValidHeader(v,VEC_CLASSID,1);
   dValidPointer(c,2);
   err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
-  if (!isdohp) dERROR(1,"Vector type %s does not have closure",((dObject)v)->type_name);
+  if (!isdohp) dERROR(PETSC_COMM_SELF,1,"Vector type %s does not have closure",((dObject)v)->type_name);
   vmpi = v->data;
-  if (!vmpi->localrep) dERROR(1,"Vector has no closure");
+  if (!vmpi->localrep) dERROR(PETSC_COMM_SELF,1,"Vector has no closure");
   *c = vmpi->localrep;
   err = VecStateSync_Private(v,*c);dCHK(err);
   err = PetscObjectReference((dObject)*c);dCHK(err);
@@ -47,14 +47,14 @@ dErr VecDohpGetClosure(Vec v,Vec *c)
 dErr VecDohpRestoreClosure(Vec v,Vec *c)
 {
   dErr   err;
-  dTruth isdohp;
+  dBool  isdohp;
 
   dFunctionBegin;
-  dValidHeader(v,VEC_COOKIE,1);
+  dValidHeader(v,VEC_CLASSID,1);
   dValidPointer(c,2);
   err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
-  if (!isdohp) dERROR(1,"Vector type %s does not have closure",((dObject)v)->type_name);
-  if (*c != ((Vec_MPI*)v->data)->localrep) dERROR(1,"attempting to restore incorrect closure");
+  if (!isdohp) dERROR(PETSC_COMM_SELF,1,"Vector type %s does not have closure",((dObject)v)->type_name);
+  if (*c != ((Vec_MPI*)v->data)->localrep) dERROR(PETSC_COMM_SELF,1,"attempting to restore incorrect closure");
   err = VecStateSync_Private(v,*c);dCHK(err);
   err = PetscObjectDereference((dObject)*c);dCHK(err);
   dFunctionReturn(0);
@@ -68,7 +68,7 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
   dErr     err;
 
   dFunctionBegin;
-  dValidHeader(x,VEC_COOKIE,1);
+  dValidHeader(x,VEC_CLASSID,1);
   dValidPointer(iny,2);
   *iny = 0;
   err = VecDohpGetClosure(x,&xc);dCHK(err);
@@ -116,7 +116,6 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
 dErr VecCreateDohp(MPI_Comm comm,dInt bs,dInt n,dInt nc,dInt nghosts,const dInt ghosts[],Vec *v)
 {
   Vec_MPI *vmpi;
-  dInt    *sghosts;
   Vec      vc,vg;
   dScalar *a;
   dErr     err;
@@ -124,20 +123,13 @@ dErr VecCreateDohp(MPI_Comm comm,dInt bs,dInt n,dInt nc,dInt nghosts,const dInt 
   dFunctionBegin;
   dValidPointer(v,7);
   *v = 0;
-  if (bs > 1) {
-    err = dMallocA(nghosts,&sghosts);dCHK(err);
-    for (dInt i=0; i<nghosts; i++) sghosts[i] = ghosts[i]*bs; /* Index ghosts by scalar offset instead of blocks */
-  } else {
-    sghosts = 0;
-  }
-  err = VecCreateGhostBlock(comm,bs,nc*bs,PETSC_DECIDE,nghosts,sghosts?sghosts:ghosts,&vc);dCHK(err);
-  err = dFree(sghosts);dCHK(err);
+  err = VecCreateGhostBlock(comm,bs,nc*bs,PETSC_DECIDE,nghosts,ghosts,&vc);dCHK(err);
   err = VecGetArray(vc,&a);dCHK(err);
   err = VecCreateMPIWithArray(comm,n*bs,PETSC_DECIDE,a,&vg);dCHK(err);
   err = VecRestoreArray(vc,&a);dCHK(err);
   err = VecSetBlockSize(vg,bs);dCHK(err);
   vmpi = vg->data;
-  if (vmpi->localrep) dERROR(1,"Vector has localrep, expected no localrep");
+  if (vmpi->localrep) dERROR(PETSC_COMM_SELF,1,"Vector has localrep, expected no localrep");
   vmpi->localrep = vc;          /* subvert this field to mean closed rep */
   /* Since we subvect .localrep, VecDestroy_MPI will automatically destroy the closed form */
   vg->ops->duplicate = VecDuplicate_Dohp;
@@ -163,17 +155,17 @@ dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat)
 {
   MPI_Comm comm;
   dErr     err;
-  dTruth   isdohp;
+  dBool    isdohp;
   IS       from;
   Vec      gc;
   dInt     n,nc,crstart;
 
   dFunctionBegin;
-  dValidHeader(gvec,VEC_COOKIE,1);
+  dValidHeader(gvec,VEC_CLASSID,1);
   dValidPointer(dcache,2);
   dValidPointer(dscat,3);
   err = PetscTypeCompare((PetscObject)gvec,VECDOHP,&isdohp);dCHK(err);
-  if (!isdohp) dERROR(PETSC_ERR_SUP,"Vec type %s",((PetscObject)gvec)->type_name);
+  if (!isdohp) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Vec type %s",((PetscObject)gvec)->type_name);
   err = PetscObjectGetComm((PetscObject)gvec,&comm);dCHK(err);
   err = VecGetLocalSize(gvec,&n);dCHK(err);
   err = VecDohpGetClosure(gvec,&gc);dCHK(err);

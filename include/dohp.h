@@ -3,7 +3,18 @@
 
 #include "dohptype.h"
 #include <stdint.h>
-#include <petsc.h>
+#include <petscsys.h>
+
+#if defined dUSE_VALGRIND && 0
+#  include <valgrind/memcheck.h>
+#  define dMakeMemUndefined(mem,bytes) do {                     \
+    if (VALGRIND_MAKE_MEM_UNDEFINED((mem),(bytes))) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Valgrind returned an error"); \
+  } while (0)
+#else
+#  define dMakeMemUndefined(mem,bytes) do {     \
+    if (dMemzero((mem),(bytes))) dERROR(PETSC_COMM_SELF,PETSC_ERR_MEMC,"Memory " #mem " is corrupt"); \
+  } while (0)
+#endif
 
 #define dSTATUS_UNOWNED   (dEntStatus)0x1
 #define dSTATUS_SHARED    (dEntStatus)0x2
@@ -14,17 +25,18 @@
 #define dEntTopoToITAPS(dtopo,itopo) (*(itopo) = (dtopo), 0)
 #define dEntTypeToITAPS(dtype,itype) (*(itype) = (dtype), 0)
 
-#define dCHK(err) if (PetscUnlikely(err)) return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(err),0," ")
-#define dERROR(n,...) return PetscError(__LINE__,__func__,__FILE__,__SDIR__,(n),1,__VA_ARGS__)
+#define dCHK(err) do {if (PetscUnlikely(err)) return PetscError(PETSC_COMM_SELF,__LINE__,__func__,__FILE__,__SDIR__,(err),PETSC_ERROR_REPEAT," ");} while (0)
+#define dERROR(comm,n,...) return PetscError((comm),__LINE__,__func__,__FILE__,__SDIR__,(n),PETSC_ERROR_INITIAL,__VA_ARGS__)
 
 #define dPrintf PetscPrintf
 #define dMemcpy(a,b,c) PetscMemcpy(a,b,c)
 #define dMemzero(a,b)  PetscMemzero(a,b)
 #define dValidHeader(a,b,c) PetscValidHeaderSpecific(a,b,c)
 
-#define dValidPointer(a,b)                                              \
-  { if (!(a)) dERROR(PETSC_ERR_ARG_NULL,"Null Pointer: Parameter # %d",(b)); \
-    if ((size_t)a & 3) dERROR(PETSC_ERR_ARG_BADPTR,"Invalid Pointer: Parameter # %d",(b));} \
+#define dValidPointer(a,b) do {                                              \
+    if (!(a)) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_NULL,"Null Pointer: Parameter # %d",(b)); \
+    if ((size_t)a & 3) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_BADPTR,"Invalid Pointer: Parameter # %d",(b)); \
+  } while (0)
 
 #define dMalloc(a,b) PetscMalloc(a,b)
 #define dNew(a,b) PetscNew(a,b)
@@ -34,7 +46,7 @@
 #define dMallocM(n,t,p) (dMalloc((n)*sizeof(t),(p)))
 #define dMallocA(n,p) (dMalloc((n)*sizeof(**(p)),(p)))
 #define dCalloc(n,p) (dMalloc((n),(p)) || dMemzero(*(p),(n)))
-#define dCallocA(n,p) (dCalloc((n)*sizeof(p),(p)))
+#define dCallocA(n,p) (dCalloc((n)*sizeof(**(p)),(p)))
 
 #define dValidPointer2(a,b,c,d) (dValidPointer((a),(b)) || dValidPointer((c),(d)))
 #define dValidPointer3(a,b,c,d,e,f) (dValidPointer2((a),(b),(c),(d)) || dValidPointer((e),(f)))
@@ -44,8 +56,8 @@
 #define dValidPointer7(a,b,c,d,e,f,g,h,i,j,k,l,m,n) (dValidPointer6((a),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),(l)) || dValidPointer((m),(n)))
 
 #define dValidPointerSpecific(p,t,a)                              \
-  {if (!p) dERROR(PETSC_ERR_ARG_BADPTR,"Null Pointer: Parameter # %d",(a)); \
-    if ((size_t)(p) % sizeof(*(p))) dERROR(PETSC_ERR_ARG_BADPTR,"Insufficient alignment for pointer to %s: Parameter # %d should have %ld alignment",(t),(a),sizeof(*(p)));}
+  {if (!p) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_BADPTR,"Null Pointer: Parameter # %d",(a)); \
+    if ((size_t)(p) % sizeof(*(p))) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_BADPTR,"Insufficient alignment for pointer to %s: Parameter # %d should have %ld alignment",(t),(a),sizeof(*(p)));}
 #define dValidPointerSpecific2(p0,t0,a0,p1,t1,a1) {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific(p1,t1,a1);}
 #define dValidPointerSpecific3(p0,t0,a0,p1,t1,a1,p2,t2,a2) \
   {dValidPointerSpecific(p0,t0,a0); dValidPointerSpecific2(p1,t1,a1,p2,t2,a2);}
@@ -64,10 +76,12 @@
 #define dValidScalarPointer(p,a) dValidPointerSpecific((p),"dScalar",(a))
 #define dValidRealPointer(p,a) dValidPointerSpecific((p),"dReal",(a))
 
+#define dNonNullElse(a,b) ((a)?(a):(b))
 #define dStrlen(s,l) PetscStrlen((s),(l))
 extern dErr dObjectGetComm(dObject obj,MPI_Comm *comm);
 
-extern dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer viewer);
+extern dErr dRealTableView(dInt m,dInt n,const dReal mat[],dViewer viewer,const char *format,...);
+extern dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *format,...);
 
 static inline dInt dMaxInt(dInt a,dInt b) { return (a > b) ? a : b; }
 static inline dInt dMinInt(dInt a,dInt b) { return (a < b) ? a : b; }
@@ -97,8 +111,7 @@ static inline void dTensorSymUncompress3(const dScalar Du[6],dScalar Dv[9])
 /* stdbool.h has small (1 byte) bools, PETSc uses an enum which has few size guarantees, so we use it directly and keep
 * it out of our public interface (which is why these typedefs are here and not in dohptype.h).
 **/
-typedef PetscTruth dTruth;
-typedef PetscTruth  dBool;
+typedef PetscBool dBool;
 #define dTRUE  PETSC_TRUE
 #define dFALSE PETSC_FALSE
 
@@ -106,11 +119,7 @@ typedef PetscTruth  dBool;
 #define dNAME_LEN     256
 #define dSTR_LEN      256
 
-#if defined(__GNUC__)
-# define dUNUSED __attribute__((unused))
-#else
-# define dUNUSED
-#endif
+#define dUNUSED PETSC_UNUSED
 
 #define dCACHE_LINE    64l       /* my cache lines are 64 bytes long */
 #define dRPCL dCACHE_LINE/sizeof(dReal)
@@ -194,29 +203,29 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 
 #if defined(PETSC_USE_DEBUG)
 # define dFunctionBegin                                                 \
-  {                                                                     \
+  do {                                                                  \
     if (petscstack && (petscstack->currentsize < PETSCSTACKSIZE)) {     \
       petscstack->function[petscstack->currentsize]  = __func__;        \
       petscstack->file[petscstack->currentsize]      = __FILE__;        \
       petscstack->directory[petscstack->currentsize] = __SDIR__;        \
       petscstack->line[petscstack->currentsize]      = __LINE__;        \
       petscstack->currentsize++;                                        \
-    }}
+    }} while (0)
 # define dFunctionReturn(a)                     \
-  {                                             \
+  do {                                          \
     PetscStackPop;                              \
-    return(a);}
+    return(a);} while (0)
 
 # define dFunctionReturnVoid()                  \
-  {                                             \
+  do {                                          \
     PetscStackPop;                              \
-    return;}
+    return;} while (0)
 #else
 # define dFunctionBegin do { } while (0)
 # define dFunctionReturn(a) return (a)
 # define dFunctienReturnVoid() return
 #endif
 
-#define dASSERT(cond) if (!(cond)) { dERROR(1,"Assertion failed: " #cond); }
+#define dASSERT(cond) if (!(cond)) { dERROR(PETSC_COMM_SELF,1,"Assertion failed: " #cond); }
 
 #endif

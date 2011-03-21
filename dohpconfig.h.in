@@ -3,5 +3,6 @@
 
 #cmakedefine dUSE_DEBUG
 #cmakedefine dUSE_PARALLEL_HDF5
+#cmakedefine dUSE_VALGRIND
 
 #endif

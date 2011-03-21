@@ -8,7 +8,7 @@ dEXTERN_C_BEGIN
 #define dQuotientType char*
 typedef struct p_dQuotient *dQuotient;
 
-extern dCookie dQUOTIENT_COOKIE;
+extern dClassId dQUOTIENT_CLASSID;
 typedef dErr (*dQuotientSetDegreeFunc)(dQuotient,void*,dInt,dInt[]);
 
 #define dQuotientGauss "gauss"

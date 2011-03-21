@@ -10,7 +10,7 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&dhm);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"Continuous Galerkin function space\n");dCHK(err);
@@ -29,7 +29,7 @@ static dErr dFSLoadIntoFS_Cont(dViewer viewer,const char fieldname[],dFS fs)
   err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
   if (isdhm) {
     err = dFSLoadIntoFS_Cont_DHM(viewer,fieldname,fs);dCHK(err);
-  } else dERROR(PETSC_ERR_SUP,"No support for viewer type \"%s\"",((PetscObject)viewer)->type_name);
+  } else dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for viewer type \"%s\"",((PetscObject)viewer)->type_name);
   dFunctionReturn(0);
 }
 
@@ -70,17 +70,17 @@ static dErr dFSDestroy_Cont(dFS fs)
 /**
 @note Not collective
 */
-static dErr dFSContPropogateDegree(dFS fs,dMeshAdjacency ma)
+static dErr dFSContPropagateDegree(dFS fs,dMeshAdjacency ma)
 {
-  dInt *deg;
+  dPolynomialOrder *deg;
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  err = dMallocA(3*ma->nents,&deg);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,3*ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
-  err = dJacobiPropogateDown(fs->jacobi,ma,deg);dCHK(err);
-  err = dMeshTagSetData(fs->mesh,fs->degreetag,ma->ents,ma->nents,deg,3*ma->nents,dDATA_INT);dCHK(err);
+  dValidHeader(fs,DM_CLASSID,1);
+  err = dMallocA(ma->nents,&deg);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->tag.degree,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err); /* Get degree everywhere */
+  err = dJacobiPropagateDown(fs->jacobi,ma,deg);dCHK(err);
+  err = dMeshTagSetData(fs->mesh,fs->tag.degree,ma->ents,ma->nents,deg,ma->nents,dDATA_INT);dCHK(err);
   err = dFree(deg);dCHK(err);
   dFunctionReturn(0);
 }
@@ -94,7 +94,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 {
   dScalar         weights[256];
   Mat             madj;
-  dTruth          flg;
+  dBool           flg;
   dInt           *nnz,*ordering,ordering_a;
   const dInt     *newindices;
   dIInt           adj_a = 0,adj_s,*adjoff=NULL,adjoff_a=0,adjoff_s,ierr,*intdata,ents_s,ents_a,tmp;
@@ -122,7 +122,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   err = dMeshGetEnts(mesh,explicitSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err); /* ents_s = number of explicit ents */
   err = dMeshGetEnts(mesh,dirichletSet,dTYPE_ALL,dTOPO_ALL,ents+ents_s,ents_a-ents_s,&tmp);dCHK(err);
   err = dMeshGetEnts(mesh,ghostSet,dTYPE_ALL,dTOPO_ALL,ents+ents_s+tmp,ents_a-ents_s-tmp,&tmp);dCHK(err);
-  if (tmp != 0) dERROR(PETSC_ERR_LIB,"iMesh returned inconsistent count");
+  if (tmp != 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"iMesh returned inconsistent count");
 
   /* Set default data on all ents, entities retaining this value will not be reordered */
   for (dInt i=0; i<ents_a; i++) intdata[i] = -1;
@@ -130,7 +130,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 
   /* Get adjacencies of owned explicitly represented entities (not ghosts or dirichlet) */
   iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_ALL,&adj,&adj_a,&adj_s,&adjoff,&adjoff_a,&adjoff_s,&ierr);dICHK(mi,ierr);
-  if (adj_s < ents_s) dERROR(1,"peculiar mesh");
+  if (adj_s < ents_s) dERROR(PETSC_COMM_SELF,1,"peculiar mesh");
   ordering_a = adj_s;
   err = dMallocA2(ordering_a,&ordering,ents_s,&nnz);dCHK(err); /* enough space for index on all adjacencies */
   for (dInt i=0; i<ents_s; i++) intdata[i] = i; /* Define a reference ordering on primary entities */
@@ -159,7 +159,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   err = MatGetOrdering(madj,orderingtype,&rperm,&cperm);dCHK(err);
   err = MatDestroy(madj);dCHK(err);
   err = ISEqual(rperm,cperm,&flg);dCHK(err);
-  if (!flg) dERROR(1,"Cannot use ordering");
+  if (!flg) dERROR(PETSC_COMM_SELF,1,"Cannot use ordering");
   err = ISGetIndices(rperm,&newindices);dCHK(err);
 
   /* Reuse \a adj as a buffer to apply permutation */
@@ -196,7 +196,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 *
 * These are preallocated using \a nnz and \a pnnz respectively.
 **/
-dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp)
+dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMeshAdjacency ma,const dPolynomialOrder deg[],Mat *inE,Mat *inEp)
 {
   dErr err;
   const dInt *xstart = fs->off;
@@ -205,9 +205,10 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
   Mat   E,Ep;
 
   dFunctionBegin;
+  if (!fs->off) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_WRONGSTATE,"Must set fs->off before calling this function");
   xcnt = xstart[fs->nelem];
   err = dMallocA3(xcnt,&nnz,xcnt,&pnnz,ma->nents,&loffset);dCHK(err);
-  err = dMeshTagGetData(fs->mesh,fs->loffsetTag,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->tag.loffset,ma->ents,ma->nents,loffset,ma->nents,dDATA_INT);dCHK(err);
 
   err = VecDohpGetClosure(fs->gvec,&Xclosure);dCHK(err);
   err = VecGhostGetLocalForm(Xclosure,&Xloc);dCHK(err);
@@ -221,19 +222,25 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
 
   /* We don't solve systems with these so it will never make sense for them to use a different format */
   err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nloc,1,nnz,&E);dCHK(err);
-  err = MatCreateSeqAIJ(PETSC_COMM_SELF,xcnt,nloc,1,pnnz,&Ep);dCHK(err);
+  if (1) {
+    Ep = E;
+    err = PetscObjectReference((PetscObject)Ep);dCHK(err);
+  }
 
   err = dJacobiAddConstraints(fs->jacobi,fs->nelem,idx,xstart,loffset,deg,ma,E,Ep);dCHK(err);
 
   err = dFree3(nnz,pnnz,loffset);dCHK(err);
 
   err = MatAssemblyBegin(E,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyBegin(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
+  if (E != Ep) {err = MatAssemblyBegin(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);}
   err = MatAssemblyEnd(E,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);
+  if (E != Ep) {err = MatAssemblyEnd(Ep,MAT_FINAL_ASSEMBLY);dCHK(err);}
 
   err = MatCreateMAIJ(E,bs,inE);dCHK(err);
-  err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);
+  if (E == Ep) {
+    *inEp = *inE;
+    err = PetscObjectReference((PetscObject)*inEp);dCHK(err);
+  } else {err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);}
 
   err = MatDestroy(E);dCHK(err);
   err = MatDestroy(Ep);dCHK(err);
@@ -252,14 +259,14 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   MPI_Comm               comm  = ((dObject)fs)->comm;
   /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
   dUNUSED dFS_Cont      *cont  = fs->data;
-  dQuadrature            quad;
   struct _p_dMeshAdjacency ma;
   dMeshAdjacency         meshAdj;
   dMesh                  mesh;
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
-  dInt                  *inodes,*xnodes,*deg,*rdeg,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
-  dInt                  *xstart,xcnt,*regRDeg,*regBDeg;
+  dPolynomialOrder      *deg,*rdeg,*regBDeg;
+  dInt                  *inodes,*xnodes,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
+  dInt                  *xstart,xcnt;
   dInt                   bs,n,ngh,ndirichlet,nc,rstart,crstart;
   dIInt                  ierr;
   dMeshEH               *ents,*ghents;
@@ -267,13 +274,13 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dErr                   err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   bs   = fs->bs;
   mesh = fs->mesh;
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
-  err = dMeshGetAdjacency(mesh,fs->activeSet,&meshAdj);dCHK(err);
+  err = dMeshGetAdjacency(mesh,fs->set.active,&meshAdj);dCHK(err);
   err = dMemcpy(&ma,meshAdj,sizeof ma);dCHK(err); /* To have object rather than pointer semantics in this function. */
-  err = dFSContPropogateDegree(fs,meshAdj);dCHK(err);
+  err = dFSContPropagateDegree(fs,meshAdj);dCHK(err);
 
   /* Allocate a workspace that's plenty big, so that we don't have to allocate memory constantly */
   ents_a = ma.nents;
@@ -283,35 +290,35 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   {
     dInt      nboundaries,ghstart;
     dMeshESH *bdysets;
-    iMesh_addEntArrToSet(mi,ma.ents,ma.nents,fs->explicitSet,&ierr);dICHK(mi,ierr);
+    iMesh_addEntArrToSet(mi,ma.ents,ma.nents,fs->set.explicit,&ierr);dICHK(mi,ierr);
     /* Move ghost ents from \a explicitSet to \a ghostSet */
-    iMesh_getEntitiesRec(mi,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+    iMesh_getEntitiesRec(mi,fs->set.explicit,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
     err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-    iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->explicitSet,&ierr);dICHK(mi,ierr);
-    iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->ghostSet,&ierr);dICHK(mi,ierr);
+    iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->set.explicit,&ierr);dICHK(mi,ierr);
+    iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->set.ghost,&ierr);dICHK(mi,ierr);
     /* Move owned Dirichlet ents from \a explicitSet to \a dirichletSet */
-    err = dMeshGetNumSubsets(mesh,fs->boundaries,1,&nboundaries);dCHK(err);
+    err = dMeshGetNumSubsets(mesh,fs->set.boundaries,0,&nboundaries);dCHK(err);
     if (!nboundaries) goto after_boundaries;
     err = dMallocA2(nboundaries,&bdysets,nboundaries,&bstat);dCHK(err);
-    err = dMeshGetSubsets(mesh,fs->boundaries,1,bdysets,nboundaries,NULL);dCHK(err);
-    err = dMeshTagSGetData(mesh,fs->bstatusTag,bdysets,nboundaries,bstat,nboundaries,dDATA_INT);dCHK(err);
+    err = dMeshGetSubsets(mesh,fs->set.boundaries,0,bdysets,nboundaries,NULL);dCHK(err);
+    err = dMeshTagSGetData(mesh,fs->tag.bstatus,bdysets,nboundaries,bstat,nboundaries,dDATA_INT);dCHK(err);
     for (int i=0; i<nboundaries; i++) {
       if (bstat[i] & dFSBSTATUS_DIRICHLET) {
         iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
         err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-        iMesh_rmvEntArrFromSet(mi,ents,ghstart,fs->explicitSet,&ierr);dICHK(mi,ierr);
-        iMesh_addEntArrToSet(mi,ents,ghstart,fs->dirichletSet,&ierr);dICHK(mi,ierr);
+        iMesh_rmvEntArrFromSet(mi,ents,ghstart,fs->set.explicit,&ierr);dICHK(mi,ierr);
+        iMesh_addEntArrToSet(mi,ents,ghstart,fs->set.dirichlet,&ierr);dICHK(mi,ierr);
       }
       if (bstat[i] & dFSBSTATUS_WEAK) {
         iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_FACE,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-        iMesh_addEntArrToSet(mi,ents,ents_s,fs->weakFaceSet,&ierr);dICHK(mi,ierr);
+        iMesh_addEntArrToSet(mi,ents,ents_s,fs->set.weakFace,&ierr);dICHK(mi,ierr);
       }
     }
     err = dFree2(bdysets,bstat);dCHK(err);
   }
   after_boundaries:
 
-  err = dMeshPopulateOrderedSet_Private(mesh,fs->orderedSet,fs->explicitSet,fs->dirichletSet,fs->ghostSet,fs->orderingtype);dCHK(err);
+  err = dMeshPopulateOrderedSet_Private(mesh,fs->set.ordered,fs->set.explicit,fs->set.dirichlet,fs->set.ghost,fs->orderingtype);dCHK(err);
   {
     char strbuf[dNAME_LEN];
     const char *fsname;
@@ -321,19 +328,19 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     rank = mpirank;
     err = PetscObjectGetName((PetscObject)fs,&fsname);dCHK(err);
     err = PetscSNPrintf(strbuf,sizeof strbuf,"%s_%s",fsname,dTAG_PARTITION);dCHK(err);
-    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->partitionTag);dCHK(err);
-    err = dMeshTagSSetData(mesh,fs->partitionTag,&fs->activeSet,1,&rank,1,dDATA_INT);dCHK(err);
+    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->tag.partition);dCHK(err);
+    err = dMeshTagSSetData(mesh,fs->tag.partition,&fs->set.active,1,&rank,1,dDATA_INT);dCHK(err);
     err = PetscSNPrintf(strbuf,sizeof strbuf,"%s_%s",fsname,dTAG_ORDERED_SUBDOMAIN);dCHK(err);
-    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->orderedsubTag);dCHK(err);
-    err = dMeshTagSSetData(mesh,fs->orderedsubTag,&fs->orderedSet,1,&rank,1,dDATA_INT);dCHK(err);
+    err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->tag.orderedsub);dCHK(err);
+    err = dMeshTagSSetData(mesh,fs->tag.orderedsub,&fs->set.ordered,1,&rank,1,dDATA_INT);dCHK(err);
   }
-  err = dMeshGetEnts(fs->mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-  if (ents_s != ents_a) dERROR(PETSC_ERR_PLIB,"wrong set size");
+  err = dMeshGetEnts(fs->mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
 
   /* Get number of nodes for all entities, and parallel status */
-  err = dMallocA4(ma.nents*3,&deg,ma.nents*3,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ma.ents,ma.nents,deg,3*ma.nents,dDATA_INT);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->ruletag,ma.ents,ma.nents,rdeg,3*ma.nents,dDATA_INT);dCHK(err);
+  err = dMallocA4(ma.nents,&deg,ma.nents,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.degree,ma.ents,ma.nents,deg,ma.nents,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.rule,ma.ents,ma.nents,rdeg,ma.nents,dDATA_INT);dCHK(err);
   /* Fill the arrays \a inodes and \a xnodes with the number of interior and expanded nodes for each
   * (topology,degree) pair */
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
@@ -343,13 +350,13 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   n = ndirichlet = ngh = 0;
   for (int i=0; i<ma.nents; i++) {
     dInt member;
-    dMeshESH exclusive_sets[] = {fs->explicitSet,fs->dirichletSet,fs->ghostSet};
+    dMeshESH exclusive_sets[] = {fs->set.explicit,fs->set.dirichlet,fs->set.ghost};
     err = dMeshEntClassifyExclusive(mesh,ma.ents[i],3,exclusive_sets,&member);dCHK(err);
     switch (member) {
       case 0: n          += inodes[i]; break;
       case 1: ndirichlet += inodes[i]; break;
       case 2: ngh        += inodes[i]; break;
-      default: dERROR(PETSC_ERR_PLIB,"Should not be possible");
+      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Should not be possible");
     }
   }
   err = MPI_Scan(&n,&rstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
@@ -366,27 +373,27 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     dInt i,scan,nentsExplicit,nentsDirichlet;
 
     /* We assume that orderedSet contains explicitSet+dirichletSet+ghostSet (in that order) */
-    err = dMeshGetEnts(mesh,fs->orderedSet,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->explicitSet,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->dirichletSet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
+    err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+    err = dMeshGetNumEnts(mesh,fs->set.explicit,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
+    err = dMeshGetNumEnts(mesh,fs->set.dirichlet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
     err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
 
     /* global offset */
     for (i=0,scan=rstart; i<nentsExplicit; scan+=inodes[idx[i++]])
       intdata[i] = scan; /* fill \a intdata with the global offset */
     for ( ; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->goffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->tag.goffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
 
     /* global closure offset */
     for (i=0,scan=crstart; i<nentsExplicit+nentsDirichlet; scan+=inodes[idx[i++]])
       intdata[i] = scan;
     for ( ; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->gcoffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->tag.gcoffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
 
     /* local index */
     for (i=0,scan=0; i<ents_s; scan+=inodes[idx[i++]])
       intdata[i] = scan;
-    err = dMeshTagSetData(mesh,fs->loffsetTag,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagSetData(mesh,fs->tag.loffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
 
     /* Set a pointer to the ghost portion, we will work with that next */
     ghents   = ents + nentsExplicit + nentsDirichlet;
@@ -395,13 +402,13 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
 
   /* communicate global and closure offset for ghosts */
-  err = dMeshTagBcast(mesh,fs->goffsetTag);dCHK(err);
-  err = dMeshTagBcast(mesh,fs->gcoffsetTag);dCHK(err);
+  err = dMeshTagBcast(mesh,fs->tag.goffset);dCHK(err);
+  err = dMeshTagBcast(mesh,fs->tag.gcoffset);dCHK(err);
 
   /* Retrieve ghost offsets, to create localupdate. */
-  err = dMeshTagGetData(mesh,fs->gcoffsetTag,ghents,ghents_s,intdata,ghents_s,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.gcoffset,ghents,ghents_s,intdata,ghents_s,dDATA_INT);dCHK(err);
   for (dInt i=0; i<ghents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
-    if (intdata[i] < 0) dERROR(1,"Tag exchange did not work");
+    if (intdata[i] < 0) dERROR(PETSC_COMM_SELF,1,"Tag exchange did not work");
   }
 
   /* Set ghost indices of every node using \a ghidx, create global vector. */
@@ -410,7 +417,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     for (dInt i=0; i<ghents_s; i++) {
       for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
     }
-    if (gh != fs->ngh) dERROR(1,"Ghost count inconsistent");
+    if (gh != fs->ngh) dERROR(PETSC_COMM_SELF,1,"Ghost count inconsistent");
     err = VecCreateDohp(((dObject)fs)->comm,bs,n,nc,ngh,ghidx,&fs->gvec);dCHK(err);
   }
 
@@ -435,36 +442,26 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   * be constrained against all nodes on the adjacent entity.
   */
 
-  err = dMeshGetEnts(mesh,fs->activeSet,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
   nregions = ents_s;
-  err = dMallocA5(nregions+1,&xstart,nregions,&regTopo,nregions*3,&regRDeg,nregions*3,&regBDeg,nregions,&xnodes);dCHK(err);
+  err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions,&regBDeg,nregions,&xnodes);dCHK(err);
   err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
-  err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,regBDeg,nregions*3,dDATA_INT);dCHK(err);
+  err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,regBDeg,nregions,dDATA_INT);dCHK(err);
   err = dJacobiGetNodeCount(fs->jacobi,ents_s,regTopo,regBDeg,NULL,xnodes);dCHK(err);
-
-  err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,regRDeg,nregions*3,dDATA_INT);dCHK(err);
-  for (dInt i=0; i<3*nregions; i++) {
-    regRDeg[i] = dMaxInt(regRDeg[i],regBDeg[i]+fs->ruleStrength);
-  }
 
   xcnt = xstart[0] = 0;
   for (dInt i=0; i<nregions; i++) xstart[i+1] = (xcnt += xnodes[i]);
 
-  /* Get Rule and EFS for domain ents. */
   fs->nelem = nregions;
-  err = dMallocA3(nregions,&fs->rule,nregions,&fs->efs,nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
+  err = dMallocA(nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
   err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
-  /* Get the "native" quadrature and EFS for this space */
-  err = dJacobiGetQuadrature(fs->jacobi,&quad);dCHK(err);
-  err = dQuadratureGetRule(quad,nregions,regTopo,regRDeg,fs->rule);dCHK(err);
-  err = dJacobiGetEFS(fs->jacobi,nregions,regTopo,regBDeg,fs->rule,fs->efs);dCHK(err);
-  err = dMeshGetVertexCoords(mesh,nregions,ents,&fs->vtxoff,&fs->vtx);dCHK(err); /* Should be restored by FS on destroy */
-  err = dFree5(xstart,regTopo,regRDeg,regBDeg,xnodes);dCHK(err);
+
+  err = dFree4(xstart,regTopo,regBDeg,xnodes);dCHK(err);
 
   err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
-  err = dMeshRestoreAdjacency(fs->mesh,fs->activeSet,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
+  err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
   err = dFree4(deg,rdeg,inodes,status);dCHK(err);
   err = dFree4(ents,intdata,idx,ghidx);dCHK(err);
   dFunctionReturn(0);
@@ -473,28 +470,26 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *nconn)
 {
   /* dFS_Cont *cont = fs->data; */
-  dErr err;
-  dInt n,nsub;
-  Vec  X;
+  dErr    err;
+  dInt    nents,nsub,n;
+  dMeshEH *ents;
+  dPolynomialOrder *degree;
+  Vec     X;
 
   dFunctionBegin;
+  err = dMeshGetNumEnts(fs->mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,&nents);dCHK(err);
+  err = dMallocA2(nents,&ents,nents,&degree);dCHK(err);
+  err = dMeshGetEnts(fs->mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,nents,NULL);dCHK(err);
+  err = dMeshTagGetData(fs->mesh,fs->tag.degree,ents,nents,degree,nents,dDATA_INT);dCHK(err);
   nsub = 0;
-  for (dInt e=0; e<fs->nelem; e++) {
-    dInt tsize[3],dim;
-    err = dEFSGetTensorNodes(&fs->efs[e],&dim,tsize,NULL,NULL,NULL,NULL);dCHK(err);
-    switch (dim) {
-      case 1: nsub += tsize[0]-1;
-        break;
-      case 2: nsub += (tsize[0]-1)*(tsize[1]-1);
-        break;
-      case 3: nsub += (tsize[0]-1)*(tsize[1]-1)*(tsize[2]-1);
-        break;
-      default: dERROR(1,"element dimension out of range");
-    }
+  for (dInt e=0; e<nents; e++) {
+    /* Since this is for visualization, we represent everything as Q_k Gauss-Lobatto even if it was P_k or otherwise. */
+    nsub += dPolynomialOrder1D(degree[e],0) * dPolynomialOrder1D(degree[e],1) * dPolynomialOrder1D(degree[e],2);
   }
   err = VecDohpGetClosure(fs->gvec,&X);dCHK(err);
   err = VecGetLocalSize(X,&n);dCHK(err);
   err = VecDohpRestoreClosure(fs->gvec,&X);dCHK(err);
+  err = dFree2(ents,degree);dCHK(err);
   *nelem = nsub;
   *nvert = n/fs->bs;
   *nconn = nsub*8;              /* all hex */
@@ -503,57 +498,56 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *n
 
 static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTopology subtopo[],dInt suboff[],dInt subind[])
 {
-  dErr       err;
-  s_dEFS     *efs;
-  dReal (*nx)[3],(*geom)[3];
-  dInt       n,sub,subc,*off,*geomoff,nnodes,*ai,*aj;
-  dTruth     done;
+  dErr     err;
+  dMeshESH domain;
+  dRuleset ruleset;
+  dRulesetIterator iter;
+  dInt     sub,subc,nnz,*ai,*aj;
+  dBool    done;
 
   dFunctionBegin;
   err = dMemzero(subtopo,sizeof(*subtopo)*nsubelems);dCHK(err);
   err = dMemzero(suboff,sizeof(*suboff)*(nsubelems+1));dCHK(err);
   err = dMemzero(subind,sizeof(*subind)*nsubconn);dCHK(err);
+  err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
+  if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not gotten");
 
-  err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnodes,&ai,&aj,&done);dCHK(err);
-  if (!done) dERROR(PETSC_ERR_PLIB,"Element assembly matrix not gotten");
-  /*
-  In the following, we have to get a bit more than we actually need (topology only).  We'll change the interface if it
-  becomes a performance issue.
-  */
-  err = dFSGetElements(fs,&n,&off,0,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err); /* space for nodal coordinates (which we won't use) */
+  /* Traverse the domain extracting the connectivity of each sub-element.  It is okay to use the scalar FS in place of
+   * the coordinate FS because we only extract topology.
+   */
+  err = dFSGetDomain(fs,&domain);dCHK(err);
+  err = dFSGetPreferredQuadratureRuleSet(fs,domain,dTYPE_REGION,dTOPO_ALL,dQUADRATURE_METHOD_SPARSE,&ruleset);dCHK(err);
+  err = dRulesetCreateIterator(ruleset,fs,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,NULL,NULL);dCHK(err);
+
   sub = subc = 0;
-  for (dInt e=0; e<n; e++) {
-    dInt three,P[3];
-    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    dASSERT(three == 3);
-    for (dInt i=0; i<P[0]-1; i++) {
-      for (dInt j=0; j<P[1]-1; j++) {
-        for (dInt k=0; k<P[2]-1; k++,sub++) {
-          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
-          dReal no_warn_unused;           /* \a corners is unused, but I don't want to see a warning about it until I get around */
-          no_warn_unused = corners[0][0]; /* to finding a replacement for dQ1CORNER_CONST_DECLARE. */
-          subtopo[sub] = dTOPO_HEX;
-          suboff[sub] = subc;
-          for (dInt l=0; l<8; l++,subc++) {
-            dASSERT(0 <= rowcol[l] && rowcol[l] < nnodes);
-            subind[subc] = aj[ai[rowcol[l]]];
-#if defined dUSE_DEBUG
-            if (ai[rowcol[l]+1]-ai[rowcol[l]] != 1) dERROR(PETSC_ERR_SUP,"Element assembly matrix is not boolean");
-            if (subc >= nsubconn) dERROR(1,"Insufficient preallocation for connectivity");
-#endif
-          }
-        }
-      }
+  while (dRulesetIteratorHasPatch(iter)) {
+    dInt P;
+    const dInt *rowcol;
+    err = dRulesetIteratorSetupElement(iter);dCHK(err);
+    err = dRulesetIteratorGetPatchAssembly(iter,&P,&rowcol,NULL,NULL);dCHK(err);
+    dASSERT(P == 8);            /* Only implemented for hex elements */
+    subtopo[sub] = dTOPO_HEX;
+    suboff[sub] = subc;
+    for (dInt i=0; i<P; i++,subc++) {
+      static const dInt itaps_to_tensor[8] = {0,4,6,2,1,5,7,3}; /* Ugly to put this here */
+      const dInt ti = itaps_to_tensor[i];
+      subind[subc] = aj[ai[rowcol[ti]]];
+      if (ai[rowcol[ti]+1]-ai[rowcol[ti]] != 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Element assembly matrix is not boolean");
+      if (subc >= nsubconn) dERROR(PETSC_COMM_SELF,1,"Insufficient preallocation for connectivity");
     }
+    err = dRulesetIteratorRestorePatchAssembly(iter,&P,&rowcol,NULL,NULL);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+    sub++;
   }
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  err = dRulesetIteratorDestroy(iter);dCHK(err);
+  err = dRulesetDestroy(ruleset);dCHK(err);
+
   dASSERT(subc == nsubconn);
   suboff[nsubelems] = subc;
-
-  err = dFSRestoreElements(fs,&n,&off,0,0,0,0);dCHK(err);
-  err = dFSRestoreWorkspace(fs,__func__,&nx,0,0,0,0,0,0);dCHK(err);
-  err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&n,&ai,&aj,&done);dCHK(err);
-  if (!done) dERROR(PETSC_ERR_PLIB,"Element assembly matrix not restored");
+  err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
+  if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not restored");
   dFunctionReturn(0);
 }
 

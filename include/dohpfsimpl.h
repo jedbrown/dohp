@@ -25,61 +25,89 @@ struct dFSConstraintCtx {
   void                   *user;
 };
 
-typedef struct {
-  dInt status;                  /* 0:unallocated 1:available 2:checked out */
-  char name[dNAME_LEN];
-  dReal (*q)[3];
-  dReal (*jinv)[3][3];
-  dReal *jw;
+struct dRulesetWorkspaceLink {
+  dBool checkedout;
+  dInt dof;
   dScalar *u,*v,*du,*dv;
-} s_dFSWorkspace;
+  struct dRulesetWorkspaceLink *next;
+};
+
+struct dRulesetWorkspace {
+  dScalar *q;
+  dScalar *cjac;
+  dScalar *cjinv;
+  dScalar *jw;
+  struct dRulesetWorkspaceLink *link;
+};
+
+struct _n_dRuleset {
+  dInt refct;
+  dMesh mesh;                   /**< Mesh on which the rules are defined */
+  dMeshESH set;                 /**< Set containing all entities needing integration (and perhaps others of different type/topology) */
+  dEntType type;                /**< Type of entities in the set on which integration is to be done */
+  dEntTopology topo;            /**< Topology of entities in the set on which integration is to be done */
+  dInt n;                       /**< Number of entities in set */
+  dRule *rules;                 /**< Array of rules, one for each patch */
+  dInt maxQ;                    /**< Max number of quadrature points in any patch */
+  dInt maxnpatches;             /**< Max number of patches in any element */
+  dInt maxQelem;                /**< Max number of quadrature points in any element */
+  struct dRulesetWorkspace *workspace; /**< Manages workspace storage for evaluations based on dRules in this set */
+};
+
+struct _dFSIntegrationLink {
+  char *name;
+  dQuadrature quad;
+  dRule *rule;
+  dEFS  *efs;
+  struct _dFSIntegrationLink *next;
+};
 
 struct _dFSOps {
-  DMOPS(dFS)
   dErr (*impldestroy)(dFS);
+  dErr (*setfromoptions)(dFS);
+  dErr (*view)(dFS,dViewer);
   dErr (*buildspace)(dFS);
   dErr (*getsubelementmeshsize)(dFS,dInt*,dInt*,dInt*);
   dErr (*getsubelementmesh)(dFS,dInt,dInt,dEntTopology[],dInt[],dInt[]);
   dErr (*loadintofs)(dViewer,const char[],dFS);
 };
 
-#define dFS_MAX_WORKSPACES 64
-
 struct _p_dFS {
-  PETSCHEADER(struct _dFSOps);
-  DMHEADER
+  struct _p_DM dm;              /**< This must come first so that downcasting to DM works correctly */
+  struct _dFSOps *ops;
   dMesh        mesh;
-  dMeshTag     degreetag,ruletag; /**< tags on regions */
-  dMeshESH     activeSet;       /**< all entities that will be part of this space, weak forms are evaluated on regions in this set */
-  dQuotient    quotient;
+  struct {
+    dMeshTag degree;            /**< Effective degree of elements, packed into dPolynomialOrder */
+    dMeshTag rule;              /**< Degree of rules defined on elements that integration is to be performed on */
+    dMeshTag boundary;          /**< Tag indicating which boundary condition should be enforced */
+    dMeshTag bstatus;           /**< Boundary status tag, every NEUMANN_SET=x set will be tagged */
+    dMeshTag bdyConstraint;     /**< User-defined context for enforcing boundary constraints */
+    dMeshTag goffset;           /**< Offset of first node in global vector */
+    dMeshTag gcoffset;          /**< Offset of first node in global closure vector */
+    dMeshTag loffset;           /**< Offset of first node in local vector (split to include both real and Dirichlet vectors, based on dsplit) */
+    dMeshTag partition;         /**< Part number of activeSet */
+    dMeshTag orderedsub;        /**< Part number of ordered set */
+  } tag;
+  struct {
+    dMeshESH active;            /**< All entities that will be part of this space, weak forms are evaluated on regions in this set */
+    dMeshESH boundaries;        /**< Entities for which boundary conditions need to be enforced */
+    dMeshESH ordered;           /**< All entities in local space, ordered as they are used in the computation */
+    dMeshESH explicit,dirichlet,ghost;  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first
+                                         * part, closure is first two, local is whole thing.  The sets allow
+                                         * us to work with pieces. */
+    dMeshESH weakFace;
+  } set;
   dJacobi      jacobi;
-  dMeshESH     boundaries;      /**< Set of boundary conditions to be enforced on this function space */
-  dMeshTag     bdyTag;          /**< Tag for each boundary condition */
   char         bdyTagName[dNAME_LEN]; /**< Usually "NEUMANN_SET" */
-  dMeshTag     bstatusTag;      /**< Boundary status tag, every NEUMANN_SET=x set will be tagged */
-  dMeshTag     bdyConstraintTag; /**< User-defined context for enforcing boundary constraints */
-  PetscTruth   spacebuilt;
-  PetscTruth   assemblefull;    /**< Use full order constraints for assembly */
-  PetscTruth   assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
+  dBool        spacebuilt;
+  dBool        assemblefull;    /**< Use full order constraints for assembly */
+  dBool        assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
   dInt         ruleStrength;
   dInt         bs;              /**< Block size (number of dofs per node) */
   dInt         nelem;
   dInt        *off;             /**< Offset of element dofs in expanded vector */
-  s_dRule     *rule;            /**< Integration rule */
-  s_dEFS      *efs;             /**< Element function space, defined for all entities */
-  dInt        *vtxoff;
-  dReal       (*vtx)[3];
+  struct _dFSIntegrationLink *integration;
   dInt         n,nc,ngh;        /**< Vector sizes in blocks: owned, owned closure, ghosts */
-  dMeshTag     goffsetTag;      /**< Offset of first node in global vector */
-  dMeshTag     gcoffsetTag;     /**< Offset of first node in global closure vector */
-  dMeshTag     loffsetTag;      /**< Offset of first node in local vector (split to include both real and Dirichlet vectors, based on dsplit) */
-  dMeshTag     partitionTag;    /**< Part number of activeSet */
-  dMeshTag     orderedsubTag;   /**< Part number of ordered set */
-  dMeshESH     orderedSet;      /**< All entities in local space, ordered as they are used in the computation */
-  dMeshESH     explicitSet,dirichletSet,ghostSet;  /**< Vectors have form [explicit,dirichlet,ghost].  Global is first
-                                                   * part, closure is first two, local is whole thing.  The sets allow
-                                                   * us to work with pieces. */
-  dMeshESH     weakFaceSet;     /**< Faces on which weak forms need to be evaluated (I'm not sure this is actually needed) */
   Mat          E;               /**< full-order element assembly matrix (element nodes to local numbering) */
   Mat          Ep;              /**< preconditioning element assembly matrix (element nodes to local numbering, as sparse as possible) */
   Vec          weight;          /**< Vector in global space, used to compensate for overcounting after local to global */
@@ -88,9 +116,20 @@ struct _p_dFS {
   VecScatter   dscat;           /**< Scatter from global closure to \a dcache. */
   ISLocalToGlobalMapping bmapping; /**< Block mapping, Dirichlet blocks have negative global index */
   ISLocalToGlobalMapping mapping;  /**< Scalar mapping, mapping[i] = bmapping[i/bs]*bs+i%bs; */
+
+  struct {
+    Vec expanded;               /**< expanded, used for integration */
+    Vec global;                 /**< coordinates at all nodes of geometryfs */
+    dFS fs;                     /**< function space for geometry */
+  } geometry;
+  struct {
+    Vec expanded;
+    Vec global;
+    dFS fs;
+  } nodalcoord;
+
   dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */
-  s_dFSWorkspace workspace[dFS_MAX_WORKSPACES];
   char         orderingtype[256];
   char       **fieldname;
   void        *data;

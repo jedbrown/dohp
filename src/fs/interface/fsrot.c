@@ -42,14 +42,14 @@ dErr dFSRotationCreate(dFS fs,IS is,dReal rmat[],dInt ns[],Vec v,dFSRotation *in
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
-  dValidHeader(is,IS_COOKIE,2);
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidHeader(is,IS_CLASSID,2);
   dValidRealPointer(rmat,3);
   dValidIntPointer(ns,4);
-  dValidHeader(v,VEC_COOKIE,5);
+  dValidHeader(v,VEC_CLASSID,5);
   dValidPointer(inrot,6);
   *inrot = 0;
-  err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_COOKIE,0,"dFSRotation",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
+  err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_CLASSID,0,"dFSRotation",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
 
   bs = rot->bs = fs->bs;
   err = ISGetSize(is,&n);dCHK(err);
@@ -59,7 +59,7 @@ dErr dFSRotationCreate(dFS fs,IS is,dReal rmat[],dInt ns[],Vec v,dFSRotation *in
   err = PetscObjectReference((PetscObject)v);dCHK(err);
   rot->strong = v;
   for (dInt i=0; i<n; i++) {
-    if (ns[i] < 0 || bs < ns[i]) dERROR(1,"Number of strong dofs must be between 0 and bs=%d (inclusive)",bs);
+    if (ns[i] < 0 || bs < ns[i]) dERROR(PETSC_COMM_SELF,1,"Number of strong dofs must be between 0 and bs=%d (inclusive)",bs);
     /* \todo Check that every rmat is orthogonal */
   }
   err = dMallocA2(n*bs*bs,&rot->rmat,n,&rot->nstrong);dCHK(err);
@@ -86,14 +86,14 @@ dErr dFSRotationView(dFSRotation rot,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(rot,dFSROT_COOKIE,1);
+  dValidHeader(rot,dFSROT_CLASSID,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((dObject)rot)->comm,&viewer);dCHK(err);
   }
-  dValidHeader(viewer,PETSC_VIEWER_COOKIE,2);
+  dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(rot,1,viewer,2);
 
-  dERROR(1,"not implemented");
+  dERROR(PETSC_COMM_SELF,1,"not implemented");
   dFunctionReturn(0);
 }
 
@@ -108,8 +108,8 @@ dErr dFSRotationApply(dFSRotation rot,Vec g,dFSRotateMode rmode,dFSHomogeneousMo
 
   dFunctionBegin;
   if (!rot) dFunctionReturn(0);
-  dValidHeader(rot,dFSROT_COOKIE,1);
-  dValidHeader(g,VEC_COOKIE,2);
+  dValidHeader(rot,dFSROT_CLASSID,1);
+  dValidHeader(g,VEC_CLASSID,2);
   if (rot->ops->apply) {
     err = rot->ops->apply(rot,g,rmode,hmode);dCHK(err);
   } else {
@@ -132,8 +132,8 @@ dErr dFSRotationApplyLocal(dFSRotation rot,Vec l,dFSRotateMode rmode,dFSHomogene
 
   dFunctionBegin;
   if (!rot) dFunctionReturn(0);
-  dValidHeader(rot,dFSROT_COOKIE,1);
-  dValidHeader(l,VEC_COOKIE,2);
+  dValidHeader(rot,dFSROT_CLASSID,1);
+  dValidHeader(l,VEC_CLASSID,2);
   if (rot->ops->applylocal) {
     err = rot->ops->applylocal(rot,l,rmode,hmode);dCHK(err);
   } else {
@@ -142,7 +142,7 @@ dErr dFSRotationApplyLocal(dFSRotation rot,Vec l,dFSRotateMode rmode,dFSHomogene
     dScalar *v,*strong;
     dScalar tmp[16];
 
-    if (bs > 16) dERROR(1,"large block size");
+    if (bs > 16) dERROR(PETSC_COMM_SELF,1,"large block size");
     err = ISGetIndices(rot->is,&idx);dCHK(err);
     err = VecGetArray(l,&v);dCHK(err);
     if (hmode == dFS_INHOMOGENEOUS) {
@@ -166,14 +166,14 @@ dErr dFSRotationApplyLocal(dFSRotation rot,Vec l,dFSRotateMode rmode,dFSHomogene
           switch (hmode) {
             case dFS_HOMOGENEOUS:   for (dInt j=0; j<s[i]; j++) v[ii*bs+j] = 0;    break;
             case dFS_INHOMOGENEOUS: for (dInt j=0; j<s[i]; j++) v[ii*bs+j] = *s++; break;
-            default: dERROR(1,"Invalid homogeneous mode");
+            default: dERROR(PETSC_COMM_SELF,1,"Invalid homogeneous mode");
           }
           break;
         case dFS_ROTATE_REVERSE:
           switch (hmode) {
             case dFS_HOMOGENEOUS:   for (dInt j=0; j<s[i]; j++) tmp[j] = 0;    break;
             case dFS_INHOMOGENEOUS: for (dInt j=0; j<s[i]; j++) tmp[j] = *s++; break;
-            default: dERROR(1,"Invalid homogeneous mode");
+            default: dERROR(PETSC_COMM_SELF,1,"Invalid homogeneous mode");
           }
           for (dInt j=0; j<bs; j++) {
             for (dInt k=0; k<bs; k++) {
@@ -181,7 +181,7 @@ dErr dFSRotationApplyLocal(dFSRotation rot,Vec l,dFSRotateMode rmode,dFSHomogene
             }
           }
           break;
-        default: dERROR(1,"Invalid rotate mode");
+        default: dERROR(PETSC_COMM_SELF,1,"Invalid rotate mode");
       }
     }
     err = ISRestoreIndices(rot->is,&idx);dCHK(err);
@@ -189,7 +189,7 @@ dErr dFSRotationApplyLocal(dFSRotation rot,Vec l,dFSRotateMode rmode,dFSHomogene
     if (hmode == dFS_HOMOGENEOUS) {
       dInt n;
       err = VecGetSize(rot->strong,&n);dCHK(err);
-      if (s-strong != n) dERROR(1,"should not happen");
+      if (s-strong != n) dERROR(PETSC_COMM_SELF,1,"should not happen");
       err = VecRestoreArray(rot->strong,&strong);dCHK(err);
     }
   }

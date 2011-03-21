@@ -18,9 +18,9 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
   dErr err;
 
   dFunctionBegin;
-  if (n && !dest) dERROR(1,"attempting to copy into a NULL string");
+  if (n && !dest) dERROR(PETSC_COMM_SELF,1,"attempting to copy into a NULL string");
   while (--n && (*d++ = *s++)) {}
-  if (!n) dERROR(1,"String truncated");
+  if (!n) dERROR(PETSC_COMM_SELF,1,"String truncated");
   err = dMemzero(d,n);dCHK(err);
   dFunctionReturn(0);
 }
@@ -28,24 +28,60 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
 dErr dObjectGetComm(dObject obj,MPI_Comm *comm)
 { return PetscObjectGetComm(obj,comm); }
 
-dErr dRealTableView(dInt m,dInt n,const dReal mat[],const char *name,dViewer viewer)
+dErr dRealTableView(dInt m,dInt n,const dReal mat[],dViewer viewer,const char *format,...)
 {
+  va_list Argp;
+  size_t fullLen;
+  char name[4096];
   dBool ascii;
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  va_start(Argp,format);
+  err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
+  if (!mat) {
+    err = PetscViewerASCIIPrintf(viewer,"%10s: null %D*%D\n",name,m,n);dCHK(err);
+    dFunctionReturn(0);
+  }
   for (dInt i=0; i<m; i++) {
-    if (name) {
-      err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
-    }
-    err = PetscViewerASCIIUseTabs(viewer,PETSC_NO);dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_FALSE);dCHK(err);
     for (dInt j=0; j<n; j++) {
       err = PetscViewerASCIIPrintf(viewer," % 9.5f",mat[i*n+j]);dCHK(err);
     }
     err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
-    err = PetscViewerASCIIUseTabs(viewer,PETSC_YES);dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_TRUE);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *format,...)
+{
+  va_list Argp;
+  size_t fullLen;
+  char name[4096];
+  dBool ascii;
+  dErr err;
+
+  dFunctionBegin;
+  va_start(Argp,format);
+  err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  if (!ascii) dFunctionReturn(0);
+  if (!mat) {
+    err = PetscViewerASCIIPrintf(viewer,"%10s: null %D*%D\n",name,m,n);dCHK(err);
+    dFunctionReturn(0);
+  }
+  for (dInt i=0; i<m; i++) {
+    err = PetscViewerASCIIPrintf(viewer,"%10s[%2d][%2d:%2d] ",name,i,0,n);dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_FALSE);dCHK(err);
+    for (dInt j=0; j<n; j++) {
+      err = PetscViewerASCIIPrintf(viewer," %3D",mat[i*n+j]);dCHK(err);
+    }
+    err = PetscViewerASCIIPrintf(viewer,"\n");dCHK(err);
+    err = PetscViewerASCIIUseTabs(viewer,PETSC_TRUE);dCHK(err);
   }
   dFunctionReturn(0);
 }

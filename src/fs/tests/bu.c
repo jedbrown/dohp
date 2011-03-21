@@ -25,8 +25,8 @@ static dErr BUCreate(MPI_Comm comm,BU *bunit)
   err = dNew(struct BUnitCtx,&bu);dCHK(err);
 
   bu->comm        = comm;
-  bu->nominalRDeg = 3;
-  bu->constBDeg   = 3;          /* With only one element, this is the minimum possible with Dirichlet boundary conditions */
+  bu->nominalRDeg = 2;
+  bu->constBDeg   = 2;          /* With only one element, this is the minimum possible with Dirichlet boundary conditions */
 
   *bunit = bu;
   dFunctionReturn(0);
@@ -63,12 +63,11 @@ static dErr BUSetFromOptions(BU bu)
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(bu->comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   bu->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"bu_rule_degree",bu->nominalRDeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"bu_efs_degree",bu->constBDeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"bu_rule_degree",bu->nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"bu_efs_degree",bu->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(bu->comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
@@ -138,10 +137,9 @@ static dErr BUAssemble(BU bu,Mat P)
   err = dFSGlobalToExpanded(bu->fs,bu->gx,bu->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Expanded vector projected into inhomogeneous space\n");dCHK(err);
   err = VecView(bu->x,viewer);dCHK(err);
-  err = dFSGetCoordinates(bu->fs,&coords);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"Serial coordinate vector (3 dofs per closure node)\n");dCHK(err);
+  err = dFSGetNodalCoordinatesGlobal(bu->fs,&coords);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"Global coordinate vector (3 dofs per closure node)\n");dCHK(err);
   err = VecView(coords,viewer);dCHK(err);
-  err = VecDestroy(coords);dCHK(err);
   err = MatAssemblyBegin(P,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd  (P,MAT_FINAL_ASSEMBLY);dCHK(err);
   dFunctionReturn(0);

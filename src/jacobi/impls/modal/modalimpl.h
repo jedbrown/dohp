@@ -4,30 +4,32 @@
 #include <dohpjacimpl.h>
 #include <dohpkhash.h>
 
-typedef struct _ModalBasis *ModalBasis;
-struct _ModalBasis {
-  dInt P;                       /* number of modes */
-  dInt Q;                       /* number of quadrature points */
-  dInt dim;                     /* spatial dimension */
-  dReal *interp;
-  dReal *deriv;
-};
-
-KHASH_MAP_INIT_INT(modal,ModalBasis)
-
 typedef struct {
   dEFSHEADER;
-  ModalBasis basis;
-  void *unused[2];
+  dEntTopology topo;
+  dInt         P;               /* number of modes */
+  dInt         Q;               /* number of quadrature points */
+  dReal        *interp;
+  dReal        *deriv;
 } dEFS_Modal;
 
 typedef struct {
-  khash_t(modal) *topo[dTOPO_ALL];
+  dEntTopology topo;
+  dPolynomialOrder degree;
+  dRule rule;
+} khu_efskey_t;
+static inline khint_t khu_efskey_hash_func(khu_efskey_t key)
+{ return kh_int_hash_func((khint32_t)key.topo) ^ kh_int_hash_func((khint32_t)dPolynomialOrderKeyU32(key.degree)) ^ kh_int64_hash_func((khint64_t)(uintptr_t)key.rule); }
+static inline bool khu_efskey_hash_equal(khu_efskey_t a,khu_efskey_t b)
+{ return (a.topo == b.topo) && dPolynomialOrderEqual(a.degree,b.degree) && (a.rule == b.rule); }
+KHASH_INIT(efs, khu_efskey_t, dEFS_Modal*, 1, khu_efskey_hash_func, khu_efskey_hash_equal)
+
+typedef struct {
+  khash_t(efs) *efs;
   dJacobiModalFamily family;
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
 } dJacobi_Modal;
 
-extern dErr ModalBasisView(ModalBasis,PetscViewer);
 extern dErr dJacobiEFSOpsSetUp_Modal(dJacobi);
 
 #endif

@@ -16,3 +16,10 @@ data
 CMake
 docs/html
 docs/latex
+.metadata
+*.kdev4
+.cproject
+.project
+nbproject
+eclipse-style
+.settings

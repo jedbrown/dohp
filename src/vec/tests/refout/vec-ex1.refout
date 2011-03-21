@@ -1,6 +1,8 @@
-ghosts 4 4
-ghosts 1 1
+[0] ghosts 4 3
+[1] ghosts 1 0
 Empty vector
+Vector Object: 2 MPI processes
+  type: dohp
 Process [0]
 0
 0
@@ -12,6 +14,8 @@ Process [1]
 0
 0
 Global unclosed form
+Vector Object: 2 MPI processes
+  type: dohp
 Process [0]
 1000
 1001
@@ -23,6 +27,8 @@ Process [1]
 1102
 1103
 Global closed form
+Vector Object: 2 MPI processes
+  type: mpi
 Process [0]
 1000
 1001
@@ -37,7 +43,10 @@ Process [1]
 1103
 0
 0
-Before VecGhostUpdateBegin/EndProcess [0]
+Before VecGhostUpdateBegin/End
+Vector Object: 2 MPI processes
+  type: mpi
+Process [0]
 1000
 1001
 1002
@@ -59,7 +68,10 @@ Process [1]
 0
 0
 0
-After VecGhostUpdateBegin/EndProcess [0]
+After VecGhostUpdateBegin/End
+Vector Object: 2 MPI processes
+  type: mpi
+Process [0]
 1000
 1001
 1002
@@ -68,8 +80,8 @@ After VecGhostUpdateBegin/EndProcess [0]
 0
 1102
 1103
-1102
-1103
+1100
+1101
 Process [1]
 1100
 1101
@@ -79,9 +91,11 @@ Process [1]
 0
 1002
 1003
-1002
-1003
+1000
+1001
 Global unclosed form of y
+Vector Object: 2 MPI processes
+  type: dohp
 Process [0]
 1000
 1001
@@ -93,6 +107,8 @@ Process [1]
 1102
 1103
 Global closed form of y
+Vector Object: 2 MPI processes
+  type: mpi
 Process [0]
 1000
 1001
@@ -108,6 +124,8 @@ Process [1]
 0
 0
 Global closed form of y, after copy of shifted closure
+Vector Object: 2 MPI processes
+  type: mpi
 Process [0]
 2000
 2001

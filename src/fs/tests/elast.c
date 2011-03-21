@@ -90,20 +90,22 @@ struct ElastStore {
   dReal Du[3][3];
 };
 
+typedef enum {EVAL_FUNCTION,EVAL_JACOBIAN, EVAL_UB} ElastEvaluation;
+
 typedef struct ElastCtx *Elast;
 struct ElastCtx {
   MPI_Comm              comm;
   struct ElastParam     param;
   struct ElastExact     exact;
   struct ElastExactCtx  exactctx;
-  struct ElastStore    *store;
-  dInt                 *storeoff;
   dJacobi               jac;
   dMesh                 mesh;
   dFS                   fs;
   Vec                   x,y;
   dInt                  constBDeg,nominalRDeg;
-  dTruth                errorview;
+  dBool                 errorview;
+  dQuadratureMethod     function_qmethod,jacobian_qmethod;
+  dRulesetIterator      regioniter[EVAL_UB];
 };
 
 static dErr ElastCreate(MPI_Comm comm,Elast *elast)
@@ -116,11 +118,14 @@ static dErr ElastCreate(MPI_Comm comm,Elast *elast)
   err = dNew(struct ElastCtx,&elt);dCHK(err);
   elt->comm = comm;
 
-  elt->constBDeg = 4;
+  elt->constBDeg = 3;
   elt->nominalRDeg = 0;
   elt->param.lambda = 10;
   elt->param.mu     = 100;
   elt->param.gamma  = 0;
+  elt->function_qmethod = dQUADRATURE_METHOD_FAST;
+  elt->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
+
   *elast = elt;
   dFunctionReturn(0);
 }
@@ -142,14 +147,17 @@ static dErr ElastSetFromOptions(Elast elt)
   err = PetscOptionsBegin(elt->comm,NULL,"Elasticity options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elt->constBDeg,&elt->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elt->nominalRDeg,&elt->nominalRDeg,NULL);dCHK(err);
-    err = PetscOptionsTruth("-error_view","View errors","",elt->errorview,&elt->errorview,NULL);dCHK(err);
+    err = PetscOptionsBool("-error_view","View errors","",elt->errorview,&elt->errorview,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_lambda","first Lame parameter","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_mu","Second Lame parameter","",prm->mu,&prm->mu,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_gamma","Strength of nonlinearity [0,1]","",prm->gamma,&prm->gamma,NULL);dCHK(err);
+    err = PetscOptionsEnum("-elast_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)elt->function_qmethod,(PetscEnum*)&elt->function_qmethod,NULL);dCHK(err);
+    err = PetscOptionsEnum("-elast_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)elt->jacobian_qmethod,(PetscEnum*)&elt->jacobian_qmethod,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
+
   } err = PetscOptionsEnd();dCHK(err);
 
   switch (exact) {
@@ -161,7 +169,7 @@ static dErr ElastSetFromOptions(Elast elt)
       elt->exact.solution = ElastExact_1_Solution;
       elt->exact.forcing = ElastExact_1_Forcing;
       break;
-    default: dERROR(1,"Exact solution %d not implemented");
+    default: dERROR(PETSC_COMM_SELF,1,"Exact solution %d not implemented");
   }
 
   err = dMeshCreate(elt->comm,&mesh);dCHK(err);
@@ -173,12 +181,11 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(elt->comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   elt->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"elast_rule_degree",elt->nominalRDeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"elast_efs_degree",elt->constBDeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"elast_rule_degree",elt->nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"elast_efs_degree",elt->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(elt->comm,&fs);dCHK(err);
   err = dFSSetBlockSize(fs,3);dCHK(err);
@@ -193,23 +200,35 @@ static dErr ElastSetFromOptions(Elast elt)
 
   err = dFSCreateExpandedVector(fs,&elt->x);dCHK(err);
   err = VecDuplicate(elt->x,&elt->y);dCHK(err);
+  dFunctionReturn(0);
+}
 
-  {                             /* Allocate space for stored values */
-    dInt n;
-    s_dRule *rule;
-    err = dFSGetElements(fs,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
-    err = dMallocA(n+1,&elt->storeoff);dCHK(err);
-    elt->storeoff[0] = 0;
-    for (dInt i=0; i<n; i++) {
-      dInt q;
-      err = dRuleGetSize(&rule[i],NULL,&q);dCHK(err);
-      elt->storeoff[i+1] = elt->storeoff[i] + q;
+static dErr ElastGetRegionIterator(Elast elt,ElastEvaluation eval,dRulesetIterator *riter)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!elt->regioniter[eval]) {
+    dRulesetIterator iter;
+    dRuleset ruleset;
+    dFS cfs;
+    dMeshESH domain;
+    dQuadratureMethod qmethod;
+    switch (eval) {
+    case EVAL_FUNCTION: qmethod = elt->function_qmethod; break;
+    case EVAL_JACOBIAN: qmethod = elt->jacobian_qmethod; break;
+    default: dERROR(elt->comm,PETSC_ERR_ARG_OUTOFRANGE,"Unknown evaluation context");
     }
-    err = dMallocA(elt->storeoff[n],&elt->store);dCHK(err);
-    err = dMemzero(elt->store,elt->storeoff[n]*sizeof(elt->store[0]));dCHK(err);
-    err = dFSRestoreElements(fs,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
+    err = dFSGetDomain(elt->fs,&domain);dCHK(err);
+    err = dFSGetPreferredQuadratureRuleSet(elt->fs,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&ruleset);dCHK(err);
+    err = dFSGetCoordinateFS(elt->fs,&cfs);dCHK(err);
+    err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+    err = dRulesetDestroy(ruleset);dCHK(err); /* Give ownership to iterator */
+    err = dRulesetIteratorAddFS(iter,elt->fs);dCHK(err);
+    if (eval == EVAL_FUNCTION) {err = dRulesetIteratorAddStash(iter,0,sizeof(struct ElastStore));dCHK(err);}
+    elt->regioniter[eval] = iter;
   }
-
+  *riter = elt->regioniter[eval];
   dFunctionReturn(0);
 }
 
@@ -221,15 +240,16 @@ static dErr ElastDestroy(Elast elt)
   err = dFSDestroy(elt->fs);dCHK(err);
   err = dJacobiDestroy(elt->jac);dCHK(err);
   err = dMeshDestroy(elt->mesh);dCHK(err);
-  err = dFree(elt->storeoff);dCHK(err);
-  err = dFree(elt->store);dCHK(err);
   if (elt->x) {err = VecDestroy(elt->x);dCHK(err);}
   if (elt->y) {err = VecDestroy(elt->y);dCHK(err);}
+  for (dInt i=0; i<EVAL_UB; i++) {
+    if (elt->regioniter[i]) {dRulesetIteratorDestroy(elt->regioniter[i]);dCHK(err);}
+  }
   err = dFree(elt);dCHK(err);
   dFunctionReturn(0);
 }
 
-static inline void ElastPointwiseComputeStore(struct ElastParam dUNUSED *prm,const dReal dUNUSED x[3],const dScalar dUNUSED u[3],const dScalar Du[],struct ElastStore *st)
+static inline void ElastPointwiseComputeStore(struct ElastParam dUNUSED *prm,const dReal dUNUSED x[3],const dScalar dUNUSED u[3],const dScalar Du[9],struct ElastStore *st)
 {
   memcpy(st->Du,Du,9*sizeof Du[0]);
 }
@@ -291,201 +311,160 @@ static inline void ElastPointwiseJacobian(struct ElastParam dUNUSED *prm,const s
 static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
 {
   Elast elt = ctx;
-  dFS fs = elt->fs;
-  dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
-  dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
+  Vec Coords;
+  dRulesetIterator iter;
   dErr err;
 
   dFunctionBegin;
-  err = dFSGlobalToExpanded(fs,gx,elt->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(elt->x,&x);dCHK(err);
-  err = VecGetArray(elt->y,&y);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err); /* \note \a off is in terms of \e nodes, not \e dofs */
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
-  for (dInt e=0; e<n; e++) {
+  err = VecZeroEntries(gy);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(elt->fs,&Coords);dCHK(err);
+  err = ElastGetRegionIterator(elt,EVAL_FUNCTION,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,gy,dFS_INHOMOGENEOUS);dCHK(err);
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    struct ElastStore *stash;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      struct ElastStore *restrict st = &elt->store[elt->storeoff[e]+i];
-      ElastPointwiseFunction(&elt->param,&elt->exact,&elt->exactctx,q[i],jw[i],&u[i*3],&du[i*9],st,&v[i*3],&dv[i*9]);
+      ElastPointwiseFunction(&elt->param,&elt->exact,&elt->exactctx,&x[i*3],jw[i],&u[i*3],&du[i*9],&stash[i],&v[i*3],&dv[i*9]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES,NULL,NULL,v,dv);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(elt->x,&x);dCHK(err);
-  err = VecRestoreArray(elt->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,elt->y,gy,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = dRulesetIteratorFinish(iter);dCHK(err);
   dFunctionReturn(0);
 }
 
 static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
 {
   Elast elt;
-  dFS fs;
-  dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*restrict geom)[3],(*restrict q)[3],(*restrict jinv)[3][3],*restrict jw;
-  dScalar *x,*y,*restrict u,*restrict v,*restrict du,*restrict dv;
+  Vec Coords;
+  dRulesetIterator iter;
   dErr err;
 
   dFunctionBegin;
   err = PetscLogEventBegin(LOG_ElastShellMult,J,gx,gy,0);dCHK(err);
   err = MatShellGetContext(J,(void**)&elt);dCHK(err);
-  fs = elt->fs;
-  err = dFSGlobalToExpanded(fs,gx,elt->x,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(elt->x,&x);dCHK(err);
-  err = VecGetArray(elt->y,&y);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
-  for (dInt e=0; e<n; e++) {
+  err = VecZeroEntries(gy);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(elt->fs,&Coords);dCHK(err);
+  err = ElastGetRegionIterator(elt,EVAL_FUNCTION,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_HOMOGENEOUS,gy,dFS_HOMOGENEOUS);dCHK(err);
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    const struct ElastStore *stash;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      struct ElastStore *restrict st = &elt->store[elt->storeoff[e]+i];
-      ElastPointwiseJacobian(&elt->param,st,jw[i],&u[i*3],&du[i*9],&v[i*3],&dv[i*9]);
+      ElastPointwiseJacobian(&elt->param,&stash[i],jw[i],&u[i*3],&du[i*9],&v[i*3],&dv[i*9]);
     }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,v,y+3*off[e],dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,dv,y+3*off[e],dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES,NULL,NULL,v,dv);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,&du,&dv);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(elt->x,&x);dCHK(err);
-  err = VecRestoreArray(elt->y,&y);dCHK(err);
-  err = dFSExpandedToGlobal(fs,elt->y,gy,dFS_HOMOGENEOUS,INSERT_VALUES);dCHK(err);
+  err = dRulesetIteratorFinish(iter);dCHK(err);
   err = PetscLogEventEnd(LOG_ElastShellMult,J,gx,gy,0);dCHK(err);
   dFunctionReturn(0);
 }
 
 static dErr ElastJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
-  Elast elt = ctx;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*nx)[3];
-  dScalar *x;
-  dFS fs = elt->fs;
-  dInt n,*off,*geomoff;
-  dReal (*geom)[3];
-  dErr err;
+  Elast            elt = ctx;
+  Vec              Coords;
+  dRulesetIterator iter;
+  dScalar          *Kflat;
+  dErr             err;
 
   dFunctionBegin;
   err = MatZeroEntries(*Jp);dCHK(err);
-  err = dFSGlobalToExpanded(fs,gx,elt->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(elt->x,&x);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err); /* We only need space for nodal coordinates */
-  for (dInt e=0; e<n; e++) {
-    dInt three,P[3];
-    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    if (three != 3) dERROR(1,"Dimension not equal to 3");
-    for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
-      for (dInt j=0; j<P[1]-1; j++) {
-        for (dInt k=0; k<P[2]-1; k++) {
-          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
-          const dScalar (*uc)[3] = (const dScalar(*)[3])x+off[e]; /* function values, indexed at subelement corners \c uc[c[#]][0] */
-          const dReal (*qx)[3],*jw,(*basis)[8],(*deriv)[8][3];
-          dInt qn;
-          dScalar K[8*3][8*3];
-          err = dMemzero(K,sizeof(K));dCHK(err);
-          err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,(const dReal**)&basis,(const dReal**)&deriv);dCHK(err);
-          for (dInt lq=0; lq<qn; lq++) { /* loop over quadrature points */
-            struct ElastStore st;
-            { /* Set up store */
-              dReal st_u[3] = {0,0,0},st_Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
-              for (dInt lp=0; lp<8; lp++) { /* Evaluate function values and gradients at this quadrature point */
-                for (dInt f=0; f<3; f++) {  /* for each field */
-                  st_u[f] += basis[lq][lp] * uc[c[lp]][f];
-                  st_Du[f][0] += deriv[lq][lp][0] * uc[c[lp]][f];
-                  st_Du[f][1] += deriv[lq][lp][1] * uc[c[lp]][f];
-                  st_Du[f][2] += deriv[lq][lp][2] * uc[c[lp]][f];
-                }
-              }
-              ElastPointwiseComputeStore(&elt->param,qx[lq],st_u,&st_Du[0][0],&st);
-            }
-            for (dInt ltest=0; ltest<8; ltest++) {              /* Loop over test basis functions (corners) */
-              for (dInt lp=0; lp<8; lp++) {                     /* Loop over trial basis functions (corners) */
-                for (dInt fp=0; fp<3; fp++) {                   /* Each field component of trial function */
-                  dReal u[3] = {0,0,0},Du[3][3] = {{0,0,0},{0,0,0},{0,0,0}},v[3],Dv[3][3];
-                  u[fp] = basis[lq][lp]; /* Trial function for only this field component */
-                  Du[fp][0] = deriv[lq][lp][0];
-                  Du[fp][1] = deriv[lq][lp][1];
-                  Du[fp][2] = deriv[lq][lp][2];
-                  /* Get the coefficients of test functions for each field component */
-                  ElastPointwiseJacobian(&elt->param,&st,jw[lq],u,&Du[0][0],v,&Dv[0][0]);
-                  for (dInt ftest=0; ftest<3; ftest++) { /* Insert contribution from each test function field component */
-                    K[ltest*3+ftest][lp*3+fp] += //basis[lq][ltest] * v[0]
-                      + deriv[lq][ltest][0] * Dv[ftest][0]
-                      + deriv[lq][ltest][1] * Dv[ftest][1]
-                      + deriv[lq][ltest][2] * Dv[ftest][2];
-                  }
-                }
+  err = dFSGetGeometryVectorExpanded(elt->fs,&Coords);dCHK(err);
+  err = ElastGetRegionIterator(elt,EVAL_JACOBIAN,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
+  err = dRulesetIteratorGetMatrixSpaceSplit(iter,NULL,NULL,NULL,&Kflat);dCHK(err);
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dReal *jw,*interp_flat,*deriv_flat;
+    const dInt *rowcol;
+    dScalar (*x)[3],(*dx)[3][3],(*u)[3],(*du)[3][3];
+    dInt Q,P;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, (dScalar**)&u,(dScalar**)&du,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat);dCHK(err);
+    {                           /* Scope so that we can declare new VLA pointers for convenient assembly */
+      const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
+      const dReal (*deriv)[P][3] = (const dReal(*)[P][3])deriv_flat;
+      dScalar (*K)[3][P][3] = (dScalar(*)[3][P][3])Kflat;
+      err = PetscMemzero(K,P*3*P*3*sizeof(K[0][0][0][0]));dCHK(err);
+      for (dInt q=0; q<Q; q++) {
+        struct ElastStore store;
+        ElastPointwiseComputeStore(&elt->param,x[q],u[q],&du[q][0][0],&store);
+        for (dInt j=0; j<P; j++) {
+          for (dInt fj=0; fj<3; fj++) {
+            dScalar uu[3] = {0},duu[3][3] = {{0},{0},{0}},v[3],dv[3][3];
+            uu[fj] = interp[q][j];
+            duu[fj][0] = deriv[q][j][0];
+            duu[fj][1] = deriv[q][j][1];
+            duu[fj][2] = deriv[q][j][2];
+            ElastPointwiseJacobian(&elt->param,&store,jw[q],uu,&duu[0][0],v,&dv[0][0]);
+            for (dInt i=0; i<P; i++) {
+              for (dInt fi=0; fi<3; fi++) {
+                K[i][fi][j][fj] += (interp[q][i] * v[fi]
+                                    + deriv[q][i][0] * dv[fi][0]
+                                    + deriv[q][i][1] * dv[fi][1]
+                                    + deriv[q][i][2] * dv[fi][2]);
               }
             }
           }
-          err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
         }
       }
+      err = dFSMatSetValuesBlockedExpanded(elt->fs,*Jp,P,rowcol,P,rowcol,&K[0][0][0][0],ADD_VALUES);dCHK(err);
     }
+    err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(elt->x,&x);dCHK(err);
+  err = dRulesetIteratorFinish(iter);dCHK(err);
 
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
   err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  if (J != Jp) {
+    err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+    err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  }
   *structure = SAME_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
 
 static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3])
 {
-  dFS fs = elt->fs;
-  dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,(*u)[3],(*du)[9];
   dErr err;
+  dInt patchcnt;
+  Vec Coords;
+  dRulesetIterator iter;
 
   dFunctionBegin;
   err = dMemzero(errorNorms,3*sizeof(errorNorms));dCHK(err);
   err = dMemzero(gerrorNorms,3*sizeof(gerrorNorms));dCHK(err);
-  err = dFSGlobalToExpanded(fs,gx,elt->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(elt->x,&x);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,(dReal**)&u,NULL,(dReal**)&du,NULL);dCHK(err);
-  for (dInt e=0; e<n; e++) {
+  err = dFSGetGeometryVectorExpanded(elt->fs,&Coords);dCHK(err);
+  err = ElastGetRegionIterator(elt,EVAL_FUNCTION,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
+  patchcnt = 0;
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar (*x)[3],(*dx)[3][3],(*u)[3],(*du)[3][3];
     dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],&u[0][0],dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],&du[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      dScalar uu[3],duu[9],r[3],gr[3],rsum=0,grsum=0;
-      elt->exact.solution(&elt->exactctx,&elt->param,q[i],uu,duu);
+      dScalar uu[3],duu[3][3],r[3],gr[3],rsum=0,grsum=0;
+      elt->exact.solution(&elt->exactctx,&elt->param,x[i],uu,&duu[0][0]);
       for (dInt j=0; j<3; j++) {
         r[j] = u[i][j] - uu[j]; /* Function error at point */
         rsum += dSqr(r[j]);
-        gr[j] = dSqrt(dSqr(du[i][j*3+0]-duu[j*3+0]) + dSqr(du[i][j*3+1]-duu[j*3+1]) + dSqr(du[i][j*3+2]-duu[j*3+2])); /* Gradient error at point */
+        gr[j] = dSqrt(dSqr(du[i][j][0]-duu[j][0]) + dSqr(du[i][j][1]-duu[j][1]) + dSqr(du[i][j][2]-duu[j][2])); /* Gradient error at point */
         grsum += dSqr(gr[j]);
       }
       if (elt->errorview) {
         printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e %10.2e %10.2e   exact %10.2e %10.2e %10.2e   error %10.e\n",
-               e,i,q[i][0],q[i][1],q[i][2],u[i][0],u[i][1],u[i][2],uu[0],uu[1],uu[2],rsum);
+               patchcnt,i,x[i][0],x[i][1],x[i][2],u[i][0],u[i][1],u[i][2],uu[0],uu[1],uu[2],rsum);
       }
       errorNorms[0] += (dAbs(r[0]) + dAbs(r[1]) + dAbs(r[2])) * jw[i];                   /* 1-norm */
       errorNorms[1] += grsum * jw[i];                                                    /* 2-norm */
@@ -504,10 +483,10 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
 # endif
 #endif
     }
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+    patchcnt++;
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,(dReal**)&u,NULL,NULL,NULL);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(elt->x,&x);dCHK(err);
+  err = dRulesetIteratorFinish(iter);dCHK(err);
   errorNorms[1] = dSqrt(errorNorms[1]);
   gerrorNorms[1] = dSqrt(gerrorNorms[1]);
   dFunctionReturn(0);
@@ -516,7 +495,7 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
 static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
 {
   dErr err;
-  Vec soln,xc,cvec;
+  Vec soln,xc,cvecg,cvec;
   dScalar *x,*coords;
   dInt n,bs;
 
@@ -524,13 +503,14 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
   *insoln = 0;
   err = dFSCreateGlobalVector(elt->fs,&soln);dCHK(err);
   err = VecDohpGetClosure(soln,&xc);dCHK(err);
-  err = dFSGetCoordinates(elt->fs,&cvec);dCHK(err);
+  err = dFSGetNodalCoordinatesGlobal(elt->fs,&cvecg);dCHK(err);
+  err = VecDohpGetClosure(cvecg,&cvec);dCHK(err);
   err = VecGetLocalSize(xc,&n);dCHK(err);
   err = VecGetBlockSize(xc,&bs);dCHK(err);
   {
     dInt nc;
     err = VecGetLocalSize(cvec,&nc);dCHK(err);
-    if (nc*bs != n*3) dERROR(1,"Coordinate vector has inconsistent size");
+    if (nc*bs != n*3) dERROR(PETSC_COMM_SELF,1,"Coordinate vector has inconsistent size");
   }
   err = VecGetArray(xc,&x);dCHK(err);
   err = VecGetArray(cvec,&coords);dCHK(err);
@@ -541,7 +521,7 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
   }
   err = VecRestoreArray(xc,&x);dCHK(err);
   err = VecRestoreArray(cvec,&coords);dCHK(err);
-  err = VecDestroy(cvec);dCHK(err);
+  err = VecDohpRestoreClosure(cvecg,&cvec);dCHK(err);
   err = VecDohpRestoreClosure(soln,&xc);dCHK(err);
   *insoln = soln;
   dFunctionReturn(0);
@@ -557,13 +537,13 @@ int main(int argc,char *argv[])
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dTruth nojshell,nocheck;
+  dBool  nojshell,nocheck;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
-  err = PetscLogEventRegister("ElastShellMult",MAT_COOKIE,&LOG_ElastShellMult);dCHK(err);
+  err = PetscLogEventRegister("ElastShellMult",MAT_CLASSID,&LOG_ElastShellMult);dCHK(err);
 
   err = ElastCreate(comm,&elt);dCHK(err);
   err = ElastSetFromOptions(elt);dCHK(err);

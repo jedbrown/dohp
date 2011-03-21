@@ -12,8 +12,11 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 struct Options {
   dInt constBDeg;
   dInt nominalRDeg;
-  dTruth showsoln;
+  dBool  showsoln;
   dInt cycles;
+  dInt  proj_version;
+  dQuadratureMethod proj_qmethod;
+  dQuadratureMethod jac_qmethod;
   dReal q1scale;
   dReal frequency[3];
   dReal normRequirePtwise[3];
@@ -56,7 +59,7 @@ static dErr createHexMesh(iMesh_Instance mi)
                                               0.1,0.2,1.3, 1.3,0.2,1.1, 1.1,1.2,1.3, 0.3,1.2,1.1,
                                               2.1,0.2,0.3, 2.3,1.2,0.1, 2.1,1.2,1.3, 2.3,0.2,1.1};
   const double *vtx;
-  dTruth iaffine = dFALSE;
+  dBool  iaffine = dFALSE;
   int rconn[16] = {0,1,2,3,4,5,6,7, 1,2,6,5,8,9,10,11};
   int fconn[11*4] = {0,1,2,3, 1,2,6,5, 2,3,7,6, 0,3,7,4, 0,1,5,4, 5,6,7,4,
                      8,11,5,1, 2,1,8,9, 8,9,10,11, 11,10,6,5, 9,10,6,2};
@@ -70,7 +73,7 @@ static dErr createHexMesh(iMesh_Instance mi)
 
   dFunctionBegin;
   err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"Hex mesh options",NULL);dCHK(err);
-  err = PetscOptionsTruth("-affine","Use an affine coordinate map",NULL,iaffine,&iaffine,NULL);dCHK(err);
+  err = PetscOptionsBool("-affine","Use an affine coordinate map",NULL,iaffine,&iaffine,NULL);dCHK(err);
   err = PetscOptionsEnd();dCHK(err);
   vtx = iaffine ? vtx_affine : vtx_parametric;
   iMesh_createVtxArr(mi,vtxlen/3,iBase_INTERLEAVED,vtx,vtxlen,MLREF(v),&ierr);dICHK(mi,ierr);
@@ -78,9 +81,9 @@ static dErr createHexMesh(iMesh_Instance mi)
   iMesh_createEntArr(mi,iMesh_HEXAHEDRON,work,ALEN(rconn),MLREF(r),MLREF(stat),&ierr);dICHK(mi,ierr);
   {                             /* Check to see if any orientations changed */
     iMesh_getEntArrAdj(mi,r.v,r.s,iMesh_POINT,MLREF(tv),MLREF(off),&ierr);dICHK(mi,ierr);
-    if (tv.s != v.s + 4) dERROR(1,"wrong number of vertices returned"); /* interface verts counted twice */
+    if (tv.s != v.s + 4) dERROR(PETSC_COMM_SELF,1,"wrong number of vertices returned"); /* interface verts counted twice */
     for (int i=0; i<tv.s; i++) {
-      if (v.v[rconn[i]] != tv.v[i]) dERROR(1,"unexpected vertex ordering");
+      if (v.v[rconn[i]] != tv.v[i]) dERROR(PETSC_COMM_SELF,1,"unexpected vertex ordering");
     }
     MeshListFree(tv);
     MeshListFree(off);
@@ -131,25 +134,26 @@ static dErr tagHexes(dMesh mesh,dMeshTag *intag)
 {
   dMeshTag tag;
   dMeshEH ents[100],hex[2];
-  dInt adata[3*ALEN(ents)],hexDegree[3*ALEN(hex)] = {3,4,5,6,7,8},nhex,nents;
+  dInt nhex,nents;
+  dPolynomialOrder adata[ALEN(ents)],hexDegree[ALEN(hex)] = {dPolynomialOrderCreate(0,3,4,5),dPolynomialOrderCreate(0,6,7,8)};
   dErr err;
 
   dFunctionBegin;
   *intag = 0;
   if (gopt.constBDeg) {
-    for (dInt i=0; i<ALEN(hexDegree); i++) hexDegree[i] = gopt.constBDeg;
+    for (dInt i=0; i<ALEN(hexDegree); i++) hexDegree[i] = dPolynomialOrderCreate(0,gopt.constBDeg,gopt.constBDeg,gopt.constBDeg);
   }
-  err = dMeshTagCreate(mesh,"ex1_anisotropic",3,dDATA_INT,&tag);dCHK(err);
-  /* tag edges and faces with high values, currently needed to propogate degrees (will overwrite high values) */
+  err = dMeshTagCreate(mesh,"ex1_anisotropic",1,dDATA_INT,&tag);dCHK(err);
+  /* tag edges and faces with high values, currently needed to propagate degrees (will overwrite high values) */
   for (dEntType type=dTYPE_VERTEX; type<=dTYPE_FACE; type++) {
     err = dMeshGetEnts(mesh,0,type,dTOPO_ALL,ents,ALEN(ents),&nents);
-    for (dInt i=0; i<3*nents; i++) adata[i] = 30;
-    err = dMeshTagSetData(mesh,tag,ents,nents,adata,3*nents,dDATA_INT);dCHK(err);
+    for (dInt i=0; i<nents; i++) adata[i] = dPolynomialOrderCreate(0,30,30,30);
+    err = dMeshTagSetData(mesh,tag,ents,nents,adata,nents,dDATA_INT);dCHK(err);
   }
   /* tag the hexes with meaningful values */
   err = dMeshGetEnts(mesh,0,dTYPE_ALL,dTOPO_HEX,hex,ALEN(hex),&nhex);dCHK(err);
-  if (nhex != 2) dERROR(1,"wrong number of hexes");
-  err = dMeshTagSetData(mesh,tag,hex,nhex,hexDegree,3*nhex,dDATA_INT);dCHK(err);
+  if (nhex != 2) dERROR(PETSC_COMM_SELF,1,"wrong number of hexes");
+  err = dMeshTagSetData(mesh,tag,hex,nhex,hexDegree,nhex,dDATA_INT);dCHK(err);
   *intag = tag;
   dFunctionReturn(0);
 }
@@ -177,9 +181,9 @@ static dErr examine(dMesh mesh,dMeshTag tag)
         case dTOPO_HEX: nv = 8; break;
         case dTOPO_QUAD: nv = 4; break;
         case dTOPO_LINE: nv = 2; break;
-        default: dERROR(1,"unsupported topology");
+        default: dERROR(PETSC_COMM_SELF,1,"unsupported topology");
       }
-      err = dPrintf(PETSC_COMM_WORLD,"%30s %d %d %d   [",iMesh_TopologyName[topo[i]],data[3*i],data[3*i+1],data[3*i+2]);dCHK(err);
+      err = dPrintf(PETSC_COMM_WORLD,"%30s %d %d %d   [",dMeshEntTopologyName(topo[i]),data[3*i],data[3*i+1],data[3*i+2]);dCHK(err);
       for (dInt j=0; j<nv; j++) { err = dPrintf(PETSC_COMM_WORLD," %p",conn.v[connoff.v[i]+j]);dCHK(err); }
       err = dPrintf(PETSC_COMM_WORLD," ]\n");dCHK(err);
     }
@@ -220,13 +224,13 @@ static dErr useFS(dFS fs)
     err = VecSum(g,&gsum);dCHK(err);
     err = VecSum(y,&ysum);dCHK(err);
     err = PetscPrintf(PETSC_COMM_WORLD,"|x| = %f, |g| = %f, |y| = %f\n",xsum,gsum,ysum);dCHK(err);
-    if (dAbs(xsum-gsum) > 1e-14) dERROR(1,"Expanded sum does not match global sum");
+    if (dAbs(xsum-gsum) > 1e-14) dERROR(PETSC_COMM_SELF,1,"Expanded sum does not match global sum");
     /* There are 16 points on the interface between the elements, these points get double-counted in both elements, so
     * the expanded sum is larger than the global sum by 32. */
     if (gopt.constBDeg) {
-      if (dAbs(ysum-gsum-2.0*dSqr(gopt.constBDeg)) > 1e-14) dERROR(1,"Unexpected expanded sum %f != %f + 32",ysum,gsum);
+      if (dAbs(ysum-gsum-2.0*dSqr(gopt.constBDeg+1)) > 1e-14) dERROR(PETSC_COMM_SELF,1,"Unexpected expanded sum %f != %f + 2*%D^2",ysum,gsum,gopt.constBDeg+1);
     } else {
-      dERROR(1,"Don't know how to check for non-const Basis Degree");
+      dERROR(PETSC_COMM_SELF,1,"Don't know how to check for non-const Basis Degree");
     }
   }
   err = VecDestroy(x);dCHK(err);
@@ -241,7 +245,7 @@ static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],
   dFunctionBegin;
   for (dInt i=0; i<3; i++) {
     if (required[i] > 0 && resnorm[i] > required[i])
-      dERROR(1,"Norm requirement not met: ||%s||_%s = %g > %g",name,normName[i],resnorm[i],required[i]);
+      dERROR(PETSC_COMM_SELF,1,"Norm requirement not met: ||%s||_%s = %g > %g",name,normName[i],resnorm[i],required[i]);
   }
   dFunctionReturn(0);
 }
@@ -249,56 +253,240 @@ static dErr confirmSufficientResiduals(const char name[],const dReal resnorm[3],
 struct ProjContext {
   dFS fs;
   Vec x,y;
+  dRuleset ruleset[dQUADRATURE_METHOD_INVALID];
+  dRulesetIterator regioniter[dQUADRATURE_METHOD_INVALID];
 };
 
-static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
+static dErr ProjGetRuleset(struct ProjContext *proj,dQuadratureMethod qmethod,dRuleset *ruleset)
 {
-  struct ProjContext *proj = ctx;
-  dFS fs = proj->fs;
-  dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,*y,*u,*v;
   dErr err;
 
   dFunctionBegin;
+  if (!proj->ruleset[qmethod]) {
+    dMeshESH domain;
+    err = dFSGetDomain(proj->fs,&domain);dCHK(err);
+    err = dFSGetPreferredQuadratureRuleSet(proj->fs,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&proj->ruleset[qmethod]);dCHK(err);
+  }
+  *ruleset = proj->ruleset[qmethod];
+  dFunctionReturn(0);
+}
+
+static dErr ProjGetRegionIterator(struct ProjContext *proj,dQuadratureMethod qmethod,dRulesetIterator *riter)
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (!proj->regioniter[qmethod]) {
+    dRulesetIterator iter;
+    dRuleset ruleset;
+    dFS cfs;
+    err = ProjGetRuleset(proj,qmethod,&ruleset);dCHK(err);
+    err = dFSGetCoordinateFS(proj->fs,&cfs);dCHK(err);
+    err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+    err = dRulesetIteratorAddFS(iter,proj->fs);dCHK(err);
+    proj->regioniter[qmethod] = iter;
+  }
+  *riter = proj->regioniter[qmethod];
+  dFunctionReturn(0);
+}
+
+static dErr ProjResidual(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
+{
+  dErr err;
+  struct ProjContext *proj = ctx;
+  dFS fs = proj->fs;
+  dInt nelem,n;
+  const dEFS *efs,*cefs;
+  dScalar *y,*u,*v,*q,*cjac,*cjinv,*jw;
+  const dScalar *x,*coords;
+  dRuleset ruleset;
+  dFS cfs;
+  Vec Coords;
+
+  dFunctionBegin;
   err = dFSGlobalToExpanded(fs,gx,proj->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(proj->x,&x);dCHK(err);
+  err = VecGetArrayRead(proj->x,&x);dCHK(err);
   err = VecZeroEntries(proj->y);dCHK(err);
   err = VecGetArray(proj->y,&y);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
-  for (dInt e=0; e<n; e++) {
-    dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+  err = ProjGetRuleset(proj,gopt.proj_qmethod,&ruleset);dCHK(err);
+  err = dFSGetEFS(fs,ruleset,&nelem,&efs);dCHK(err);
+
+  err = dFSGetCoordinateFS(fs,&cfs);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
+  err = VecGetArrayRead(Coords,&coords);dCHK(err);
+  err = dFSGetEFS(cfs,ruleset,&n,&cefs);dCHK(err);
+  dASSERT(n == nelem);
+
+  err = dRulesetGetWorkspace(ruleset,&q,&cjac,&cjinv,&jw,1,&u,&v,NULL,NULL,0);dCHK(err);
+  for (dInt e=0,off=0,coff=0; e<nelem; e++) {
+    dInt P,Q;
+    dRule rule;
+    err = dEFSApply(cefs[e],NULL,3,coords+coff,q,dAPPLY_INTERP,INSERT_VALUES);dCHK(err); /* Location of quadrature nodes */
+    err = dEFSApply(cefs[e],NULL,3,coords+coff,cjac,dAPPLY_GRAD,INSERT_VALUES);dCHK(err); /* Coordinate Jacobian */
+    err = dEFSGetRule(cefs[e],&rule);dCHK(err);
+    err = dRuleComputePhysical(rule,cjac,cjinv,jw);dCHK(err);
+    err = dEFSApply(efs[e],cjinv,1,x+off,u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dRuleGetSize(rule,0,&Q);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar f[1];             /* Scalar problem */
-      err = exact.function(q[i],f);dCHK(err);
+      err = exact.function(&q[i*3],f);dCHK(err);
       v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
     }
-    if (0) {
-      dReal sum = 0;
-      for (dInt i=0; i<Q; i++) sum += jw[i];
-      printf("sum of %d quadrature weights times Jdet = %g\n",Q,sum);
-    }
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,v,y+off[e],dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSApply(efs[e],cjinv,1,v,y+off,dAPPLY_INTERP_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dEFSGetSizes(efs[e],NULL,NULL,&P);dCHK(err);
+    off += P;
+    err = dEFSGetSizes(cefs[e],NULL,NULL,&P);dCHK(err);
+    coff += P*3;
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,&v,NULL,NULL);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(proj->x,&x);dCHK(err);
+  err = dFSRestoreEFS(fs,ruleset,&n,&efs);dCHK(err);
+  err = dFSRestoreEFS(cfs,ruleset,&n,&cefs);dCHK(err);
+  err = dRulesetRestoreWorkspace(ruleset,&q,&cjac,&cjinv,&jw,1,&u,&v,NULL,NULL,0);dCHK(err);
+  err = VecRestoreArrayRead(Coords,&coords);dCHK(err);
+  err = VecRestoreArrayRead(proj->x,&x);dCHK(err);
   err = VecRestoreArray(proj->y,&y);dCHK(err);
   err = dFSExpandedToGlobal(fs,proj->y,gy,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   dFunctionReturn(0);
 }
 
+static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
+{
+  dErr err;
+  struct ProjContext *proj = ctx;
+  dFS fs = proj->fs;
+  Vec Coords;
+  dRulesetIterator iter;
+
+  dFunctionBegin;
+  err = VecZeroEntries(gy);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,gy,dFS_INHOMOGENEOUS);dCHK(err);
+
+  while (dRulesetIteratorHasPatch(iter)) {
+    dRule rule;
+    dEFS cefs,efs;
+    dScalar *ex,*eu,*ev;
+    dScalar *cjinv,*jw,*x,*dx,*u,*du,*v,*dv;
+    dInt Q;
+    err = dRulesetIteratorGetElement(iter,&rule,&cefs,&ex,NULL,&efs,&eu,&ev);dCHK(err);
+    err = dRulesetIteratorGetPatchSpace(iter,&cjinv,&jw,&x,&dx,NULL,NULL,&u,&du,&v,&dv);dCHK(err);
+    err = dEFSApply(cefs,NULL,3,ex,x,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(cefs,NULL,3,ex,dx,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRuleComputePhysical(rule,dx,cjinv,jw);dCHK(err);
+    err = dEFSApply(efs,cjinv,1,eu,u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(efs,cjinv,1,eu,du,dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRuleGetSize(rule,0,&Q);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      dScalar f[1];             /* Scalar problem */
+      err = exact.function(&x[i*3],f);dCHK(err);
+      v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
+      dv[i*3+0] = 0;
+      dv[i*3+1] = 0;
+      dv[i*3+2] = 0;
+    }
+    err = dEFSApply(efs,cjinv,1,v,ev,dAPPLY_INTERP_TRANSPOSE,INSERT_VALUES);dCHK(err);
+    err = dEFSApply(efs,cjinv,1,dv,ev,dAPPLY_GRAD_TRANSPOSE,ADD_VALUES);dCHK(err);
+    err = dRulesetIteratorRestorePatchSpace(iter,&cjinv,&jw,&x,&dx,NULL,NULL,&u,&du,&v,&dv);dCHK(err);
+    err = dRulesetIteratorCommitPatch(iter,NULL,ev);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+  }
+
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
+{
+  dErr err;
+  struct ProjContext *proj = ctx;
+  Vec Coords;
+  dRulesetIterator iter;
+
+  dFunctionBegin;
+  err = VecZeroEntries(gy);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,gy,dFS_INHOMOGENEOUS);dCHK(err);
+
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar *x,*dx,*u,*du,*v,*dv;
+    dInt Q;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      dScalar f[1];             /* Scalar problem */
+      err = exact.function(&x[i*3],f);dCHK(err);
+      v[i*1+0] = (u[i*1+0] - f[0]) * jw[i];
+      dv[i*3+0] = 0;
+      dv[i*3+1] = 0;
+      dv[i*3+2] = 0;
+    }
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES,NULL,NULL,v,dv);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+  }
+
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structure,void *ctx)
+{
+  struct ProjContext *proj = ctx;
+  dRulesetIterator iter;
+  dScalar *Kflat;
+  dErr err;
+  Vec Coords;
+
+  dFunctionBegin;
+  err = MatZeroEntries(*Jp);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.jac_qmethod,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
+  err = dRulesetIteratorGetMatrixSpaceSplit(iter,NULL,NULL,NULL,&Kflat);dCHK(err);
+
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dReal *jw,*interp_flat,*deriv;
+    const dInt *rowcol;
+    dScalar *x,*dx,*u,*du;
+    dInt Q,P;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv);dCHK(err);
+    {                           /* Scope so that we can declare new VLA pointers for convenient assembly */
+      const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
+      dScalar (*K)[P] = (dScalar(*)[P])Kflat;
+      err = PetscMemzero(K,P*P*sizeof(K[0][0]));dCHK(err);
+      for (dInt i=0; i<P; i++) {
+        for (dInt q=0; q<Q; q++) {
+          for (dInt j=0; j<P; j++) {
+            K[i][j] += interp[q][i] * jw[q] * interp[q][j];
+          }
+        }
+      }
+      err = dFSMatSetValuesBlockedExpanded(proj->fs,*Jp,P,rowcol,P,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
+    }
+    err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv);dCHK(err);
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+  }
+
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+
+  err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
+  /* Dummy assembly, necessary to reset base vector in -snes_mf_operator */
+  if (J != Jp) {
+    err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+    err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
+  }
+  *structure = SAME_NONZERO_PATTERN;
+  dFunctionReturn(0);
+}
+
+#if 0
 static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStructure *structure,void *ctx)
 {
   struct ProjContext *proj = ctx;
-  s_dRule *rule;
-  s_dEFS *efs;
+  dRule *rule;
+  dEFS *efs;
   dReal (*nx)[3];
   dScalar *x;
   dFS fs = proj->fs;
@@ -314,8 +502,8 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
   err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
   for (dInt e=0; e<n; e++) {
     dInt three,P[3];
-    err = dEFSGetGlobalCoordinates(&efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    if (three != 3) dERROR(1,"Dimension not equal to 3");
+    err = dEFSGetGlobalCoordinates(efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
+    if (three != 3) dERROR(PETSC_COMM_SELF,1,"Dimension not equal to 3");
     for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
       for (dInt j=0; j<P[1]-1; j++) {
         for (dInt k=0; k<P[2]-1; k++) {
@@ -329,7 +517,7 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
           {                     /* Scoping for VLA-pointer access */
             const dReal (*basis)[8] = (const dReal(*)[8])flatBasis;
             // const dReal (*deriv)[qn][8] = (const dReal(*)[qn][8])flatDeriv; /* UNUSED */
-            if (qn != 8) dERROR(1,"Unexpected number of quadrature points %d, but it *should* work, disable this error",qn);
+            if (qn != 8) dERROR(PETSC_COMM_SELF,1,"Unexpected number of quadrature points %d, but it *should* work, disable this error",qn);
             for (dInt lq=0; lq<qn; lq++) {           /* Loop over quadrature points */
               for (dInt ltest=0; ltest<8; ltest++) { /* Loop over test basis functions (corners) */
                 for (dInt lp=0; lp<8; lp++) {        /* Loop over trial basis functions (corners) */
@@ -354,38 +542,34 @@ static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStru
   *structure = DIFFERENT_NONZERO_PATTERN;
   dFunctionReturn(0);
 }
+#endif
 
 static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorms[static 3],dReal gresidualNorms[static 3])
 {
-  dFS fs = proj->fs;
-  dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,*u,(*du)[1][3];
+  Vec Coords;
+  dRulesetIterator iter;
   dErr err;
 
   dFunctionBegin;
   err = dMemzero(residualNorms,3*sizeof(residualNorms));dCHK(err);
   err = dMemzero(gresidualNorms,3*sizeof(gresidualNorms));dCHK(err);
-  err = dFSGlobalToExpanded(fs,gx,proj->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(proj->x,&x);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,(dReal**)&du,NULL);dCHK(err);
-  for (dInt e=0; e<n; e++) {
+  err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
+  err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
+
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar *x,*dx,*u,*du;
     dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],u,dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,1,x+off[e],&du[0][0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar f[1],df[1][3],r[1],gr[1][3],grsum;             /* Scalar problem */
-      err = exact.function(q[i],f);dCHK(err);
-      err = exact.gradient(q[i],df);dCHK(err);
+      err = exact.function(&x[i*3],f);dCHK(err);
+      err = exact.gradient(&x[i*3],df);dCHK(err);
       r[0] = u[i*1+0] - f[0];
-      gr[0][0] = du[i][0][0] - df[0][0];
-      gr[0][1] = du[i][0][1] - df[0][1];
-      gr[0][2] = du[i][0][2] - df[0][2];
+      gr[0][0] = du[i*3+0] - df[0][0];
+      gr[0][1] = du[i*3+1] - df[0][1];
+      gr[0][2] = du[i*3+2] - df[0][2];
       grsum = dSqr(gr[0][0]) + dSqr(gr[0][1]) + dSqr(gr[0][2]);
       residualNorms[0] += dAbs(r[0]) * jw[i];               /* 1-norm */
       residualNorms[1] += dSqr(r[0]) * jw[i];               /* 2-norm */
@@ -402,10 +586,9 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
              jinv[i][2][0],jinv[i][2][1],jinv[i][2][2]);
 #endif
     }
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,&u,NULL,NULL,NULL);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(proj->x,&x);dCHK(err);
+  err = dRulesetIteratorFinish(iter);dCHK(err);
   residualNorms[1] = dSqrt(residualNorms[1]);
   gresidualNorms[1] = dSqrt(gresidualNorms[1]);
   dFunctionReturn(0);
@@ -421,6 +604,7 @@ static dErr doProjection(dFS fs)
   dErr err;
 
   dFunctionBegin;
+  err = dMemzero(&proj,sizeof(proj));dCHK(err);
   err = dObjectGetComm((dObject)fs,&comm);dCHK(err);
   proj.fs = fs;
   err = dFSCreateExpandedVector(fs,&proj.x);dCHK(err);
@@ -432,8 +616,19 @@ static dErr doProjection(dFS fs)
   err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
   J = Jp;                       /* Use -snes_mf_operator to apply J matrix-free instead of actually using Jp as the Krylov matrix */
   err = SNESCreate(comm,&snes);dCHK(err);
-  err = SNESSetFunction(snes,r,ProjResidual,(void*)&proj);dCHK(err);
-  err = SNESSetJacobian(snes,J,Jp,ProjJacobian,(void*)&proj);dCHK(err);
+  switch (gopt.proj_version) {
+  case 1:
+    err = SNESSetFunction(snes,r,ProjResidual,(void*)&proj);dCHK(err);
+    break;
+  case 2:
+    err = SNESSetFunction(snes,r,ProjResidual2,(void*)&proj);dCHK(err);
+    break;
+  case 3:
+    err = SNESSetFunction(snes,r,ProjResidual3,(void*)&proj);dCHK(err);
+    break;
+  default: dERROR(PETSC_COMM_SELF,PETSC_ERR_USER,"Invalid residual version (-proj_version)");
+  }
+  err = SNESSetJacobian(snes,J,Jp,ProjJacobian1,(void*)&proj);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-12,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
@@ -443,10 +638,7 @@ static dErr doProjection(dFS fs)
   }
   if (gopt.showsoln) {err = VecView(x,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
   {
-    Vec *coords;
     dReal norm[2],norminf,resNorms[3],gresNorms[3];
-    err = VecDuplicateVecs(x,3,&coords);dCHK(err);
-    err = VecDestroyVecs(coords,3);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,norm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&norminf);dCHK(err);
     err = dPrintf(PETSC_COMM_WORLD,"Algebraic projection residual  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",norm[0],norm[1],norminf);dCHK(err);
@@ -462,6 +654,12 @@ static dErr doProjection(dFS fs)
   err = VecDestroy(x);dCHK(err);
   err = VecDestroy(proj.x);dCHK(err);
   err = VecDestroy(proj.y);dCHK(err);
+  for (dInt i=0; i<ALEN(proj.ruleset); i++) {
+    if (proj.ruleset[i]) {err = dRulesetDestroy(proj.ruleset[i]);dCHK(err);}
+  }
+  for (dInt i=0; i<ALEN(proj.regioniter); i++) {
+    if (proj.regioniter[i]) {err = dRulesetIteratorDestroy(proj.regioniter[i]);dCHK(err);}
+  }
   dFunctionReturn(0);
 }
 
@@ -476,7 +674,7 @@ int main(int argc,char *argv[])
   dMeshTag rtag,dtag;
   MPI_Comm comm;
   PetscViewer viewer;
-  dTruth showconn,showmesh,flg;
+  dBool  showconn,showmesh,flg;
   dInt exactChoice,nset;
   dErr err;
 
@@ -484,26 +682,31 @@ int main(int argc,char *argv[])
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.q1scale = 1.0;
+    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1;
+    gopt.proj_qmethod = dQUADRATURE_METHOD_FAST;
+    gopt.jac_qmethod = dQUADRATURE_METHOD_SPARSE; gopt.q1scale = 1.0;
     gopt.frequency[0] = 1; gopt.frequency[1] = 1; gopt.frequency[2] = 1;
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)",NULL,gopt.nominalRDeg,&gopt.nominalRDeg,NULL);dCHK(err);
-    err = PetscOptionsTruth("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
+    err = PetscOptionsBool("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
+    err = PetscOptionsInt("-proj_version","Residual evaluation version",NULL,gopt.proj_version,&gopt.proj_version,NULL);dCHK(err);
+    err = PetscOptionsEnum("-proj_qmethod","Quadrature method for residual evaluation",NULL,dQuadratureMethods,(PetscEnum)gopt.proj_qmethod,(PetscEnum*)&gopt.proj_qmethod,NULL);dCHK(err);
+    err = PetscOptionsEnum("-jac_qmethod","Quadrature method for Jacobian evaluation",NULL,dQuadratureMethods,(PetscEnum)gopt.jac_qmethod,(PetscEnum*)&gopt.jac_qmethod,NULL);dCHK(err);
     err = PetscOptionsReal("-q1scale","Scale matrix entries of Q1 preconditioning matrix",NULL,gopt.q1scale,&gopt.q1scale,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-frequency","Frequency of oscillation in each cartesion direction",NULL,gopt.frequency,&nset,&flg);dCHK(err);
-    if (flg && nset > 3) dERROR(1,"frequency may be at most 3 values");
-    err = PetscOptionsTruth("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
-    err = PetscOptionsTruth("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
+    if (flg && nset > 3) dERROR(PETSC_COMM_SELF,1,"frequency may be at most 3 values");
+    err = PetscOptionsBool("-show_conn","Show connectivity",NULL,showconn,&showconn,NULL);dCHK(err);
+    err = PetscOptionsBool("-show_mesh","Show mesh immediately after createHexMesh()",NULL,showmesh,&showmesh,NULL);dCHK(err);
     nset = 3;
     err = PetscOptionsRealArray("-require_ptwise","<L^1,L^2,L^infty> Error if pointwise norms exceed given values, negative to disable",NULL,gopt.normRequirePtwise,&nset,&flg);dCHK(err);
-    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_ptwise, %d set",nset);
+    if (flg && nset != 3) dERROR(PETSC_COMM_SELF,1,"You must set 3 values for -require_ptwise, %d set",nset);
     nset = 3;
     err = PetscOptionsRealArray("-require_grad","<L^1,L^2,L^infty> Error if pointwise gradient norms exceed given values, negative to disable",NULL,gopt.normRequireGrad,&nset,&flg);dCHK(err);
-    if (flg && nset != 3) dERROR(1,"You must set 3 values for -require_grad");
+    if (flg && nset != 3) dERROR(PETSC_COMM_SELF,1,"You must set 3 values for -require_grad");
   } err = PetscOptionsEnd();dCHK(err);
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
@@ -517,10 +720,9 @@ int main(int argc,char *argv[])
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
 
   err = dJacobiCreate(comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,15,4);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,jac,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
   err = tagHexes(mesh,&dtag);dCHK(err);
   if (showconn) {err = examine(mesh,dtag);dCHK(err);}
 
@@ -541,7 +743,7 @@ int main(int argc,char *argv[])
       exact.function = exact_1_function;
       exact.gradient = exact_1_gradient;
       break;
-    default: dERROR(1,"Exact solution choice %d invalid",exactChoice);
+    default: dERROR(PETSC_COMM_SELF,1,"Exact solution choice %d invalid",exactChoice);
   }
   err = doProjection(fs);dCHK(err);
 

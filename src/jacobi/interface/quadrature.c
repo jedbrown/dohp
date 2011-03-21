@@ -3,24 +3,51 @@
 
 static PetscFList dQuadratureList;
 
-/** Fill an array of dRule starting at \a firstrule.
+const char *const dQuadratureMethods[] = {"FAST","SPARSE","SELF","dQuadratureMethod","dQUADRATURE_METHOD_",0};
+
+/** Create an array of rules for integrating functions of given order on the reference element
 *
 * @param quad the context
 * @param n number of elements
 * @param topo topology of the element
-* @param rsize number of points in each Cartesian direction
-* @param firstrule place to put the newly constructed dRule, normally this will be \c s_dRule[]
+* @param order order of polynomial to be integrated exactly
+* @param rules pointer to new array of rules
 */
-dErr dQuadratureGetRule(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt rsize[],dRule firstrule)
+dErr dQuadratureGetRules(dQuadrature quad,dInt n,const dEntTopology topo[],const dPolynomialOrder order[],dRule **rules)
 {
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(quad,dQUADRATURE_COOKIE,1);
+  dValidHeader(quad,dQUADRATURE_CLASSID,1);
   dValidPointer(topo,3);
-  dValidPointer(rsize,4);
-  dValidPointer(firstrule,5);
-  err = quad->ops->GetRule(quad,n,topo,rsize,firstrule);dCHK(err);
+  dValidPointer(order,4);
+  dValidPointer(rules,5);
+  err = dMallocA(n,rules);dCHK(err);
+  err = quad->ops->GetRule(quad,n,topo,order,*rules);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/** Create an array of rules for integrating functions of given order on a facet of the reference element
+*
+* @param quad the context
+* @param n number of elements
+* @param topo topology of the element relative to which we will integrate
+* @param facet index of lower-dimensional entity upon which to integrate
+* @param order order of polynomial to be integrated exactly (in the reference frame of the element)
+* @param rules pointer to new array of rules
+*/
+dErr dQuadratureGetFacetRules(dQuadrature quad,dInt n,const dEntTopology topo[],const dInt facet[],const dPolynomialOrder order[],dRule **rules)
+{
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(quad,dQUADRATURE_CLASSID,1);
+  dValidPointer(topo,3);
+  dValidPointer(facet,4);
+  dValidPointer(order,5);
+  dValidPointer(rules,6);
+  err = dMallocA(n,rules);dCHK(err);
+  err = quad->ops->GetFacetRule(quad,n,topo,facet,order,*rules);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -31,14 +58,11 @@ dErr dQuadratureSetFromOptions(dQuadrature quad)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(quad,dQUADRATURE_COOKIE,1);
+  PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);
   err = PetscOptionsBegin(((PetscObject)quad)->comm,((PetscObject)quad)->prefix,"Quadrature options","dQuadrature");dCHK(err);
   err = PetscOptionsList("-dquad_type","Quadrature type","dQuadratureSetType",dQuadratureList,
                           (((PetscObject)quad)->type_name?((PetscObject)quad)->type_name:type),type,dNAME_LEN,&typeSet);dCHK(err);
-  if (typeSet) {
-    err = dQuadratureSetType(quad,type);dCHK(err);
-  }
-  if (!((PetscObject)quad)->type_name) {
+  if (typeSet || !((PetscObject)quad)->type_name) {
     err = dQuadratureSetType(quad,type);dCHK(err);
   }
   if (quad->ops->SetFromOptions) {
@@ -48,12 +72,21 @@ dErr dQuadratureSetFromOptions(dQuadrature quad)
   dFunctionReturn(0);
 }
 
+dErr dQuadratureSetMethod(dQuadrature quad,dQuadratureMethod method)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = (*quad->ops->SetMethod)(quad,method);dCHK(err);
+  dFunctionReturn(0);
+}
+
 dErr dQuadratureDestroy(dQuadrature quad)
 {
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(quad,dQUADRATURE_COOKIE,1);
+  dValidHeader(quad,dQUADRATURE_CLASSID,1);
   if (--((PetscObject)quad)->refct > 0) dFunctionReturn(0);
   if (quad->ops->Destroy) {
     err = quad->ops->Destroy(quad);dCHK(err);
@@ -64,18 +97,18 @@ dErr dQuadratureDestroy(dQuadrature quad)
 
 dErr dQuadratureView(dQuadrature quad,PetscViewer viewer)
 {
-  dTruth iascii;
+  dBool  iascii;
   dErr   err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(quad,dQUADRATURE_COOKIE,1);
+  PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((PetscObject)quad)->comm,&viewer);dCHK(err);
   }
-  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_COOKIE,2);
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(quad,1,viewer,2);
 
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscViewerASCIIPrintf(viewer,"dQuadobi object:(%s)\n",
                                   ((PetscObject)quad)->prefix ? ((PetscObject)quad)->prefix : "no prefix");dCHK(err);
@@ -97,15 +130,15 @@ dErr dQuadratureView(dQuadrature quad,PetscViewer viewer)
 dErr dQuadratureSetType(dQuadrature quad,dQuadratureType type)
 {
   dErr   err,(*r)(dQuadrature);
-  dTruth match;
+  dBool  match;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(quad,dQUADRATURE_COOKIE,1);
+  PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)quad,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   err = PetscFListFind(dQuadratureList,((PetscObject)quad)->comm,type,(void(**)(void))&r);dCHK(err);
-  if (!r) dERROR(1,"Unable to find requested dQuadrature type %s",type);
+  if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dQuadrature type %s",type);
   if (quad->ops->Destroy) { err = (*quad->ops->Destroy)(quad);dCHK(err); }
   err = PetscMemzero(quad->ops,sizeof(quad->ops));dCHK(err);
   err = (*r)(quad);dCHK(err);
@@ -147,7 +180,7 @@ dErr dQuadratureCreate(MPI_Comm comm,dQuadrature *inquad)
 #if !defined PETSC_USE_DYNAMIC_LIBRARIES
   err = dJacobiInitializePackage(NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(quad,p_dQuadrature,struct _dQuadratureOps,dQUADRATURE_COOKIE,0,"dQuadrature",comm,dQuadratureDestroy,dQuadratureView);dCHK(err);
+  err = PetscHeaderCreate(quad,p_dQuadrature,struct _dQuadratureOps,dQUADRATURE_CLASSID,0,"dQuadrature",comm,dQuadratureDestroy,dQuadratureView);dCHK(err);
 
   *inquad = quad;
   dFunctionReturn(0);

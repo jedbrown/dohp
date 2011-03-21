@@ -26,6 +26,8 @@ list (APPEND Dohp_SRCS
   fs/interface/fsreg.c
   fs/interface/fsrot.c
   fs/interface/fsgeom.c
+  fs/interface/fsruleset.c
+  fs/interface/fsrulesetit.c
   fs/interface/q1.c
   fs/impls/cont/cont.c
   fs/impls/cont/contviewdhm.c)
@@ -39,7 +41,8 @@ list (APPEND Dohp_SRCS
 
 # ADD_SUBDIRECTORY (fs/vec)
 list (APPEND Dohp_SRCS
-  vec/vecd.c)
+  vec/vecd.c
+  vec/vecutil.c)
 
 # ADD_SUBDIRECTORY (viewer)
 list (APPEND Dohp_SRCS

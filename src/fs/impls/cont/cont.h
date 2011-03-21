@@ -8,10 +8,10 @@ dEXTERN_C_BEGIN
 extern dErr dFSCreate_Cont(dFS);
 extern dErr dFSView_Cont_DHM(dFS,dViewer);
 extern dErr dFSLoadIntoFS_Cont_DHM(dViewer,const char[],dFS);
-extern dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMeshAdjacency ma,const dInt deg[],Mat *inE,Mat *inEp);
+extern dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMeshAdjacency ma,const dPolynomialOrder deg[],Mat *inE,Mat *inEp);
 
 typedef struct {
-  dTruth usecmatrix;
+  dBool  usecmatrix;
 
    /*
    * Since we don't do matrix-free computations with these elements, they don't need to be persistant (i.e. defined

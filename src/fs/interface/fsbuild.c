@@ -24,11 +24,11 @@ dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *ghidx,d
   err = VecGetArray(lf,&a);dCHK(err);
   /* \a a is a mask determining whether a value is represented in the global system (1) or not (-1) */
   for (i=0; i<n; i++) {
-    if (a[i*bs] != 1) dERROR(1,"should not happen");
+    if (a[i*bs] != 1) dERROR(PETSC_COMM_SELF,1,"should not happen");
     globals[i] = rstart+i;
   }
   for ( ; i<nc; i++) {
-    if (a[i*bs] != -1) dERROR(1,"should not happen");
+    if (a[i*bs] != -1) dERROR(PETSC_COMM_SELF,1,"should not happen");
     globals[i] = -(rstart + i);
   }
   for ( ; i<nc+ngh; i++) {
@@ -38,13 +38,13 @@ dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *ghidx,d
   err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
   err = VecDohpRestoreClosure(g,&gc);dCHK(err);
   err = VecDestroy(g);dCHK(err);
-  err = ISLocalToGlobalMappingCreateNC(((dObject)fs)->comm,nc+ngh,globals,&fs->bmapping);dCHK(err);
+  err = ISLocalToGlobalMappingCreate(((dObject)fs)->comm,nc+ngh,globals,PETSC_OWN_POINTER,&fs->bmapping);dCHK(err);
   /* Don't free \a globals because we used the no-copy variant, so the IS takes ownership. */
   {
     dInt *sglobals;        /* Scalar globals */
     err = dMallocA((nc+ngh)*bs,&sglobals);dCHK(err);
     for (i=0; i<(nc+ngh)*bs; i++) sglobals[i] = globals[i/bs]*bs + i%bs;
-    err = ISLocalToGlobalMappingCreateNC(((dObject)fs)->comm,(nc+ngh)*bs,sglobals,&fs->mapping);dCHK(err);
+    err = ISLocalToGlobalMappingCreate(((dObject)fs)->comm,(nc+ngh)*bs,sglobals,PETSC_OWN_POINTER,&fs->mapping);dCHK(err);
     /* Don't free \a sglobals because we used the no-copy variant, so the IS takes ownership. */
   }
   dFunctionReturn(0);

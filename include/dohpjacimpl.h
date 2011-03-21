@@ -7,22 +7,30 @@ dEXTERN_C_BEGIN
 
 extern dLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
 
-typedef enum { GAUSS, GAUSS_LOBATTO, GAUSS_RADAU } GaussFamily;
-extern const char *GaussFamilies[];
-
 /**
-* There is exactly one #dRule on each element.  The ops table is normally shared across the domain.
-*
-*/
+* The Ops table is directly included in the dRule struct.  There should only be one ops table for each quadrature order
+* (the dQuadrature object manages this), and it's common to have optimized versions of some of these operations.  Even
+* if generic functions are used for all the ops, there will never be huge numbers of distinct rule orders, and we'd
+* prefer to save the indirection.
+**/
 struct _dRuleOps {
   dErr (*view)(dRule,dViewer);
   dErr (*getSize)(dRule,dInt*,dInt*); /**< topological dimension of the space, total number of nodes */
   dErr (*getNodeWeight)(dRule,dReal[],dReal[]); /**< nodes and weights in interlaced ordering, arrays must be large enough */
+  dErr (*getPatches)(dRule,dInt*,dInt*,const dInt **,const dReal**);
   dErr (*getTensorNodeWeight)(dRule,dInt*,dInt[],const dReal**,const dReal**); /**< topological dimension, number of
                                                                                * nodes in each direction, weights in
                                                                                * each direction.  Does not copy, may not
                                                                                * be implemented.  */
   dErr (*computeGeometry)(dRule,const dReal[restrict][3],dReal[restrict][3],dReal[restrict][3][3],dReal[restrict]);
+};
+
+#define dRuleHEADER                             \
+  struct _dRuleOps ops
+
+/** This struct is never instantiated. */
+struct s_dRule {
+  dRuleHEADER;
 };
 
 /**
@@ -35,13 +43,20 @@ struct _dEFSOps {
   dErr (*getTensorNodes)(dEFS,dInt*,dInt*,dReal**,dReal**,const dReal**,const dReal**);
   dErr (*apply)(dEFS,const dReal[],dInt,const dScalar[],dScalar[],dApplyMode,InsertMode);
   dErr (*getGlobalCoordinates)(dEFS,const dReal(*)[3],dInt*,dInt[],dReal(*)[3]);
-  /**< dofs/node, work length, work, modal values, nodal values */
-  dErr (*scatterInt)(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode); /**< dofs/node, offset of interior dofs, array, local array */
-  /**
-  * @bug It's not yet clear to me how to implement this.
-  *
-  */
-  dErr (*scatterFacet)(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode);
+  dErr (*getExplicit)(dEFS,const dReal[],dInt*,dInt*,const dReal**,const dReal**);
+  dErr (*getExplicitSparse)(dEFS,dInt,dInt,const dInt[],const dReal[],dInt,dInt*,dInt[],dReal[],dReal[]);
+};
+
+/**
+* Like dRule, the ops table is inlined.
+*/
+#define dEFSHEADER                             \
+  struct _dEFSOps ops;                         \
+  dRule           rule
+
+/** This struct is never instantiated */
+struct s_dEFS {
+  dEFSHEADER;
 };
 
 /**
@@ -53,12 +68,12 @@ struct _dJacobiOps {
   dErr (*SetFromOptions)(dJacobi);
   dErr (*Destroy)(dJacobi);
   dErr (*View)(dJacobi,dViewer);
-  dErr (*PropogateDown)(dJacobi,dMeshAdjacency,dInt[]);
-  dErr (*GetEFS)(dJacobi,dInt,const dEntTopology[],const dInt[],dRule,dEFS);
-  dErr (*GetNodeCount)(dJacobi,dInt,const dEntTopology[],const dInt[],dInt[],dInt[]);
-  dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,dInt[],dInt[]);
-  dErr (*AddConstraints)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dInt[],dMeshAdjacency,Mat,Mat);
-  dErr (*GetQuadrature)(dJacobi,dQuadrature*);
+  dErr (*PropagateDown)(dJacobi,dMeshAdjacency,dPolynomialOrder[]);
+  dErr (*GetEFS)(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],const dRule[],dEFS[]);
+  dErr (*GetNodeCount)(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],dInt[],dInt[]);
+  dErr (*GetConstraintCount)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dPolynomialOrder[],dMeshAdjacency,dInt[],dInt[]);
+  dErr (*AddConstraints)(dJacobi,dInt,const dInt[],const dInt[],const dInt[],const dPolynomialOrder[],dMeshAdjacency,Mat,Mat);
+  dErr (*GetQuadrature)(dJacobi,dQuadratureMethod,dQuadrature*);
 };
 
 /**
@@ -70,14 +85,16 @@ struct p_dJacobi {
   dInt basisdegree;         /**< the maximum degree basis functions to be supported */
   dInt ruleexcess;          /**< the amount of over-integration to be supported */
   bool setupcalled;
-  dQuadrature quad;
+  dQuadrature quad[dQUADRATURE_METHOD_INVALID];
   void *data;                   /**< private implementation context */
 };
 
 struct _dQuadratureOps {
   dErr (*View)(dQuadrature,PetscViewer);
-  dErr (*GetRule)(dQuadrature,dInt,const dEntTopology[],const dInt[],dRule);
+  dErr (*GetRule)(dQuadrature,dInt,const dEntTopology[],const dPolynomialOrder[],dRule[]);
+  dErr (*GetFacetRule)(dQuadrature,dInt,const dEntTopology[],const dInt[],const dPolynomialOrder[],dRule[]);
   dErr (*SetFromOptions)(dQuadrature);
+  dErr (*SetMethod)(dQuadrature,dQuadratureMethod);
   dErr (*Destroy)(dQuadrature);
 };
 
@@ -92,6 +109,7 @@ extern dErr dJacobiCreate_Modal(dJacobi);
 
 extern dErr dQuadratureCreate_Tensor(dQuadrature);
 
+extern dErr dEFSGetExplicitSparse_Basic(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[]);
 dEXTERN_C_END
 
 #endif

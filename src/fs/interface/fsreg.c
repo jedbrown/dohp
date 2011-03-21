@@ -3,7 +3,7 @@
 #include <dohpstring.h>
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
-dCookie dFSROT_COOKIE;
+dClassId dFSROT_CLASSID;
 static PetscFList FSList = 0;
 
 /**
@@ -14,20 +14,22 @@ static PetscFList FSList = 0;
 * from a local vector, the user cannot avoid seeing VecGhost.  We do have expanded vectors which are genuinely distinct,
 * but I'm very skeptical of the usefulness of identifying them with the "local vector" of a DM.
 **/
-static const struct _dFSOps defaultFSOps = { .view = dFSView,
-                                             .createglobalvector = dFSCreateGlobalVector,
-                                             .createlocalvector  = dFSCreateExpandedVector,
-                                             /* I think that these don't make sense with the current design.  In
-                                             * particular, there may be points in the expanded space which are not
-                                             * represented in the global vector.  In this configuration, an INSERT_MODE
-                                             * scatter is not sufficient because it is not surjective.
-                                             *
-                                             .globaltolocalbegin = dFSGlobalToExpandedBegin,
-                                             .globaltolocalend   = dFSGlobalToExpandedEnd,
-                                             */
-                                             .getmatrix          = dFSGetMatrix,
-                                             .destroy            = dFSDestroy,
-                                             .impldestroy        = 0};
+static const struct _DMOps  defaultFSDMOps = { .view               = (PetscErrorCode(*)(DM,PetscViewer))dFSView,
+                                               .setfromoptions     = (PetscErrorCode(*)(DM))dFSSetFromOptions,
+                                               .createglobalvector = (PetscErrorCode(*)(DM,Vec*))dFSCreateGlobalVector,
+                                               .createlocalvector  = (PetscErrorCode(*)(DM,Vec*))dFSCreateExpandedVector,
+                                               .getmatrix          = (PetscErrorCode(*)(DM,const MatType,Mat*))dFSGetMatrix,
+                                               .destroy            = (PetscErrorCode(*)(DM))dFSDestroy,
+                                               /*
+                                                * I think that these don't make sense with the current design.  In
+                                                * particular, there may be points in the expanded space which are not
+                                                * represented in the global vector.  In this configuration, an INSERT_MODE
+                                                * scatter is not sufficient because it is not surjective.
+                                                *
+                                                .globaltolocalbegin = dFSGlobalToExpandedBegin,
+                                                .globaltolocalend   = dFSGlobalToExpandedEnd,
+                                                */
+};
 
 dErr dFSCreate(MPI_Comm comm,dFS *infs)
 {
@@ -40,14 +42,21 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dFSInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(fs,_p_dFS,struct _dFSOps,DM_COOKIE,0,"dFS",comm,dFSDestroy,dFSView);dCHK(err);
+  {
+    DM dm;
+    err = PetscHeaderCreate(dm,_p_dFS,struct _DMOps,DM_CLASSID,0,"DM",comm,DMDestroy,DMView);dCHK(err);
+    fs = (dFS)dm;
+  }
 
-  err = dMemcpy(fs->ops,&defaultFSOps,sizeof defaultFSOps);dCHK(err);
+  err = dMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof defaultFSDMOps);dCHK(err);
   err = dStrcpyS(fs->bdyTagName,sizeof fs->bdyTagName,NEUMANN_SET_TAG_NAME);dCHK(err);
   /* RCM is a good default ordering because it improves the performance of smoothers and incomplete factorization */
-  err = dStrcpyS(fs->orderingtype,sizeof fs->orderingtype,MATORDERING_RCM);dCHK(err);
+  err = dFSSetOrderingType(fs,MATORDERINGRCM);dCHK(err);
 
-  /* Defaults */
+  /* For implementation-defined operations */
+  err = PetscNewLog(fs,struct _dFSOps,&fs->ops);dCHK(err);
+
+/* Defaults */
   fs->bs = 1;
   err = dCallocA(1,&fs->fieldname);dCHK(err);
 
@@ -61,17 +70,32 @@ dErr dFSSetType(dFS fs,const dFSType type)
   dBool     match;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(fs,DM_COOKIE,1);
+  PetscValidHeaderSpecific(fs,DM_CLASSID,1);
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   err = PetscFListFind(FSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
-  if (!r) dERROR(1,"Unable to find requested dFS type %s",type);
+  if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dFS type %s",type);
   if (fs->ops->impldestroy) { err = (*fs->ops->impldestroy)(fs);dCHK(err); }
-  err = PetscMemcpy(fs->ops,&defaultFSOps,sizeof(defaultFSOps));dCHK(err);
+  err = PetscMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof(defaultFSDMOps));dCHK(err);
   fs->spacebuilt = 0;
   err = (*r)(fs);dCHK(err);
   err = PetscObjectChangeTypeName((PetscObject)fs,type);dCHK(err);
+  dFunctionReturn(0);
+}
+
+/* logically collective */
+dErr dFSSetOrderingType(dFS fs,const MatOrderingType order)
+{
+  dErr err,(*r)(Mat,const MatOrderingType,IS*,IS*);
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  dValidCharPointer(order,2);
+  if (fs->spacebuilt) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_WRONGSTATE,"Must set ordering before building the space");
+  err = PetscFListFind(MatOrderingList,((dObject)fs)->comm,order,(void(**)(void))&r);dCHK(err);
+  if (!r) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_OUTOFRANGE,"Unknown or unregistered type: %s",order);
+  err = dStrcpyS(fs->orderingtype,sizeof(fs->orderingtype),order);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -83,7 +107,7 @@ dErr dFSSetFromOptions(dFS fs)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_COOKIE,1);
+  dValidHeader(fs,DM_CLASSID,1);
   err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space (dFS) options","dFS");dCHK(err);
   err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",FSList,deft,type,256,&flg);dCHK(err);
   if (flg) {
@@ -93,7 +117,7 @@ dErr dFSSetFromOptions(dFS fs)
   }
   err = PetscOptionsInt("-dfs_rule_strength","Choose rules that are stronger than necessary","dFSRuleStrength",fs->ruleStrength,&fs->ruleStrength,NULL);dCHK(err);
   err = PetscOptionsList("-dfs_ordering_type","Function Space ordering, usually to reduce bandwidth","dFSBuildSpace",MatOrderingList,fs->orderingtype,fs->orderingtype,256,NULL);dCHK(err);
-  err = PetscOptionsTruth("-dfs_assemble_reduced","Assemble only diagonal part of blocks","",fs->assemblereduced,&fs->assemblereduced,NULL);dCHK(err);
+  err = PetscOptionsBool("-dfs_assemble_reduced","Assemble only diagonal part of blocks","",fs->assemblereduced,&fs->assemblereduced,NULL);dCHK(err);
   if (fs->ops->setfromoptions) {
     err = (*fs->ops->setfromoptions)(fs);dCHK(err);
   }
@@ -131,10 +155,10 @@ dErr dFSInitializePackage(const char path[])
   initialized = PETSC_TRUE;
   err = MatInitializePackage(path);dCHK(err);
   err = DMInitializePackage(path);dCHK(err);
-  err = PetscCookieRegister("dFS Rotation",&dFSROT_COOKIE);dCHK(err);
+  err = PetscClassIdRegister("dFS Rotation",&dFSROT_CLASSID);dCHK(err);
 
-  err = PetscLogEventRegister("dQ1HexComputQuad",DM_COOKIE,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
-  err = PetscLogEventRegister("dFSMatSetVExpand",DM_COOKIE,&dLOG_FSMatSetValuesExpanded);dCHK(err);
+  err = PetscLogEventRegister("dQ1HexComputQuad",DM_CLASSID,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
+  err = PetscLogEventRegister("dFSMatSetVExpand",DM_CLASSID,&dLOG_FSMatSetValuesExpanded);dCHK(err);
   err = dFSRegisterAll(path);dCHK(err);
   dFunctionReturn(0);
 }

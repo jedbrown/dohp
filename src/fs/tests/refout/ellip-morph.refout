@@ -1,32 +1,35 @@
-    0 KSP Residual norm 36.465 
-    1 KSP Residual norm 17.5883 
-    2 KSP Residual norm 8.19779 
-    3 KSP Residual norm 3.6331 
-    4 KSP Residual norm 1.46342 
-    5 KSP Residual norm 0.576522 
-    6 KSP Residual norm 0.264747 
-    7 KSP Residual norm 0.130595 
-    8 KSP Residual norm 0.0713533 
-    9 KSP Residual norm 0.0348668 
-   10 KSP Residual norm 0.0150438 
-   11 KSP Residual norm 0.00897423 
-   12 KSP Residual norm 0.00547792 
-   13 KSP Residual norm 0.0029841 
-   14 KSP Residual norm 0.0014737 
-   15 KSP Residual norm 0.000677902 
-   16 KSP Residual norm 0.000367537 
-   17 KSP Residual norm 0.000202263 
-   18 KSP Residual norm 0.000108629 
-   19 KSP Residual norm 5.11755e-05 
-   20 KSP Residual norm 2.56007e-05 
-   21 KSP Residual norm 1.50671e-05 
-   22 KSP Residual norm 8.84353e-06 
-   23 KSP Residual norm 4.65162e-06 
-   24 KSP Residual norm 2.30465e-06 
-   25 KSP Residual norm 1.18227e-06 
-   26 KSP Residual norm 6.05593e-07 
-   27 KSP Residual norm 3.1174e-07 
-Algebraic residual        |x|_1 1.16e-05  |x|_2 5.13e-07  |x|_inf 9.36e-08
-Interpolation residual    |x|_1 1.33e+01  |x|_2 7.31e-01  |x|_inf 1.28e-01
-Pointwise solution error  |x|_1 5.37e-01  |x|_2 1.88e-01  |x|_inf 2.76e-01
-Pointwise gradient error  |x|_1 4.59e+00  |x|_2 2.84e+00  |x|_inf 2.27e+01
+    0 KSP Residual norm 111.034 
+    1 KSP Residual norm 30.4381 
+    2 KSP Residual norm 14.4646 
+    3 KSP Residual norm 7.36742 
+    4 KSP Residual norm 3.93818 
+    5 KSP Residual norm 2.42066 
+    6 KSP Residual norm 1.39979 
+    7 KSP Residual norm 0.759587 
+    8 KSP Residual norm 0.388997 
+    9 KSP Residual norm 0.226932 
+   10 KSP Residual norm 0.128836 
+   11 KSP Residual norm 0.076754 
+   12 KSP Residual norm 0.0498912 
+   13 KSP Residual norm 0.0280133 
+   14 KSP Residual norm 0.0160979 
+   15 KSP Residual norm 0.00865349 
+   16 KSP Residual norm 0.00515436 
+   17 KSP Residual norm 0.00278994 
+   18 KSP Residual norm 0.00151801 
+   19 KSP Residual norm 0.000773727 
+   20 KSP Residual norm 0.000455327 
+   21 KSP Residual norm 0.000250468 
+   22 KSP Residual norm 0.00014158 
+   23 KSP Residual norm 8.15869e-05 
+   24 KSP Residual norm 4.50722e-05 
+   25 KSP Residual norm 2.36617e-05 
+   26 KSP Residual norm 1.32983e-05 
+   27 KSP Residual norm 6.73646e-06 
+   28 KSP Residual norm 3.55618e-06 
+   29 KSP Residual norm 1.83775e-06 
+   30 KSP Residual norm 9.71362e-07 
+Algebraic residual        |x|_1 1.34e-08  |x|_2 2.05e-08  |x|_inf 1.52e-07
+Interpolation residual    |x|_1 1.00e-02  |x|_2 2.00e-02  |x|_inf 1.28e-01
+Pointwise solution error  |x|_1 4.04e-04  |x|_2 5.14e-03  |x|_inf 2.76e-01
+Pointwise gradient error  |x|_1 3.45e-03  |x|_2 7.78e-02  |x|_inf 2.27e+01

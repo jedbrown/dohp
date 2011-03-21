@@ -1,0 +1,12 @@
+expanded size 432, global size 396, range 0 .. 396 
+|x| = 432.000000, |g| = 432.000000, |y| = 504.000000
+  0 SNES Function norm 0.353633 
+  Linear solve converged due to CONVERGED_RTOL iterations 97
+  1 SNES Function norm 3.22358e-06 
+  Linear solve converged due to CONVERGED_RTOL iterations 206
+  2 SNES Function norm 3.263e-11 
+  Linear solve converged due to CONVERGED_RTOL iterations 209
+  3 SNES Function norm < 1.e-11
+Algebraic projection residual  |x|_1 4.10e-15  |x|_2 3.43e-16  |x|_inf 1.23e-16
+Pointwise projection residual  |x|_1 2.79e-07  |x|_2 3.77e-07  |x|_inf 1.88e-06
+Gradient ptwise proj residual  |x|_1 6.07e-08  |x|_2 2.00e-07  |x|_inf 3.28e-06

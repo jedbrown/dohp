@@ -16,10 +16,12 @@
 
 dEXTERN_C_BEGIN
 
-extern dCookie dFSROT_COOKIE;
+extern dClassId dFSROT_CLASSID;
 
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;
+typedef struct _n_dRuleset *dRuleset;
+typedef struct _n_dRulesetIterator *dRulesetIterator;
 
 /** User-provided constraint function.
 * @param ctx User context
@@ -44,8 +46,12 @@ typedef enum {
 } dFSBStatus;
 
 typedef enum {dFS_HOMOGENEOUS, dFS_INHOMOGENEOUS} dFSHomogeneousMode;
-
+typedef enum {dFS_CLOSURE, dFS_INTERIOR} dFSClosureMode;
 typedef enum {dFS_ROTATE_FORWARD, dFS_ROTATE_REVERSE} dFSRotateMode;
+
+extern const char *const dFSHomogeneousModes[];
+extern const char *const dFSClosureModes[];
+extern const char *const dFSRotateModes[];
 
 #define dFSType char *
 
@@ -58,25 +64,61 @@ extern dErr dFSGetJacobi(dFS,dJacobi*);
 extern dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetBlockSize(dFS,dInt);
+extern dErr dFSGetBlockSize(dFS,dInt*);
 extern dErr dFSSetFieldName(dFS,dInt,const char*);
 extern dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
+extern dErr dFSRegisterBoundarySet(dFS,dMeshESH,dFSBStatus,dFSConstraintFunction,void*);
 extern dErr dFSSetFromOptions(dFS);
 extern dErr dFSSetType(dFS,const dFSType);
+extern dErr dFSSetOrderingType(dFS,const MatOrderingType);
 extern dErr dFSCreateExpandedVector(dFS,Vec*);
 extern dErr dFSCreateGlobalVector(dFS,Vec*);
 extern dErr dFSExpandedToLocal(dFS,Vec,Vec,InsertMode);
 extern dErr dFSLocalToExpanded(dFS,Vec,Vec,InsertMode);
 extern dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc);
 extern dErr dFSRotateGlobal(dFS,Vec,dFSRotateMode,dFSHomogeneousMode);
-extern dErr dFSGetElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
-extern dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,s_dRule*restrict*,s_dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
-extern dErr dFSGetWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
-extern dErr dFSRestoreWorkspace(dFS,const char[],dReal(*restrict*)[3],dReal(*restrict*)[3][3],dReal*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*,dScalar*restrict*);
+#if 0
+extern dErr dFSGetElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
+extern dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
+#endif
 extern dErr dFSMatSetValuesBlockedExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
 extern dErr dFSGetMatrix(dFS,const MatType,Mat*);
+extern dErr dFSSetOptionsPrefix(dFS,const char[]);
 extern dErr dFSBuildSpace(dFS);
 extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
 extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nvtx,dEntTopology topo[],dInt off[],dInt ind[]);
+extern dErr dFSGetDomain(dFS,dMeshESH*);
+
+extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dEntType,dEntTopology,dQuadratureMethod,dRuleset*);
+extern dErr dFSGetEFS(dFS,dRuleset,dInt*,const dEFS**);
+extern dErr dFSRestoreEFS(dFS,dRuleset,dInt*,const dEFS**);
+extern dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ,dInt *maxnpatches,dInt *maxQelem);
+extern dErr dRulesetGetSize(dRuleset rset,dInt *size);
+extern dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
+extern dErr dRulesetRestoreWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
+extern dErr dRulesetDestroy(dRuleset);
+
+extern dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter);
+extern dErr dRulesetIteratorDestroy(dRulesetIterator);
+extern dErr dRulesetIteratorAddFS(dRulesetIterator it,dFS fs);
+extern dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,...);
+extern dErr dRulesetIteratorNextPatch(dRulesetIterator it);
+extern bool dRulesetIteratorHasPatch(dRulesetIterator it);
+extern dErr dRulesetIteratorSetupElement(dRulesetIterator it);
+extern dErr dRulesetIteratorGetPatch(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...);
+extern dErr dRulesetIteratorGetPatchSpace(dRulesetIterator it,dScalar **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
+extern dErr dRulesetIteratorRestorePatchSpace(dRulesetIterator it,dScalar **cjinv,dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
+extern dErr dRulesetIteratorCommitPatch(dRulesetIterator it,dScalar *v,...);
+extern dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **jw,dScalar **u,dScalar **du,dScalar **v,dScalar **dv,...);
+extern dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,const dScalar *v,const dScalar *dv,...);
+extern dErr dRulesetIteratorGetPatchExplicit(dRulesetIterator it,dInt *P,const dReal **interp,const dReal **deriv,...);
+extern dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...);
+extern dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...);
+extern dErr dRulesetIteratorGetElement(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...);
+extern dErr dRulesetIteratorGetMatrixSpaceSplit(dRulesetIterator it,dScalar **K,...);
+extern dErr dRulesetIteratorFinish(dRulesetIterator);
+extern dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt patchbytes,dInt nodebytes);
+extern dErr dRulesetIteratorGetStash(dRulesetIterator,void *patchstash,void *nodestash);
 
 extern dErr dFSDestroy(dFS);
 extern dErr dFSView(dFS,dViewer);
@@ -99,8 +141,15 @@ extern dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMo
 extern dErr dFSSetRotation(dFS,dFSRotation);
 extern dErr dFSGetRotation(dFS,dFSRotation*);
 
-extern dErr dFSGetCoordinates(dFS,Vec*);
-extern dErr dFSGetGeometryVector(dFS,Vec*);
+extern dErr dFSGetCoordinateFS(dFS,dFS*);
+extern dErr dFSGetGeometryVectorExpanded(dFS,Vec*);
+extern dErr dFSGetGeometryVectorGlobal(dFS,Vec*);
+
+extern dErr dFSGetNodalCoordinateFS(dFS,dFS*);
+extern dErr dFSGetNodalCoordinatesExpanded(dFS,Vec*);
+extern dErr dFSGetNodalCoordinatesGlobal(dFS,Vec*);
+
+extern dErr dFSRedimension(dFS,dInt,dFSClosureMode,dFS*);
 
 /** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
 * separate it out yet.  This macro is a rather dirty way to avoid a bunch of code duplication without much runtime cost.

@@ -1,5 +1,5 @@
 Boundary Unit test object (BU)
-  nominal rule degree  3,  constant basis degree  3
+  nominal rule degree  2,  constant basis degree  2
   dFS object:(no prefix)
     type: cont
     General information about the mesh topology.
@@ -8,6 +8,8 @@ Boundary Unit test object (BU)
     Block size 1: global dofs 9, ghost dofs 0, closure dofs 45
     Continuous Galerkin function space
 Global closure vector, should be a sequence starting with 1000
+Vector Object: 1 MPI processes
+  type: mpi
 Process [0]
 1000
 1001
@@ -55,6 +57,8 @@ Process [0]
 1043
 1044
 Expanded vector projected into homogeneous space
+Vector Object: 1 MPI processes
+  type: seq
 0
 0
 0
@@ -110,6 +114,8 @@ Expanded vector projected into homogeneous space
 0
 0
 Expanded vector projected into inhomogeneous space
+Vector Object: 1 MPI processes
+  type: seq
 10
 10
 10
@@ -164,7 +170,10 @@ Expanded vector projected into inhomogeneous space
 10
 10
 10
-Serial coordinate vector (3 dofs per closure node)
+Global coordinate vector (3 dofs per closure node)
+Vector Object: 1 MPI processes
+  type: mpi
+Process [0]
 0
 0
 -1
@@ -300,6 +309,8 @@ Serial coordinate vector (3 dofs per closure node)
 1
 0
 0
+Matrix Object: 1 MPI processes
+  type: seqaij
 row 0:
 row 1:
 row 2:

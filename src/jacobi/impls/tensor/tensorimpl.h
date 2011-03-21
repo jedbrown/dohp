@@ -3,6 +3,7 @@
 
 #include <dohpkhash.h>
 #include <dohpjacimpl.h>
+#include <dohp.h>
 
 dEXTERN_C_BEGIN
 
@@ -22,9 +23,25 @@ struct _TensorBasis {
   const dReal *mscale,*lscale;  /**< Used to produce optimal scaling of sparse mass and Laplacian matrices */
 };
 
-KHASH_MAP_INIT_INT(basis,TensorBasis)
+typedef struct {
+  dEFSHEADER;
+  dEntTopology topo;
+  TensorBasis  basis[3];
+} dEFS_Tensor;
 
-typedef struct s_Tensor *Tensor;
+KHASH_MAP_INIT_INT(tensor,TensorBasis)
+
+typedef struct {
+  dEntTopology topo;
+  dPolynomialOrder degree;
+  dRule rule;
+} khu_efskey_t;
+static inline khint_t khu_efskey_hash_func(khu_efskey_t key)
+{ return kh_int_hash_func((khint32_t)key.topo) ^ kh_int_hash_func((khint32_t)dPolynomialOrderKeyU32(key.degree)) ^ kh_int64_hash_func((khint64_t)(uintptr_t)key.rule); }
+static inline bool khu_efskey_hash_equal(khu_efskey_t a,khu_efskey_t b)
+{ return (a.topo == b.topo) && dPolynomialOrderEqual(a.degree,b.degree) && (a.rule == b.rule); }
+KHASH_INIT(efs, khu_efskey_t, dEFS_Tensor*, 1, khu_efskey_hash_func, khu_efskey_hash_equal)
+
 /**
 * There are several factors in play which justify the storage method used.  First, we would like rapid lookup of
 * TensorRule and TensorBasis objects since many lookups are needed any time the approximation order changes.  More
@@ -39,10 +56,10 @@ typedef struct s_Tensor *Tensor;
 * TensorRule or TensorBasis fails, we just get a new base pointer from dBufferList and retry.
 *
 */
-struct s_Tensor {
+typedef struct {
   dReal       alpha,beta;
-  GaussFamily family;
-  khash_t(basis) *bases;  /**< Hash of bases.  Consider basis with \a m quadrature
+  dGaussFamily family;
+  khash_t(tensor) *tensor;  /**< Hash of bases.  Consider basis with \a m quadrature
                                   * points and \a n basis functions.
                                   *
                                   * If the quadrature points are \f$ q_i, i = 0,1,\dotsc,m-1 \f$
@@ -50,15 +67,11 @@ struct s_Tensor {
                                   * and the nodes are \f$ x_j, j=0,1,\dotsc,n-1 \f$
                                   *
                                   * then \f$ f(q_i) = \sum_{j=0}^n B[i*n+j] f(x_j) \f$ */
-  PetscTruth usemscale,uselscale,nounroll;
+  khash_t(efs) *efs;
+  dBool usemscale,uselscale,nounroll;
   /* dBufferList data; */
   struct _dEFSOps *efsOpsLine,*efsOpsQuad,*efsOpsHex;
-};
-
-typedef struct {
-  dEFSHEADER;
-  TensorBasis basis[3];
-} dEFS_Tensor;
+} dJacobi_Tensor;
 
 extern dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac);
 extern dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac);

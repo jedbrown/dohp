@@ -2,6 +2,8 @@
 #include "tensorquad.h"
 
 static dErr dRuleView_Tensor_Private(const char*,dInt,TensorRule*,PetscViewer);
+static dErr dRuleGetPatches_Tensor_All(dRule,dInt*,dInt*,const dInt **,const dReal**);
+
 #define _F(f) static dErr f(dRule,PetscViewer)
 _F(dRuleView_Tensor_Line);
 _F(dRuleView_Tensor_Quad);
@@ -11,11 +13,6 @@ _F(dRuleView_Tensor_Hex);
 _F(dRuleGetSize_Tensor_Line);
 _F(dRuleGetSize_Tensor_Quad);
 _F(dRuleGetSize_Tensor_Hex);
-#undef _F
-#define _F(f) static dErr f(dRule*,dReal*,dReal*)
-/* _F(dRuleGetNodeWeight_Tensor_Line); */
-/* _F(dRuleGetNodeWeight_Tensor_Quad); */
-/* _F(dRuleGetNodeWeight_Tensor_Line); */
 #undef _F
 #define _F(f) static dErr f(dRule,dInt*,dInt[],const dReal*[],const dReal*[])
 _F(dRuleGetTensorNodeWeight_Tensor_Line);
@@ -34,7 +31,7 @@ static dErr dRuleView_Tensor_Private(const char *name,dInt n,TensorRule *tr,Pets
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"dRule type %s\n",name);dCHK(err);
     for (dInt i=0; i<n; i++) {
@@ -227,12 +224,23 @@ static dErr dRuleComputeGeometry_Tensor_Hex(dRule rule,const dReal x[restrict][3
                       + x[7][l]*qmp);
         }
         err = dGeomInvert3(&J[0][0],&jinv[p][0][0],&Jdet);dCHK(err);
-        if (Jdet <= 0.0) dERROR(1,"Negative Jacobian at %d,%d,%d",i,j,k);
+        if (Jdet <= 0.0) dERROR(PETSC_COMM_SELF,1,"Negative Jacobian at %d,%d,%d",i,j,k);
         jw[p] = Jdet * qw[0][i] * qw[1][j] * qw[2][k]; /* Weight the determinant */
       }
     }
   }
-  PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */ + 3 /* weight */));
+  err = PetscLogFlops(Q[0]*(4 + Q[1]*8) + QQ*(18 /* prep */ + 3*4*15 /* qg,J */ + 42 /* invert */ + 3 /* weight */));dCHK(err);
+  dFunctionReturn(0);
+}
+
+static dErr dRuleGetPatches_Tensor_All(dRule grule,dInt *npatches,dInt *patchsize,const dInt **ind,const dReal **weight)
+{
+  dRule_Tensor *rule = (dRule_Tensor*)grule;
+  dFunctionBegin;
+  if (npatches)  *npatches  = rule->npatches;
+  if (patchsize) *patchsize = rule->patchsize;
+  if (ind)       *ind       = rule->patchind;
+  if (weight)    *weight    = rule->patchweight;
   dFunctionReturn(0);
 }
 
@@ -243,6 +251,7 @@ dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
     .getSize             = dRuleGetSize_Tensor_Line,
     .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Line, */
     .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Line,
+    .getPatches          = dRuleGetPatches_Tensor_All,
     .computeGeometry     = NULL, /* Not implemented */
   };
   static const struct _dRuleOps ruleOpsQuad = {
@@ -250,6 +259,7 @@ dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
     .getSize             = dRuleGetSize_Tensor_Quad,
     .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Quad, */
     .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Quad,
+    .getPatches          = dRuleGetPatches_Tensor_All,
     .computeGeometry     = NULL, /* Not implemented */
   };
   static const struct _dRuleOps ruleOpsHex  = {
@@ -257,6 +267,7 @@ dErr dQuadratureRuleOpsSetUp_Tensor(dQuadrature quad)
     .getSize             = dRuleGetSize_Tensor_Hex,
     .getNodeWeight       = NULL, /* dRuleGetNodeWeight_Tensor_Hex, */
     .getTensorNodeWeight = dRuleGetTensorNodeWeight_Tensor_Hex,
+    .getPatches          = dRuleGetPatches_Tensor_All,
     .computeGeometry     = dRuleComputeGeometry_Tensor_Hex,
   };
   dQuadrature_Tensor *tnsr = quad->data;

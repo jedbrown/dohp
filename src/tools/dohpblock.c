@@ -156,8 +156,8 @@ static dErr createUniformTags(iMesh_Instance mesh)
 int main(int argc, char *argv[])
 {
   const char outopts[]="",pTagName[]="OWNING_PART", pSetName[]="PARALLEL_PARTITION";
-  PetscTruth do_geom=1,assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
-  PetscTruth do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1;
+  PetscBool  do_geom=1,assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
+  PetscBool  do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1;
   char outfile[256] = "dblock.h5m";
   char outgeom[256] = "dblock.brep";
   dInt verbose = 1;
@@ -179,19 +179,19 @@ int main(int argc, char *argv[])
   {
     char boxstr[256] = "-1:1,-1:1,-1:1",mnp[256] = "9,9,9",MNP[256] = "2,2,2";
     err = PetscOptionsInt("-verbose","verbosity of output","none",verbose,&verbose,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_geom","create geometric models","none",do_geom,&do_geom,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_geom","create geometric models","none",do_geom,&do_geom,NULL);dCHK(err);
     if (do_geom) {
-      err = PetscOptionsTruth("-assoc_with_brick","associate boundaries with brick","none",assoc_with_brick,&assoc_with_brick,NULL);dCHK(err);
+      err = PetscOptionsBool("-assoc_with_brick","associate boundaries with brick","none",assoc_with_brick,&assoc_with_brick,NULL);dCHK(err);
     }
-    err = PetscOptionsTruth("-do_color_bdy","color boundary sets","none",do_color_bdy,&do_color_bdy,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
-    err = PetscOptionsTruth("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_color_bdy","color boundary sets","none",do_color_bdy,&do_color_bdy,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
+    err = PetscOptionsBool("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
     err = PetscOptionsString("-box","box x0:x1,y0:y1,z0:z1","none",boxstr,boxstr,sizeof(boxstr),NULL);dCHK(err);
     err = PetscOptionsString("-mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
     err = PetscOptionsString("-procs_mnp","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
@@ -200,11 +200,11 @@ int main(int argc, char *argv[])
       err = PetscOptionsString("-ogeom","outfile for geometry","none",outgeom,outgeom,sizeof(outgeom),NULL);dCHK(err);
     }
     i = sscanf(boxstr,"%lf:%lf,%lf:%lf,%lf:%lf",&box.x0,&box.x1,&box.y0,&box.y1,&box.z0,&box.z1);
-    if (i != 6) dERROR(1,"Failed to parse bounding box.");
+    if (i != 6) dERROR(PETSC_COMM_SELF,1,"Failed to parse bounding box.");
     i = sscanf(mnp,"%d,%d,%d",&m,&n,&p);
-    if (i != 3) dERROR(1,"Failed to parse size.");
+    if (i != 3) dERROR(PETSC_COMM_SELF,1,"Failed to parse size.");
     i = sscanf(MNP,"%d,%d,%d",&M,&N,&P);
-    if (i != 3) dERROR(1,"Failed to parse partition size.");
+    if (i != 3) dERROR(PETSC_COMM_SELF,1,"Failed to parse partition size.");
   }
   err = PetscOptionsEnd();
 
@@ -258,9 +258,9 @@ int main(int argc, char *argv[])
       }
     }
   }
-  if (I != c.s) dERROR(1,"Wrong number of regions.");
+  if (I != c.s) dERROR(PETSC_COMM_SELF,1,"Wrong number of regions.");
   iMesh_createEntArr(mesh,iMesh_HEXAHEDRON,c.v,c.s,&r.v,&r.a,&r.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
-  if (r.s != (m-1)*(n-1)*(p-1)) dERROR(1,"Wrong number of regions created.");
+  if (r.s != (m-1)*(n-1)*(p-1)) dERROR(PETSC_COMM_SELF,1,"Wrong number of regions created.");
   printf("region size %d, status size %d\n",r.s,s.s);
 
   if (do_global_number) {err = doGlobalNumber(mesh);dCHK(err);}
@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
         }
       }
     }
-    if (I != c.s) dERROR(1, "Wrong number of faces.");
+    if (I != c.s) dERROR(PETSC_COMM_SELF,1, "Wrong number of faces.");
     iMesh_createEntArr(mesh,iMesh_QUADRILATERAL,c.v,c.s,&f.v,&f.a,&f.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
     err = CommitToFaceSets(mesh,f.v,face,facecount,facesets,entbuf);dCHK(err);
     printf("face size %d, status size %d\n",f.s,s.s);
@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
         }
       }
     }
-    if (I != c.s) dERROR(1, "Wrong number of edges.");
+    if (I != c.s) dERROR(PETSC_COMM_SELF,1, "Wrong number of edges.");
     iMesh_createEntArr(mesh,iMesh_LINE_SEGMENT,c.v,c.s, &e.v,&e.a,&e.s, &s.v,&s.a,&s.s,&err);dICHK(mesh,err);
     err = CommitToFaceSets(mesh,e.v,face,facecount,facesets,entbuf);dCHK(err);
     printf("edge size %d, status size %d\n",e.s,s.s);
@@ -515,7 +515,7 @@ int main(int argc, char *argv[])
         int gid,gdim;
         iRel_getSetEntAssociation(assoc,rel,facesets[i],1,&gface,&err);dIRCHK(assoc,err);
         iGeom_getEntType(geom,gface,&gdim,&err);dIGCHK(geom,err);
-        if (gdim != 2) dERROR(1,"Geometric dimension is %d, expected 2",gdim);
+        if (gdim != 2) dERROR(PETSC_COMM_SELF,1,"Geometric dimension is %d, expected 2",gdim);
         iGeom_getIntData(geom,gface,geomGlobalIDTag,&gid,&err);dIGCHK(geom,err);
         iMesh_setEntSetIntData(mesh,facesets[i],meshGeomDimTag,2,&err);dICHK(mesh,err);
         /* If the following line is disabled, Lasso will pick up the wrong relations, but at least they will still be with

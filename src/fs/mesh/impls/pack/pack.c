@@ -104,7 +104,7 @@ static dErr dFindInt(dInt n,dInt a[],dInt v,dInt *i)
     else          low = t;
   }
   if (a[low] == v) *i = low;
-  else dERROR(1,"Failed to find value %d in list [(%d,%d)..(%d,%d)].",v,0,a[0],n-1,a[n-1]);
+  else dERROR(PETSC_COMM_SELF,1,"Failed to find value %d in list [(%d,%d)..(%d,%d)].",v,0,a[0],n-1,a[n-1]);
   dFunctionReturn(0);
 }
 #endif
@@ -153,13 +153,13 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
     dInt r;
 
     sprocs = pd->setarr[s].ranks;
-    iMesh_getEntSetData(mi,sh[s],pstatusTag,&silly_status,&one_a,&one_s,&err);dICHK(mi,err);
-    if (!(pstatus & PSTATUS_SHARED)) dERROR(1,"shared packer contains an unshared set");
+    iMesh_getEntSetData(mi,sh[s],pstatusTag,(void**)&silly_status,&one_a,&one_s,&err);dICHK(mi,err);
+    if (!(pstatus & PSTATUS_SHARED)) dERROR(PETSC_COMM_SELF,1,"shared packer contains an unshared set");
 
     /* make \c sprocs[] contain the list of copies, terminated by -1 */
     iMesh_getEntSetIntData(mi,sh[s],sprocTag,&sproc,&err);dICHK(mi,err);
     if (sproc == -1) {        /* There are multiple sharing procs */
-      iMesh_getEntSetData(mi,sh[s],sprocsTag,(dIByte**)&sprocs,&sprocs_a,&sprocs_s,&err);dICHK(mi,err);
+      iMesh_getEntSetData(mi,sh[s],sprocsTag,(void**)&sprocs,&sprocs_a,&sprocs_s,&err);dICHK(mi,err);
     } else {
       sprocs[0] = sproc; for (dInt i=1; i<MAX_SHARING_PROCS; i++) sprocs[i] = -1;
     }
@@ -167,7 +167,7 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
     /* Find position 'r' to insert my rank */
     if (pstatus & PSTATUS_NOT_OWNED) {
       for (r=1; sprocs[r] < rank && sprocs[r] >= 0; r++) { /* Scan forward to my position */
-        if (r == MAX_SHARING_PROCS-1) dERROR(1,"Too many sharing procs");
+        if (r == MAX_SHARING_PROCS-1) dERROR(PETSC_COMM_SELF,1,"Too many sharing procs");
       }
     } else {                    /* I am the owner, insert at the beginning of the list */
       r = 0; 
@@ -177,7 +177,7 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
       dInt t0,t1;
       t0 = rank;
       while (t0 >= 0) {
-        if (r == MAX_SHARING_PROCS) dERROR(1,"Too many sharing procs");
+        if (r == MAX_SHARING_PROCS) dERROR(PETSC_COMM_SELF,1,"Too many sharing procs");
         t1 = sprocs[r];
         sprocs[r] = t0;
         t0 = t1;
@@ -225,7 +225,7 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
     }
   }
 
-  if (rcount[rank] != ns) dERROR(1,"[%d] I should be in every set rcount=%d, ns=%d",rank,rcount[rank],ns);
+  if (rcount[rank] != ns) dERROR(PETSC_COMM_SELF,1,"[%d] I should be in every set rcount=%d, ns=%d",rank,rcount[rank],ns);
 
   /* Count the number of distinct neighbor ranks */
   rcount[rank] = 0;             /* don't count me */
@@ -255,7 +255,7 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
         pd->irank[i] = -1;
       }
     }
-    if (r != pd->nsr) dERROR(1,"counts do not match");
+    if (r != pd->nsr) dERROR(PETSC_COMM_SELF,1,"counts do not match");
   }
 
   /* Set up everything which does not depend on tag size */
@@ -269,19 +269,19 @@ static dErr MeshPackDataCreate(dMesh mesh,dInt ns,dMeshESH *sh,PackData **inpd)
     if (pd->set[s]->ranks[0] == rank) { /* I am the owner, we need all the subsets */
       start = 1; end = 1+pd->snr[s];
     } else {                    /* Just look at the owner */
-      if (pd->snr[s] != 1) dERROR(1,"We are not the owner, but we still have multiple ranks in this set");
+      if (pd->snr[s] != 1) dERROR(PETSC_COMM_SELF,1,"We are not the owner, but we still have multiple ranks in this set");
       start = 0; end = 1;
     }
     for (i=start,r=0; i != end; i++,r++) {
       rr = pd->set[s]->ranks[i];  /* the \e real rank */
       pd->sr[pd->is[s]+r] = pd->irank[rr];
-      if (!(0 <= pd->irank[rr] && pd->irank[rr] < pd->nr)) dERROR(1,"[%d] invalid real rank %d",rank,rr);
-      if (!(0 <= pd->ir[pd->irank[rr]] && pd->ir[pd->irank[rr]] < pd->nsr)) dERROR(1,"pd->ir invalid");
+      if (!(0 <= pd->irank[rr] && pd->irank[rr] < pd->nr)) dERROR(PETSC_COMM_SELF,1,"[%d] invalid real rank %d",rank,rr);
+      if (!(0 <= pd->ir[pd->irank[rr]] && pd->ir[pd->irank[rr]] < pd->nsr)) dERROR(PETSC_COMM_SELF,1,"pd->ir invalid");
     }
     arr = &pd->ents[pd->estart[s]];
     arralloc = pd->sne[s];
     iMesh_getEntities(mi,pd->set[s]->handle,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&arr,&arralloc,&arrsize,&err);dICHK(mi,err);
-    if (arrsize != pd->sne[s]) dERROR(1,"incorrect sizes");
+    if (arrsize != pd->sne[s]) dERROR(PETSC_COMM_SELF,1,"incorrect sizes");
   } 
   err = dFree(rcount);dCHK(err);
   *inpd = pd;
@@ -297,7 +297,7 @@ static dErr MeshPackDataPrepare(dMesh mesh,PackData *pd,dMeshTag tag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(pd,2);
   if (pd->tag == tag) dFunctionReturn(0);  /* If the tag has not changed, there is nothing to do */
   iMesh_getTagSizeValues(mi,tag,&tlen,&err);dICHK(mi,err);
@@ -345,7 +345,7 @@ static dErr MeshPackDataPrepare(dMesh mesh,PackData *pd,dMeshTag tag)
   }
 
   for (dInt r=0; r<pd->nr; r++) {
-    if (rcount[r] != pd->rns[r]) dERROR(1,"rank-set counts do not agree, rank %d(%d) %d %d",r,pd->rank[r],pd->rns[r],rcount[r]);
+    if (rcount[r] != pd->rns[r]) dERROR(PETSC_COMM_SELF,1,"rank-set counts do not agree, rank %d(%d) %d %d",r,pd->rank[r],pd->rns[r],rcount[r]);
   }
 
   for (dInt r=0; r<pd->nr; r++) {
@@ -378,7 +378,7 @@ static dErr MeshPackDataLoad(dMesh mesh,PackData *pd)
   /* Load \a mine from the mesh */
   {
     dIInt used;
-    iMesh_getArrData(mi,pd->ents,pd->ne,pd->tag,(dIByte**)&pd->mine,&pd->minesize,&used,&err);dICHK(mi,err);
+    iMesh_getArrData(mi,pd->ents,pd->ne,pd->tag,(void**)&pd->mine,&pd->minesize,&used,&err);dICHK(mi,err);
   }
 
   /* Copy \a mine into \a data */
@@ -486,7 +486,7 @@ static dErr PackView(dMesh mesh,Mesh_Pack *pack)
       int ea=0,es,*data,da=0,ds;
       iMesh_getEntities(mi,pack->unowned->set[i]->handle,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,&ents,&ea,&es,&err);dICHK(mi,err);
       iMesh_getIntArrData(mi,ents,es,pack->unowned->tag,&data,&da,&ds,&err);dICHK(mi,err);
-      if (es != ds) dERROR(1,"iMesh inconsistency");
+      if (es != ds) dERROR(PETSC_COMM_SELF,1,"iMesh inconsistency");
       for (int j=0; j<ds; j++) {
         PetscSynchronizedPrintf(MPI_COMM_WORLD,"[%d]   owner[%d] = %d\n",rank,j,data[j]);
       }
@@ -559,7 +559,7 @@ static dErr dMeshLoad_Pack(dMesh mesh)
 
   /* Get the interface sets */
   iMesh_getTagHandle(mi,PARALLEL_STATUS_TAG_NAME,&pstatusTag,&err,strlen(PARALLEL_STATUS_TAG_NAME));dICHK(mi,err);
-  iMesh_getNumEntSets(mi,mesh->root,1,&nallset,&err);dICHK(mi,err);
+  iMesh_getNumEntSets(mi,mesh->root,0,&nallset,&err);dICHK(mi,err);
   {
     dInt alloc = nallset;
     err = dMalloc(nallset*sizeof(dMeshESH),&allset);dCHK(err);
@@ -576,7 +576,7 @@ static dErr dMeshLoad_Pack(dMesh mesh)
       char pstatus,*stupid = &pstatus;
       int one_a=1,one_s;
 
-      iMesh_getEntSetData(mi,allset[i],pstatusTag,&stupid,&one_a,&one_s,&err);dICHK(mi,err);
+      iMesh_getEntSetData(mi,allset[i],pstatusTag,(void**)&stupid,&one_a,&one_s,&err);dICHK(mi,err);
       if (!(pstatus & PSTATUS_SHARED)) continue;
       if (pstatus & PSTATUS_NOT_OWNED) {
         uset[usi++] = allset[i];

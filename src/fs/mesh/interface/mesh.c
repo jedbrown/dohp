@@ -5,10 +5,6 @@
 #include <MBParallelConventions.h>
 #include <ctype.h>              /* needed for isprint() */
 
-static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer);
-
-static const dInt iBase_SizeFromType[4] = {sizeof(int),sizeof(double),sizeof(void*),sizeof(char)};
-
 const char *const iBase_ErrorString[] = {
   "iBase_SUCCESS",
   "iBase_MESH_ALREADY_LOADED",
@@ -36,43 +32,70 @@ const char *const iBase_ErrorString[] = {
   "iBase_FAILURE"
 };
 
-const char *const iMesh_TopologyName[12] = {
-  "iMesh_POINT",
-  "iMesh_LINE_SEGMENT",
-  "iMesh_POLYGON",
-  "iMesh_TRIANGLE",
-  "iMesh_QUADRILATERAL",
-  "iMesh_POLYHEDRON",
-  "iMesh_TETRAHEDRON",
-  "iMesh_HEXAHEDRON",
-  "iMesh_PRISM",
-  "iMesh_PYRAMID",
-  "iMesh_SEPTAHEDRON",
-  "iMesh_ALL_TOPOLOGIES"
-};
+static dInt iBase_SizeFromType(dDataType type) {
+  static const dInt sizes [dDATA_UB] = {
+    [dDATA_BYTE] = sizeof(char),
+    [dDATA_INT]  = sizeof(int),
+    [dDATA_REAL] = sizeof(dReal),
+    [dDATA_EH]   = sizeof(dMeshEH),
+    [dDATA_ESH]  = sizeof(dMeshESH),
+  };
+  return (type < sizeof(sizes)/sizeof(sizes[0]))
+    ? sizes[type] : -1;
+}
 
-const int iMesh_TypeFromTopology[12] = {
-  iBase_VERTEX,                 /* POINT */
-  iBase_EDGE,                   /* LINE_SEGMENT */
-  iBase_FACE,                   /* POLYGON */
-  iBase_FACE,                   /* TRIANGLE */
-  iBase_FACE,                   /* QUADRILATERAL */
-  iBase_REGION,                 /* POLYHEDRON */
-  iBase_REGION,                 /* TETRAHEDRON */
-  iBase_REGION,                 /* HEXAHEDRON */
-  iBase_REGION,                 /* PRISM */
-  iBase_REGION,                 /* PYRAMID */
-  iBase_REGION,                 /* SEPTAHEDRON */
-  iBase_ALL_TYPES,              /* ALL_TOPOLOGIES */
-};
+const char *dMeshEntTopologyName(dEntTopology topo) {
+  static const char *const iMesh_TopologyName[12] = {
+    "iMesh_POINT",
+    "iMesh_LINE_SEGMENT",
+    "iMesh_POLYGON",
+    "iMesh_TRIANGLE",
+    "iMesh_QUADRILATERAL",
+    "iMesh_POLYHEDRON",
+    "iMesh_TETRAHEDRON",
+    "iMesh_HEXAHEDRON",
+    "iMesh_PRISM",
+    "iMesh_PYRAMID",
+    "iMesh_SEPTAHEDRON",
+    "iMesh_ALL_TOPOLOGIES"
+  };
+  return (topo <= sizeof(iMesh_TopologyName)/sizeof(iMesh_TopologyName[0]))
+    ? iMesh_TopologyName[topo]
+    : "iMesh_TOPOLOGY_OUT_OF_RANGE";
+}
 
-const char *const iBase_TypeName[] = {
-  "iBase_VERTEX",
-  "iBase_EDGE",
-  "iBase_FACE",
-  "iBase_REGION",
-  "iBase_ALL_TYPES"
-};
+dEntType dMeshEntTypeFromTopology(dEntTopology topo) {
+  static const int iMesh_TypeFromTopology[12] = {
+    iBase_VERTEX,                 /* POINT */
+    iBase_EDGE,                   /* LINE_SEGMENT */
+    iBase_FACE,                   /* POLYGON */
+    iBase_FACE,                   /* TRIANGLE */
+    iBase_FACE,                   /* QUADRILATERAL */
+    iBase_REGION,                 /* POLYHEDRON */
+    iBase_REGION,                 /* TETRAHEDRON */
+    iBase_REGION,                 /* HEXAHEDRON */
+    iBase_REGION,                 /* PRISM */
+    iBase_REGION,                 /* PYRAMID */
+    iBase_REGION,                 /* SEPTAHEDRON */
+    iBase_ALL_TYPES,              /* ALL_TOPOLOGIES */
+  };
+  return (topo <= dTOPO_ALL)
+    ? iMesh_TypeFromTopology[topo]
+    : dTYPE_ALL;
+}
+
+const char *dMeshEntTypeName(dEntType type) {
+  static const char *const iBase_TypeName[] = {
+    "iBase_VERTEX",
+    "iBase_EDGE",
+    "iBase_FACE",
+    "iBase_REGION",
+    "iBase_ALL_TYPES"
+  };
+  return (type <= sizeof(iBase_TypeName)/sizeof(iBase_TypeName[0]))
+    ? iBase_TypeName[type]
+    : "iBase_TYPE_OUT_OF_RANGE";
+}
 
 const char *const iBase_TagValueTypeName[] = {
   "iBase_INTEGER",
@@ -154,7 +177,7 @@ dErr dMeshOrientLoopBounds_Quad(dInt orient, const dInt *size, DohpLoopBounds *l
       l[1].start = 0;         l[1].stride = 1;     l[1].end = oy;
     } break;
     default:
-      dERROR(1,"Orientation not supported.");
+      dERROR(PETSC_COMM_SELF,1,"Orientation not supported.");
   }
   dFunctionReturn(0);
 }
@@ -166,7 +189,7 @@ dErr dMeshOrientLoopBounds_Line(dInt orient, const dInt *size, DohpLoopBounds *l
   switch (orient) {
     case 0: l->start = 0;         l->stride = 1;  l->end = size[0]; break;
     case 1: l->start = size[0]-1; l->stride = -1; l->end = -1;       break;
-    default: dERROR(1,"Orientation not supported.");
+    default: dERROR(PETSC_COMM_SELF,1,"Orientation not supported.");
   }
   dFunctionReturn(0);
 }
@@ -204,7 +227,7 @@ dErr dMeshLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l)
       l[1].start = 0;            l[1].stride = oz;     l[1].end = oy*oz;
     } break;
     default:
-      dERROR(1,"Face number not recognized.");
+      dERROR(PETSC_COMM_SELF,1,"Face number not recognized.");
   }
   dFunctionReturn(0);
 }
@@ -224,7 +247,7 @@ dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
     case 3:                     /* 3,0 */
       l->start = oy-1;      l->stride = -1;  l->end = -1; break;
     default:
-      dERROR(1,"Edge number not recognized.");
+      dERROR(PETSC_COMM_SELF,1,"Edge number not recognized.");
   }
   dFunctionReturn(0);
 }
@@ -249,11 +272,11 @@ static dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const 
       }
     }
     if (!(rj==rl[1].end && fj==fl[1].end)) {
-      dERROR(1,"Inner loop bounds do not agree.  Is this relation conforming?");
+      dERROR(PETSC_COMM_SELF,1,"Inner loop bounds do not agree.  Is this relation conforming?");
     }
   }
   if (!(ri==rl[0].end && fi==fl[0].end)) {
-    dERROR(1,"Outer loop bounds do not agree.  Is this relation conforming?");
+    dERROR(PETSC_COMM_SELF,1,"Outer loop bounds do not agree.  Is this relation conforming?");
   }
   dFunctionReturn(0);
 }
@@ -273,7 +296,7 @@ static dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const
     }
   }
   if (!(fi==fl.end && ei==el.end)) {
-    dERROR(1,"Loop bounds do not agree.  Is this relation conforming?");
+    dERROR(PETSC_COMM_SELF,1,"Loop bounds do not agree.  Is this relation conforming?");
   }
   dFunctionReturn(0);
 }
@@ -285,13 +308,13 @@ dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   if (fname) {
-    err = PetscStrfree(mesh->infile);dCHK(err);
+    err = PetscFree(mesh->infile);dCHK(err);
     err = PetscStrallocpy(fname,&mesh->infile);dCHK(err);
   }
   if (options) {
-    err = PetscStrfree(mesh->inoptions);dCHK(err);
+    err = PetscFree(mesh->inoptions);dCHK(err);
     err = PetscStrallocpy(options,&mesh->inoptions);dCHK(err);
   }
   dFunctionReturn(0);
@@ -303,7 +326,7 @@ dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inroot,2);
   *inroot = 0;
   if (!mesh->root) {
@@ -316,22 +339,31 @@ dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot)
 /* Makes a new set containing all entities in original, but not subsets */
 dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy)
 {
-  iMesh_Instance mi = mesh->mi;
-  dIInt   ierr,islist;
   dInt    size;
   dMeshEH *ents;
+  dMeshSetOrdering ordering;
   dErr    err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(copy,3);
   err = dMeshGetNumEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,&size);dCHK(err);
   err = dMallocA(size,&ents);dCHK(err);
   err = dMeshGetEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,ents,size,NULL);dCHK(err);
-  iMesh_isList(mi,set,&islist,&ierr);dICHK(mi,ierr);
-  err = dMeshSetCreate(mesh,islist?dMESHSET_ORDERED:dMESHSET_UNORDERED,copy);dCHK(err);
+  err = dMeshSetGetOrdering(mesh,set,&ordering);dCHK(err);
+  err = dMeshSetCreate(mesh,ordering,copy);dCHK(err);
   err = dMeshSetAddEnts(mesh,*copy,ents,size);dCHK(err);
   err = dFree(ents);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dMeshSetGetOrdering(dMesh mesh,dMeshESH set,dMeshSetOrdering *ordering)
+{
+  dIInt ierr,islist;
+
+  dFunctionBegin;
+  iMesh_isList(mesh->mi,set,&islist,&ierr);dICHK(mesh->mi,ierr);
+  *ordering = islist ? dMESHSET_ORDERED : dMESHSET_UNORDERED;
   dFunctionReturn(0);
 }
 
@@ -344,7 +376,7 @@ dErr dMeshGetTagName(dMesh mesh,dMeshTag tag,char **name)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(mesh,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(mesh,dMESH_CLASSID,1);
   dValidPointer(name,2);
   err = PetscMalloc(dNAME_LEN,name);dCHK(err);
   iMesh_getTagName(mi,tag,*name,&err,dNAME_LEN);dICHK(mi,err);
@@ -359,7 +391,7 @@ dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidCharPointer(name,2);
   dValidPointer(intag,3);
   *intag = 0;
@@ -376,7 +408,7 @@ dErr dMeshTagCreateTemp(dMesh mesh,const char template[],dInt count,dDataType ty
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(intag,4);
   err = PetscSNPrintf(name,sizeof(name),"__DOHP_%s_%d",template,unique_id++);dCHK(err);
   err = dMeshTagCreate(mesh,name,count,type,intag);dCHK(err);
@@ -392,23 +424,27 @@ dErr dMeshTagCreate(dMesh mesh,const char name[],dInt count,dDataType type,dMesh
   dErr           err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(intag,4);
   *intag = 0;
   mi = mesh->mi;
-  if (count <= 0) dERROR(1,"Tags must have positive count");
+  if (count <= 0) dERROR(PETSC_COMM_SELF,1,"Tags must have positive count");
   err = dDataTypeToITAPS(type,&itype);dCHK(err);
   err = dStrlen(name,&namelen);dCHK(err);
   iMesh_getTagHandle(mi,name,&tag,&ierr,(dIInt)namelen);
   if (ierr == iBase_TAG_NOT_FOUND) {
     iMesh_createTag(mi,name,count,itype,&tag,&ierr,(dIInt)namelen);dICHK(mi,ierr);
+    {
+      dIInt bytes;
+      iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    }
   } else {
     dIInt existing_itype,existing_count;
     dICHK(mi,ierr);
     iMesh_getTagType(mi,tag,&existing_itype,&ierr);dICHK(mi,ierr);
-    if (itype != existing_itype) dERROR(1,"tag exists with different type");
+    if (itype != existing_itype) dERROR(PETSC_COMM_SELF,1,"tag exists with different type");
     iMesh_getTagSizeValues(mi,tag,&existing_count,&ierr);dICHK(mi,ierr);
-    if (count != existing_count) dERROR(1,"tag exists with same type but different count");
+    if (count != existing_count) dERROR(PETSC_COMM_SELF,1,"tag exists with same type but different count");
   }
   *intag = tag;
   dFunctionReturn(0);
@@ -420,7 +456,7 @@ dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   iMesh_destroyTag(mesh->mi,tag,1,&ierr);dICHK(mesh->mi,ierr);
   dFunctionReturn(0);
 }
@@ -428,49 +464,101 @@ dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag)
 dErr dMeshTagSetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,const void *data,dInt count,dDataType type)
 {
   iMesh_Instance mi = mesh->mi;
-  dMeshEH *ments;
   const char *dptr = data;
   dIInt size,ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(data,5);
-  ments = (dMeshEH*)(intptr_t)ents;       /* Cast away const, pretty sure iMesh will never modify the handles */
-  size = count * iBase_SizeFromType[type];
-  iMesh_setArrData(mi,ments,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
+  size = count * iBase_SizeFromType(type);
+  if (1) {
+    dIInt bytes;
+    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    if (size != ecount * (dInt)bytes)
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Trying to tag %D entities with %D byte tags, but only requested %D bytes",ecount,bytes,size);
+  }
+  iMesh_setArrData(mi,ents,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
   dFunctionReturn(0);
 }
 
 dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,void *data,dInt count,dDataType type)
 {
   iMesh_Instance mi = mesh->mi;
-  char *dptr = data;
   dIInt size,alloc,ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(data,5);
-  alloc = count * iBase_SizeFromType[type];
+  alloc = count * iBase_SizeFromType(type);
   size = 0;                     /* protect against degenerate case */
-  iMesh_getArrData(mi,ents,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
-  if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type])
-    dERROR(1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
-  if (size > alloc) dERROR(1,"Insufficient allocation, iMesh should have thrown an error already");
+  if (1) {
+    dIInt bytes;
+    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    if (ecount && bytes != iBase_SizeFromType(type)*count/ecount) {
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Trying ot retrieve tags of %D bytes, but caller expects %D",bytes,iBase_SizeFromType(type)*count/ecount);
+    }
+  }
+  iMesh_getArrData(mi,ents,ecount,tag,&data,&alloc,&size,&ierr);dICHK(mi,ierr);
+  if (alloc != count * iBase_SizeFromType(type))
+    dERROR(PETSC_COMM_SELF,1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
+  if (size > alloc) dERROR(PETSC_COMM_SELF,1,"Insufficient allocation, iMesh should have thrown an error already");
   dFunctionReturn(0);
 }
 
-/* Might only work for MOAB */
 dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,const void *data,dInt count,dDataType type)
 {
-  return dMeshTagSetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type);
+  iMesh_Instance mi = mesh->mi;
+  const char *dptr = data;
+  dIInt size,ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  dValidPointer(esets,3);
+  dValidPointer(data,5);
+  size = count * iBase_SizeFromType(type);
+  if (1) {
+    dIInt bytes;
+    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    if (size != ecount * (dInt)bytes)
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Trying to tag %D entities with %D byte tags, but only requested %D bytes",ecount,bytes,size);
+  }
+#if 0
+  iMesh_setArrData(mi,(const iBase_EntityHandle*)esets,ecount,tag,dptr,size,&ierr);dICHK(mi,ierr);
+#else
+  for (dInt i=0; i<ecount; i++) {
+    iMesh_setEntSetData(mi,esets[i],tag,dptr+i*iBase_SizeFromType(type),iBase_SizeFromType(type),&ierr);dICHK(mi,ierr);
+  }
+#endif
+  dFunctionReturn(0);
 }
 
-/* Might only work for MOAB */
 dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type)
 {
-  return dMeshTagGetData(mesh,tag,(dMeshEH*)esets,ecount,data,count,type);
+  iMesh_Instance mi = mesh->mi;
+  dIInt size,alloc,peritem,ierr;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  dValidPointer(esets,3);
+  dValidPointer(data,5);
+  alloc = count * iBase_SizeFromType(type);
+  peritem = alloc / ecount;
+  size = 0;                     /* protect against degenerate case */
+#if 0
+  iMesh_getArrData(mi,(const iBase_EntityHandle*)esets,ecount,tag,&dptr,&alloc,&size,&ierr);dICHK(mi,ierr);
+  if (dptr != (char*)data || alloc != count * iBase_SizeFromType[type])
+    dERROR(PETSC_COMM_SELF,1,"Looks like an iMesh inconsistency, the library shouldn't be messing with this");
+#else
+  for (dInt i=0; i<ecount; i++) {
+    void *ptr = (char*)data + i*iBase_SizeFromType(type);
+    dIInt al = peritem,sz = 0;
+    iMesh_getEntSetData(mi,esets[i],tag,&ptr,&al,&sz,&ierr);dICHK(mi,ierr);
+  }
+#endif
+  if (size > alloc) dERROR(PETSC_COMM_SELF,1,"Insufficient allocation, iMesh should have thrown an error already");
+  dFunctionReturn(0);
 }
 
 dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
@@ -478,7 +566,7 @@ dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
   dIInt ierr,alloc=1,size;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(set,4);
   *set = 0;
   iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,value?(const char*const*)&value:NULL,1,0,&set,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
@@ -490,7 +578,7 @@ dErr dMeshGetNumEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dIn
   dIInt ierr,n;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(num,5);
   if (topo == dTOPO_ALL) {
     iMesh_getNumOfType(mesh->mi,set,type,&n,&ierr);dICHK(mesh->mi,ierr);
@@ -507,11 +595,11 @@ dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshE
   dIInt ea,es,ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,5);
   e = ents; ea = esize;
   iMesh_getEntities(mesh->mi,set,type,topo,&e,&ea,&es,&ierr);dICHK(mesh->mi,ierr);
-  if (e != ents || ea != esize) dERROR(1,"should not happen");
+  if (e != ents || ea != esize) dERROR(PETSC_COMM_SELF,1,"should not happen");
   if (nents) *nents = es;
   dFunctionReturn(0);
 }
@@ -521,8 +609,9 @@ dErr dMeshGetNumSubsets(dMesh mesh,dMeshESH set,dInt hops,dInt *nsubsets)
   dIInt ierr,n;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(nsubsets,4);
+  *nsubsets = -1;
   iMesh_getNumEntSets(mesh->mi,set,hops,&n,&ierr);dICHK(mesh->mi,ierr);
   *nsubsets = n;
   dFunctionReturn(0);
@@ -533,8 +622,8 @@ dErr dMeshGetSubsets(dMesh mesh,dMeshESH set,dInt hops,dMeshESH subsets[],dInt a
   dIInt ierr,s;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
-  dValidPointer(subsets,4);
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  if (alloc) dValidPointer(subsets,4);
   s = 0;
   iMesh_getEntSets(mesh->mi,set,hops,&subsets,&alloc,&s,&ierr);dICHK(mesh->mi,ierr);
   if (size) *size = s;
@@ -554,7 +643,7 @@ dErr dMeshGetEntsOff(dMesh mesh,dMeshESH set,dInt toff[],dMeshEH **inents)
   dErr     err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(toff,3);
   dValidPointer(inents,4);
   *inents = 0;
@@ -567,6 +656,25 @@ dErr dMeshGetEntsOff(dMesh mesh,dMeshESH set,dInt toff[],dMeshEH **inents)
     toff[type+1] = toff[type] + used;
   }
   *inents = ents;
+  dFunctionReturn(0);
+}
+
+/* Create a subset of an existing set, consisting of entities matching the type+topo condition. */
+dErr dMeshSetFilterEnts(dMesh mesh,dMeshESH set,dEntType etype,dEntTopology etopo,dMeshESH *subset)
+{
+  dErr err;
+  dMeshSetOrdering ordering;
+  dInt nents;
+  dMeshEH *ents;
+
+  dFunctionBegin;
+  err = dMeshGetNumEnts(mesh,set,etype,etopo,&nents);dCHK(err);
+  err = dMallocA(nents,&ents);dCHK(err);
+  err = dMeshGetEnts(mesh,set,etype,etopo,ents,nents,NULL);dCHK(err);
+  err = dMeshSetGetOrdering(mesh,set,&ordering);dCHK(err);
+  err = dMeshSetCreate(mesh,ordering,subset);dCHK(err);
+  err = dMeshSetAddEnts(mesh,set,ents,nents);dCHK(err);
+  err = dFree(ents);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -588,7 +696,7 @@ dErr dMeshGetStatus(dMesh mesh,const dMeshEH ents[],dInt count,dEntStatus status
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,2);
   dValidPointer(status,4);
   err = MPI_Comm_size(((dObject)mesh)->comm,&size);dCHK(err);
@@ -606,13 +714,13 @@ dErr dMeshGetTopo(dMesh mesh,dInt count,const dMeshEH ents[],dEntTopology topo[]
   dIInt ierr,talloc,tsize,*ttopo;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   if (!count) dFunctionReturn(0);
   dValidPointer(ents,2);
   dValidPointer(topo,4);
   ttopo = (int*)topo; talloc = count;
   iMesh_getEntArrTopo(mesh->mi,ents,count,&ttopo,&talloc,&tsize,&ierr);dICHK(mesh->mi,ierr);
-  if (tsize != count) dERROR(1,"Wrong number of topologies returned");
+  if (tsize != count) dERROR(PETSC_COMM_SELF,1,"Wrong number of topologies returned");
   dFunctionReturn(0);
 }
 
@@ -621,7 +729,7 @@ dErr dMeshTagBcast(dMesh m,dMeshTag tag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(m,dMESH_COOKIE,1);
+  dValidHeader(m,dMESH_CLASSID,1);
   if (m->ops->tagbcast) {
     err = (*m->ops->tagbcast)(m,tag);dCHK(err);
   }
@@ -633,7 +741,7 @@ dErr dMeshSetCreate(dMesh mesh,dMeshSetOrdering ordering,dMeshESH *inset)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inset,3);
   *inset = 0;
   iMesh_createEntSet(mesh->mi,ordering,inset,&ierr);dICHK(mesh->mi,ierr);
@@ -645,7 +753,7 @@ dErr dMeshSetDestroy(dMesh mesh,dMeshESH set)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   iMesh_destroyEntSet(mesh->mi,set,&ierr);dICHK(mesh->mi,ierr);
   dFunctionReturn(0);
 }
@@ -655,7 +763,7 @@ dErr dMeshSetAddEnts(dMesh mesh,dMeshESH set,const dMeshEH *ents,dInt nents)
   dIInt ierr;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   if (!nents) dFunctionReturn(0);
   dValidPointer(ents,3);
   iMesh_addEntArrToSet(mesh->mi,ents,nents,set,&ierr);dICHK(mesh->mi,ierr);
@@ -666,7 +774,7 @@ dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,const dMeshESH 
 {
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(sets,4);
   dValidPointer(member,5);
   *member = -1;
@@ -674,11 +782,11 @@ dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,const dMeshESH 
     dIInt ismember,ierr;
     iMesh_isEntContained(mesh->mi,sets[i],ent,&ismember,&ierr);dICHK(mesh->mi,ierr);
     if (ismember) {
-      if (*member >= 0) dERROR(PETSC_ERR_ARG_INCOMP,"sets are not disjoint");
+      if (*member >= 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"sets are not disjoint");
       *member = i;
     }
   }
-  if (*member < 0) dERROR(PETSC_ERR_ARG_INCOMP,"entity missing from all sets");
+  if (*member < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"entity missing from all sets");
   dFunctionReturn(0);
 }
 
@@ -700,14 +808,14 @@ dErr dMeshLoad(dMesh mesh)
     err = MPI_Comm_rank(((dObject)mesh)->comm,&rank);dCHK(err);
     if (!rank) {
       file = fopen(mesh->infile,"r");
-      if (!file) dERROR(1,"Could not open %s for reading",mesh->infile);
-      if (fclose(file)) dERROR(1,"Error closing %s",mesh->infile);
+      if (!file) dERROR(PETSC_COMM_SELF,1,"Could not open %s for reading",mesh->infile);
+      if (fclose(file)) dERROR(PETSC_COMM_SELF,1,"Error closing %s",mesh->infile);
     }
   }
   if (mesh->ops->load) {
     err = (*mesh->ops->load)(mesh);dCHK(err);
   } else {
-    dERROR(1,"No load function set");
+    dERROR(PETSC_COMM_SELF,1,"No load function set");
   }
   err = dMeshGetRoot(mesh,&root);dCHK(err);
 
@@ -758,10 +866,6 @@ dErr dMeshLoad(dMesh mesh)
   dFunctionReturn(0);
 }
 
-/*@
-   dMeshView -
-
-@*/
 dErr dMeshView(dMesh m,PetscViewer viewer)
 {
   const char *type;
@@ -770,15 +874,14 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   mi = m->mi;
   if (!viewer) {
-    printf("Changing Viewer.");
     err = PetscViewerASCIIGetStdout(((PetscObject)m)->comm,&viewer);dCHK(err);
   }
-  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_COOKIE,2);
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(m,1,viewer,2);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&iascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscObjectGetType((PetscObject)m,&type);dCHK(err);
     if (((PetscObject)m)->prefix) {
@@ -788,7 +891,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
     }
     err = PetscViewerASCIIPrintf(viewer,"Mesh type: %s\n",(type ? type : "not yet set"));dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"Internal count by type: V=%d E=%d F=%d R=%d\n",m->v.s,m->e.s,m->f.s,m->r.s);dCHK(err);
-    err = dMeshView_EntSet(m,m->root,viewer);dCHK(err);
+    err = dMeshSetView(m,m->root,viewer);dCHK(err);
     if (m->ops->view) {
       err = PetscViewerASCIIPushTab(viewer);dCHK(err);
       err = (*m->ops->view)(m,viewer);dCHK(err);
@@ -802,11 +905,7 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-/*@
-   dMeshView_EntSet -
-
-@*/
-static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
+dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer)
 {
   size_t valuesLen = 256;
   char values[256];
@@ -819,16 +918,19 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   MeshListData data=MLZ;
   MeshListESH esh=MLZ;
   dInt i,j,ntopo;
-  dBool canprint;
+  dBool canprint,flg;
   dErr err;
 
   dFunctionBegin;
+  if (!viewer) {err = PetscViewerASCIIGetStdout(((dObject)m)->comm,&viewer);dCHK(err);}
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&flg);dCHK(err);
+  if (!flg) dFunctionReturn(0);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   {
     for (i=iMesh_POINT; i<iMesh_ALL_TOPOLOGIES; i++) {
     iMesh_getNumOfTopo(mi,root,i,&ntopo,&err);dICHK(mi,err);
       if (ntopo) {
-        err = PetscViewerASCIIPrintf(viewer,"%20s : %d\n",iMesh_TopologyName[i],ntopo);dCHK(err);
+        err = PetscViewerASCIIPrintf(viewer,"%20s : %d\n",dMeshEntTopologyName(i),ntopo);dCHK(err);
       }
     }
   }
@@ -858,15 +960,15 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
         case iBase_BYTES:
           iMesh_getEntSetData(mi,root,tag.v[i],&data.v,&data.a,&data.s,&err);dICHK(mi,err);
           canprint = PETSC_TRUE;
-          for (j=0; j<data.s && data.v[j]; j++) {
-            if (!isprint(data.v[i])) canprint = PETSC_FALSE;
+          for (j=0; j<data.s && ((char*)data.v)[j]; j++) {
+            if (!isprint(((char*)data.v)[i])) canprint = PETSC_FALSE;
           }
           if (canprint && false) {
             err = PetscSNPrintf(values,(size_t)data.s,"%s",data.v);dCHK(err); /* Just a copy, but ensures a NULL byte */
           } else {
             z = values;
-            for (j=0; j<data.s && data.v[j] && (size_t)(z-values) < valuesLen-5; j++) {
-              err = PetscSNPrintf(z,3,"%02uhhx ",data.v[j]);dCHK(err);
+            for (j=0; j<data.s && ((char*)data.v)[j] && (size_t)(z-values) < valuesLen-5; j++) {
+              err = PetscSNPrintf(z,3,"%02uhhx ",((char*)data.v)[j]);dCHK(err);
               z += 3;
               if (j%4 == 0) {
                 *(z++) = ' ';
@@ -876,7 +978,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
           }
           err = MeshListFree(data);dCHK(err);
           break;
-        default: dERROR(1,"Invalid tag type, iMesh probably corrupt");
+        default: dERROR(PETSC_COMM_SELF,1,"Invalid tag type, iMesh probably corrupt");
       }
       err = PetscViewerASCIIPrintf(viewer,"Tag: %30s : %20s [%3d] = %s\n",tagname,iBase_TagValueTypeName[tagtype],tagsize,values);dCHK(err);
       err = PetscFree(tagname);dCHK(err);
@@ -892,7 +994,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   for (i=0; i<esh.s; i++) {
     err = PetscViewerASCIIPrintf(viewer,"Contained set %d/%d:\n",i+1,esh.s);dCHK(err);
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-    err = dMeshView_EntSet(m,esh.v[i],viewer);dCHK(err);
+    err = dMeshSetView(m,esh.v[i],viewer);dCHK(err);
     err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   }
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
@@ -905,7 +1007,7 @@ static dErr dMeshView_EntSet(dMesh m,dMeshESH root,PetscViewer viewer)
   for (i=0; i<esh.s; i++) {
     err = PetscViewerASCIIPrintf(viewer,"Child %d/%d:\n",i+1,esh.s);dCHK(err);
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-    err = dMeshView_EntSet(m,esh.v[i],viewer);dCHK(err);
+    err = dMeshSetView(m,esh.v[i],viewer);dCHK(err);
     err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   }
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
@@ -917,7 +1019,7 @@ dErr dMeshGetInstance(dMesh m,iMesh_Instance *mi)
 {
 
   dFunctionBegin;
-  dValidHeader(m,dMESH_COOKIE,1);
+  dValidHeader(m,dMESH_CLASSID,1);
   dValidPointer(mi,2);
   *mi = m->mi;
   dFunctionReturn(0);
@@ -928,7 +1030,7 @@ dErr dMeshDestroy(dMesh m)
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(m,dMESH_COOKIE,1);
+  PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   if (--((PetscObject)m)->refct > 0) dFunctionReturn(0);
   if (m->ops->destroy) {
     err = (*m->ops->destroy)(m);dCHK(err);
@@ -938,8 +1040,8 @@ dErr dMeshDestroy(dMesh m)
   MeshListFree(m->orf); MeshListFree(m->ofe);
   MeshListFree(m->x);
   iMesh_dtor(m->mi,&err);dICHK(m->mi,err);
-  err = PetscStrfree(m->infile);dCHK(err);
-  err = PetscStrfree(m->inoptions);dCHK(err);
+  err = PetscFree(m->infile);dCHK(err);
+  err = PetscFree(m->inoptions);dCHK(err);
   err = PetscHeaderDestroy(m);dCHK(err);
   dFunctionReturn(0);
 }
@@ -952,29 +1054,28 @@ dErr dMeshDestroy(dMesh m)
 *
 * @param mesh mesh
 * @param set entity set handle on which to add the tag, tags all non-vertex entities in \a set
-* @param jac dJacobi to use when generating the tags
 * @param name unique identifier for the tag (mostly for debugging)
 * @param degree polynomial degree which should be integrated exactly when the element has an affine map
 * @param[out] inrtag tag
 *
 * @return err
 */
-dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,const char name[],dInt degree,dMeshTag *inrtag)
+dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,const char name[],dInt degree,dMeshTag *inrtag)
 {
   dMeshTag rtag;
   dMeshEH *ents;
-  dInt nents,toff[dTYPE_ALL+1],*rdeg;
+  dInt nents,toff[dTYPE_ALL+1];
+  dPolynomialOrder *rdeg;
   dEntTopology *topo;
   dEntType firstType;
-  s_dRule *rules;
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inrtag,2);
   *inrtag = 0;
   //err = dMeshTagCreate(mesh,name,sizeof(dRule),dDATA_BYTE,&rtag);dCHK(err);
-  err = dMeshTagCreate(mesh,name,3,dDATA_INT,&rtag);dCHK(err);
+  err = dMeshTagCreate(mesh,name,1,dDATA_INT,&rtag);dCHK(err);
 
   firstType = dTYPE_VERTEX;  /* Hack: Get vertices as well (we should not need to label them) */
   toff[dTYPE_VERTEX] = toff[dTYPE_EDGE] = 0;
@@ -984,24 +1085,24 @@ dErr dMeshCreateRuleTagIsotropic(dMesh mesh,dMeshESH set,dUNUSED dJacobi jac,con
     toff[type+1] = toff[type] + t;
   }
   nents = toff[dTYPE_ALL];
-  err = dMallocA4(nents,&ents,nents,&topo,3*nents,&rdeg,nents,&rules);dCHK(err);
+  err = dMallocA3(nents,&ents,nents,&topo,nents,&rdeg);dCHK(err);
   for (dEntType type=firstType; type<dTYPE_ALL; type++) {
     err = dMeshGetEnts(mesh,set,type,dTOPO_ALL,ents+toff[type],toff[type+1]-toff[type],NULL);dCHK(err);
   }
   err = dMeshGetTopo(mesh,nents,ents,topo);dCHK(err);
   for (dInt i=0; i<nents; i++) {
     switch (topo[i]) {
-      case dTOPO_POINT: rdeg[3*i+0] = rdeg[3*i+1] = rdeg[3*i+2] = 1; break;
-      case dTOPO_LINE: rdeg[3*i+0] = degree; rdeg[3*i+1] = rdeg[3*i+2] = 1; break;
-      case dTOPO_QUAD: rdeg[3*i+0] = rdeg[3*i+1] = degree; rdeg[3*i+2] = 1; break;
-      case dTOPO_HEX:  rdeg[3*i+0] = rdeg[3*i+1] = rdeg[3*i+2] = degree; break;
-      default: dERROR(1,"Topology %d not supported",topo[i]);
+      case dTOPO_POINT: rdeg[i] = dPolynomialOrderCreate(0,0,0,0); break;
+      case dTOPO_LINE: rdeg[i] = dPolynomialOrderCreate(0,degree,0,0); break;
+      case dTOPO_QUAD: rdeg[i] = dPolynomialOrderCreate(0,degree,degree,0); break;
+      case dTOPO_HEX:  rdeg[i] = dPolynomialOrderCreate(0,degree,degree,degree); break;
+      default: dERROR(PETSC_COMM_SELF,1,"Topology %d not supported",topo[i]);
     }
   }
   //err = dJacobiGetRule(jac,nents,topo,rdeg,rules);dCHK(err);
   //err = dMeshTagSetData(mesh,rtag,ents,nents,rules,nents*(dInt)sizeof(s_dRule),dDATA_BYTE);dCHK(err);
-  err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,3*nents,dDATA_INT);dCHK(err);
-  err = dFree4(ents,topo,rdeg,rules);dCHK(err);
+  err = dMeshTagSetData(mesh,rtag,ents,nents,rdeg,nents,dDATA_INT);dCHK(err);
+  err = dFree3(ents,topo,rdeg);dCHK(err);
   *inrtag = rtag;
   dFunctionReturn(0);
 }
@@ -1014,8 +1115,8 @@ dErr dMeshDestroyRuleTag(dMesh mesh,dMeshTag rtag)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
-  iMesh_getEntSetData(mi,mesh->root,rtag,(char**)&base,&balloc,&bsize,&err);dICHK(mi,err);
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  iMesh_getEntSetData(mi,mesh->root,rtag,&base,&balloc,&bsize,&err);dICHK(mi,err);
   err = dFree(base);dCHK(err);
   dFunctionReturn(0);
 }
@@ -1046,7 +1147,7 @@ static dErr dMeshAdjacencyPermutations_Private(dMeshAdjacency ma,const dInt conn
           ma->adjperm[ai] = 0;  /* Vertices cannot be permuted */
         }
         break;
-      default: dERROR(1,"Topology %s not supported",iMesh_TopologyName[ma->topo[e]]);
+      default: dERROR(PETSC_COMM_SELF,1,"Topology %s not supported",dMeshEntTopologyName(ma->topo[e]));
     }
   }
   dFunctionReturn(0);
@@ -1066,7 +1167,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inadj,3);
   *inadj = 0;
 
@@ -1092,12 +1193,11 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
     err = dMallocA(ma.nents,&allents);dCHK(err);
     err = dMeshGetEnts(mesh,set,dTYPE_ALL,dTOPO_ALL,allents,ma.nents,NULL);dCHK(err);
     for (i=0; i<ma.nents; i++) {
-      printf("%d: %p %p\n",i,(void*)ma.ents[i],(void*)allents[i]);
       if (ma.ents[i] != allents[i]) {
-        dERROR(1,"mismatch: ents[%d]=%p  allents[%d]=%p\n",i,ma.ents[i],i,allents[i]);
+        dERROR(PETSC_COMM_SELF,1,"mismatch: ents[%d]=%p  allents[%d]=%p\n",i,ma.ents[i],i,allents[i]);
       }
     }
-    dERROR(1,"count by type %d does not agree with total count %d",cnt,ma.nents);
+    dERROR(PETSC_COMM_SELF,1,"count by type %d does not agree with total count %d",cnt,ma.nents);
   }
 
   /* Populate \c ma.topo */
@@ -1137,10 +1237,10 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
       iMesh_getEntArrAdj(mi,ma.ents+ma.toff[type],ma.toff[type+1]-ma.toff[type],type-1,MLREF(ml_adj[type]),MLREF(ml_adjoff[type]),&ierr);dICHK(mi,ierr);
     }
     for (type=dTYPE_EDGE; type<dTYPE_ALL; type++) {
-      if (ml_adjoff[type].s != ma.toff[type+1]-ma.toff[type]+1) dERROR(1,"unexpected number of adjacent offsets");
+      if (ml_adjoff[type].s != ma.toff[type+1]-ma.toff[type]+1) dERROR(PETSC_COMM_SELF,1,"unexpected number of adjacent offsets");
     }
     nadj = ml_adj[1].s+ml_adj[2].s+ml_adj[3].s; /* total number of adjacent entities */
-    if (!nadj) dERROR(1,"No adjacent entities, seems like a deficient mesh");
+    if (!nadj) dERROR(PETSC_COMM_SELF,1,"No adjacent entities, seems like a deficient mesh");
     err = dMallocA(nadj,&adj);                  /* Freed after getting index tag values */
     err = dMallocA2(nadj,&ma.adjind,nadj,&ma.adjperm);dCHK(err);      /* Persistant */
     for (i=0; i<ma.toff[dTYPE_EDGE]+1; i++) { ma.adjoff[i] = 0; }     /* vertices have no adjacent entities */
@@ -1153,7 +1253,7 @@ dErr dMeshGetAdjacency(dMesh mesh,dMeshESH set,dMeshAdjacency *inadj)
         adj[adjcnt++] = ml_adj[type].v[i];
       }
     }
-    if (adjcnt != nadj) dERROR(1,"unexpected adjacent entity count");
+    if (adjcnt != nadj) dERROR(PETSC_COMM_SELF,1,"unexpected adjacent entity count");
     for (i=0; i<4; i++) {
       MeshListFree(ml_adj[i]);
       MeshListFree(ml_adjoff[i]);
@@ -1181,11 +1281,11 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
   dMeshAdjacency ma = *inma;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inma,3);
   ma = *inma;
   *inma = 0;
-  if (set != ma->set) dERROR(1,"Adjacency for the wrong set");
+  if (set != ma->set) dERROR(PETSC_COMM_SELF,1,"Adjacency for the wrong set");
   err = dMeshTagDestroy(mesh,ma->indexTag);dCHK(err);
   err = dFree3(ma->ents,ma->adjoff,ma->topo);dCHK(err);
   err = dFree2(ma->adjind,ma->adjperm);dCHK(err);
@@ -1193,6 +1293,30 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
   err = dFree2(ma->connoff,ma->conn);dCHK(err);
 #endif
   err = dFree(ma);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dMeshGetVertexCoords(dMesh mesh,dInt nvtx,const dMeshEH vtx[],const dReal **incoords)
+{
+  dIInt ierr;
+  MeshListReal vcoords=MLZ;
+  dReal *coords;
+  dErr err;
+
+  dFunctionBegin;
+  iMesh_getVtxArrCoords(mesh->mi,vtx,nvtx,iBase_INTERLEAVED,MLREF(vcoords),&ierr);dICHK(mesh->mi,ierr);
+  err = dMallocA(vcoords.s,&coords);dCHK(err);
+  for (dInt i=0; i<vcoords.s; i++) coords[i] = (dReal)vcoords.v[i];
+  *incoords = coords;
+  dFunctionReturn(0);
+}
+
+dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dInt dUNUSED nvtx,const dMeshEH dUNUSED vtx[],const dReal **incoords)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dFree(*incoords);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -1206,19 +1330,19 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
 * @param inxoff address of offsets of vertices for each entity, NOT the offset of the first vertex coordinate because \a x has array type
 * @param inx address of vertex values
 */
-dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
+dErr dMeshGetAdjVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],const dInt **inxoff,const dReal **inx)
 {
-  iMesh_Instance mi         = mesh->mi;
-  MeshListEH     conn       = MLZ;
-  MeshListInt    connoff    = MLZ;
-  MeshListReal   vtx        = MLZ;
+  iMesh_Instance mi      = mesh->mi;
+  MeshListEH     conn    = MLZ;
+  MeshListInt    connoff = MLZ;
+  MeshListReal   vtx     = MLZ;
   dIInt          ierr;
-  dReal         *x;
-  dInt          *xoff;
+  dReal          *x;
+  dInt           *xoff;
   dErr           err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(ents,3);
   dValidPointer(inxoff,4);
   dValidPointer(inx,5);
@@ -1238,7 +1362,7 @@ dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,d
   xoff[n] = connoff.v[n];       /* Leave the offset as number of vertices, not first coordinate of each vtx */
   MeshListFree(conn); MeshListFree(connoff); MeshListFree(vtx);
   *inxoff = xoff;
-  *inx = (dReal(*)[3])x;
+  *inx = x;
   dFunctionReturn(0);
 }
 
@@ -1246,18 +1370,17 @@ dErr dMeshGetVertexCoords(dMesh mesh,dInt n,const dMeshEH ents[],dInt **inxoff,d
 * Since the vertex coords are often persistent for the life of the dFS, it's common that \a ents will not be available
 * when this function is called, hence we accept a NULL argument.  This is a hack to preserve a symmetric interface.
 **/
-dErr dMeshRestoreVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dMeshEH ents[],dInt **inxoff,dReal (**inx)[3])
+dErr dMeshRestoreAdjVertexCoords(dMesh dUNUSED mesh,dUNUSED dInt n,const dUNUSED dMeshEH ents[],const dInt **inxoff,const dReal **inx)
 {
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inxoff,4);
   dValidPointer(inx,5);
   err = dFree2(*inx,*inxoff);dCHK(err);
   dFunctionReturn(0);
 }
-
 
 dErr dMeshPartitionOnOwnership(dMesh mesh,dMeshEH ents[],dInt n,dInt *ghstart)
 {
@@ -1289,7 +1412,7 @@ dErr dMeshMorph(dMesh mesh,void (*morph)(void*,double*),void *ctx)
   dIInt          ierr,ents_a=0,ents_s,coords_a=0,coords_s;
 
   dFunctionBegin;
-  dValidHeader(mesh,dMESH_COOKIE,1);
+  dValidHeader(mesh,dMESH_CLASSID,1);
   dValidCharPointer(morph,2);   /* It's actually a function pointer */
   dValidPointer(ctx,3);
   mi = mesh->mi;

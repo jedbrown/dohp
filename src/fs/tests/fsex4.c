@@ -63,7 +63,7 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
 
   dFunctionBegin;
   err = dFSGetSubElementMeshSize(fs,&nelems,&nverts,&nconn);dCHK(err);
-  p = ex4->bdeg;
+  p = ex4->bdeg + 1;
   dASSERT(nelems == 3*(p-1)*(p-1)*(p-1));
   dASSERT(nverts == 3*p*p*p - 3*p*p + p);
   dASSERT(nconn  == 8*nelems);
@@ -78,11 +78,10 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
   err = dFree3(topo,off,conn);dCHK(err);
 
   err = PetscViewerASCIIPrintf(viewer,"Coordinates\n");dCHK(err);
-  err = dFSGetCoordinates(fs,&X);dCHK(err);
+  err = dFSGetNodalCoordinatesGlobal(fs,&X);dCHK(err);
   err = VecView(X,viewer);dCHK(err);
   err = VecGetArray(X,&coords);dCHK(err);
   err = VecRestoreArray(X,&coords);dCHK(err);
-  err = VecDestroy(X);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -111,7 +110,7 @@ int main(int argc,char *argv[])
   dJacobi  jac;
   dMeshTag rtag,dtag;
   dMeshESH active;
-  dTruth   read,read_vec;
+  dBool    read,read_vec;
   Vec      X;
 
   err = dInitialize(&argc,&argv,0,help);dCHK(err);
@@ -123,30 +122,33 @@ int main(int argc,char *argv[])
   read_vec  = dFALSE;
   err = PetscOptionsBegin(comm,NULL,"FS-Ex4 Options","");dCHK(err);
   {
-    err = PetscOptionsInt("-bdeg","Number of nodes per element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
-    err = PetscOptionsTruth("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
+    err = PetscOptionsInt("-bdeg","Polynomial order on each element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
+    err = PetscOptionsBool("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
     if (read) {
-      err = PetscOptionsTruth("-read_back_vec","Read the Vec back in too","",read_vec,&read_vec,NULL);dCHK(err);
+      err = PetscOptionsBool("-read_back_vec","Read the Vec back in too","",read_vec,&read_vec,NULL);dCHK(err);
     }
   }
   err = PetscOptionsEnd();dCHK(err);
   err = FSEx4CreateMesh(comm,&mesh);dCHK(err);
   err = dJacobiCreate(comm,&jac);dCHK(err);
-  err = dJacobiSetDegrees(jac,9,2);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = dMeshGetRoot(mesh,&active);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,active,&active);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,active,jac,"fsex4_rule_degree",ex4->rdeg,&rtag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,active,jac,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,active,"fsex4_rule_degree",ex4->rdeg,&rtag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,active,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
   err = dFSCreate(comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,active);dCHK(err);
   err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
   err = dFSCreateGlobalVector(fs,&X);dCHK(err);
-  err = PetscObjectSetName((PetscObject)X,"my_vec");dCHK(err);
   err = FSEx4FillVec(X);dCHK(err);
+
+  /* Name the objects to write so that the output is deterministic */
+  err = PetscObjectSetName((PetscObject)fs,"dFS_0");dCHK(err);
+  err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
+  err = PetscObjectSetName((PetscObject)X,"Vec_global_0");dCHK(err);
 
   err = PetscViewerASCIIGetStdout(PETSC_COMM_WORLD,&viewnative);dCHK(err); /* Does not give us ownership */
   err = PetscViewerSetFormat(viewnative,PETSC_VIEWER_NATIVE);dCHK(err);
@@ -196,15 +198,16 @@ int main(int argc,char *argv[])
     err = dViewerDHMRestoreStepSummary(viewer,&nfspaces,&fspaces,&nfields,&fields);dCHK(err);
     err = dFSCreate(PETSC_COMM_SELF,&fs);dCHK(err);
     err = dFSSetType(fs,dFSCONT);dCHK(err);
-    err = dFSLoadIntoFS(viewer,"my_vec",fs);dCHK(err);
+    err = dFSSetOrderingType(fs,MATORDERINGNATURAL);dCHK(err);
+    err = dFSLoadIntoFS(viewer,"Vec_global_0",fs);dCHK(err);
 
     err = FSEx4CheckSubMesh(ex4,fs);dCHK(err);
 
     if (read_vec) {
       Vec Y;
       err = dFSCreateGlobalVector(fs,&Y);dCHK(err);
-      err = VecDohpLoadIntoVector(viewer,"my_vec",Y);dCHK(err);
-      err = dPrintf(PETSC_COMM_SELF,"Loaded vector \"my_vec\"\n");dCHK(err);
+      err = VecDohpLoadIntoVector(viewer,"Vec_global_0",Y);dCHK(err);
+      err = dPrintf(PETSC_COMM_SELF,"Loaded vector \"Vec_global_0\"\n");dCHK(err);
       err = VecView(Y,viewnative);dCHK(err);
       err = VecDestroy(Y);dCHK(err);
     }

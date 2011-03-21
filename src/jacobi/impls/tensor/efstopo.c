@@ -1,4 +1,4 @@
-#include "tensor.h"
+#include "tensorimpl.h"
 #include <dohpmesh.h>
 #include <dohpgeom.h>
 
@@ -31,24 +31,13 @@ _F(dEFSApply_Tensor_Hex);
 //_F(dEFSGetGlobalCoordinates_Tensor_Quad);
 _F(dEFSGetGlobalCoordinates_Tensor_Hex);
 #undef _F
-#if 0
-# define _F(f) static dErr f(dEFS,dInt,dInt,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterInt */
-_F(dEFSScatterInt_Tensor_Line);
-_F(dEFSScatterInt_Tensor_Quad);
-_F(dEFSScatterInt_Tensor_Hex);
-# undef _F
-# define _F(f) static dErr f(dEFS,dEFS,dInt*,dScalar**restrict,const dScalar[],dScalar[],InsertMode,ScatterMode) /* dEFSScatterFacet */
-_F(dEFSScatterFacet_Tensor_Line);
-_F(dEFSScatterFacet_Tensor_Quad);
-_F(dEFSScatterFacet_Tensor_Hex);
-# undef _F
-#endif
 
 #define _F(f) static dErr f(dRule,const dReal[],dInt,const dScalar[],dScalar[],InsertMode)
 _F(dRuleMappingApply_Tensor_Line);
 _F(dRuleMappingApply_Tensor_Quad);
 //_F(dRuleMappingApply_Tensor_Hex);
 #undef _F
+static dErr dEFSGetExplicitSparse_Tensor_Hex(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[]);
 
 static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
 static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dInt D,const dScalar in[restrict],dScalar out[restrict],InsertMode imode);
@@ -61,8 +50,8 @@ _F(TensorMult_Quad);
 static dErr TensorMult_Hex(const TensorBasis b[],dInt D,const dInt P[],const dInt Q[],const dReal *A[],const dScalar f[],dScalar g[restrict],InsertMode imode)
 {
 #if defined(dUSE_DEBUG)
-  if (D > 3) dERROR(1,"D > 3 not supported");
-  if (!b[2]->multhex[D-1]) dERROR(1,"No multhex member, EFS was not set up correctly");
+  if (D > 3) dERROR(PETSC_COMM_SELF,1,"D > 3 not supported");
+  if (!b[2]->multhex[D-1]) dERROR(PETSC_COMM_SELF,1,"No multhex member, EFS was not set up correctly");
 #endif
   return b[2]->multhex[D-1](D,P,Q,A,f,g,imode);
 }
@@ -80,50 +69,45 @@ dErr dJacobiEFSOpsSetUp_Tensor(dJacobi jac)
   static const struct _dEFSOps efsOpsLine = { .view                 = dEFSView_Tensor_Line,
                                               .getSizes             = dEFSGetSizes_Tensor_Line,
                                               .getTensorNodes       = dEFSGetTensorNodes_Tensor_Line,
-                                              .apply                = dEFSApply_Tensor_Line,
-                                              .scatterInt           = 0,
-                                              .scatterFacet         = 0 };
+                                              .apply                = dEFSApply_Tensor_Line};
   static const struct _dEFSOps efsOpsQuad = { .view                 = dEFSView_Tensor_Quad,
                                               .getSizes             = dEFSGetSizes_Tensor_Quad,
                                               .getTensorNodes       = dEFSGetTensorNodes_Tensor_Quad,
-                                              .apply                = dEFSApply_Tensor_Quad,
-                                              .scatterInt           = 0,
-                                              .scatterFacet         = 0 };
+                                              .apply                = dEFSApply_Tensor_Quad};
   static const struct _dEFSOps efsOpsHex = { .view                 = dEFSView_Tensor_Hex,
                                              .getSizes             = dEFSGetSizes_Tensor_Hex,
                                              .getTensorNodes       = dEFSGetTensorNodes_Tensor_Hex,
                                              .apply                = dEFSApply_Tensor_Hex,
-                                             .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex,
-                                             .scatterInt           = 0,
-                                             .scatterFacet         = 0 };
-  Tensor this = (Tensor)jac->data;
+                                             .getExplicitSparse    = dEFSGetExplicitSparse_Tensor_Hex,
+                                             .getGlobalCoordinates = dEFSGetGlobalCoordinates_Tensor_Hex};
+  dJacobi_Tensor *tnsr = jac->data;
   dErr err;
 
   dFunctionBegin;
-  if (!this->efsOpsLine) {
-    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsLine);dCHK(err);
-    err = dMemcpy(this->efsOpsLine,&efsOpsLine,sizeof(struct _dEFSOps));
+  if (!tnsr->efsOpsLine) {
+    err = dMalloc(sizeof(struct _dEFSOps),&tnsr->efsOpsLine);dCHK(err);
+    err = dMemcpy(tnsr->efsOpsLine,&efsOpsLine,sizeof(struct _dEFSOps));
   }
-  if (!this->efsOpsQuad) {
-    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsQuad);dCHK(err);
-    err = dMemcpy(this->efsOpsQuad,&efsOpsQuad,sizeof(struct _dEFSOps));
+  if (!tnsr->efsOpsQuad) {
+    err = dMalloc(sizeof(struct _dEFSOps),&tnsr->efsOpsQuad);dCHK(err);
+    err = dMemcpy(tnsr->efsOpsQuad,&efsOpsQuad,sizeof(struct _dEFSOps));
   }
-  if (!this->efsOpsHex) {
-    err = dMalloc(sizeof(struct _dEFSOps),&this->efsOpsHex);dCHK(err);
-    err = dMemcpy(this->efsOpsHex,&efsOpsHex,sizeof(struct _dEFSOps));
+  if (!tnsr->efsOpsHex) {
+    err = dMalloc(sizeof(struct _dEFSOps),&tnsr->efsOpsHex);dCHK(err);
+    err = dMemcpy(tnsr->efsOpsHex,&efsOpsHex,sizeof(struct _dEFSOps));
   }
   dFunctionReturn(0);
 }
 
 dErr dJacobiEFSOpsDestroy_Tensor(dJacobi jac)
 {
-  Tensor this = (Tensor)jac->data;
+  dJacobi_Tensor *tnsr = jac->data;
   dErr err;
 
   dFunctionBegin;
-  if (this->efsOpsLine) { err = dFree(this->efsOpsLine);dCHK(err); }
-  if (this->efsOpsQuad) { err = dFree(this->efsOpsQuad);dCHK(err); }
-  if (this->efsOpsHex)  { err = dFree(this->efsOpsHex);dCHK(err); }
+  err = dFree(tnsr->efsOpsLine);dCHK(err);
+  err = dFree(tnsr->efsOpsQuad);dCHK(err);
+  err = dFree(tnsr->efsOpsHex);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -134,7 +118,7 @@ static dErr dEFSView_Tensor_Private(const char *name,dRule rule,dInt n,TensorBas
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_ASCII,&ascii);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"dEFS type %s\n",name);dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"based on dRule:\n");dCHK(err);
@@ -338,7 +322,7 @@ static dErr dEFSApply_Tensor_Line(dEFS efs,const dReal mapdata[],dInt D,const dS
     case dAPPLY_SYMGRAD:
     case dAPPLY_SYMGRAD_TRANSPOSE:
     default:
-      dERROR(1,"invalid dApplyMode %d specified",amode);
+      dERROR(PETSC_COMM_SELF,1,"invalid dApplyMode %d specified",amode);
   }
   dFunctionReturn(0);
 }
@@ -376,7 +360,7 @@ static dErr dEFSApply_Tensor_Quad(dEFS efs,const dReal mapdata[],dInt D,const dS
     } break;
     case dAPPLY_GRAD_TRANSPOSE:
     default:
-      dERROR(1,"invalid dApplyMode %d specified",amode);
+      dERROR(PETSC_COMM_SELF,1,"invalid dApplyMode %d specified",amode);
   }
   dFunctionReturn(0);
 }
@@ -423,7 +407,7 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
       switch (imode) {
         case INSERT_VALUES: err = dMemzero(out,P[0]*P[1]*P[2]*D*sizeof(out[0]));dCHK(err); break;
         case ADD_VALUES: break;
-        default: dERROR(1,"InsertMode %d invalid or unimplemented",imode);
+        default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid or unimplemented",imode);
       }
       A[0] = b[0]->derivTranspose; A[1] = b[1]->interpTranspose; A[2] = b[2]->interpTranspose;
       err = TensorMult_Hex(b,D,Q,P,A,df[0],out,ADD_VALUES);dCHK(err);
@@ -433,7 +417,7 @@ static dErr dEFSApply_Tensor_Hex(dEFS efs,const dReal jinv[restrict],dInt D,cons
       err = TensorMult_Hex(b,D,Q,P,A,df[2],out,ADD_VALUES);dCHK(err);
     } break;
     default:
-      dERROR(1,"invalid/unimplemented dApplyMode %d specified",amode);
+      dERROR(PETSC_COMM_SELF,1,"invalid/unimplemented dApplyMode %d specified",amode);
   }
   dFunctionReturn(0);
 }
@@ -479,7 +463,7 @@ static dErr TensorMult_Line(dInt D,const dInt P[1],const dInt Q[1],const dReal *
     case ADD_VALUES:
       break;
     default:
-      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+      dERROR(PETSC_COMM_SELF,1,"Requested InsertMode %d not supported for this operation.",imode);
   }
 
   for (l=0; l<Q[0]; l++) {
@@ -507,7 +491,7 @@ static dErr TensorMult_Quad(dInt D,const dInt P[2],const dInt Q[2],const dReal *
     case ADD_VALUES:
       break;
     default:
-      dERROR(1,"Requested InsertMode %d not supported for this operation.",imode);
+      dERROR(PETSC_COMM_SELF,1,"Requested InsertMode %d not supported for this operation.",imode);
   }
 
   for (l=0; l<Q[0]; l++) {
@@ -556,7 +540,7 @@ static dErr TensorRuleNoMapping(dInt Q,dInt D,const dScalar in[restrict],dScalar
         }
       }
     } break;
-    default: dERROR(1,"InsertMode %d invalid/unimplemented",imode);
+    default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid/unimplemented",imode);
   }
   dFunctionReturn(0);
 }
@@ -601,7 +585,7 @@ static dErr TensorRuleMapping(dInt Q,const dReal jinv_flat[restrict],dInt D,cons
         }
       }
     } break;
-    default: dERROR(1,"InsertMode %d invalid or not implemented",imode);
+    default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid or not implemented",imode);
   }
   dFunctionReturn(0);
 }
@@ -613,7 +597,7 @@ static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dI
   dScalar (*restrict v)[Q][D] = (dScalar(*)[Q][D])out;
 
   dFunctionBegin;
-  if (!jinv_flat) dERROR(1,"No Jinv, need a mapping");
+  if (!jinv_flat) dERROR(PETSC_COMM_SELF,1,"No Jinv, need a mapping");
   switch (imode) {
     case INSERT_VALUES: {
       for (dInt i=0; i<Q; i++) {
@@ -633,7 +617,7 @@ static dErr TensorRuleMappingTranspose(dInt Q,const dReal jinv_flat[restrict],dI
         }
       }
     } break;
-    default: dERROR(1,"InsertMode %d invalid or not implemented",imode);
+    default: dERROR(PETSC_COMM_SELF,1,"InsertMode %d invalid or not implemented",imode);
   }
   dFunctionReturn(0);
 }
@@ -651,7 +635,7 @@ static dErr dRuleMappingApply_Tensor_Line(dRule rule,const dReal jinv[],dInt D,c
   dFunctionBegin;
   err = dRuleGetSize(rule,NULL,&Q);dCHK(err);
   if (jinv) {
-    dERROR(1,"Not implemented");
+    dERROR(PETSC_COMM_SELF,1,"Not implemented");
   } else {
     err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
   }
@@ -666,9 +650,68 @@ static dErr dRuleMappingApply_Tensor_Quad(dRule rule,const dReal jinv[],dInt D,c
   dFunctionBegin;
   err = dRuleGetSize(rule,NULL,&Q);dCHK(err);
   if (jinv) {
-    dERROR(1,"Not implemented");
+    dERROR(PETSC_COMM_SELF,1,"Not implemented");
   } else {
     err = TensorRuleNoMapping(Q,D,in,out,imode);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+static dErr dEFSGetExplicitSparse_Tensor_Hex(dEFS efs,dInt npatches,dInt Q,const dInt qidx[],const dReal cjinv[],dInt eoffset,dInt *P,dInt eidx[],dReal interp[],dReal deriv[])
+{
+  dErr err;
+  dEFS_Tensor *efst = (dEFS_Tensor*)efs;
+  const dInt px = efst->basis[0]->P-1,py = efst->basis[1]->P-1,pz = efst->basis[2]->P-1,PP=8;
+  const dReal interp1[2][2] = {{0.78867513459481287,0.21132486540518713},{0.21132486540518713,0.78867513459481287}};
+  const dReal deriv1[2][2] = {{-1.,1.},{-1.,1.}};
+
+  dFunctionBegin;
+  if (Q != 8 || px*py*pz != npatches) {
+    err = dEFSGetExplicitSparse_Basic(efs,npatches,Q,qidx,cjinv,eoffset,P,eidx,interp,deriv);dCHK(err);
+    dFunctionReturn(0);
+  }
+  *P = PP;
+  for (dInt i=0; i<px; i++) {
+    for (dInt j=0; j<py; j++) {
+      for (dInt k=0; k<pz; k++) {
+        const dInt pidx = (i*py+j)*pz+k;
+        for (dInt iii=0; iii<2; iii++) {
+          for (dInt jjj=0; jjj<2; jjj++) {
+            for (dInt kkk=0; kkk<2; kkk++) {
+              const dInt bidx = (iii*2+jjj)*2+kkk; /* Index of this basis function relative to patch */
+              const dInt nidx = ((i+iii)*(py+1) + j+jjj)*(pz+1) + k+kkk; /* Index of this basis function relative to element */
+              eidx[pidx*PP+bidx] = eoffset + nidx;
+            }
+          }
+        }
+        for (dInt ii=0; ii<2; ii++) {
+          for (dInt jj=0; jj<2; jj++) {
+            for (dInt kk=0; kk<2; kk++) {
+              const dInt pqidx = (ii*2+jj)*2+kk; /* Index of this quadrature node relative to patch */
+              const dReal eye3[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
+              const dReal (*dXdx)[3] = cjinv ? (const dReal(*)[3])&cjinv[(pidx*8+pqidx)*9] : eye3; /* Derivative of reference coordinates with respect to physical */
+              if (qidx[pidx*Q + pqidx] != ((i*2+ii)*py*2 + (j*2+jj))*pz*2 + (k*2+kk)) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"Unexpected qidx");
+              for (dInt iii=0; iii<2; iii++) {
+                for (dInt jjj=0; jjj<2; jjj++) {
+                  for (dInt kkk=0; kkk<2; kkk++) {
+                    const dInt bidx = (iii*2+jjj)*2+kkk; /* Index of this basis function relative to patch */
+                    const dInt qboff = (pidx*Q + pqidx)*PP + bidx; /* Offset of (quadrature point, basis function) pair relative to element */
+                    const dReal
+                      dX =  deriv1[ii][iii] * interp1[jj][jjj] * interp1[kk][kkk],
+                      dY = interp1[ii][iii] *  deriv1[jj][jjj] * interp1[kk][kkk],
+                      dZ = interp1[ii][iii] * interp1[jj][jjj] *  deriv1[kk][kkk];
+                    interp[qboff] = interp1[ii][iii] * interp1[jj][jjj] * interp1[kk][kkk];
+                    deriv[qboff*3 + 0] = dX * dXdx[0][0] + dY * dXdx[1][0] + dZ * dXdx[2][0];
+                    deriv[qboff*3 + 1] = dX * dXdx[0][1] + dY * dXdx[1][1] + dZ * dXdx[2][1];
+                    deriv[qboff*3 + 2] = dX * dXdx[0][2] + dY * dXdx[1][2] + dZ * dXdx[2][2];
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
   dFunctionReturn(0);
 }

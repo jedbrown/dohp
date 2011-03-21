@@ -1,7 +1,7 @@
 #ifndef _DOHPMESH_H
 #define _DOHPMESH_H
 
-#include <petsc.h>
+#include <petscsys.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dohptype.h>
@@ -12,13 +12,10 @@ dEXTERN_C_BEGIN
 typedef struct _p_dMeshPacker *dMeshPacker;
 typedef struct _p_dMesh *dMesh;
 
-extern dCookie dMESH_COOKIE;
+extern dClassId dMESH_CLASSID;
 
 extern const char *const iBase_ErrorString[];
-extern const char *const iMesh_TopologyName[];
-extern const char *const iBase_TypeName[];
 extern const char *const iBase_TagValueTypeName[];
-extern const int iMesh_TypeFromTopology[];
 
 /* Unfortunately the explicit `mesh' is necessary to get a useful error string */
 #define dICHK(mesh,err) do {                                            \
@@ -26,7 +23,7 @@ extern const int iMesh_TypeFromTopology[];
       dErr _l_ret = err;                                                \
       char _l_desc[512] = "Description not available";                  \
       iMesh_getDescription(mesh,_l_desc,&err,sizeof(_l_desc));          \
-      dERROR(1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+      dERROR(PETSC_COMM_SELF,1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
 #define dIGCHK(geom,err) do {                                           \
@@ -34,17 +31,17 @@ extern const int iMesh_TypeFromTopology[];
       dErr _l_ret = err;                                                \
       char _l_desc[512] = "Description not available";                  \
       iGeom_getDescription(geom,_l_desc,&err,sizeof(_l_desc));          \
-      dERROR(1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+      dERROR(PETSC_COMM_SELF,1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
 
 #define dIRCHK(assoc,err)                                               \
   if (PetscUnlikely(err))                                               \
-    dERROR(1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description)
+    dERROR(PETSC_COMM_SELF,1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description)
 
 
 typedef struct {
-  char *v;
+  void *v;
   dMeshInt a,s;
 } MeshListData;
 
@@ -74,7 +71,7 @@ typedef struct {
 
 /* Use this macro to zero a MeshListXXX, i.e. MeshListInt a=MLZ; */
 #define MLZ {0,0,0}
-#define MeshListFree(m) ((m).a ? (free((m).v),(m).v=0,(m).a=0,(m).s=0,0) : 0)
+#define MeshListFree(m) ((m).a && (free((m).v),(m).v=0,(m).a=0,(m).s=0,0))
 #define MeshListMalloc(m,n) ( m ? ((n).s=0,(n).a=m,(n).v=malloc((n).a*sizeof(n.v[0])),!(n.v)) : MeshListFree(n))
 #define MLREF(m) &(m).v,&(m).a,&(m).s
 
@@ -109,15 +106,17 @@ extern dErr dMeshLoad(dMesh m);
 extern dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
 extern dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
 extern dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
+extern dErr dMeshSetGetOrdering(dMesh,dMeshESH,dMeshSetOrdering*);
 extern dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 extern dErr dMeshDestroy(dMesh);
 extern dErr dMeshView(dMesh,dViewer);
+extern dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer);
 extern dErr dMeshRegisterAll(const char path[]);
 #define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,d)
 extern dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
 extern dErr dMeshSetType(dMesh,const dMeshType);
 extern dErr dMeshInitializePackage(const char[]);
-extern dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,dJacobi,const char*,dInt,dMeshTag*);
+extern dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,const char*,dInt,dMeshTag*);
 extern dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 extern dErr dMeshGetInstance(dMesh,iMesh_Instance*);
 extern dErr dMeshGetNumEnts(dMesh,dMeshESH,dEntType,dEntTopology,dInt*);
@@ -126,6 +125,7 @@ extern dErr dMeshGetNumSubsets(dMesh,dMeshESH,dInt,dInt*);
 extern dErr dMeshGetSubsets(dMesh,dMeshESH,dInt,dMeshESH[],dInt,dInt*);
 extern dErr dMeshGetEntsOff(dMesh,dMeshESH,dInt*,dMeshEH**);
 extern dErr dMeshGetAdjIndex(dMesh,const dMeshEH[],dInt,const dMeshEH[],dInt,dInt[],dInt*);
+extern dErr dMeshSetFilterEnts(dMesh,dMeshESH,dEntType,dEntTopology,dMeshESH*);
 
 extern dErr dMeshGetTag(dMesh mesh,const char name[],dMeshTag *intag);
 extern dErr dMeshTagDestroy(dMesh mesh,dMeshTag tag);
@@ -146,8 +146,10 @@ extern dErr dMeshGetStatus(dMesh,const dMeshEH[],dInt,dEntStatus[]);
 extern dErr dMeshGetTopo(dMesh,dInt,const dMeshEH[],dEntTopology[]);
 extern dErr dMeshGetAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
 extern dErr dMeshRestoreAdjacency(dMesh,dMeshESH,dMeshAdjacency*);
-extern dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
-extern dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],dInt**,dReal(**)[3]);
+extern dErr dMeshGetVertexCoords(dMesh,dInt,const dMeshEH[],const dReal**);
+extern dErr dMeshRestoreVertexCoords(dMesh,dInt,const dMeshEH[],const dReal**);
+extern dErr dMeshGetAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,const dReal**);
+extern dErr dMeshRestoreAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,const dReal**);
 extern dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
 extern dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 
