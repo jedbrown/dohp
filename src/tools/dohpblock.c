@@ -473,11 +473,11 @@ int main(int argc, char *argv[])
       geom_save_options[] = ";TYPE=OCC;";
     iGeom_Instance geom;
     iRel_Instance assoc;
-    iRel_RelationHandle rel;
+    iRel_PairHandle pair;
     iBase_EntityHandle brick;
     iGeom_newGeom(geom_options,&geom,&err,sizeof geom_options);dIGCHK(geom,err);
-    iRel_newAssoc(0,&assoc,&err,0);dIRCHK(assoc,err);
-    iRel_createAssociation(assoc,geom,0,iRel_IGEOM_IFACE,mesh,1,iRel_IMESH_IFACE,&rel,&err);dIGCHK(assoc,err);
+    iRel_newRel(0,&assoc,&err,0);dIRCHK(assoc,err);
+    iRel_createPair(assoc,geom,0,iRel_IGEOM_IFACE,mesh,1,iRel_IMESH_IFACE,&pair,&err);dIGCHK(assoc,err);
     iGeom_createBrick(geom,box.x1-box.x0,box.y1-box.y0,box.z1-box.z0,&brick,&err);dIGCHK(geom,err);
     iGeom_moveEnt(geom,brick,0.5*(box.x0+box.x1),0.5*(box.y0+box.y1),0.5*(box.z0+box.z1),&err);dIGCHK(geom,err);
     err = PrintBoundingBox(geom,brick,"brick");dCHK(err);
@@ -492,16 +492,16 @@ int main(int argc, char *argv[])
       }
       if (assoc_with_brick) {
         for (i=0; i<6; i++) {
-          iRel_setEntSetAssociation(assoc,rel,brick,facesets[i],&err);dIRCHK(assoc,err);
+          iRel_setEntSetRelation(assoc,pair,brick,facesets[i],&err);dIRCHK(assoc,err);
         }
       } else {
         /* Set associations.  With the current Lasso implementation, these will not be saved */
-        iRel_setEntSetAssociation(assoc,rel,gface[0],facesets[3],&err);dIRCHK(assoc,err);
-        iRel_setEntSetAssociation(assoc,rel,gface[1],facesets[1],&err);dIRCHK(assoc,err);
-        iRel_setEntSetAssociation(assoc,rel,gface[2],facesets[0],&err);dIRCHK(assoc,err);
-        iRel_setEntSetAssociation(assoc,rel,gface[3],facesets[2],&err);dIRCHK(assoc,err);
-        iRel_setEntSetAssociation(assoc,rel,gface[4],facesets[4],&err);dIRCHK(assoc,err);
-        iRel_setEntSetAssociation(assoc,rel,gface[5],facesets[5],&err);dIRCHK(assoc,err);
+        iRel_setEntSetRelation(assoc,pair,gface[0],facesets[3],&err);dIRCHK(assoc,err);
+        iRel_setEntSetRelation(assoc,pair,gface[1],facesets[1],&err);dIRCHK(assoc,err);
+        iRel_setEntSetRelation(assoc,pair,gface[2],facesets[0],&err);dIRCHK(assoc,err);
+        iRel_setEntSetRelation(assoc,pair,gface[3],facesets[2],&err);dIRCHK(assoc,err);
+        iRel_setEntSetRelation(assoc,pair,gface[4],facesets[4],&err);dIRCHK(assoc,err);
+        iRel_setEntSetRelation(assoc,pair,gface[5],facesets[5],&err);dIRCHK(assoc,err);
       }
     }
     {
@@ -513,7 +513,7 @@ int main(int argc, char *argv[])
       for (i=0; i<6; i++) {
         iBase_EntityHandle gface;
         int gid,gdim;
-        iRel_getSetEntAssociation(assoc,rel,facesets[i],1,&gface,&err);dIRCHK(assoc,err);
+        iRel_getSetEntRelation(assoc,pair,facesets[i],1,&gface,&err);dIRCHK(assoc,err);
         iGeom_getEntType(geom,gface,&gdim,&err);dIGCHK(geom,err);
         if (gdim != 2) dERROR(PETSC_COMM_SELF,1,"Geometric dimension is %d, expected 2",gdim);
         iGeom_getIntData(geom,gface,geomGlobalIDTag,&gid,&err);dIGCHK(geom,err);
