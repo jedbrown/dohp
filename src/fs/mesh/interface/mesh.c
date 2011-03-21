@@ -486,6 +486,7 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
 {
   iMesh_Instance mi = mesh->mi;
   dIInt size,alloc,ierr;
+  dErr err;
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
@@ -495,10 +496,13 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
   size = 0;                     /* protect against degenerate case */
   if (1) {
     dIInt bytes;
-    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr);dICHK(mi,ierr);
+    char *name;
+    err = dMeshGetTagName(mesh,tag,&name);dCHK(err);
+    iMesh_getTagSizeBytes(mi,tag,&bytes,&ierr); if (ierr == iBase_TAG_NOT_FOUND) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Cannot find tag '%s'\n",name); else dICHK(mi,ierr);
     if (ecount && bytes != iBase_SizeFromType(type)*count/ecount) {
       dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Trying ot retrieve tags of %D bytes, but caller expects %D",bytes,iBase_SizeFromType(type)*count/ecount);
     }
+    err = dFree(name);dCHK(err);
   }
   iMesh_getArrData(mi,ents,ecount,tag,&data,&alloc,&size,&ierr);dICHK(mi,ierr);
   if (alloc != count * iBase_SizeFromType(type))
