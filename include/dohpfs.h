@@ -116,6 +116,7 @@ extern dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const d
 extern dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt **rowcol,const dReal **interp,const dReal **deriv,...);
 extern dErr dRulesetIteratorGetElement(dRulesetIterator it,dRule *rule,dEFS *efs,dScalar **ex,dScalar **ey,...);
 extern dErr dRulesetIteratorGetMatrixSpaceSplit(dRulesetIterator it,dScalar **K,...);
+extern dErr dRulesetIteratorGetMatrixSpaceSizes(dRulesetIterator it,dInt *nrows,dInt *ncols,const dInt **sizes);
 extern dErr dRulesetIteratorFinish(dRulesetIterator);
 extern dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt patchbytes,dInt nodebytes);
 extern dErr dRulesetIteratorGetStash(dRulesetIterator,void *patchstash,void *nodestash);

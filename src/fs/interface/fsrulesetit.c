@@ -83,6 +83,7 @@ struct _n_dRulesetIterator {
   dReal *jw_elem;               /**< Physical quadrature weight (determinant of coordinate Jacobian times reference quadrature weight), element-natural */
   struct ValueCachePhysical phys; /**< Physical weights and coordinate transformation at quadrature points in patch-natural ordering */
   dScalar **Ksplit;             /**< Work space for matrix assembly between each pair of registered function spaces */
+  dInt *Ksplit_sizes;           /**< Sizes of each array in Ksplit */
   struct dRulesetIteratorStash stash; /**< Private storage for the user */
   struct dRulesetIteratorLink *link;  /**< Links for each registered function space */
 };
@@ -169,19 +170,40 @@ dErr dRulesetIteratorAddFS(dRulesetIterator it,dFS fs)
   dFunctionReturn(0);
 }
 
+dErr dRulesetIteratorGetMatrixSpaceSizes(dRulesetIterator it,dInt *nrows,dInt *ncols,const dInt **sizes)
+{
+  dErr err;
+  dInt nr = it->nlinks,nc = it->nlinks;
+
+  dFunctionBegin;
+  if (!it->Ksplit_sizes) {
+    dInt i,j;
+    struct dRulesetIteratorLink *row,*col;
+    err = dMallocA(nr*nc,&it->Ksplit_sizes);dCHK(err);
+    for (i=0,row=it->link; i<nr; i++,row=row->next) {
+      for (j=0,col=it->link; j<nc; j++,col=col->next) {
+        it->Ksplit_sizes[i*nc+j] = row->maxP * col->maxP;
+      }
+    }
+  }
+  if (nrows) *nrows = nr;
+  if (ncols) *ncols = nc;
+  *sizes = it->Ksplit_sizes;
+  dFunctionReturn(0);
+}
+
 static dErr dRulesetIteratorCreateMatrixSpace_Private(dRulesetIterator it)
 {
   dErr err;
-  dInt i,j;
-  struct dRulesetIteratorLink *row,*col;
+  dInt nrow,ncol;
+  const dInt *sizes;
 
   dFunctionBegin;
   if (it->Ksplit) dFunctionReturn(0);
-  err = dMallocA(it->nlinks*it->nlinks,&it->Ksplit);dCHK(err);
-  for (i=0,row=it->link; i<it->nlinks; i++,row=row->next) {
-    for (j=0,col=it->link; j<it->nlinks; j++,col=col->next) {
-      err = dMallocA(row->maxP*col->maxP,&it->Ksplit[i*it->nlinks+j]);dCHK(err);
-    }
+  err = dRulesetIteratorGetMatrixSpaceSizes(it,&nrow,&ncol,&sizes);dCHK(err);
+  err = dMallocA(nrow*ncol,&it->Ksplit);dCHK(err);
+  for (dInt i=0; i<nrow*ncol; i++) {
+    err = dMallocA(sizes[i],&it->Ksplit[i]);dCHK(err);
   }
   dFunctionReturn(0);
 }
@@ -193,6 +215,7 @@ static dErr dRulesetIteratorFreeMatrixSpace_Private(dRulesetIterator it)
   dFunctionBegin;
   for (dInt i=0; i<dSqrInt(it->nlinks); i++) {err = dFree(it->Ksplit[i]);dCHK(err);}
   err = dFree(it->Ksplit);dCHK(err);
+  err = dFree(it->Ksplit_sizes);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -745,7 +768,6 @@ dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt elembytes,dInt nodebytes)
   it->stash.nodebytes  = nodebytes;
   dFunctionReturn(0);
 }
-
 
 /** dRulesetIteratorGetStash - Gets a pointer to the stash for the current element
  */
