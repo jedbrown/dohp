@@ -115,12 +115,9 @@ struct EllipCtx {
   struct EllipParam     param;
   struct EllipExact     exact;
   struct EllipExactCtx  exactctx;
-  struct EllipStore    *store;
-  dInt                 *storeoff;
   dJacobi               jac;
   dMesh                 mesh;
   dFS                   fs;
-  Vec                   x,y;
   dInt                  constBDeg,nominalRDeg;
   dBool                 errorview;
   dBool                 eta_monitor;
@@ -147,6 +144,8 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   prm->epsilon     = 1.0;
   prm->lambda      = 0.0;       /* Bratu nonlinearity */
   prm->onlyproject = dFALSE;
+  elp->function_qmethod = dQUADRATURE_METHOD_FAST;
+  elp->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
   *ellip = elp;
   dFunctionReturn(0);
@@ -183,8 +182,6 @@ static dErr EllipSetFromOptions(Ellip elp)
 
   dFunctionBegin;
   exact = 0; morph = twist = stretch = 0.0; mesh_out = dFALSE; exc->a = exc->b = exc->c = 1;
-  elp->function_qmethod = dQUADRATURE_METHOD_FAST;
-  elp->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic (p-Laplacian) options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elp->constBDeg,&elp->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elp->nominalRDeg,&elp->nominalRDeg,NULL);dCHK(err);
@@ -260,27 +257,6 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dFSSetFromOptions(fs);dCHK(err);
   elp->fs = fs;
 
-  err = dFSCreateExpandedVector(fs,&elp->x);dCHK(err);
-  err = VecDuplicate(elp->x,&elp->y);dCHK(err);
-
-#ifdef OLD
-  {                             /* Allocate space for stored values */
-    dInt n;
-    dRule *rule;
-    err = dFSGetElements(fs,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
-    err = dMallocA(n+1,&elp->storeoff);dCHK(err);
-    elp->storeoff[0] = 0;
-    for (dInt i=0; i<n; i++) {
-      dInt q;
-      err = dRuleGetSize(rule[i],NULL,&q);dCHK(err);
-      elp->storeoff[i+1] = elp->storeoff[i] + q;
-    }
-    err = dMallocA(elp->storeoff[n],&elp->store);dCHK(err);
-    err = dMemzero(elp->store,elp->storeoff[n]*sizeof(elp->store[0]));dCHK(err);
-    err = dFSRestoreElements(fs,&n,NULL,&rule,NULL,NULL,NULL);dCHK(err);
-  }
-#endif
-
   if (mesh_out) {
     iMesh_Instance mi;
     dIInt          ierr;
@@ -328,10 +304,6 @@ static dErr EllipDestroy(Ellip elp)
   err = dFSDestroy(elp->fs);dCHK(err);
   err = dJacobiDestroy(elp->jac);dCHK(err);
   err = dMeshDestroy(elp->mesh);dCHK(err);
-  err = dFree(elp->storeoff);dCHK(err);
-  err = dFree(elp->store);dCHK(err);
-  if (elp->x) {err = VecDestroy(elp->x);dCHK(err);}
-  if (elp->y) {err = VecDestroy(elp->y);dCHK(err);}
   for (dInt i=0; i<EVAL_UB; i++) {
     if (elp->regioniter[i]) {dRulesetIteratorDestroy(elp->regioniter[i]);dCHK(err);}
   }
@@ -467,7 +439,6 @@ static dErr EllipJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structur
   err = KSPGetPC(ksp,&pc);dCHK(err);
   err = PCShellGetContext(pc,(void**)&pce);dCHK(err);
   err = MatZeroEntries(*Jp);dCHK(err);
-  err = dFSGlobalToExpanded(elp->fs,gx,elp->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
   err = dFSGetGeometryVectorExpanded(elp->fs,&Coords);dCHK(err);
   err = EllipGetRegionIterator(elp,EVAL_JACOBIAN,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
