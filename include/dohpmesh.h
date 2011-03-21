@@ -34,10 +34,14 @@ extern const char *const iBase_TagValueTypeName[];
       dERROR(PETSC_COMM_SELF,1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
-
-#define dIRCHK(assoc,err)                                               \
-  if (PetscUnlikely(err))                                               \
-    dERROR(PETSC_COMM_SELF,1,"iRel(%d) %s: %s",err,iBase_ErrorString[iRel_LAST_ERROR.error_type],iRel_LAST_ERROR.description)
+#define dIRCHK(rel,err) do {                                           \
+    if (PetscUnlikely(err)) {                                           \
+      dErr _l_ret = err;                                                \
+      char _l_desc[512] = "Description not available";                  \
+      iRel_getDescription(rel,_l_desc,&err,sizeof(_l_desc));          \
+      dERROR(PETSC_COMM_SELF,1,"iRel(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
+    }                                                                   \
+  } while (0)
 
 
 typedef struct {
