@@ -253,7 +253,14 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
   err = dRulesetIteratorCreateMatrixSpace_Private(it);dCHK(err);
   if ((it->stash.elembytes && !it->stash.elem) || (it->stash.nodebytes && !it->stash.node)) {
     /* Allocate space for the stash */
-    err = dMallocA2(it->stash.elembytes*it->nelems,&it->stash.elem,it->stash.nodebytes*it->nnodes,&it->stash.node);dCHK(err);
+    err = dMallocA3(it->nelems+1,&it->stash.elemoffset,it->stash.elembytes*it->nelems,&it->stash.elem,it->stash.nodebytes*it->nnodes,&it->stash.node);dCHK(err);
+    it->stash.elemoffset[0] = 0;
+    for (i=0; i<it->nelems; i++) {
+      dInt nnodes;
+      err = dRuleGetSize(it->ruleset->rules[i],NULL,&nnodes);dCHK(err);
+      it->stash.elemoffset[i+1] = it->stash.elemoffset[i] + nnodes*it->stash.nodebytes;
+    }
+    if (it->stash.elemoffset[it->nelems] != it->nnodes * it->stash.nodebytes) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Inconsistent node count");
   }
   it->curelem   = 0;
   it->elempatch = 0;
@@ -709,20 +716,31 @@ dErr dRulesetIteratorGetMatrixSpaceSplit(dRulesetIterator it,dScalar **K,...)
   dFunctionReturn(0);
 }
 
-/** dRulesetIteratorAddStash - Attach some private memory to quadrature points and integration patches
- *
+static dErr dRulesetIteratorDestroyStash(dRulesetIterator it)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dFree3(it->stash.elemoffset,it->stash.elem,it->stash.node);dCHK(err);
+  it->stash.elemoffset = NULL;
+  it->stash.elem       = NULL;
+  it->stash.node       = NULL;
+  dFunctionReturn(0);
+}
+
+/** Attach some private memory to quadrature points and integration patches
  */
 dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt elembytes,dInt nodebytes)
 {
   dErr err;
 
   dFunctionBegin;
-  err = dFree(it->stash.elemoffset);dCHK(err);
-  err = dFree2(it->stash.elem,it->stash.node);dCHK(err);
+  err = dRulesetIteratorDestroyStash(it);dCHK(err);
   it->stash.elembytes = elembytes;
   it->stash.nodebytes  = nodebytes;
   dFunctionReturn(0);
 }
+
 
 /** dRulesetIteratorGetStash - Gets a pointer to the stash for the current element
  */
@@ -730,7 +748,7 @@ dErr dRulesetIteratorGetStash(dRulesetIterator it,void *elemstash,void *nodestas
 {
   dFunctionBegin;
   if (elemstash) *(void**)elemstash = &it->stash.elem[it->curelem*it->stash.elembytes];
-  if (nodestash) *(void**)nodestash = &it->stash.node[it->stash.elemoffset[it->curelem]*it->stash.nodebytes];
+  if (nodestash) *(void**)nodestash = &it->stash.node[it->stash.elemoffset[it->curelem] + it->curpatch_in_elem*it->Q*it->stash.nodebytes];
   dFunctionReturn(0);
 }
 
@@ -758,6 +776,7 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
   }
   err = dRulesetIteratorFreeMatrixSpace_Private(it);dCHK(err);
   err = dFree2(it->cjinv_elem,it->jw_elem);dCHK(err);
+  err = dRulesetIteratorDestroyStash(it);dCHK(err);
   err = ValueCachePhysicalDestroy(&it->phys);dCHK(err);
   err = dFree(it);dCHK(err);
   dFunctionReturn(0);
