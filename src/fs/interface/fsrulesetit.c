@@ -134,6 +134,7 @@ dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter)
   *iter = 0;
   err = dCallocA(1,&it);dCHK(err);
   it->ruleset = rset;
+  rset->refct++;
   err = dRulesetGetSize(rset,&it->nelems);dCHK(err);
   it->nnodes = 0;
   for (dInt i=0; i<it->nelems; i++) {
@@ -782,6 +783,7 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
   err = dFree2(it->cjinv_elem,it->jw_elem);dCHK(err);
   err = dRulesetIteratorDestroyStash(it);dCHK(err);
   err = ValueCachePhysicalDestroy(&it->phys);dCHK(err);
+  err = dRulesetDestroy(it->ruleset);dCHK(err);
   err = dFree(it);dCHK(err);
   dFunctionReturn(0);
 }

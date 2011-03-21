@@ -311,6 +311,7 @@ static dErr EllipGetRegionIterator(Ellip elp,EllipEvaluation eval,dRulesetIterat
     err = dFSGetPreferredQuadratureRuleSet(elp->fs,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&ruleset);dCHK(err);
     err = dFSGetCoordinateFS(elp->fs,&cfs);dCHK(err);
     err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
+    err = dRulesetDestroy(ruleset);dCHK(err); /* Give ownership to iterator */
     err = dRulesetIteratorAddFS(iter,elp->fs);dCHK(err);
     if (eval == EVAL_FUNCTION) {err = dRulesetIteratorAddStash(iter,0,sizeof(struct EllipStore));dCHK(err);}
     elp->regioniter[eval] = iter;
@@ -595,7 +596,6 @@ static dErr EllipGetNodalSolutionVector(Ellip elp,Vec *insoln)
   }
   err = VecRestoreArray(xc,&x);dCHK(err);
   err = VecRestoreArrayRead(cvec,&coords);dCHK(err);
-  err = VecDestroy(cvec);dCHK(err);
   err = VecDohpRestoreClosure(soln,&xc);dCHK(err);
   *insoln = soln;
   dFunctionReturn(0);

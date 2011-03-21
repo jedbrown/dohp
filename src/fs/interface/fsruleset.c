@@ -37,6 +37,7 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTop
   }
 
   err = dNew(struct _n_dRuleset,&rset);dCHK(err);
+  rset->refct = 1;
   err = dFSGetMesh(fs,&rset->mesh);dCHK(err);
   rset->set = set;
   rset->type = etype;
@@ -72,6 +73,7 @@ dErr dRulesetDestroy(dRuleset rset)
   dErr err;
 
   dFunctionBegin;
+  if (--rset->refct > 0) dFunctionReturn(0);
   err = dFree(rset->rules);dCHK(err);
   err = dRulesetWorkspaceDestroy(rset->workspace);dCHK(err);
   err = dFree(rset);dCHK(err);

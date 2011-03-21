@@ -41,6 +41,7 @@ struct dRulesetWorkspace {
 };
 
 struct _n_dRuleset {
+  dInt refct;
   dMesh mesh;                   /**< Mesh on which the rules are defined */
   dMeshESH set;                 /**< Set containing all entities needing integration (and perhaps others of different type/topology) */
   dEntType type;                /**< Type of entities in the set on which integration is to be done */
