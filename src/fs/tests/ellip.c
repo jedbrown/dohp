@@ -139,7 +139,7 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   err = dNew(struct EllipCtx,&elp);dCHK(err);
   elp->comm = comm;
 
-  elp->constBDeg = 4;
+  elp->constBDeg = 3;
   elp->nominalRDeg = 0;
 
   prm = &elp->param;
