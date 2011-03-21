@@ -360,7 +360,7 @@ static dErr ProjResidual2(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetGeometryVectorExpanded(fs,&Coords);dCHK(err);
   err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
-  err = dRulesetIteratorStart(iter,Coords,NULL,gx,gy);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,gy,dFS_INHOMOGENEOUS);dCHK(err);
 
   while (dRulesetIteratorHasPatch(iter)) {
     dRule rule;
@@ -406,7 +406,7 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
   err = VecZeroEntries(gy);dCHK(err);
   err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
   err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
-  err = dRulesetIteratorStart(iter,Coords,NULL,gx,gy);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,gy,dFS_INHOMOGENEOUS);dCHK(err);
 
   while (dRulesetIteratorHasPatch(iter)) {
     const dScalar *jw;
@@ -441,7 +441,7 @@ static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   err = MatZeroEntries(*Jp);dCHK(err);
   err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
   err = ProjGetRegionIterator(proj,gopt.jac_qmethod,&iter);dCHK(err);
-  err = dRulesetIteratorStart(iter,Coords,NULL,gx,NULL);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
   err = dRulesetIteratorGetMatrixSpaceSplit(iter,NULL,NULL,NULL,&Kflat);dCHK(err);
 
   while (dRulesetIteratorHasPatch(iter)) {
@@ -555,7 +555,7 @@ static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorm
   err = dMemzero(gresidualNorms,3*sizeof(gresidualNorms));dCHK(err);
   err = dFSGetGeometryVectorExpanded(proj->fs,&Coords);dCHK(err);
   err = ProjGetRegionIterator(proj,gopt.proj_qmethod,&iter);dCHK(err);
-  err = dRulesetIteratorStart(iter,Coords,NULL,gx,NULL);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
 
   while (dRulesetIteratorHasPatch(iter)) {
     const dScalar *jw;

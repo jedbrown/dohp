@@ -46,6 +46,7 @@ struct dRulesetIteratorLink {
   dInt nefs;                    /**< Number of dEFS */
   dInt elemstart;               /**< Block offset of current element in expanded vector */
   dInt bs;                      /**< Block size */
+  dFSHomogeneousMode xhomogeneous,yhomogeneous;
   struct ExplicitCache explicit; /* Sparse explicit values on element */
   struct dRulesetIteratorLink *next;
 };
@@ -198,7 +199,7 @@ static dErr dRulesetIteratorFreeMatrixSpace_Private(dRulesetIterator it)
  *
  * @note Collective
  */
-dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
+dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,...)
 {
   dErr err;
   va_list ap;
@@ -206,13 +207,14 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
   struct dRulesetIteratorLink *p;
 
   dFunctionBegin;
-  va_start(ap,Y);
+  va_start(ap,X);
   for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+    Vec Y;
     p->elemstart = 0;
-    if (i) {
-      X = va_arg(ap,Vec);
-      Y = va_arg(ap,Vec);
-    }
+    if (i) X = va_arg(ap,Vec);
+    if (X) p->xhomogeneous = va_arg(ap,dFSHomogeneousMode);
+    Y = va_arg(ap,Vec);
+    if (Y) p->yhomogeneous = va_arg(ap,dFSHomogeneousMode);
     p->X = X;
     p->Y = Y;
     if (!p->Xexp) {err = dFSCreateExpandedVector(p->fs,&p->Xexp);dCHK(err);}
@@ -221,7 +223,7 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,Vec Y,...)
       dBool flg;
       err = PetscTypeCompare((PetscObject)p->X,VECDOHP,&flg);dCHK(err);
       if (flg) {                /* A global Vec was passed in so we need to map it to the expanded space */
-        err = dFSGlobalToExpanded(p->fs,p->X,p->Xexp,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
+        err = dFSGlobalToExpanded(p->fs,p->X,p->Xexp,p->xhomogeneous,INSERT_VALUES);dCHK(err);
       } else if (p->X) {        /* An expanded Vec was passed in so we just use it */
         err = VecCopy(p->X,p->Xexp);dCHK(err);
       } else {                  /* No Vec is being used for this traversal, zero the internal storage anyway */
@@ -281,7 +283,7 @@ dErr dRulesetIteratorFinish(dRulesetIterator it)
     err = VecRestoreArray(p->Xexp,&p->x);dCHK(err);
     err = VecRestoreArray(p->Yexp,&p->y);dCHK(err);
     if (!p->Y) continue;        /* This field is not being assembled */
-    err = dFSExpandedToGlobal(p->fs,p->Yexp,p->Y,dFS_HOMOGENEOUS,ADD_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(p->fs,p->Yexp,p->Y,p->yhomogeneous,INSERT_VALUES);dCHK(err);
   }
   dFunctionReturn(0);
 }
@@ -588,6 +590,7 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
       }
       if (dv) {
         err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.dv,ey,dAPPLY_GRAD_TRANSPOSE,imode);dCHK(err);
+        imode = ADD_VALUES;
       }
     }
     va_end(ap);
@@ -626,12 +629,13 @@ dErr dRulesetIteratorGetPatchAssembly(dRulesetIterator it,dInt *P,const dInt **r
         interp = va_arg(ap,const dReal**);
         deriv = va_arg(ap,const dReal**);
       }
-      if (!(P || rowcol || interp || deriv)) continue;
-      err = dEFSGetExplicitSparse(p->efs[it->curelem],it->npatches_in_elem,it->Q,it->patchind,cjinv,p->elemstart,&p->explicit.P,p->explicit.bidx,p->explicit.interp,p->explicit.deriv);dCHK(err);
-      if (P) *P = p->explicit.P;
-      if (rowcol) *rowcol = p->explicit.bidx;
-      if (interp) *interp = p->explicit.interp;
-      if (deriv)  *deriv  = p->explicit.deriv;
+      if (P || rowcol || interp || deriv) {
+        err = dEFSGetExplicitSparse(p->efs[it->curelem],it->npatches_in_elem,it->Q,it->patchind,cjinv,p->elemstart,&p->explicit.P,p->explicit.bidx,p->explicit.interp,p->explicit.deriv);dCHK(err);
+        if (P) *P = p->explicit.P;
+        if (rowcol) *rowcol = p->explicit.bidx;
+        if (interp) *interp = p->explicit.interp;
+        if (deriv)  *deriv  = p->explicit.deriv;
+      }
       cjinv = it->cjinv_elem;
     }
   } else {
