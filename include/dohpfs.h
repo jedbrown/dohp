@@ -61,7 +61,6 @@ extern dErr dFSCreate(MPI_Comm,dFS*);
 extern dErr dFSSetMesh(dFS,dMesh,dMeshESH); /* mesh, active set */
 extern dErr dFSGetMesh(dFS,dMesh*);
 extern dErr dFSGetJacobi(dFS,dJacobi*);
-extern dErr dFSSetRuleTag(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetBlockSize(dFS,dInt);
 extern dErr dFSGetBlockSize(dFS,dInt*);

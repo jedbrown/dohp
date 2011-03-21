@@ -78,7 +78,6 @@ struct _p_dFS {
   dMesh        mesh;
   struct {
     dMeshTag degree;            /**< Effective degree of elements, packed into dPolynomialOrder */
-    dMeshTag rule;              /**< Degree of rules defined on elements that integration is to be performed on */
     dMeshTag boundary;          /**< Tag indicating which boundary condition should be enforced */
     dMeshTag bstatus;           /**< Boundary status tag, every NEUMANN_SET=x set will be tagged */
     dMeshTag bdyConstraint;     /**< User-defined context for enforcing boundary constraints */

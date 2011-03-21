@@ -247,7 +247,6 @@ static dErr EllipSetFromOptions(Ellip elp)
 
   err = dFSCreate(elp->comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
-  err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSRegisterBoundary(fs,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   if (!elp->param.bdy100) {

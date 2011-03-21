@@ -191,7 +191,6 @@ dErr dFSGetCoordinateFS(dFS fs,dFS *incfs)
     err = PetscSNPrintf(degreename,sizeof degreename,"%scfs_degree",dNonNullElse(((dObject)fs)->prefix,""));dCHK(err);
     err = dMeshCreateRuleTagIsotropic(mesh,fs->set.active,degreename,1,&dtag);dCHK(err);
     err = dFSSetDegree(cfs,jacobi,dtag);dCHK(err);
-    err = dFSSetRuleTag(cfs,jacobi,dtag);dCHK(err); /* FIXME: remove this attribute from dFS */
     err = dFSSetBlockSize(cfs,3);dCHK(err);
     err = PetscSNPrintf(prefix,sizeof prefix,"%scoord_",dNonNullElse(((dObject)fs)->prefix,""));dCHK(err);
     err = dFSSetOptionsPrefix(cfs,prefix);dCHK(err);
@@ -284,7 +283,6 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
   err = dFSSetMesh(rfs,fs->mesh,fs->set.active);dCHK(err);
   err = dFSGetJacobi(fs,&jac);dCHK(err);
   err = dFSSetDegree(rfs,jac,fs->tag.degree);dCHK(err);
-  err = dFSSetRuleTag(rfs,jac,fs->tag.rule);dCHK(err); /* TODO: remove */
   switch (mode) {
   case dFS_CLOSURE: dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Probably not what you want"); /* because ordering would be different, but there is nothing to do for this choice. */
     break;

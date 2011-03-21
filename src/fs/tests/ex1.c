@@ -728,7 +728,6 @@ int main(int argc,char *argv[])
 
   err = dFSCreate(comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
-  err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
 

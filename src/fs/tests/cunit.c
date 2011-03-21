@@ -168,7 +168,6 @@ static dErr CUSetFromOptions(CU cu)
 
   err = dFSCreate(cu->comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,cu->mesh,domain);dCHK(err);
-  err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   cu->fs = fs;
 

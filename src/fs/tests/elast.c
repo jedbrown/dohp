@@ -190,7 +190,6 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dFSCreate(elt->comm,&fs);dCHK(err);
   err = dFSSetBlockSize(fs,3);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
-  err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSRegisterBoundary(fs,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   err = dFSRegisterBoundary(fs,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
@@ -496,7 +495,8 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
 {
   dErr err;
   Vec soln,xc,cvecg,cvec;
-  dScalar *x,*coords;
+  dScalar *x;
+  const dScalar *coords;
   dInt n,bs;
 
   dFunctionBegin;
@@ -513,15 +513,16 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
     if (nc*bs != n*3) dERROR(PETSC_COMM_SELF,1,"Coordinate vector has inconsistent size");
   }
   err = VecGetArray(xc,&x);dCHK(err);
-  err = VecGetArray(cvec,&coords);dCHK(err);
+  err = VecGetArrayRead(cvec,&coords);dCHK(err);
   for (dInt i=0; i<n/bs; i++) {
     dScalar du_unused[3*bs];
     elt->exact.solution(&elt->exactctx,&elt->param,&coords[3*i],&x[i*bs],du_unused);
     /* printf("Node %3d: coords %+8f %+8f %+8f   exact %+8f %+8f %+8f\n",i,coords[3*i],coords[3*i+1],coords[3*i+2],x[3*i],x[3*i+1],x[3*i+2]); */
   }
   err = VecRestoreArray(xc,&x);dCHK(err);
-  err = VecRestoreArray(cvec,&coords);dCHK(err);
+  err = VecRestoreArrayRead(cvec,&coords);dCHK(err);
   err = VecDohpRestoreClosure(cvecg,&cvec);dCHK(err);
+  err = dFSInhomogeneousDirichletCommit(elt->fs,xc);dCHK(err);
   err = VecDohpRestoreClosure(soln,&xc);dCHK(err);
   *insoln = soln;
   dFunctionReturn(0);

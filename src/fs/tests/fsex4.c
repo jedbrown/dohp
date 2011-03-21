@@ -139,7 +139,6 @@ int main(int argc,char *argv[])
   err = dMeshCreateRuleTagIsotropic(mesh,active,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
   err = dFSCreate(comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,active);dCHK(err);
-  err = dFSSetRuleTag(fs,jac,rtag);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
   err = dFSCreateGlobalVector(fs,&X);dCHK(err);

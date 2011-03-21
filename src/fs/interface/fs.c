@@ -65,27 +65,6 @@ dErr dFSGetJacobi(dFS fs,dJacobi *jacobi)
   dFunctionReturn(0);
 }
 
-dErr dFSSetRuleTag(dFS fs,dJacobi jac,dMeshTag rtag)
-{
-  dErr err;
-  char *name;
-
-  dFunctionBegin;
-  dValidHeader(fs,DM_CLASSID,1);
-  fs->tag.rule = rtag;
-  if (fs->jacobi && fs->jacobi != jac) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"cannot change dJacobi");
-  if (!fs->mesh) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"You must call dFSSetMesh() before setting rule tags");
-  err = dMeshGetTagName(fs->mesh,rtag,&name);dCHK(err);
-  if (!name || (name[0] == '_' && name[1] == '_'))
-    dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_INCOMP,"The quadrature Rule tag must be persistent, it cannot start with '__'");
-  err = dFree(name);dCHK(err);
-  if (!fs->jacobi) {
-    err = PetscObjectReference((PetscObject)jac);dCHK(err);
-    fs->jacobi = jac;
-  }
-  dFunctionReturn(0);
-}
-
 dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
 {
   dErr err;

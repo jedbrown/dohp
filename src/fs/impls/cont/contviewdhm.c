@@ -342,7 +342,6 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
         err = dMeshGetTag(mesh,fs5.degree,&tag);dCHK(err);
         err = dFSGetJacobi(fs,&jac);dCHK(err);
         err = dFSSetDegree(fs,jac,tag);dCHK(err);
-        err = dFSSetRuleTag(fs,jac,tag);dCHK(err); /* Should have a better way to get this */
         err = dJacobiSetFromOptions(jac);dCHK(err);
 
         err = dMeshGetTag(mesh,fs5.global_offset,&tag);dCHK(err);
