@@ -44,7 +44,7 @@ struct dRulesetIteratorLink {
   dInt *rowcol;                 /**< Work array to hold row and column indices */
   dInt maxP;                    /**< Largest number of basis functions with support on this element */
   dInt nefs;                    /**< Number of dEFS */
-  dInt elemstart;               /**< Block offset of current element in expanded vector */
+  dInt elemstart;               /**< Block offset of current element in expanded vector for this component */
   dInt bs;                      /**< Block size */
   dFSHomogeneousMode xhomogeneous,yhomogeneous;
   struct ExplicitCache explicit; /* Sparse explicit values on element */
