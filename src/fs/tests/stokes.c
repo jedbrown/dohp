@@ -107,13 +107,16 @@ struct StokesStore {
 };
 
 typedef enum {EVAL_FUNCTION,EVAL_JACOBIAN, EVAL_UB} StokesEvaluation;
+typedef enum {STOKES_MULT_A,STOKES_MULT_Bt,STOKES_MULT_B} StokesMultMode;
 
 static dErr StokesGetNullSpace(Stokes stk,MatNullSpace *matnull);
-static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode);
-static dErr StokesShellMatMult_All(Mat A,Vec gx,Vec gy)
-{return StokesShellMatMult_All_IorA(A,gx,gy,NULL,INSERT_VALUES);}
-static dErr StokesShellMatMultAdd_All(Mat A,Vec gx,Vec gy,Vec gz)
-{return StokesShellMatMult_All_IorA(A,gx,gy,gz,ADD_VALUES);}
+static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode,StokesMultMode);
+static dErr StokesShellMatMult_A(Mat A,Vec gx,Vec gy) {return StokesShellMatMult_All_IorA(A,gx,gy,NULL,INSERT_VALUES,STOKES_MULT_A);}
+static dErr StokesShellMatMult_Bt(Mat A,Vec gx,Vec gy) {return StokesShellMatMult_All_IorA(A,gx,gy,NULL,INSERT_VALUES,STOKES_MULT_Bt);}
+static dErr StokesShellMatMult_B(Mat A,Vec gx,Vec gy) {return StokesShellMatMult_All_IorA(A,gx,gy,NULL,INSERT_VALUES,STOKES_MULT_B);}
+static dErr StokesShellMatMultAdd_A(Mat A,Vec gx,Vec gy,Vec gz) {return StokesShellMatMult_All_IorA(A,gx,gy,gz,ADD_VALUES,STOKES_MULT_A);}
+static dErr StokesShellMatMultAdd_Bt(Mat A,Vec gx,Vec gy,Vec gz) {return StokesShellMatMult_All_IorA(A,gx,gy,gz,ADD_VALUES,STOKES_MULT_Bt);}
+static dErr StokesShellMatMultAdd_B(Mat A,Vec gx,Vec gy,Vec gz) {return StokesShellMatMult_All_IorA(A,gx,gy,gz,ADD_VALUES,STOKES_MULT_B);}
 static dErr MatMultAdd_Null(Mat dUNUSED A,Vec dUNUSED x,Vec y,Vec z)
 { return VecCopy(y,z); }
 static dErr MatMult_StokesOuter_block(Mat,Vec,Vec);
@@ -464,18 +467,18 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   /* Create high-order matrix for diagonal velocity block, with context \a stk */
   err = MatCreateShell(stk->comm,nu,nu,PETSC_DETERMINE,PETSC_DETERMINE,stk,&sms->A);dCHK(err);
   err = MatShellSetOperation(sms->A,MATOP_GET_VECS,(void(*)(void))MatGetVecs_Stokes);dCHK(err);
-  err = MatShellSetOperation(sms->A,MATOP_MULT,(void(*)(void))StokesShellMatMult_All);dCHK(err);
-  err = MatShellSetOperation(sms->A,MATOP_MULT_TRANSPOSE,(void(*)(void))StokesShellMatMult_All);dCHK(err);
-  err = MatShellSetOperation(sms->A,MATOP_MULT_ADD,(void(*)(void))StokesShellMatMultAdd_All);dCHK(err);
-  err = MatShellSetOperation(sms->A,MATOP_MULT_TRANSPOSE_ADD,(void(*)(void))StokesShellMatMultAdd_All);dCHK(err);
+  err = MatShellSetOperation(sms->A,MATOP_MULT,(void(*)(void))StokesShellMatMult_A);dCHK(err);
+  err = MatShellSetOperation(sms->A,MATOP_MULT_TRANSPOSE,(void(*)(void))StokesShellMatMult_A);dCHK(err);
+  err = MatShellSetOperation(sms->A,MATOP_MULT_ADD,(void(*)(void))StokesShellMatMultAdd_A);dCHK(err);
+  err = MatShellSetOperation(sms->A,MATOP_MULT_TRANSPOSE_ADD,(void(*)(void))StokesShellMatMultAdd_A);dCHK(err);
 
   /* Create off-diagonal high-order matrix, with context \a stk */
   err = MatCreateShell(stk->comm,np,nu,PETSC_DETERMINE,PETSC_DETERMINE,stk,&B);dCHK(err);
   err = MatShellSetOperation(B,MATOP_GET_VECS,(void(*)(void))MatGetVecs_Stokes);dCHK(err);
-  err = MatShellSetOperation(B,MATOP_MULT,(void(*)(void))StokesShellMatMult_All);dCHK(err);
-  err = MatShellSetOperation(B,MATOP_MULT_TRANSPOSE,(void(*)(void))StokesShellMatMult_All);dCHK(err);
-  err = MatShellSetOperation(B,MATOP_MULT_ADD,(void(*)(void))StokesShellMatMultAdd_All);dCHK(err);
-  err = MatShellSetOperation(B,MATOP_MULT_TRANSPOSE_ADD,(void(*)(void))StokesShellMatMultAdd_All);dCHK(err);
+  err = MatShellSetOperation(B,MATOP_MULT,(void(*)(void))StokesShellMatMult_B);dCHK(err);
+  err = MatShellSetOperation(B,MATOP_MULT_TRANSPOSE,(void(*)(void))StokesShellMatMult_Bt);dCHK(err);
+  err = MatShellSetOperation(B,MATOP_MULT_ADD,(void(*)(void))StokesShellMatMultAdd_B);dCHK(err);
+  err = MatShellSetOperation(B,MATOP_MULT_TRANSPOSE_ADD,(void(*)(void))StokesShellMatMultAdd_Bt);dCHK(err);
   err = MatCreateTranspose(B,&Bt);dCHK(err);
   sms->B  = B;
   sms->Bt = Bt;
@@ -716,12 +719,9 @@ static dErr MatMult_StokesOuter_block(Mat J,Vec gx,Vec gy)
   dFunctionReturn(0);
 }
 
-typedef enum {STOKES_MULT_A,STOKES_MULT_Bt,STOKES_MULT_B} StokesMultMode;
-
-static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode imode)
+static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode imode,StokesMultMode mmode)
 {
   Stokes           stk;
-  StokesMultMode   mmode;
   dRulesetIterator iter;
   Vec              Coords;
   dErr             err;
@@ -729,16 +729,18 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
   dFunctionBegin;
   err = PetscLogEventBegin(LOG_StokesShellMult,A,gx,gy,gz);dCHK(err);
   err = MatShellGetContext(A,(void**)&stk);dCHK(err);
-  {  /* Find out which block we have by comparing sizes */
+  {  /* Check that we have correct sizes */
     dInt nu,np,nx,ny;
     err = VecGetSize(stk->gvelocity,&nu);dCHK(err);
     err = VecGetSize(stk->gpressure,&np);dCHK(err);
     err = VecGetSize(gx,&nx);dCHK(err);
     err = VecGetSize(gy,&ny);dCHK(err);
-    if (nx==nu && ny==nu) mmode = STOKES_MULT_A;
-    else if (nx==np && ny==nu) mmode = STOKES_MULT_Bt;
-    else if (nx==nu && ny==np) mmode = STOKES_MULT_B;
-    else dERROR(PETSC_COMM_SELF,1,"Sizes do not match, unknown mult operation");
+    switch (mmode) {
+    case STOKES_MULT_A: dASSERT(nx==nu && ny==nu); break;
+    case STOKES_MULT_Bt: dASSERT(nx==np && ny==nu); break;
+    case STOKES_MULT_B: dASSERT(nx==nu && ny==np); break;
+    default: dERROR(PETSC_COMM_SELF,1,"Sizes do not match, unknown mult operation");
+    }
   }
 
   switch (imode) {
@@ -762,7 +764,8 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
     err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gx,dFS_HOMOGENEOUS,gz,dFS_HOMOGENEOUS, NULL,NULL);dCHK(err);
     break;
   case STOKES_MULT_Bt:
-    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,gx,dFS_HOMOGENEOUS, gz,dFS_HOMOGENEOUS,NULL);dCHK(err);
+    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,gz,dFS_HOMOGENEOUS, gx,dFS_HOMOGENEOUS,NULL);dCHK(err);
+    break;
   case STOKES_MULT_B:
     err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gx,dFS_HOMOGENEOUS,NULL, NULL,gz,dFS_HOMOGENEOUS);dCHK(err);
     break;
