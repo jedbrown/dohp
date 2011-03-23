@@ -53,7 +53,14 @@ union _dPolynomialOrder {
 };
 
 static inline dPolynomialOrder dPolynomialOrderCreate(dInt max,dInt x,dInt y,dInt z)
-{return (dPolynomialOrder){.s = {(unsigned char)max,(unsigned char)x,(unsigned char)y,(unsigned char)z}};}
+{
+  dPolynomialOrder o;
+  o.s.max = (unsigned char)max;
+  o.s.x   = (unsigned char)x;
+  o.s.y   = (unsigned char)y;
+  o.s.z   = (unsigned char)z;
+  return o;
+}
 static inline dInt dPolynomialOrder1D(dPolynomialOrder order,dInt direction)
 {
   dInt max = order.s.max,dir;
