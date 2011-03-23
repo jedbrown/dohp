@@ -25,6 +25,7 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
   dErr        err;
 
   dFunctionBegin;
+  *basis = NULL;
   if (P <= 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"A TensorBasis must be at least first order, given %d",P);
   //if (P > Q) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Trying to evaluate a basis on a rule with fewer nodes, this will make the mass matrix singular");
   if (tnsr->family != dGAUSS_LOBATTO) dERROR(PETSC_COMM_SELF,1,"GaussFamily %s not supported",dGaussFamilies[tnsr->family]);
