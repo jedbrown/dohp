@@ -9,10 +9,10 @@
     <LIBS>
       -ldohp
     </LIBS>
-    <Extensions>
-      dhm
-      h5
-    </Extensions>
+    <FilePatterns>
+      *.dhm
+      *.h5
+    </FilePatterns>
     <Files components="M">
       avtDohpFileFormat.C
     </Files>
