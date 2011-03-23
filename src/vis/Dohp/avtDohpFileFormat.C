@@ -287,22 +287,21 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
 
   {
     dInt n,bs;
-    dScalar *x;
+    const dScalar *x;
     Vec X;
-    err = dFSGetCoordinates(fs,&X);avtCHK(err);
+    err = dFSGetGeometryVectorExpanded(fs,&X);avtCHK(err);
     err = VecGetLocalSize(X,&n);avtCHK(err);
     err = VecGetBlockSize(X,&bs);avtCHK(err);
     if (bs != 3) EXCEPTION1(InvalidVariableException,"Unexpected block size bs != 3");
     if (n != nverts*bs) EXCEPTION1(InvalidVariableException,"Vec and FS do not agree about sizes");
-    err = VecGetArray(X,&x);avtCHK(err);
+    err = VecGetArrayRead(X,&x);avtCHK(err);
     vtkPoints *points = vtkPoints::New();
     points->SetNumberOfPoints(nverts);
     float *pts = (float*)points->GetVoidPointer(0);
     for (dInt i=0; i<n; i++) pts[i] = (float)x[i];
     grid->SetPoints(points);
     points->Delete();
-    err = VecRestoreArray(X,&x);avtCHK(err);
-    err = VecDestroy(X);avtCHK(err);
+    err = VecRestoreArrayRead(X,&x);avtCHK(err);
   }
 
   err = dFSDestroy(fs);avtCHK(err);
