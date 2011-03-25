@@ -4,7 +4,7 @@
       -I/home/jed/dohp/bompi/include -I/home/jed/dohp/include -I/home/jed/petsc/ompi/include -I/home/jed/petsc/include -I/home/jed/usr/include -Wno-deprecated
     </CXXFLAGS>
     <LDFLAGS>
-      -L/home/jed/dohp/bompi/src -L/home/jed/petsc/ompi/lib
+      -L/home/jed/dohp/bompi/lib -L/home/jed/petsc/ompi/lib
     </LDFLAGS>
     <LIBS>
       -ldohp
