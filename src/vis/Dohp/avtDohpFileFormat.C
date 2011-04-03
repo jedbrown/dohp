@@ -266,7 +266,8 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
   err = dViewerDHMSetTimeStep(this->viewer,timestate);avtCHK(err);
   err = dFSCreate(MPI_COMM_SELF,&fs);avtCHK(err);
   err = dFSSetType(fs,dFSCONT);avtCHK(err);
-  err = dFSLoadIntoFS(this->viewer,"my_vec",fs);avtCHK(err);
+  err = dFSSetOrderingType(fs,MATORDERINGNATURAL);avtCHK(err);
+  err = dFSLoadIntoFS(this->viewer,"Vec_global_0",fs);avtCHK(err);
   err = dFSGetSubElementMeshSize(fs,&nelem,&nverts,&nconn);avtCHK(err);
   //err = dMallocA3(nelems,&topo,nelems+1,&off,nconn,&conn);dCHK(err);
   off = new dInt[nelem+1];
@@ -289,11 +290,15 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
     dInt n,bs;
     const dScalar *x;
     Vec X;
-    err = dFSGetGeometryVectorExpanded(fs,&X);avtCHK(err);
+    err = dFSGetNodalCoordinatesGlobal(fs,&X);avtCHK(err);
     err = VecGetLocalSize(X,&n);avtCHK(err);
     err = VecGetBlockSize(X,&bs);avtCHK(err);
     if (bs != 3) EXCEPTION1(InvalidVariableException,"Unexpected block size bs != 3");
-    if (n != nverts*bs) EXCEPTION1(InvalidVariableException,"Vec and FS do not agree about sizes");
+    if (n != nverts*bs) {       // This test will fail in parallel, need to map to a local vector
+      char buf[512];
+      snprintf(buf,sizeof buf,"Expanded Vec of size %d with bs %d and FS with nverts=%d and nconn=%d do not agree about sizes",n,bs,nverts,nconn);
+      EXCEPTION1(InvalidVariableException,buf);
+    }
     err = VecGetArrayRead(X,&x);avtCHK(err);
     vtkPoints *points = vtkPoints::New();
     points->SetNumberOfPoints(nverts);
@@ -342,8 +347,10 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
   dScalar *x;
   dInt    n,bs;
 
+  err = dViewerDHMSetTimeStep(this->viewer,timestate);avtCHK(err);
   err = dFSCreate(MPI_COMM_SELF,&fs);avtCHK(err);
   err = dFSSetType(fs,dFSCONT);avtCHK(err);
+  err = dFSSetOrderingType(fs,MATORDERINGNATURAL);avtCHK(err);
   err = dFSLoadIntoFS(this->viewer,varname,fs);avtCHK(err);
   err = dFSCreateGlobalVector(fs,&X);avtCHK(err);
   err = VecDohpLoadIntoVector(this->viewer,varname,X);avtCHK(err);
