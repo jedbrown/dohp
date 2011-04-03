@@ -16,6 +16,8 @@
 #  include <stdbool.h>
 #endif
 
+dEXTERN_C_BEGIN
+
 /**
 * These types all have to be exactly the PETSc versions.  These typedefs are here so that we don't alway have to include
 * all the PETSc headers (and to give us shorter names).
@@ -86,5 +88,10 @@ extern const char *dMeshEntTypeName(dEntType);
 extern dEntType dMeshEntTypeFromTopology(dEntTopology);
 
 typedef unsigned char dEntStatus;
+
+extern dErr dRealTableView(dInt m,dInt n,const dReal mat[],dViewer viewer,const char *format,...);
+extern dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *format,...);
+
+dEXTERN_C_END
 
 #endif  /* _DOHPTYPE_H */

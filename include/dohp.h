@@ -80,9 +80,6 @@
 #define dStrlen(s,l) PetscStrlen((s),(l))
 extern dErr dObjectGetComm(dObject obj,MPI_Comm *comm);
 
-extern dErr dRealTableView(dInt m,dInt n,const dReal mat[],dViewer viewer,const char *format,...);
-extern dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *format,...);
-
 static inline dInt dMaxInt(dInt a,dInt b) { return (a > b) ? a : b; }
 static inline dInt dMinInt(dInt a,dInt b) { return (a < b) ? a : b; }
 static inline dReal dMax(dReal a,dReal b) { return (a > b) ? a : b; }
@@ -121,13 +118,8 @@ typedef PetscBool dBool;
 
 #define dUNUSED PETSC_UNUSED
 
-#define dCACHE_LINE    64l       /* my cache lines are 64 bytes long */
-#define dRPCL dCACHE_LINE/sizeof(dReal)
-#define dSPCL dCACHE_LINE/sizeof(dScalar)
+#define dDEFAULT_ALIGN PETSC_MEMALIGN
 
-#define dDEFAULT_ALIGN 16l       /* SSE instructions require 16 byte alignment */
-
-#define dNextCacheAligned(p) dNextAlignedAddr(dCACHE_LINE,(p))
 #define dNextAligned(p)      dNextAlignedAddr(dDEFAULT_ALIGN,(p))
 
 /** Returns the next address satisfying the given alignment.
