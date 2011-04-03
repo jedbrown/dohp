@@ -57,7 +57,6 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
   PetscViewer  viewer;
   dInt         p,nelems,nverts,nconn;
   dInt         *off,*conn;
-  dScalar      *coords;
   Vec          X;
   dErr         err;
 
@@ -80,8 +79,6 @@ static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
   err = PetscViewerASCIIPrintf(viewer,"Coordinates\n");dCHK(err);
   err = dFSGetNodalCoordinatesGlobal(fs,&X);dCHK(err);
   err = VecView(X,viewer);dCHK(err);
-  err = VecGetArray(X,&coords);dCHK(err);
-  err = VecRestoreArray(X,&coords);dCHK(err);
   dFunctionReturn(0);
 }
 
