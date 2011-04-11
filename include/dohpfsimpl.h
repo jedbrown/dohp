@@ -150,6 +150,7 @@ struct _p_dFSRotation {
 };
 
 extern dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *ghidx,dInt rstart);
+extern dErr DMDestroy_dFS(DM);
 
 dEXTERN_C_END
 

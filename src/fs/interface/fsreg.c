@@ -20,7 +20,7 @@ static const struct _DMOps  defaultFSDMOps = { .view               = (PetscError
                                                .createglobalvector = (PetscErrorCode(*)(DM,Vec*))dFSCreateGlobalVector,
                                                .createlocalvector  = (PetscErrorCode(*)(DM,Vec*))dFSCreateExpandedVector,
                                                .getmatrix          = (PetscErrorCode(*)(DM,const MatType,Mat*))dFSGetMatrix,
-                                               .destroy            = (PetscErrorCode(*)(DM))dFSDestroy,
+                                               .destroy            = DMDestroy_dFS,
                                                /*
                                                 * I think that these don't make sense with the current design.  In
                                                 * particular, there may be points in the expanded space which are not

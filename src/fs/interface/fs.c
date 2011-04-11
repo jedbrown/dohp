@@ -266,7 +266,17 @@ dErr dFSDestroy(dFS fs)
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  if (--((PetscObject)fs)->refct > 0) dFunctionReturn(0);
+  err = DMDestroy((DM)fs);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr DMDestroy_dFS(DM dm)
+{
+  dFS fs = (dFS)dm;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
   }
@@ -300,10 +310,6 @@ dErr dFSDestroy(dFS fs)
   err = dMeshDestroy(fs->mesh);dCHK(err);
   err = dJacobiDestroy(fs->jacobi);dCHK(err);
   err = dFree(fs->ops);dCHK(err);
-  { /* PetscHeaderDestroy is a macro, need it to destroy the correct ops table, and also need an lvalue */
-    DM dm = (DM)fs;
-    err = PetscHeaderDestroy(dm);dCHK(err);
-  }
   dFunctionReturn(0);
 }
 
