@@ -5,7 +5,7 @@
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 dClassId dFSROT_CLASSID;
 PetscBool dFSRegisterAllCalled;
-static PetscFList FSList = 0;
+static PetscFList dFSList;
 
 /**
 * These default operations are shared with the DM.  We are making a two-level inheritance since there may be different
@@ -112,7 +112,7 @@ dErr dFSSetFromOptions(dFS fs)
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   err = PetscOptionsBegin(((PetscObject)fs)->comm,((PetscObject)fs)->prefix,"Function Space (dFS) options","dFS");dCHK(err);
-  err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",FSList,deft,type,256,&flg);dCHK(err);
+  err = PetscOptionsList("-dfs_type","Function Space type","dFSSetType",dFSList,deft,type,256,&flg);dCHK(err);
   if (flg) {
     err = dFSSetType(fs,type);dCHK(err);
   } else if (!((dObject)fs)->type_name) {
@@ -144,7 +144,7 @@ dErr dFSRegister(const char name[],const char path[],const char cname[],dErr(*cr
 
   dFunctionBegin;
   err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&FSList,name,fullname,(void (*)(void))create);dCHK(err);
+  err = PetscFListAdd(&dFSList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 
