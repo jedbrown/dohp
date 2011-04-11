@@ -1,11 +1,3 @@
-# ADD_SUBDIRECTORY (interface)
-#set (Dohp_SRCS) # interface/dohp.c)
-
-# ADD_SUBDIRECTORY (quotient)
-list (APPEND Dohp_SRCS
-  quotient/interface/quotient.c
-  quotient/impls/gauss/gauss.c)
-
 # ADD_SUBDIRECTORY (jacobi)
 list (APPEND Dohp_SRCS
   jacobi/interface/jacobi.c

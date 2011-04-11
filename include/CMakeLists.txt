@@ -5,7 +5,6 @@ install_files (/include FILES
   dohpfs.h
   dohpjacobi.h
   dohpmesh.h
-  dohpquotient.h
   dohpvec.h
   dohpviewer.h
   dohpstring.h                  # safer string handling, entirely optional
@@ -16,5 +15,4 @@ install_files (/include FILES
   dohpfsimpl.h
   dohpjacimpl.h
   dohpmeshimpl.h
-  dohpquotientimpl.h
   )

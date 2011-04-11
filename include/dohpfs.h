@@ -12,7 +12,6 @@
 
 #include "dohpmesh.h"
 #include "dohpjacobi.h"
-#include "dohpquotient.h"
 
 dEXTERN_C_BEGIN
 
