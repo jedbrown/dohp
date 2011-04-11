@@ -1,4 +1,7 @@
-Many files here are auto-generated
+Many files here are auto-generated, update them with
 
-$ xml2makefile -clobber Dohp.xml
+$ xml2cmake -clobber Dohp.xml
 $ xml2info -clobber Dohp.xml
+
+Remember to use an *installed* version of VisIt, using xml2cmake from
+the source or build directory does not work.
