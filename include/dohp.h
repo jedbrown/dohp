@@ -98,13 +98,6 @@ static inline void dTensorSymUncompress3(const dScalar Du[6],dScalar Dv[9])
 
 #define dGamma(a) tgamma(a) /* This is defined in math.h as of C99. */
 
-#ifndef false
-# define false PETSC_FALSE
-#endif
-#ifndef true
-# define true PETSC_TRUE
-#endif
-
 /* stdbool.h has small (1 byte) bools, PETSc uses an enum which has few size guarantees, so we use it directly and keep
 * it out of our public interface (which is why these typedefs are here and not in dohptype.h).
 **/
