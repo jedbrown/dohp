@@ -16,6 +16,7 @@
 dEXTERN_C_BEGIN
 
 extern dClassId dFSROT_CLASSID;
+extern PetscBool dFSRegisterAllCalled;
 
 typedef struct _p_dFS *dFS;
 typedef struct _p_dFSRotation *dFSRotation;

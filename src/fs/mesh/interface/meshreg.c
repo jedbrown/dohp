@@ -2,7 +2,8 @@
 #include <dohp.h>
 
 dClassId dMESH_CLASSID;
-static PetscFList MeshList = 0;
+PetscBool dMeshRegisterAllCalled;
+static PetscFList MeshList;
 
 dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
 {
@@ -57,7 +58,8 @@ dErr dMeshSetType(dMesh mesh,const dMeshType type)
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)mesh,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
-  err = PetscFListFind(MeshList,((PetscObject)mesh)->comm,type,(void(**)(void))&r);dCHK(err);
+  if (!dMeshRegisterAllCalled) {err = dMeshRegisterAll(NULL);dCHK(err);}
+  err = PetscFListFind(MeshList,((PetscObject)mesh)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dMesh type %s",type);
   if (mesh->ops->destroy) { err = (*mesh->ops->destroy)(mesh);dCHK(err); }
   err = (*r)(mesh);dCHK(err);
@@ -99,13 +101,12 @@ dEXTERN_C_END
 
 dErr dMeshRegisterAll(const char path[])
 {
-  static dBool called = false;
   dErr err;
 
   dFunctionBegin;
-  if (called) dFunctionReturn(0);
-  called = true;
+  if (dMeshRegisterAllCalled) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Function has already been called");
   err = dMeshRegisterDynamic(dMESHPACK    ,path,"dMeshCreate_Pack"     ,dMeshCreate_Pack);dCHK(err);
   err = dMeshRegisterDynamic(dMESHSERIAL  ,path,"dMeshCreate_Serial"   ,dMeshCreate_Serial);dCHK(err);
+  dMeshRegisterAllCalled = PETSC_TRUE;
   dFunctionReturn(0);
 }

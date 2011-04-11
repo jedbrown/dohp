@@ -4,10 +4,11 @@
 
 dClassId dJACOBI_CLASSID,dQUADRATURE_CLASSID;
 PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
+PetscBool dJacobiRegisterAllCalled;
 
 const char *dGaussFamilies[] = {"gauss","lobatto","radau","dGaussFamily","dGAUSS_",0};
 
-static PetscFList dJacobiList = 0;
+static PetscFList dJacobiList;
 
 static const struct _dJacobiOps _defaultOps = {
   .View = 0,
@@ -49,7 +50,8 @@ dErr dJacobiSetType(dJacobi jac,const dJacobiType type)
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)jac,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
-  err = PetscFListFind(dJacobiList,((PetscObject)jac)->comm,type,(void(**)(void))&r);dCHK(err);
+  if (!dJacobiRegisterAllCalled) {err = dJacobiRegisterAll(NULL);dCHK(err);}
+  err = PetscFListFind(dJacobiList,((PetscObject)jac)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dJacobi type %s",type);
   if (jac->ops->Destroy) { err = (*jac->ops->Destroy)(jac);dCHK(err); }
   err = PetscMemcpy(jac->ops,&_defaultOps,sizeof(_defaultOps));dCHK(err);
@@ -177,13 +179,13 @@ dErr dJacobiRegister(const char name[],const char path[],const char cname[],dErr
 
 dErr dJacobiRegisterAll(const char path[])
 {
-  static dBool  called = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;
+  if (dJacobiRegisterAllCalled) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Function has already been called");
   err = dJacobiRegisterDynamic(dJACOBI_TENSOR,path,"dJacobiCreate_Tensor",dJacobiCreate_Tensor);dCHK(err);
   err = dJacobiRegisterDynamic(dJACOBI_MODAL ,path,"dJacobiCreate_Modal" ,dJacobiCreate_Modal);dCHK(err);
-  called = PETSC_TRUE;
+  dJacobiRegisterAllCalled = PETSC_TRUE;
   dFunctionReturn(0);
 }
 

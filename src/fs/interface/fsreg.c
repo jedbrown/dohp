@@ -4,6 +4,7 @@
 
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 dClassId dFSROT_CLASSID;
+PetscBool dFSRegisterAllCalled;
 static PetscFList FSList = 0;
 
 /**
@@ -74,7 +75,8 @@ dErr dFSSetType(dFS fs,const dFSType type)
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
-  err = PetscFListFind(FSList,((PetscObject)fs)->comm,type,(void(**)(void))&r);dCHK(err);
+  if (!dFSRegisterAllCalled) {err = dFSRegisterAll(NULL);dCHK(err);}
+  err = PetscFListFind(dFSList,((PetscObject)fs)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dFS type %s",type);
   if (fs->ops->impldestroy) { err = (*fs->ops->impldestroy)(fs);dCHK(err); }
   err = PetscMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof(defaultFSDMOps));dCHK(err);
@@ -93,7 +95,8 @@ dErr dFSSetOrderingType(dFS fs,const MatOrderingType order)
   dValidHeader(fs,DM_CLASSID,1);
   dValidCharPointer(order,2);
   if (fs->spacebuilt) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_WRONGSTATE,"Must set ordering before building the space");
-  err = PetscFListFind(MatOrderingList,((dObject)fs)->comm,order,(void(**)(void))&r);dCHK(err);
+  if (!MatOrderingRegisterAllCalled) {err = MatOrderingRegisterAll(NULL);dCHK(err);}
+  err = PetscFListFind(MatOrderingList,((dObject)fs)->comm,order,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_OUTOFRANGE,"Unknown or unregistered type: %s",order);
   err = dStrcpyS(fs->orderingtype,sizeof(fs->orderingtype),order);dCHK(err);
   dFunctionReturn(0);
@@ -173,11 +176,11 @@ dEXTERN_C_END
 
 dErr dFSRegisterAll(const char path[])
 {
-  static dBool called = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;
+  if (dFSRegisterAllCalled) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Function has already been called");
   err = dFSRegisterDynamic(dFSCONT,path,"dFSCreate_Cont",dFSCreate_Cont);dCHK(err);
-  called = PETSC_TRUE;
+  dFSRegisterAllCalled = PETSC_TRUE;
   dFunctionReturn(0);
 }

@@ -25,6 +25,8 @@
 dEXTERN_C_BEGIN
 
 extern PetscClassId dJACOBI_CLASSID,dQUADRATURE_CLASSID;
+extern PetscBool dJacobiRegisterAllCalled;
+extern PetscBool dQuadratureRegisterAllCalled;
 
 /**
 * Handle for manipulating EFS objects.  The EFS are stored directly in arrays so other components (like dFS) will have

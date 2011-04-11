@@ -2,6 +2,7 @@
 #include <dohp.h>
 
 static PetscFList dQuadratureList;
+PetscBool dQuadratureRegisterAllCalled;
 
 const char *const dQuadratureMethods[] = {"FAST","SPARSE","SELF","dQuadratureMethod","dQUADRATURE_METHOD_",0};
 
@@ -137,7 +138,8 @@ dErr dQuadratureSetType(dQuadrature quad,dQuadratureType type)
   PetscValidCharPointer(type,2);
   err = PetscTypeCompare((PetscObject)quad,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
-  err = PetscFListFind(dQuadratureList,((PetscObject)quad)->comm,type,(void(**)(void))&r);dCHK(err);
+  if (!dQuadratureRegisterAllCalled) {err = dQuadratureRegisterAll(NULL);dCHK(err);}
+  err = PetscFListFind(dQuadratureList,((PetscObject)quad)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dQuadrature type %s",type);
   if (quad->ops->Destroy) { err = (*quad->ops->Destroy)(quad);dCHK(err); }
   err = PetscMemzero(quad->ops,sizeof(quad->ops));dCHK(err);
@@ -159,13 +161,12 @@ dErr dQuadratureRegister(const char name[],const char path[],const char cname[],
 
 dErr dQuadratureRegisterAll(const char path[])
 {
-  static dBool called = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;
-  if (called) dFunctionReturn(0);
+  if (dQuadratureRegisterAllCalled) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Function has already been called");
   err = dQuadratureRegisterDynamic(dQUADRATURE_TENSOR,path,"dQuadratureCreate_Tensor",dQuadratureCreate_Tensor);dCHK(err);
-  called = PETSC_TRUE;
+  dQuadratureRegisterAllCalled = PETSC_TRUE;
   dFunctionReturn(0);
 }
 
