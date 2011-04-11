@@ -31,7 +31,7 @@ list (APPEND Dohp_SRCS
   fs/mesh/impls/pack/pack.c
   fs/mesh/impls/serial/serial.c)
 
-# ADD_SUBDIRECTORY (fs/vec)
+# ADD_SUBDIRECTORY (vec)
 list (APPEND Dohp_SRCS
   vec/vecd.c
   vec/vecutil.c)
