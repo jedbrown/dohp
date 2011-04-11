@@ -242,7 +242,7 @@ dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
   dFunctionBegin;
   err = PetscObjectQuery((PetscObject)x,"dFS",(PetscObject*)&fs);dCHK(err);
   if (!fs) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&isdhm);dCHK(err);
   if (isdhm) {
     err = VecView_Dohp_FSCont_DHM(x,viewer);dCHK(err);
   } else {
@@ -450,8 +450,8 @@ dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
   dScalar *x;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
-  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"The viewer must be type \"%s\"",PETSC_VIEWER_DHM);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
+  if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"The viewer must be type \"%s\"",PETSCVIEWERDHM);
   err = PetscTypeCompare((PetscObject)X,VECDOHP,&match);dCHK(err);
   if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Vector must have type \"%s\"",VECDOHP);
 

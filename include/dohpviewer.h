@@ -4,7 +4,7 @@
 #include "dohptype.h"
 #include "dohpfs.h"
 
-#define PETSC_VIEWER_DHM "dhm"
+#define PETSCVIEWERDHM "dhm"
 
 dEXTERN_C_BEGIN
 

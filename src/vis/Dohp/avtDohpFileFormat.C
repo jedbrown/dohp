@@ -96,7 +96,7 @@ avtDohpFileFormat::avtDohpFileFormat(const char *filename)
   PETSC_COMM_WORLD = MPI_COMM_SELF;
   err = dInitialize(0,0,0,0);avtCHK(err);
   err = PetscViewerCreate(MPI_COMM_SELF,&this->viewer);avtCHK(err);
-  err = PetscViewerSetType(this->viewer,PETSC_VIEWER_DHM);avtCHK(err);
+  err = PetscViewerSetType(this->viewer,PETSCVIEWERDHM);avtCHK(err);
   err = PetscViewerFileSetName(this->viewer,filename);avtCHK(err);
   err = PetscViewerFileSetMode(this->viewer,FILE_MODE_READ);avtCHK(err);
 }

@@ -151,7 +151,7 @@ int main(int argc,char *argv[])
   if (0) {err = VecView(X,viewnative);dCHK(err);} /* Skip viewing here because it's just a boring sequence */
 
   err = PetscViewerCreate(comm,&viewer);dCHK(err);
-  err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
+  err = PetscViewerSetType(viewer,PETSCVIEWERDHM);dCHK(err);
   err = PetscViewerFileSetName(viewer,"fsex4.dhm");dCHK(err);
   err = PetscViewerFileSetMode(viewer,FILE_MODE_WRITE);dCHK(err);
   err = dViewerDHMSetTimeUnits(viewer,"hour",PETSC_PI*1e7/3600);dCHK(err);
@@ -175,7 +175,7 @@ int main(int argc,char *argv[])
 
     err = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);dCHK(err);
     err = PetscViewerCreate(PETSC_COMM_SELF,&viewer);dCHK(err);
-    err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
+    err = PetscViewerSetType(viewer,PETSCVIEWERDHM);dCHK(err);
     err = PetscViewerFileSetName(viewer,"fsex4.dhm");dCHK(err);
     err = PetscViewerFileSetMode(viewer,FILE_MODE_READ);dCHK(err);
     err = dViewerDHMGetSteps(viewer,&nsteps,&steptimes);dCHK(err);

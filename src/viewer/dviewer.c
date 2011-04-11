@@ -8,7 +8,7 @@ dErr dViewerRegisterAll(const char *path)
   dErr err;
 
   dFunctionBegin;
-  err = PetscViewerRegister(PETSC_VIEWER_DHM,path,"PetscViewerCreate_DHM",PetscViewerCreate_DHM);dCHK(err);
+  err = PetscViewerRegister(PETSCVIEWERDHM,path,"PetscViewerCreate_DHM",PetscViewerCreate_DHM);dCHK(err);
   dFunctionReturn(0);
 }
 

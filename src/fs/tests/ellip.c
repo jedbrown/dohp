@@ -751,7 +751,7 @@ int main(int argc,char *argv[])
   if (viewdhm) {
     dViewer viewer;
     err = PetscViewerCreate(comm,&viewer);dCHK(err);
-    err = PetscViewerSetType(viewer,PETSC_VIEWER_DHM);dCHK(err);
+    err = PetscViewerSetType(viewer,PETSCVIEWERDHM);dCHK(err);
     err = PetscViewerFileSetName(viewer,"ellip.dhm");dCHK(err);
     err = PetscViewerFileSetMode(viewer,FILE_MODE_WRITE);dCHK(err);
     err = dViewerDHMSetTimeUnits(viewer,"hour",PETSC_PI*1e7/3600);dCHK(err);

@@ -13,7 +13,7 @@ static dErr dViewerDHM_H5Tcommit(PetscViewer viewer,const char *typename,hid_t t
   herr_t      herr;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
   if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   if (dhm->btype == FILE_MODE_WRITE) {
     herr = H5Tcommit(dhm->typeroot,typename,type,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(herr,H5Tinsert);
@@ -370,7 +370,7 @@ dErr dViewerDHMSetTimeStep(PetscViewer viewer,dInt step)
   dBool       match;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
   if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   if (step < 0 || dhm->totalsteps <= step) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Step %d out of range [0 .. %d]",step,dhm->totalsteps);
   if (step != dhm->stepnumber) {
@@ -417,7 +417,7 @@ dErr dViewerDHMGetSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
   herr_t           herr;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
   if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   err = dViewerDHMSetUp(viewer);dCHK(err);
 
@@ -443,7 +443,7 @@ dErr dViewerDHMRestoreSteps(PetscViewer viewer,dInt *nsteps,dReal **steptimes)
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
   dValidIntPointer(nsteps,2);
   dValidPointer(steptimes,3);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
   if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Viewer type must be DHM");
   *nsteps = 0;
   err = dFree(*steptimes);dCHK(err);
@@ -564,7 +564,7 @@ dErr dViewerDHMGetStepSummary(PetscViewer viewer,dInt *nfs,const struct dViewerD
 
   dFunctionBegin;
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
   if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Only for viewer type 'dhm'");
   dValidIntPointer(nfs,2);
   dValidPointer(infs,3);
@@ -631,7 +631,7 @@ dErr dViewerDHMRestoreStepSummary(PetscViewer viewer,dInt *nfs,const struct dVie
 
   dFunctionBegin;
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,1);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&match);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
   if (!match) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Only for viewer type 'dhm'");
   dValidIntPointer(nfs,2);
   dValidPointer(infs,3);

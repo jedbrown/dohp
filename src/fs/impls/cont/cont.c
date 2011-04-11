@@ -11,7 +11,7 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&dhm);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&dhm);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"Continuous Galerkin function space\n");dCHK(err);
   } else if (dhm) {
@@ -26,7 +26,7 @@ static dErr dFSLoadIntoFS_Cont(dViewer viewer,const char fieldname[],dFS fs)
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSC_VIEWER_DHM,&isdhm);dCHK(err);
+  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&isdhm);dCHK(err);
   if (isdhm) {
     err = dFSLoadIntoFS_Cont_DHM(viewer,fieldname,fs);dCHK(err);
   } else dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"No support for viewer type \"%s\"",((PetscObject)viewer)->type_name);
