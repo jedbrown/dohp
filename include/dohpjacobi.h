@@ -151,7 +151,12 @@ extern dErr dJacobiGetType(dJacobi,const dJacobiType*);
 extern dErr dJacobiSetFromOptions(dJacobi);
 extern dErr dJacobiDestroy(dJacobi);
 extern dErr dJacobiView(dJacobi,dViewer);
-#define dJacobiRegisterDynamic(a,b,c,d) dJacobiRegister(a,b,c,d)
+
+#if defined PETSC_USE_DYNAMIC_LIBRARIES
+#  define dJacobiRegisterDynamic(a,b,c,d) dJacobiRegister(a,b,c,0)
+#else
+#  define dJacobiRegisterDynamic(a,b,c,d) dJacobiRegister(a,b,c,d)
+#endif
 extern dErr dJacobiRegister(const char[],const char[],const char[],dErr(*)(dJacobi));
 extern dErr dJacobiRegisterAll(const char[]);
 extern dErr dJacobiInitializePackage(const char[]);
@@ -183,7 +188,11 @@ extern dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt *nnodes,const dRe
 extern dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict]);
 extern dErr dRuleComputePhysical(dRule rule,const dScalar jac[],dScalar jinv[],dScalar jw[]);
 
-#define dQuadratureRegisterDynamic(a,b,c,d) dQuadratureRegister(a,b,c,d)
+#if defined PETSC_USE_DYNAMIC_LIBRARIES
+#  define dQuadratureRegisterDynamic(a,b,c,d) dQuadratureRegister(a,b,c,0)
+#else
+#  define dQuadratureRegisterDynamic(a,b,c,d) dQuadratureRegister(a,b,c,d)
+#endif
 extern dErr dQuadratureRegister(const char[],const char[],const char[],dErr(*)(dQuadrature));
 extern dErr dQuadratureRegisterAll(const char[]);
 

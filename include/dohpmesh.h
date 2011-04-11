@@ -116,7 +116,11 @@ extern dErr dMeshDestroy(dMesh);
 extern dErr dMeshView(dMesh,dViewer);
 extern dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer);
 extern dErr dMeshRegisterAll(const char path[]);
-#define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,d)
+#if defined PETSC_USE_DYNAMIC_LIBRARIES
+#  define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,0)
+#else
+#  define dMeshRegisterDynamic(a,b,c,d) dMeshRegister(a,b,c,d)
+#endif
 extern dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
 extern dErr dMeshSetType(dMesh,const dMeshType);
 extern dErr dMeshInitializePackage(const char[]);

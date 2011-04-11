@@ -122,7 +122,13 @@ extern dErr dRulesetIteratorGetStash(dRulesetIterator,void *patchstash,void *nod
 extern dErr dFSDestroy(dFS);
 extern dErr dFSView(dFS,dViewer);
 extern dErr dFSLoadIntoFS(dViewer,const char[],dFS);
-#define dFSRegisterDynamic(a,b,c,d) dFSRegister(a,b,c,d)
+
+#if defined PETSC_USE_DYNAMIC_LIBRARIES
+#  define dFSRegisterDynamic(a,b,c,d) dFSRegister(a,b,c,0)
+#else
+#  define dFSRegisterDynamic(a,b,c,d) dFSRegister(a,b,c,d)
+#endif
+
 extern dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
 extern dErr dFSRegisterAll(const char[]);
 extern dErr dFSInitializePackage(const char[]);
