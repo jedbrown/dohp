@@ -243,10 +243,8 @@ dErr dFSGetSubElementMeshSize(dFS fs,dInt *nelems,dInt *nverts,dInt *nconn)
 }
 
 /** Get the number of subelements and number of vertices of subelements.
-*
-* @note the number of vertices is the same as the number of local nodes in closure vertor.
 **/
-dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dEntTopology topo[],dInt off[],dInt ind[])
+dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nconn,dEntTopology topo[],dInt off[],dInt ind[])
 {
   dErr err;
 
@@ -256,7 +254,7 @@ dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nverts,dEntTopology topo[],dIn
   dValidIntPointer(off,5);
   dValidIntPointer(ind,6);
   if (!fs->ops->getsubelementmesh) dERROR(PETSC_COMM_SELF,1,"not implemented");
-  err = (*fs->ops->getsubelementmesh)(fs,nelems,nverts,topo,off,ind);dCHK(err);
+  err = (*fs->ops->getsubelementmesh)(fs,nelems,nconn,topo,off,ind);dCHK(err);
   dFunctionReturn(0);
 }
 
