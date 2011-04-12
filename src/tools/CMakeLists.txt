@@ -1,7 +1,9 @@
 # Should only be included when Dohp_BUILD_TOOLS
 
 set (Dohp_TOOLS_EXECS
-  dohpblock)
+  dohpblock
+  dhmdump
+  )
 
 foreach (EXE ${Dohp_TOOLS_EXECS})
   add_executable (${EXE} "${EXE}.c")
