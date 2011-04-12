@@ -795,6 +795,29 @@ dErr dMeshEntClassifyExclusive(dMesh mesh,dMeshEH ent,dInt nsets,const dMeshESH 
   dFunctionReturn(0);
 }
 
+/*
+ * @param nents number of entities
+ * @param ents entities to classify
+ * @param inodes value associated with each entity
+ * @param nsets number of sets
+ * @param sets sets to classify entities into
+ * @param counts array of length \a nsets to hold the sum of the values in each set
+ * @param rstarts relative start for each count
+ */
+dErr dMeshClassifyCountInt(dMesh mesh,dInt nents,const dMeshEH ents[],const dInt vals[],dInt nsets,const dMeshESH sets[],dInt counts[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = dMemzero(counts,nsets*sizeof(counts[0]));dCHK(err);
+  for (dInt i=0; i<nents; i++) {
+    dInt member;
+    err = dMeshEntClassifyExclusive(mesh,ents[i],3,sets,&member);dCHK(err);
+    counts[member] += vals[i];
+  }
+  dFunctionReturn(0);
+}
+
 dErr dMeshLoad(dMesh mesh)
 {
   iMesh_Instance mi = mesh->mi;

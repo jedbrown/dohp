@@ -267,7 +267,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dPolynomialOrder      *deg,*rdeg,*regBDeg;
   dInt                  *inodes,*xnodes,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
   dInt                  *xstart,xcnt;
-  dInt                   bs,n,ngh,ndirichlet,nc,rstart,crstart;
+  dInt                   rstart,crstart;
   dIInt                  ierr;
   dMeshEH               *ents,*ghents;
   dEntStatus            *status;
@@ -275,7 +275,6 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  bs   = fs->bs;
   mesh = fs->mesh;
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   err = dMeshGetAdjacency(mesh,fs->set.active,&meshAdj);dCHK(err);
@@ -344,28 +343,17 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
   err = dMeshGetStatus(mesh,ma.ents,ma.nents,status);dCHK(err);
 
-  /* Count the number of nodes in each space (explicit, dirichlet, ghost) */
-  n = ndirichlet = ngh = 0;
-  for (int i=0; i<ma.nents; i++) {
-    dInt member;
-    dMeshESH exclusive_sets[] = {fs->set.explicit,fs->set.dirichlet,fs->set.ghost};
-    err = dMeshEntClassifyExclusive(mesh,ma.ents[i],3,exclusive_sets,&member);dCHK(err);
-    switch (member) {
-      case 0: n          += inodes[i]; break;
-      case 1: ndirichlet += inodes[i]; break;
-      case 2: ngh        += inodes[i]; break;
-      default: dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Should not be possible");
-    }
+  {
+    dInt counts[3],rstarts[3];
+    err = dMeshClassifyCountInt(mesh,ma.nents,ma.ents,inodes,3,(const dMeshESH[]){fs->set.explicit,fs->set.dirichlet,fs->set.ghost},counts);dCHK(err);
+    err = MPI_Scan(counts,rstarts,3,MPIU_INT,MPI_SUM,comm);dCHK(err);
+    for (dInt i=0; i<3; i++) rstarts[i] -= counts[i];
+    fs->n   = counts[0];
+    fs->nc  = counts[0] + counts[1];
+    fs->ngh = counts[2];
+    rstart  = rstarts[0];
+    crstart = rstarts[0] + rstarts[1];
   }
-  err = MPI_Scan(&n,&rstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
-  rstart -= n;
-  nc = n + ndirichlet;
-  err = MPI_Scan(&nc,&crstart,1,MPIU_INT,MPI_SUM,comm);dCHK(err);
-  crstart -= nc;
-
-  fs->n = n;
-  fs->nc = nc;
-  fs->ngh = ngh;
 
   {                             /* Set offsets (global, closure, local) of first node associated with every entity */
     dInt i,scan,nentsExplicit,nentsDirichlet;
@@ -416,11 +404,11 @@ static dErr dFSBuildSpace_Cont(dFS fs)
       for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
     }
     if (gh != fs->ngh) dERROR(PETSC_COMM_SELF,1,"Ghost count inconsistent");
-    err = VecCreateDohp(((dObject)fs)->comm,bs,n,nc,ngh,ghidx,&fs->gvec);dCHK(err);
+    err = VecCreateDohp(((dObject)fs)->comm,fs->bs,fs->n,fs->nc,fs->ngh,ghidx,&fs->gvec);dCHK(err);
   }
 
   /* Create fs->bmapping and fs->mapping */
-  err = dFSCreateLocalToGlobal_Private(fs,n,nc,ngh,ghidx,rstart);dCHK(err);
+  err = dFSCreateLocalToGlobal_Private(fs,fs->n,fs->nc,fs->ngh,ghidx,rstart);dCHK(err);
 
   err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
 
