@@ -258,28 +258,12 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 {
   dViewer_DHM *dhm = viewer->data;
   dErr        err;
-  hid_t       curstep,vectype,vdset,vattr,fsobj,fsspace;
+  hid_t       fsobj,fsspace;
   herr_t      herr;
-  dht_Vec     vecmeta;
   dBool       debug = dFALSE;
 
   dFunctionBegin;
-  err = dViewerDHMSetUp(viewer);dCHK(err);
-  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
-  err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
-
-  err = dH5Dopen(curstep,fieldname,H5P_DEFAULT,&vdset);dCHK(err);
-  err = dH5Aopen(vdset,"meta",H5P_DEFAULT,&vattr);dCHK(err);
-  herr = H5Aread(vattr,vectype,&vecmeta);dH5CHK(herr,H5Aread);
-  herr = H5Aclose(vattr);dH5CHK(herr,H5Aclose);
-
-  if (debug) {
-    err = dPrintf(PETSC_COMM_SELF,"Vec name '%s'  time %g  internal_state %d\n",
-                  fieldname,vecmeta.time,vecmeta.internal_state);dCHK(err);
-  }
-
-  fsobj = H5Rdereference(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(fsobj,H5Rdereference);
-  fsspace = H5Rget_region(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(fsobj,H5Rget_region);
+  err = dViewerDHMFindFS(viewer,fieldname,&fsobj,&fsspace);dCHK(err);
   {
     char fsobjname[256];
     ssize_t len;
@@ -295,7 +279,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     hid_t memspace,h5t_FS,meshobj;
     err = dViewerDHMGetFSType(viewer,&h5t_FS);dCHK(err);
     memspace = H5Screate(H5S_SCALAR);
-    err = H5Dread(fsobj,h5t_FS,memspace,fsspace,H5P_DEFAULT,&fs5);dH5CHK(herr,H5Dread);
+    herr = H5Dread(fsobj,h5t_FS,memspace,fsspace,H5P_DEFAULT,&fs5);dH5CHK(herr,H5Dread);
     herr = H5Sclose(memspace);
 
     if (debug) {
@@ -419,7 +403,6 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
 
   herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);
   herr = H5Oclose(fsobj);dH5CHK(herr,H5Oclose);
-  herr = H5Dclose(vdset);dH5CHK(herr,H5Dclose);
   dFunctionReturn(0);
 }
 

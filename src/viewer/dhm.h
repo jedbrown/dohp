@@ -60,6 +60,7 @@ extern dErr dViewerDHMGetStringTypes(PetscViewer,hid_t *fstring,hid_t *mstring,h
 extern dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step);
 extern dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *type);
 extern dErr dViewerDHMGetVecType(PetscViewer viewer,hid_t *type);
+extern dErr dViewerDHMFindFS(PetscViewer viewer,const char *name,hid_t *fsobj,hid_t *fsspace);
 
 /* Compound structures for HDF5 attributes */
 typedef struct {
