@@ -48,7 +48,7 @@ static dErr FSEx4CreateMesh(MPI_Comm comm,dMesh *inmesh)
 }
 
 typedef struct _n_FSEx4 {
-  dInt rdeg,bdeg;
+  dInt bdeg;
 } *FSEx4;
 
 static dErr FSEx4CheckSubMesh(FSEx4 ex4,dFS fs)
@@ -105,7 +105,7 @@ int main(int argc,char *argv[])
   dMesh    mesh;
   dViewer  viewer,viewnative;
   dJacobi  jac;
-  dMeshTag rtag,dtag;
+  dMeshTag dtag;
   dMeshESH active;
   dBool    read,read_vec,read_fs_via_vec;
   Vec      X;
@@ -113,7 +113,6 @@ int main(int argc,char *argv[])
   err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
   err = dCalloc(sizeof(struct _n_FSEx4),&ex4);dCHK(err);
-  ex4->rdeg = 4;
   ex4->bdeg = 4;
   read      = dFALSE;
   read_vec  = dFALSE;
@@ -134,7 +133,6 @@ int main(int argc,char *argv[])
   err = dMeshGetRoot(mesh,&active);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,active,&active);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,active,"fsex4_rule_degree",ex4->rdeg,&rtag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(mesh,active,"fsex4_efs_degree",ex4->bdeg,&dtag);dCHK(err);
   err = dFSCreate(comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,active);dCHK(err);

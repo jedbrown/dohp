@@ -118,7 +118,7 @@ struct EllipCtx {
   dJacobi               jac;
   dMesh                 mesh;
   dFS                   fs;
-  dInt                  constBDeg,nominalRDeg;
+  dInt                  constBDeg;
   dBool                 errorview;
   dBool                 eta_monitor;
   dQuadratureMethod     function_qmethod,jacobian_qmethod;
@@ -137,7 +137,6 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   elp->comm = comm;
 
   elp->constBDeg = 3;
-  elp->nominalRDeg = 0;
 
   prm = &elp->param;
   prm->p           = 2.0;       /* p in p-Laplacian */
@@ -174,7 +173,7 @@ static dErr EllipSetFromOptions(Ellip elp)
   dFS fs;
   dJacobi jac;
   dMeshESH domain;
-  dMeshTag rtag,dtag;
+  dMeshTag dtag;
   dBool  mesh_out;
   dReal morph,twist,stretch;
   dInt exact;
@@ -184,7 +183,6 @@ static dErr EllipSetFromOptions(Ellip elp)
   exact = 0; morph = twist = stretch = 0.0; mesh_out = dFALSE; exc->a = exc->b = exc->c = 1;
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic (p-Laplacian) options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elp->constBDeg,&elp->constBDeg,NULL);dCHK(err);
-    err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elp->nominalRDeg,&elp->nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsBool("-error_view","View errors","",elp->errorview,&elp->errorview,NULL);dCHK(err);
     err = PetscOptionsBool("-eta_monitor","Monitor nonlinearity","",elp->eta_monitor,&elp->eta_monitor,NULL);dCHK(err);
     err = PetscOptionsReal("-ellip_p","p in p-Laplacian","",prm->p,&prm->p,NULL);dCHK(err);
@@ -242,7 +240,6 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dJacobiSetFromOptions(jac);dCHK(err);
   elp->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,"ellip_rule_degree",elp->nominalRDeg,&rtag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(mesh,domain,"ellip_efs_degree",elp->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(elp->comm,&fs);dCHK(err);

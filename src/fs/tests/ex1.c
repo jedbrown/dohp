@@ -11,7 +11,6 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 
 struct Options {
   dInt constBDeg;
-  dInt nominalRDeg;
   dBool  showsoln;
   dInt cycles;
   dInt  proj_version;
@@ -671,7 +670,7 @@ int main(int argc,char *argv[])
   dFS fs;
   dMesh mesh;
   dMeshESH domain;
-  dMeshTag rtag,dtag;
+  dMeshTag dtag;
   MPI_Comm comm;
   PetscViewer viewer;
   dBool  showconn,showmesh,flg;
@@ -682,13 +681,12 @@ int main(int argc,char *argv[])
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
-    gopt.constBDeg = 4; gopt.nominalRDeg = 0; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1;
+    gopt.constBDeg = 4; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1;
     gopt.proj_qmethod = dQUADRATURE_METHOD_FAST;
     gopt.jac_qmethod = dQUADRATURE_METHOD_SPARSE; gopt.q1scale = 1.0;
     gopt.frequency[0] = 1; gopt.frequency[1] = 1; gopt.frequency[2] = 1;
     exactChoice = 0; showconn = dFALSE; showmesh = dFALSE;
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements",NULL,gopt.constBDeg,&gopt.constBDeg,NULL);dCHK(err);
-    err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)",NULL,gopt.nominalRDeg,&gopt.nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsBool("-show_soln","Show solution vector immediately after solving",NULL,gopt.showsoln,&gopt.showsoln,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice (0=transcendental,1=x coord)",NULL,exactChoice,&exactChoice,NULL);dCHK(err);
     err = PetscOptionsInt("-cycles","Number of times to solve the equation, useful for profiling",NULL,gopt.cycles,&gopt.cycles,NULL);dCHK(err);
@@ -722,7 +720,6 @@ int main(int argc,char *argv[])
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,"ex1_rule",gopt.nominalRDeg,&rtag);dCHK(err);
   err = tagHexes(mesh,&dtag);dCHK(err);
   if (showconn) {err = examine(mesh,dtag);dCHK(err);}
 

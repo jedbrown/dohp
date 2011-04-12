@@ -1,5 +1,5 @@
 Boundary Unit test object (BU)
-  nominal rule degree  2,  constant basis degree  2
+  constant basis degree  2
   dFS object:(no prefix)
     type: cont
     General information about the mesh topology.

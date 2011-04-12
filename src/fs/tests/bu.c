@@ -12,7 +12,7 @@ struct BUnitCtx {
   dJacobi  jac;
   dMesh    mesh;
   dFS      fs;
-  dInt     nominalRDeg,constBDeg;
+  dInt     constBDeg;
 };
 
 static dErr BUCreate(MPI_Comm comm,BU *bunit)
@@ -25,7 +25,6 @@ static dErr BUCreate(MPI_Comm comm,BU *bunit)
   err = dNew(struct BUnitCtx,&bu);dCHK(err);
 
   bu->comm        = comm;
-  bu->nominalRDeg = 2;
   bu->constBDeg   = 2;          /* With only one element, this is the minimum possible with Dirichlet boundary conditions */
 
   *bunit = bu;
@@ -47,7 +46,7 @@ static dErr BUSetFromOptions(BU bu)
   dFS fs;
   dJacobi jac;
   dMeshESH domain;
-  dMeshTag rtag,dtag;
+  dMeshTag dtag;
   dErr err;
 
   dFunctionBegin;
@@ -66,7 +65,6 @@ static dErr BUSetFromOptions(BU bu)
   err = dJacobiSetFromOptions(jac);dCHK(err);
   bu->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,"bu_rule_degree",bu->nominalRDeg,&rtag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(mesh,domain,"bu_efs_degree",bu->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(bu->comm,&fs);dCHK(err);
@@ -105,7 +103,7 @@ static dErr BUView(BU bu,PetscViewer viewer)
   dFunctionBegin;
   err = PetscViewerASCIIPrintf(viewer,"Boundary Unit test object (BU)\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"nominal rule degree %2d,  constant basis degree %2d\n",bu->nominalRDeg,bu->constBDeg);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"constant basis degree %2d\n",bu->constBDeg);dCHK(err);
   err = dFSView(bu->fs,viewer);dCHK(err);
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   dFunctionReturn(0);

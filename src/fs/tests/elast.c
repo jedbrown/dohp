@@ -103,7 +103,7 @@ struct ElastCtx {
   dMesh                 mesh;
   dFS                   fs;
   Vec                   x,y;
-  dInt                  constBDeg,nominalRDeg;
+  dInt                  constBDeg;
   dBool                 errorview;
   dQuadratureMethod     function_qmethod,jacobian_qmethod;
   dRulesetIterator      regioniter[EVAL_UB];
@@ -120,7 +120,6 @@ static dErr ElastCreate(MPI_Comm comm,Elast *elast)
   elt->comm = comm;
 
   elt->constBDeg = 3;
-  elt->nominalRDeg = 0;
   elt->param.lambda = 10;
   elt->param.mu     = 100;
   elt->param.gamma  = 0;
@@ -139,7 +138,7 @@ static dErr ElastSetFromOptions(Elast elt)
   dFS fs;
   dJacobi jac;
   dMeshESH domain;
-  dMeshTag rtag,dtag;
+  dMeshTag dtag;
   dInt exact;
   dErr err;
 
@@ -147,7 +146,6 @@ static dErr ElastSetFromOptions(Elast elt)
   exact = 0; exc->a = exc->b = exc->c = 1;
   err = PetscOptionsBegin(elt->comm,NULL,"Elasticity options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elt->constBDeg,&elt->constBDeg,NULL);dCHK(err);
-    err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",elt->nominalRDeg,&elt->nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsBool("-error_view","View errors","",elt->errorview,&elt->errorview,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_lambda","first Lame parameter","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_mu","Second Lame parameter","",prm->mu,&prm->mu,NULL);dCHK(err);
@@ -185,7 +183,6 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dJacobiSetFromOptions(jac);dCHK(err);
   elt->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,"elast_rule_degree",elt->nominalRDeg,&rtag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(mesh,domain,"elast_efs_degree",elt->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(elt->comm,&fs);dCHK(err);
@@ -539,7 +536,7 @@ int main(int argc,char *argv[])
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dBool  nojshell,nocheck,view_soln;
+  dBool  nojshell = dFALSE,nocheck = dFALSE,view_soln = dFALSE;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);

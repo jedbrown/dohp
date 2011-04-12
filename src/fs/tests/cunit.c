@@ -17,7 +17,7 @@ struct CUnitCtx {
   dJacobi  jac;
   dMesh    mesh;
   dFS      fs;
-  dInt     nominalRDeg,constBDeg;
+  dInt     constBDeg;
   DeformType deform_type;
   dBool    expanded_view,cexp_view,nce_view,nce_compare;
 };
@@ -64,7 +64,6 @@ static dErr CUCreate(MPI_Comm comm,CU *cunit)
 
   cu->comm        = comm;
   cu->deform_type = DEFORM_IDENTITY;
-  cu->nominalRDeg = 2;
   cu->constBDeg   = 2;          /* With only one element, this is the minimum possible with Dirichlet boundary conditions */
 
   *cunit = cu;
@@ -140,12 +139,11 @@ static dErr CUSetFromOptions(CU cu)
   dFS fs;
   dJacobi jac;
   dMeshESH domain;
-  dMeshTag rtag,dtag;
+  dMeshTag dtag;
   dErr err;
 
   dFunctionBegin;
   err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"Hex mesh options",NULL);dCHK(err);
-  err = PetscOptionsInt("-nominal_RDeg","Nominal Rule degree (to be increased if required)",NULL,cu->nominalRDeg,&cu->nominalRDeg,NULL);dCHK(err);
   err = PetscOptionsInt("-const_Bdeg","Constant interpolation degree",NULL,cu->constBDeg,&cu->constBDeg,NULL);dCHK(err);
   err = PetscOptionsEnum("-deform_type","Deformation to apply",NULL,DeformTypes,cu->deform_type,(PetscEnum*)&cu->deform_type,NULL);dCHK(err);
   err = PetscOptionsBool("-expanded_view","Show expanded vector which shows connectivity",NULL,cu->expanded_view,&cu->expanded_view,NULL);dCHK(err);
@@ -163,7 +161,6 @@ static dErr CUSetFromOptions(CU cu)
   err = dJacobiSetFromOptions(jac);dCHK(err);
   cu->jac = jac;
 
-  err = dMeshCreateRuleTagIsotropic(cu->mesh,domain,"cu_rule_degree",cu->nominalRDeg,&rtag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(cu->mesh,domain,"cu_efs_degree",cu->constBDeg,&dtag);dCHK(err);
 
   err = dFSCreate(cu->comm,&fs);dCHK(err);
@@ -199,7 +196,7 @@ static dErr CUView(CU cu,PetscViewer viewer)
   dFunctionBegin;
   err = PetscViewerASCIIPrintf(viewer,"Boundary Unit test object (CU)\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"nominal rule degree %2d,  constant basis degree %2d\n",cu->nominalRDeg,cu->constBDeg);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"constant basis degree %2d\n",cu->constBDeg);dCHK(err);
   err = dFSView(cu->fs,viewer);dCHK(err);
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   dFunctionReturn(0);
