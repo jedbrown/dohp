@@ -208,6 +208,13 @@ dErr dFSView(dFS fs,dViewer viewer)
                                   ((dObject)fs)->type_name ? ((dObject)fs)->type_name : "type not set");dCHK(err);
     if (!fs->spacebuilt) {
       err = PetscViewerASCIIPrintf(viewer,"Function Space has not been built.\n");dCHK(err);
+    } else {
+      dBool view_matrix = dFALSE;
+      err = PetscOptionsGetBool(((dObject)fs)->prefix,"-dfs_view_matrix",&view_matrix,NULL);dCHK(err);
+      if (view_matrix) {
+        err = PetscViewerASCIIPrintf(viewer,"Element assembly matrix:\n");dCHK(err);
+        err = MatView(fs->E,viewer);dCHK(err);
+      }
     }
     {
       dInt nents[4];
