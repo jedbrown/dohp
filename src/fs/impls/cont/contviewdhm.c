@@ -346,7 +346,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 
   /* @todo Call private dFSBuildSpace pieces (once they exist) */
   {
-    dInt           n,bs,ents_a,ents_s,nregions,*inodes,*xnodes,*xstart,*idx,*loffset,xcnt;
+    dInt           n,ents_a,ents_s,nregions,*inodes,*xnodes,*xstart,*idx,*loffset,xcnt;
     dPolynomialOrder *bdeg,*regBDeg;
     dEntTopology   *topo,*regTopo;
     dMeshEH        *ents;
@@ -372,15 +372,20 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
       dInt i;
       for (i=0,n=0; i<ents_s; n += inodes[i++]) loffset[i] = n;
     }
-    bs = 1;                     /* @bug */
 
     err = dMeshTagSetData(mesh,fs->tag.loffset,ents,ents_s,loffset,ents_s,dDATA_INT);dCHK(err);
     err = dFree2(inodes,loffset);dCHK(err);
 
+    /* @todo Restore Dirichlet boundary classification */
+    fs->bs = 1;
+    fs->n = n*fs->bs;
+    fs->nc = n*fs->bs;
+    fs->ngh = 0;
     /* The global vector is the same as the closure (assume no Dirichlet boundaries for now).
      * It is sequential and thus has no ghosts.
      */
-    err = VecCreateDohp(PETSC_COMM_SELF,bs,n,n,0,NULL,&fs->gvec);dCHK(err);
+    err = VecCreateDohp(PETSC_COMM_SELF,fs->bs,fs->n,fs->nc,fs->ngh,NULL,&fs->gvec);dCHK(err);
+
     /* Create fs->bmapping and fs->mapping */
     err = dFSCreateLocalToGlobal_Private(fs,n,n,0,NULL,0);dCHK(err);
     err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
@@ -403,6 +408,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 
     err = dFree4(xstart,regTopo,regBDeg,xnodes);dCHK(err);
 
+    err = dMeshTagGetData(mesh,fs->tag.degree,meshadj->ents,meshadj->nents,bdeg,meshadj->nents,dDATA_INT);dCHK(err);
     err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
 
     err = dMeshRestoreAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
