@@ -369,6 +369,54 @@ dErr dFSBuildSpace(dFS fs)
   dFunctionReturn(0);
 }
 
+/* Set offsets (global, closure, local) of first node associated with every entity
+ *
+ * @param indexTag index into inodes
+ * @param inodes number of interior nodes associated with each entity inodes[idx[i]]
+ * @param rstart relative start for global explicit dofs
+ * @param crstart relative start for global closure dofs
+ * @param nents size of array to hold entities
+ * @param ents returns with entities in the proper ordering of the FS
+ * @param ghstart returns starting offset of ghost entities in ents
+ */
+dErr dFSBuildSpaceOffsets_Private(dFS fs,dMeshTag indexTag,const dInt inodes[],dInt rstart,dInt crstart,dInt nents,dMeshEH ents[],dInt *ghstart)
+{
+  dInt i,scan,nentsExplicit,nentsDirichlet,*idx,*offset;
+  dMesh mesh;
+  dErr err;
+
+  dFunctionBegin;
+  err = dFSGetMesh(fs,&mesh);dCHK(err);
+  err = dMallocA2(nents,&offset,nents,&idx);dCHK(err);
+  /* We assume that orderedSet contains explicitSet+dirichletSet+ghostSet (in that order) */
+  err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,nents,NULL);dCHK(err);
+  err = dMeshGetNumEnts(mesh,fs->set.explicit,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
+  err = dMeshGetNumEnts(mesh,fs->set.dirichlet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
+  err = dMeshTagGetData(mesh,indexTag,ents,nents,idx,nents,dDATA_INT);dCHK(err);
+
+  /* global offset */
+  for (i=0,scan=rstart; i<nentsExplicit; scan+=inodes[idx[i++]])
+    offset[i] = scan;
+  for ( ; i<nents; i++) offset[i] = -1;
+  err = dMeshTagSetData(mesh,fs->tag.goffset,ents,nents,offset,nents,dDATA_INT);dCHK(err);
+
+  /* global closure offset */
+  for (i=0,scan=crstart; i<nentsExplicit+nentsDirichlet; scan+=inodes[idx[i++]])
+    offset[i] = scan;
+  for ( ; i<nents; i++) offset[i] = -1;
+  err = dMeshTagSetData(mesh,fs->tag.gcoffset,ents,nents,offset,nents,dDATA_INT);dCHK(err);
+
+  /* local index */
+  for (i=0,scan=0; i<nents; scan+=inodes[idx[i++]])
+    offset[i] = scan;
+  err = dMeshTagSetData(mesh,fs->tag.loffset,ents,nents,offset,nents,dDATA_INT);dCHK(err);
+
+  err = dFree2(offset,idx);dCHK(err);
+  *ghstart = nentsExplicit + nentsDirichlet;
+  dFunctionReturn(0);
+}
+
+
 dErr dFSCreateExpandedVector(dFS fs,Vec *x)
 {
   dErr err;

@@ -355,37 +355,12 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     crstart = rstarts[0] + rstarts[1];
   }
 
-  {                             /* Set offsets (global, closure, local) of first node associated with every entity */
-    dInt i,scan,nentsExplicit,nentsDirichlet;
-
-    /* We assume that orderedSet contains explicitSet+dirichletSet+ghostSet (in that order) */
-    err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->set.explicit,dTYPE_ALL,dTOPO_ALL,&nentsExplicit);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->set.dirichlet,dTYPE_ALL,dTOPO_ALL,&nentsDirichlet);dCHK(err);
-    err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-
-    /* global offset */
-    for (i=0,scan=rstart; i<nentsExplicit; scan+=inodes[idx[i++]])
-      intdata[i] = scan; /* fill \a intdata with the global offset */
-    for ( ; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->tag.goffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-
-    /* global closure offset */
-    for (i=0,scan=crstart; i<nentsExplicit+nentsDirichlet; scan+=inodes[idx[i++]])
-      intdata[i] = scan;
-    for ( ; i<ents_s; i++) intdata[i] = -1;
-    err = dMeshTagSetData(mesh,fs->tag.gcoffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-
-    /* local index */
-    for (i=0,scan=0; i<ents_s; scan+=inodes[idx[i++]])
-      intdata[i] = scan;
-    err = dMeshTagSetData(mesh,fs->tag.loffset,ents,ents_s,intdata,ents_s,dDATA_INT);dCHK(err);
-
-    /* Set a pointer to the ghost portion, we will work with that next */
-    ghents   = ents + nentsExplicit + nentsDirichlet;
-    ghents_s = ents_s - nentsExplicit - nentsDirichlet;
+  {
+    dInt ghstart;
+    err = dFSBuildSpaceOffsets_Private(fs,ma.indexTag,inodes,rstart,crstart,ents_s,ents,&ghstart);dCHK(err);
+    ghents = ents + ghstart;
+    ghents_s = ents_s - ghstart;
   }
-
 
   /* communicate global and closure offset for ghosts */
   err = dMeshTagBcast(mesh,fs->tag.goffset);dCHK(err);
