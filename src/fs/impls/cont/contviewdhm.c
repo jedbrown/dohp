@@ -346,16 +346,16 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 
   /* @todo Call private dFSBuildSpace pieces (once they exist) */
   {
-    dInt           i,n,bs,ents_a,ents_s,*inodes,*xnodes,*idx,*loffset,xcnt;
-    dPolynomialOrder *bdeg;
-    dEntTopology   *topo;
+    dInt           n,bs,ents_a,ents_s,nregions,*inodes,*xnodes,*xstart,*idx,*loffset,xcnt;
+    dPolynomialOrder *bdeg,*regBDeg;
+    dEntTopology   *topo,*regTopo;
     dMeshEH        *ents;
     dMesh          mesh;
     dMeshAdjacency meshadj;
 
     err = dFSGetMesh(fs,&mesh);dCHK(err);
     err = dMeshGetNumEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
-    err = dMallocA5(ents_a,&ents,ents_a,&topo,ents_a,&bdeg,ents_a,&xnodes,ents_a,&idx);dCHK(err);
+    err = dMallocA4(ents_a,&ents,ents_a,&topo,ents_a,&bdeg,ents_a,&idx);dCHK(err);
 
     err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
     dASSERT(ents_a == ents_s);
@@ -367,8 +367,11 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 #endif
 
     err = dMallocA2(ents_s,&inodes,ents_s,&loffset);dCHK(err);
-    err = dJacobiGetNodeCount(fs->jacobi,ents_s,topo,bdeg,inodes,xnodes);dCHK(err);
-    for (i=0,n=0; i<ents_s; n += inodes[i++]) loffset[i] = n;
+    err = dJacobiGetNodeCount(fs->jacobi,ents_s,topo,bdeg,inodes,NULL);dCHK(err);
+    {
+      dInt i;
+      for (i=0,n=0; i<ents_s; n += inodes[i++]) loffset[i] = n;
+    }
     bs = 1;                     /* @bug */
 
     err = dMeshTagSetData(mesh,fs->tag.loffset,ents,ents_s,loffset,ents_s,dDATA_INT);dCHK(err);
@@ -384,20 +387,26 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 
     err = dMeshGetAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
     err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-
-    fs->nelem = ents_s;
-
-    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
     err = dMeshTagGetData(mesh,meshadj->indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    /* Need to set offsets before calling dFSBuildSpace_Cont_CreateElemAssemblyMats() */
-    err = dMallocA(ents_s+1,&fs->off);dCHK(err);
-    fs->off[0] = xcnt = 0;
-    for (i=0; i<ents_s; i++) fs->off[i+1] = (xcnt += xnodes[idx[i]]);
+    nregions = ents_s;
+    err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions,&regBDeg,nregions,&xnodes);dCHK(err);
+    err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
+    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,regBDeg,nregions,dDATA_INT);dCHK(err);
+    err = dJacobiGetNodeCount(fs->jacobi,ents_s,regTopo,regBDeg,NULL,xnodes);dCHK(err);
+
+    xcnt = xstart[0] = 0;
+    for (dInt i=0; i<nregions; i++) xstart[i+1] = (xcnt += xnodes[i]);
+
+    fs->nelem = nregions;
+    err = dMallocA(nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
+    err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
+
+    err = dFree4(xstart,regTopo,regBDeg,xnodes);dCHK(err);
 
     err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
 
     err = dMeshRestoreAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
-    err = dFree5(ents,topo,bdeg,xnodes,idx);dCHK(err);
+    err = dFree4(ents,topo,bdeg,idx);dCHK(err);
     fs->spacebuilt = dTRUE;
   }
 

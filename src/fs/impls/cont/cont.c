@@ -340,8 +340,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   /* Get number of nodes for all entities, and parallel status */
   err = dMallocA4(ma.nents,&deg,ma.nents,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
   err = dMeshTagGetData(mesh,fs->tag.degree,ma.ents,ma.nents,deg,ma.nents,dDATA_INT);dCHK(err);
-  /* Fill the arrays \a inodes and \a xnodes with the number of interior and expanded nodes for each
-  * (topology,degree) pair */
+  /* Fill the \a inodes array with the number of interior nodes for each (topology,degree) pair */
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
   err = dMeshGetStatus(mesh,ma.ents,ma.nents,status);dCHK(err);
 

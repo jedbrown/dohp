@@ -270,7 +270,6 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
   err = dFSSetOrderingType(fs,MATORDERINGNATURAL);avtCHK(err);
   err = dFSLoadIntoFS(this->viewer,meshname,fs);avtCHK(err);
   err = dFSGetSubElementMeshSize(fs,&nelem,&nverts,&nconn);avtCHK(err);
-  //err = dMallocA3(nelems,&topo,nelems+1,&off,nconn,&conn);dCHK(err);
   off = new dInt[nelem+1];
   topo = new dEntTopology[nelem];
   conn = new dInt[nconn];

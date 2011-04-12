@@ -574,6 +574,7 @@ dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
   dValidPointer(set,4);
   *set = 0;
   iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,value?(const char*const*)&value:NULL,1,0,&set,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
+  if (size != 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Got %d sets, but expected only one",size);
   dFunctionReturn(0);
 }
 
