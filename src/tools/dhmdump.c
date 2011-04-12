@@ -5,32 +5,6 @@ static const char help[] = "Read a DHM file and dump its contents\n";
 #include <dohp.h>
 #include <dohpsys.h>
 
-static dErr SubElementMeshView(dFS fs,dViewer view)
-{
-  dErr err;
-  dInt nelem,nverts,nconn,*suboff,*subind,n,bs;
-  dEntTopology *subtopo;
-  Vec X;
-  const dReal *x;
-
-  dFunctionBegin;
-  err = dFSGetSubElementMeshSize(fs,&nelem,&nverts,&nconn);dCHK(err);
-  dASSERT(nconn == 8*nelem);
-  err = dMallocA3(nelem,&subtopo,nelem+1,&suboff,nconn,&subind);dCHK(err);
-  err = dFSGetSubElementMesh(fs,nelem,nconn,subtopo,suboff,subind);dCHK(err);
-  err = PetscViewerASCIIPrintf(view,"SubElementMesh\n");dCHK(err);
-  err = dIntTableView(nelem,8,subind,view,"subconn");dCHK(err);
-  err = dFree3(subtopo,suboff,subind);dCHK(err);
-
-  err = dFSGetNodalCoordinatesGlobal(fs,&X);dCHK(err);
-  err = VecGetLocalSize(X,&n);dCHK(err);
-  err = VecGetBlockSize(X,&bs);dCHK(err);
-  err = VecGetArrayRead(X,&x);dCHK(err);
-  err = dRealTableView(n/bs,bs,x,view,"coords");dCHK(err);
-  err = VecRestoreArrayRead(X,&x);dCHK(err);
-  dFunctionReturn(0);
-}
-
 int main(int argc, char *argv[])
 {
   char filename[PETSC_MAX_PATH_LEN];
@@ -73,7 +47,7 @@ int main(int argc, char *argv[])
       err = dFSSetOrderingType(fs,MATORDERINGNATURAL);dCHK(err);
       err = dFSLoadIntoFS(load,fspaces[i].name,fs);dCHK(err);
       err = dFSView(fs,view);dCHK(err);
-      err = SubElementMeshView(fs,view);dCHK(err);
+      err = dFSSubElementMeshView(fs,view);dCHK(err);
       err = dFSDestroy(fs);dCHK(err);
       err = PetscViewerASCIIPopTab(view);dCHK(err);
     }

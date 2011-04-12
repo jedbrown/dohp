@@ -258,6 +258,36 @@ dErr dFSGetSubElementMesh(dFS fs,dInt nelems,dInt nconn,dEntTopology topo[],dInt
   dFunctionReturn(0);
 }
 
+dErr dFSSubElementMeshView(dFS fs,dViewer view)
+{
+  dErr err;
+  dInt nelem,nverts,nconn,*suboff,*subind,n,bs;
+  dEntTopology *subtopo;
+  Vec X,Xc;
+  const dReal *x;
+  const char *name;
+
+  dFunctionBegin;
+  err = dFSGetSubElementMeshSize(fs,&nelem,&nverts,&nconn);dCHK(err);
+  dASSERT(nconn == 8*nelem);    /* Assume Hex */
+  err = dMallocA3(nelem,&subtopo,nelem+1,&suboff,nconn,&subind);dCHK(err);
+  err = dFSGetSubElementMesh(fs,nelem,nconn,subtopo,suboff,subind);dCHK(err);
+  err = PetscObjectGetName((dObject)fs,&name);dCHK(err);
+  err = PetscViewerASCIIPrintf(view,"SubElementMesh name=%s nelem=%D nverts=%D\n",name,nelem,nverts);dCHK(err);
+  err = dIntTableView(nelem,8,subind,view,"subconn");dCHK(err);
+  err = dFree3(subtopo,suboff,subind);dCHK(err);
+
+  err = dFSGetNodalCoordinatesGlobal(fs,&X);dCHK(err);
+  err = VecDohpGetClosure(X,&Xc);dCHK(err);
+  err = VecGetLocalSize(Xc,&n);dCHK(err);
+  err = VecGetBlockSize(Xc,&bs);dCHK(err);
+  err = VecGetArrayRead(Xc,&x);dCHK(err);
+  err = dRealTableView(n/bs,bs,x,view,"coords");dCHK(err);
+  err = VecRestoreArrayRead(Xc,&x);dCHK(err);
+  err = VecDohpRestoreClosure(X,&Xc);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /** dFSRedimension - Create a new function space with the same layout, but different number of dofs per node
  *
  */

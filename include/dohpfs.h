@@ -86,6 +86,7 @@ extern dErr dFSSetOptionsPrefix(dFS,const char[]);
 extern dErr dFSBuildSpace(dFS);
 extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);
 extern dErr dFSGetSubElementMesh(dFS,dInt nelem,dInt nconn,dEntTopology topo[],dInt off[],dInt ind[]);
+extern dErr dFSSubElementMeshView(dFS,dViewer);
 extern dErr dFSGetDomain(dFS,dMeshESH*);
 
 extern dErr dFSGetPreferredQuadratureRuleSet(dFS,dMeshESH,dEntType,dEntTopology,dQuadratureMethod,dRuleset*);
