@@ -402,22 +402,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
     err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
 
     fs->nelem = ents_s;
-    //dERROR(PETSC_COMM_SELF,1,"In flux");
-#if 0
-    err = dMallocA2(ents_s,&fs->rule,ents_s,&fs->efs);dCHK(err); /* Owned by FS */
-    {
-      dPolynomialOrder *rdeg;
-      dQuadrature quad;
-      err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
-      err = dMallocA(ents_s*3,&rdeg);dCHK(err);
-      err = dMeshTagGetData(mesh,fs->degreetag,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
-      err = dMeshTagGetData(mesh,fs->ruletag,ents,ents_s,rdeg,ents_s,dDATA_INT);dCHK(err);
-      err = dJacobiGetQuadrature(fs->jacobi,&quad);dCHK(err);
-      err = dQuadratureGetRule(quad,ents_s,topo,rdeg,fs->rule);dCHK(err);
-      err = dJacobiGetEFS(fs->jacobi,ents_s,topo,bdeg,fs->rule,fs->efs);dCHK(err);
-      err = dFree(rdeg);dCHK(err);
-    }
-#endif
+
     err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
     err = dMeshTagGetData(mesh,meshadj->indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
     /* Need to set offsets before calling dFSBuildSpace_Cont_CreateElemAssemblyMats() */
