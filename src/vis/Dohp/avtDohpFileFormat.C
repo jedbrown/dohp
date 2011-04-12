@@ -95,6 +95,7 @@ avtDohpFileFormat::avtDohpFileFormat(const char *filename)
   }
   PETSC_COMM_WORLD = MPI_COMM_SELF;
   err = dInitialize(0,0,0,0);avtCHK(err);
+  if (getenv("DOHP_DHM_DEBUG")) {err = PetscPushErrorHandler(PetscAttachDebuggerErrorHandler,NULL);avtCHK(err);}
   err = PetscViewerCreate(MPI_COMM_SELF,&this->viewer);avtCHK(err);
   err = PetscViewerSetType(this->viewer,PETSCVIEWERDHM);avtCHK(err);
   err = PetscViewerFileSetName(this->viewer,filename);avtCHK(err);
