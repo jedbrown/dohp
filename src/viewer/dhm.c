@@ -150,24 +150,40 @@ dErr dViewerDHMGetVecType(PetscViewer viewer,hid_t *intype)
  */
 dErr dViewerDHMFindFS(PetscViewer viewer,const char *name,hid_t *fsobj,hid_t *fsspace)
 {
+  dViewer_DHM *dhm = viewer->data;
   dErr err;
-  hid_t curstep,vectype,vdset,vattr;
-  dht_Vec vecmeta;
-  herr_t herr;
+  hid_t curstep;
+  htri_t hflg;
 
   dFunctionBegin;
   err = dViewerDHMSetUp(viewer);dCHK(err);
-  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
-  err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
+  /* Look under FS name */
+  hflg = H5Lexists(dhm->fsroot,name,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
+  if (hflg) {
+    err = dH5Dopen(dhm->fsroot,name,H5P_DEFAULT,fsobj);dCHK(err);
+    *fsspace = H5Dget_space(*fsobj);dH5CHK(*fsspace,H5Dget_space);
+    dFunctionReturn(0);
+  }
 
-  err = dH5Dopen(curstep,name,H5P_DEFAULT,&vdset);dCHK(err);
-  err = dH5Aopen(vdset,"meta",H5P_DEFAULT,&vattr);dCHK(err);
-  herr = H5Aread(vattr,vectype,&vecmeta);dH5CHK(herr,H5Aread);
-  herr = H5Aclose(vattr);dH5CHK(herr,H5Aclose);
-  if (0) {err = dPrintf(PETSC_COMM_SELF,"Vec name '%s'  time %g  internal_state %d\n",name,vecmeta.time,vecmeta.internal_state);dCHK(err);}
-  *fsobj = H5Rdereference(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(*fsobj,H5Rdereference);
-  *fsspace = H5Rget_region(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(*fsobj,H5Rget_region);
-  herr = H5Dclose(vdset);dH5CHK(herr,H5Dclose);
+  /* Look by vector name */
+  err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
+  hflg = H5Lexists(curstep,name,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
+  if (hflg) {
+    hid_t vectype,vdset,vattr;
+    dht_Vec vecmeta;
+    herr_t herr;
+    err = dH5Dopen(curstep,name,H5P_DEFAULT,&vdset);dCHK(err);
+    err = dH5Aopen(vdset,"meta",H5P_DEFAULT,&vattr);dCHK(err);
+    err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
+    herr = H5Aread(vattr,vectype,&vecmeta);dH5CHK(herr,H5Aread);
+    herr = H5Aclose(vattr);dH5CHK(herr,H5Aclose);
+    if (0) {err = dPrintf(PETSC_COMM_SELF,"Vec name '%s'  time %g  internal_state %d\n",name,vecmeta.time,vecmeta.internal_state);dCHK(err);}
+    *fsobj = H5Rdereference(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(*fsobj,H5Rdereference);
+    *fsspace = H5Rget_region(vdset,H5R_DATASET_REGION,vecmeta.fs);dH5CHK(*fsobj,H5Rget_region);
+    herr = H5Dclose(vdset);dH5CHK(herr,H5Dclose);
+    dFunctionReturn(0);
+  }
+  dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Could not find FS by name \"%s\"",name);
   dFunctionReturn(0);
 }
 

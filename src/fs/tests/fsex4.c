@@ -107,7 +107,7 @@ int main(int argc,char *argv[])
   dJacobi  jac;
   dMeshTag rtag,dtag;
   dMeshESH active;
-  dBool    read,read_vec;
+  dBool    read,read_vec,read_fs_via_vec;
   Vec      X;
 
   err = dInitialize(&argc,&argv,0,help);dCHK(err);
@@ -117,12 +117,14 @@ int main(int argc,char *argv[])
   ex4->bdeg = 4;
   read      = dFALSE;
   read_vec  = dFALSE;
+  read_fs_via_vec = dFALSE;
   err = PetscOptionsBegin(comm,NULL,"FS-Ex4 Options","");dCHK(err);
   {
     err = PetscOptionsInt("-bdeg","Polynomial order on each element in each Cartesian direction","",ex4->bdeg,&ex4->bdeg,NULL);dCHK(err);
     err = PetscOptionsBool("-read_back","Read the mesh back in","",read,&read,NULL);dCHK(err);
     if (read) {
       err = PetscOptionsBool("-read_back_vec","Read the Vec back in too","",read_vec,&read_vec,NULL);dCHK(err);
+      err = PetscOptionsBool("-read_fs_via_vec","Search for the FS using the Vec name","",read_fs_via_vec,&read_fs_via_vec,NULL);dCHK(err);
     }
   }
   err = PetscOptionsEnd();dCHK(err);
@@ -195,7 +197,7 @@ int main(int argc,char *argv[])
     err = dFSCreate(PETSC_COMM_SELF,&fs);dCHK(err);
     err = dFSSetType(fs,dFSCONT);dCHK(err);
     err = dFSSetOrderingType(fs,MATORDERINGNATURAL);dCHK(err);
-    err = dFSLoadIntoFS(viewer,"Vec_global_0",fs);dCHK(err);
+    err = dFSLoadIntoFS(viewer,read_fs_via_vec?"Vec_global_0":"dFS_0",fs);dCHK(err);
 
     err = FSEx4CheckSubMesh(ex4,fs);dCHK(err);
 

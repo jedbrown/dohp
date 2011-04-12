@@ -254,7 +254,7 @@ dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
+dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 {
   dViewer_DHM *dhm = viewer->data;
   dErr        err;
@@ -263,7 +263,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   dBool       debug = dFALSE;
 
   dFunctionBegin;
-  err = dViewerDHMFindFS(viewer,fieldname,&fsobj,&fsspace);dCHK(err);
+  err = dViewerDHMFindFS(viewer,name,&fsobj,&fsspace);dCHK(err);
   {
     char fsobjname[256];
     ssize_t len;

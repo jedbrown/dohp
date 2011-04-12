@@ -268,7 +268,7 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
   err = dFSCreate(MPI_COMM_SELF,&fs);avtCHK(err);
   err = dFSSetType(fs,dFSCONT);avtCHK(err);
   err = dFSSetOrderingType(fs,MATORDERINGNATURAL);avtCHK(err);
-  err = dFSLoadIntoFS(this->viewer,"Vec_global_0",fs);avtCHK(err);
+  err = dFSLoadIntoFS(this->viewer,meshname,fs);avtCHK(err);
   err = dFSGetSubElementMeshSize(fs,&nelem,&nverts,&nconn);avtCHK(err);
   //err = dMallocA3(nelems,&topo,nelems+1,&off,nconn,&conn);dCHK(err);
   off = new dInt[nelem+1];
