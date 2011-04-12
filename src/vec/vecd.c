@@ -57,6 +57,23 @@ dErr VecDohpRestoreClosure(Vec v,Vec *c)
   if (*c != ((Vec_MPI*)v->data)->localrep) dERROR(PETSC_COMM_SELF,1,"attempting to restore incorrect closure");
   err = VecStateSync_Private(v,*c);dCHK(err);
   err = PetscObjectDereference((dObject)*c);dCHK(err);
+  *c = NULL;
+  dFunctionReturn(0);
+}
+
+dErr VecDohpZeroEntries(Vec v)
+{
+  dErr err;
+  dBool  isdohp;
+  Vec c;
+
+  dFunctionBegin;
+  dValidHeader(v,VEC_CLASSID,1);
+  err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
+  if (!isdohp) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Vector type %s",((dObject)v)->type_name);
+  err = VecDohpGetClosure(v,&c);dCHK(err);
+  err = VecZeroEntries(c);dCHK(err);
+  err = VecDohpRestoreClosure(v,&c);dCHK(err);
   dFunctionReturn(0);
 }
 

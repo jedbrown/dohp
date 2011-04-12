@@ -88,12 +88,13 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
   /* Count the number of occurances of each node in the closure. */
   err = VecDuplicate(Expanded,&Ones);dCHK(err);
   err = VecDuplicate(X,&Count);dCHK(err);
+
+  err = VecDohpZeroEntries(Count);dCHK(err);
   err = VecSet(Ones,1.);dCHK(err);
-  err = VecZeroEntries(Count);dCHK(err);
   err = dFSExpandedToGlobal(fs3,Ones,Count,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
   err = VecDestroy(Ones);dCHK(err);
 
-  err = VecZeroEntries(X);dCHK(err);
+  err = VecDohpZeroEntries(X);dCHK(err);
   err = dFSExpandedToGlobal(fs3,Expanded,X,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
 
   err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
