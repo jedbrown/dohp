@@ -5,3 +5,7 @@ DohpPluginInfo.[hC]
 DohpCommonPluginInfo.C
 DohpEnginePluginInfo.C
 DohpMDServerPluginInfo.C
+CMakeFiles
+cmake_install.cmake
+CMakeLists.txt
+CMakeCache.txt

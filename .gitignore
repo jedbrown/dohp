@@ -23,3 +23,4 @@ docs/latex
 nbproject
 eclipse-style
 .settings
+CMakeLists.txt.user
