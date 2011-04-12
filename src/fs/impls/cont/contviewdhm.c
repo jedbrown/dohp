@@ -31,7 +31,7 @@ static dErr dFSGetDHMLink(dFS fs,dViewer viewer,hid_t *indset,hid_t *inspace)
     dset = H5Dcreate(dhm->fsroot,fsname,h5t_fs,space,H5P_DEFAULT,dcpl,H5P_DEFAULT);dH5CHK(dset,H5Dcreate);
     herr = H5Pclose(dcpl);dH5CHK(herr,H5Pclose);
   } else {
-    dset = H5Dopen(dhm->fsroot,fsname,H5P_DEFAULT);dH5CHK(dset,H5Dopen);
+    err = dH5Dopen(dhm->fsroot,fsname,H5P_DEFAULT,&dset);dCHK(err);
     space = H5Dget_space(dset);dH5CHK(space,H5Dget_space);
     herr = H5Sget_simple_extent_dims(space,dims,NULL);dH5CHK(herr,H5Sget_simple_extent_dims);
 #if 0                           /* Handle case where it has not already been written in this state */
@@ -268,8 +268,8 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char fieldname[],dFS fs)
   err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
   err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
 
-  vdset = H5Dopen(curstep,fieldname,H5P_DEFAULT);dH5CHK(vdset,H5Dopen);
-  vattr = H5Aopen(vdset,"meta",H5P_DEFAULT);dH5CHK(vattr,H5Aopen);
+  err = dH5Dopen(curstep,fieldname,H5P_DEFAULT,&vdset);dCHK(err);
+  err = dH5Aopen(vdset,"meta",H5P_DEFAULT,&vattr);dCHK(err);
   herr = H5Aread(vattr,vectype,&vecmeta);dH5CHK(herr,H5Aread);
   herr = H5Aclose(vattr);dH5CHK(herr,H5Aclose);
 
@@ -442,7 +442,7 @@ dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
 
   err = dViewerDHMSetUp(viewer);dCHK(err);
   err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
-  dset = H5Dopen(curstep,fieldname,H5P_DEFAULT);dH5CHK(dset,H5Dopen);
+  err = dH5Dopen(curstep,fieldname,H5P_DEFAULT,&dset);dCHK(err);
 
   err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
 

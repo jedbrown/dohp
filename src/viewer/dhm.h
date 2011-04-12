@@ -95,4 +95,9 @@ typedef struct {
   dInt            internal_state;
 } dht_Vec;
 
+/* Safer versions that don't seg-fault when called with a non-existant name */
+extern dErr dH5Dopen(hid_t loc_id,const char *name,hid_t dapl_id,hid_t *dset);
+extern dErr dH5Gopen(hid_t loc_id,const char *name,hid_t dapl_id,hid_t *grp);
+extern dErr dH5Aopen(hid_t obj_id,const char *name,hid_t aapl_id,hid_t *attr);
+
 #endif

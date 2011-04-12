@@ -149,6 +149,7 @@ dErr dViewerDHMSetUp(PetscViewer viewer)
   dViewer_DHM *dhm = viewer->data;
   herr_t       herr;
   hid_t        plist_id,fid;
+  dErr         err;
 
   dFunctionBegin;
   if (dhm->file >= 0) dFunctionReturn(0);
@@ -179,11 +180,11 @@ dErr dViewerDHMSetUp(PetscViewer viewer)
 
   /* set up the groups */
   if (dhm->btype == FILE_MODE_READ) {
-    dhm->dohproot = H5Gopen(dhm->file,"dohp",H5P_DEFAULT);dH5CHK(dhm->dohproot,H5Gopen);
-    dhm->meshroot = H5Gopen(dhm->dohproot,"mesh",H5P_DEFAULT);dH5CHK(dhm->meshroot,H5Gopen);
-    dhm->fsroot   = H5Gopen(dhm->dohproot,"fs",H5P_DEFAULT);dH5CHK(dhm->fsroot,H5Gopen);
-    dhm->steproot = H5Gopen(dhm->dohproot,"step",H5P_DEFAULT);dH5CHK(dhm->steproot,H5Gopen);
-    dhm->typeroot = H5Gopen(dhm->dohproot,"type",H5P_DEFAULT);dH5CHK(dhm->typeroot,H5Gopen);
+    err = dH5Gopen(dhm->file,"dohp",H5P_DEFAULT,&dhm->dohproot);dCHK(err);
+    err = dH5Gopen(dhm->dohproot,"mesh",H5P_DEFAULT,&dhm->meshroot);dCHK(err);
+    err = dH5Gopen(dhm->dohproot,"fs",H5P_DEFAULT,&dhm->fsroot);dCHK(err);
+    err = dH5Gopen(dhm->dohproot,"step",H5P_DEFAULT,&dhm->steproot);dCHK(err);
+    err = dH5Gopen(dhm->dohproot,"type",H5P_DEFAULT,&dhm->typeroot);dCHK(err);
   } else {
     dhm->dohproot = H5Gcreate(dhm->file,"dohp",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dhm->dohproot,H5Gcreate);
     dhm->meshroot = H5Gcreate(dhm->dohproot,"mesh",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(dhm->meshroot,H5Gcreate);
@@ -301,8 +302,8 @@ dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step)
     err = dViewerDHMGetTimeType(viewer,&timetype);dCHK(err);
     err = PetscSNPrintf(stepname,sizeof stepname,"%03d",dhm->stepnumber);dCHK(err);
     if (dhm->btype == FILE_MODE_READ) {
-      dhm->curstep = H5Gopen(dhm->steproot,stepname,H5P_DEFAULT);dH5CHK(dhm->curstep,H5Gopen);
-      att          = H5Aopen(dhm->curstep,"time",H5P_DEFAULT);dH5CHK(att,H5Aopen);
+      err = dH5Gopen(dhm->steproot,stepname,H5P_DEFAULT,&dhm->curstep);dCHK(err);
+      err = dH5Aopen(dhm->curstep,"time",H5P_DEFAULT,&att);dCHK(err);
       herr         = H5Aread(att,timetype,&time);dCHK(err);
       dhm->time      = time.value;
       err = dViewerDHMSetTimeUnits(viewer,time.units.dimensions,time.units.scale);dCHK(err);
@@ -642,5 +643,44 @@ dErr dViewerDHMRestoreStepSummary(PetscViewer viewer,dInt *nfs,const struct dVie
   err = dFree(*infields);dCHK(err);
   *nfs = 0;
   *nfields = 0;
+  dFunctionReturn(0);
+}
+
+dErr dH5Dopen(hid_t loc_id,const char *name,hid_t dapl_id,hid_t *dset)
+{
+  hid_t vdset;
+  htri_t hflg;
+  dFunctionBegin;
+  *dset = 0;
+  hflg = H5Lexists(loc_id,name,dapl_id);dH5CHK(hflg,H5Lexists);
+  if (!hflg) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Dataset \"%s\" does not exist",name);
+  vdset = H5Dopen(loc_id,name,dapl_id);dH5CHK(vdset,H5Dopen);
+  *dset = vdset;
+  dFunctionReturn(0);
+}
+
+dErr dH5Gopen(hid_t loc_id,const char *name,hid_t dapl_id,hid_t *grp)
+{
+  hid_t vgrp;
+  htri_t hflg;
+  dFunctionBegin;
+  *grp = 0;
+  hflg = H5Lexists(loc_id,name,dapl_id);dH5CHK(hflg,H5Lexists);
+  if (!hflg) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Group \"%s\" does not exist",name);
+  vgrp = H5Gopen(loc_id,name,dapl_id);dH5CHK(vgrp,H5Gopen);
+  *grp = vgrp;
+  dFunctionReturn(0);
+}
+
+dErr dH5Aopen(hid_t obj_id,const char *name,hid_t aapl_id,hid_t *attr)
+{
+  hid_t vattr;
+  htri_t hflg;
+  dFunctionBegin;
+  *attr = 0;
+  hflg = H5Aexists(obj_id,name);dH5CHK(hflg,H5Aexists);
+  if (!hflg) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Attribute \"%s\" does not exist",name);
+  vattr = H5Aopen(obj_id,name,aapl_id);dH5CHK(vattr,H5Aopen);
+  *attr = vattr;
   dFunctionReturn(0);
 }
