@@ -349,58 +349,56 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
     herr = H5Dclose(meshobj);dH5CHK(herr,H5Aclose);
     // \bug herr = H5Dvlen_reclaim(&fs5);
   }
-  /** @note The FS has the layout and ordering tags set (@todo boundary conditions) so we are ready to build the
-  * function space (mostly creating the LocalToGlobalMapping/update for VecDohp and setting up the element assembly
-  * matrix E.
+  /** @note The FS has the layout, ordering, and boundary status tags set so we are ready to build the function space.
   **/
 
-  /* @todo Call private dFSBuildSpace pieces (once they exist) */
+  /* @todo Most of this block mirrors dFSBuildSpace_Cont, the common part should be better contained. */
   {
-    dInt           n,ents_a,ents_s,nregions,*inodes,*xnodes,*xstart,*idx,*loffset,xcnt;
+    dInt           ents_a,ents_s,nregions,*inodes,*xnodes,*xstart,*idx,xcnt,rstart,crstart,ghents_s;
     dPolynomialOrder *bdeg,*regBDeg;
-    dEntTopology   *topo,*regTopo;
-    dMeshEH        *ents;
+    dEntTopology   *regTopo;
+    dMeshEH        *ents,*ghents;
     dMesh          mesh;
     dMeshAdjacency meshadj;
 
     err = dFSGetMesh(fs,&mesh);dCHK(err);
-    err = dMeshGetNumEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,&ents_a);dCHK(err);
-    err = dMallocA4(ents_a,&ents,ents_a,&topo,ents_a,&bdeg,ents_a,&idx);dCHK(err);
+    err = dMeshGetAdjacency(mesh,fs->set.ordered,&meshadj);dCHK(err);
+
+    ents_a = meshadj->nents;
+    err = dMallocA4(ents_a,&ents,ents_a,&idx,ents_a,&bdeg,ents_a,&inodes);dCHK(err);
+
+    err = dFSPopulatePartitionedSets_Private(fs,meshadj);dCHK(err);
+
+    /* Ordered set is already populated so no need to call dMeshPopulateOrderedSet_Private() and assign tags afterward.
+     * This is the key difference between the current code block and dFSBuildSpace_Cont(). */
 
     err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-    dASSERT(ents_a == ents_s);
-    err = dMeshGetTopo(mesh,ents_s,ents,topo);dCHK(err);
-    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
-#if 0
-    /* Check for correct read */
-    for (dInt k=0; k<ents_s; k++) printf("bdeg[%2d] %d %d %d %d\n",k,dPolynomialOrderMax(bdeg[k]),dPolynomialOrder1D(bdeg[k],0),dPolynomialOrder1D(bdeg[k],1),dPolynomialOrder1D(bdeg[k],2));
-#endif
+    if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
 
-    err = dMallocA2(ents_s,&inodes,ents_s,&loffset);dCHK(err);
-    err = dJacobiGetNodeCount(fs->jacobi,ents_s,topo,bdeg,inodes,NULL);dCHK(err);
+    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
+    err = dJacobiGetNodeCount(fs->jacobi,ents_s,meshadj->topo,bdeg,inodes,NULL);dCHK(err);
+
     {
-      dInt i;
-      for (i=0,n=0; i<ents_s; n += inodes[i++]) loffset[i] = n;
+      dInt counts[3],rstarts[3];
+      err = dMeshClassifyCountInt(mesh,meshadj->nents,meshadj->ents,inodes,3,(const dMeshESH[]){fs->set.explicit,fs->set.dirichlet,fs->set.ghost},counts);dCHK(err);
+      err = MPI_Scan(counts,rstarts,3,MPIU_INT,MPI_SUM,((dObject)fs)->comm);dCHK(err);
+      for (dInt i=0; i<3; i++) rstarts[i] -= counts[i];
+      fs->n   = counts[0];
+      fs->nc  = counts[0] + counts[1];
+      fs->ngh = counts[2];
+      rstart  = rstarts[0];
+      crstart = rstarts[0] + rstarts[1];
     }
 
-    err = dMeshTagSetData(mesh,fs->tag.loffset,ents,ents_s,loffset,ents_s,dDATA_INT);dCHK(err);
-    err = dFree2(inodes,loffset);dCHK(err);
+    {
+      dInt ghstart;
+      err = dFSBuildSpaceOffsets_Private(fs,meshadj->indexTag,inodes,rstart,crstart,ents_s,ents,&ghstart);dCHK(err);
+      ghents = ents + ghstart;
+      ghents_s = ents_s - ghstart;
+    }
 
-    /* @todo Restore Dirichlet boundary classification */
-    fs->bs = 1;
-    fs->n = n*fs->bs;
-    fs->nc = n*fs->bs;
-    fs->ngh = 0;
-    /* The global vector is the same as the closure (assume no Dirichlet boundaries for now).
-     * It is sequential and thus has no ghosts.
-     */
-    err = VecCreateDohp(PETSC_COMM_SELF,fs->bs,fs->n,fs->nc,fs->ngh,NULL,&fs->gvec);dCHK(err);
+    err = dFSBuildSpaceVectors_Private(fs,meshadj->indexTag,inodes,rstart,ghents_s,ghents);dCHK(err);
 
-    /* Create fs->bmapping and fs->mapping */
-    err = dFSCreateLocalToGlobal_Private(fs,n,n,0,NULL,0);dCHK(err);
-    err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
-
-    err = dMeshGetAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
     err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
     err = dMeshTagGetData(mesh,meshadj->indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
     nregions = ents_s;
@@ -421,8 +419,8 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
     err = dMeshTagGetData(mesh,fs->tag.degree,meshadj->ents,meshadj->nents,bdeg,meshadj->nents,dDATA_INT);dCHK(err);
     err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
 
-    err = dMeshRestoreAdjacency(mesh,fs->set.active,&meshadj);dCHK(err);
-    err = dFree4(ents,topo,bdeg,idx);dCHK(err);
+    err = dMeshRestoreAdjacency(mesh,fs->set.ordered,&meshadj);dCHK(err);
+    err = dFree4(ents,idx,bdeg,inodes);dCHK(err);
     fs->spacebuilt = dTRUE;
   }
 

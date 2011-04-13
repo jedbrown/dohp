@@ -20,7 +20,7 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   fs->mesh = mesh;
   fs->set.active= active;
   err = dMeshGetTag(mesh,fs->bdyTagName,&fs->tag.boundary);dCHK(err);
-  err = dMeshTagCreateTemp(mesh,"boundary_status",1,dDATA_INT,&fs->tag.bstatus);dCHK(err);
+  err = dMeshTagCreate(mesh,"boundary_status",1,dDATA_INT,&fs->tag.bstatus);dCHK(err);
   err = dMeshTagCreateTemp(mesh,"boundary_constraint",sizeof(struct dFSConstraintCtx),dDATA_BYTE,&fs->tag.bdyConstraint);dCHK(err);
   err = dMeshTagCreateTemp(mesh,"global_offset",1,dDATA_INT,&fs->tag.goffset);dCHK(err);
   err = dMeshTagCreateTemp(mesh,"local_offset",1,dDATA_INT,&fs->tag.loffset);dCHK(err);
