@@ -66,18 +66,18 @@ const char *dMeshEntTopologyName(dEntTopology topo) {
 
 dEntType dMeshEntTypeFromTopology(dEntTopology topo) {
   static const int iMesh_TypeFromTopology[12] = {
-    iBase_VERTEX,                 /* POINT */
-    iBase_EDGE,                   /* LINE_SEGMENT */
-    iBase_FACE,                   /* POLYGON */
-    iBase_FACE,                   /* TRIANGLE */
-    iBase_FACE,                   /* QUADRILATERAL */
-    iBase_REGION,                 /* POLYHEDRON */
-    iBase_REGION,                 /* TETRAHEDRON */
-    iBase_REGION,                 /* HEXAHEDRON */
-    iBase_REGION,                 /* PRISM */
-    iBase_REGION,                 /* PYRAMID */
-    iBase_REGION,                 /* SEPTAHEDRON */
-    iBase_ALL_TYPES,              /* ALL_TOPOLOGIES */
+    [dTOPO_POINT]       = dTYPE_VERTEX,
+    [dTOPO_LINE]        = dTYPE_EDGE,
+    [dTOPO_POLYGON]     = dTYPE_FACE,
+    [dTOPO_TRIANGLE]    = dTYPE_FACE,
+    [dTOPO_QUAD]        = dTYPE_FACE,
+    [dTOPO_POLYHEDRON]  = dTYPE_REGION,
+    [dTOPO_TET]         = dTYPE_REGION,
+    [dTOPO_HEX]         = dTYPE_REGION,
+    [dTOPO_PRISM]       = dTYPE_REGION,
+    [dTOPO_PYRAMID]     = dTYPE_REGION,
+    [dTOPO_SEPTAHEDRON] = dTYPE_REGION,
+    [dTOPO_ALL]         = dTYPE_ALL,
   };
   return (topo <= dTOPO_ALL)
     ? iMesh_TypeFromTopology[topo]
@@ -86,11 +86,11 @@ dEntType dMeshEntTypeFromTopology(dEntTopology topo) {
 
 const char *dMeshEntTypeName(dEntType type) {
   static const char *const iBase_TypeName[] = {
-    "iBase_VERTEX",
-    "iBase_EDGE",
-    "iBase_FACE",
-    "iBase_REGION",
-    "iBase_ALL_TYPES"
+    [dTYPE_VERTEX] = "iBase_VERTEX",
+    [dTYPE_EDGE]   = "iBase_EDGE",
+    [dTYPE_FACE]   = "iBase_FACE",
+    [dTYPE_REGION] = "iBase_REGION",
+    [dTYPE_ALL]    = "iBase_ALL_TYPES",
   };
   return (type <= sizeof(iBase_TypeName)/sizeof(iBase_TypeName[0]))
     ? iBase_TypeName[type]
@@ -98,10 +98,11 @@ const char *dMeshEntTypeName(dEntType type) {
 }
 
 const char *const iBase_TagValueTypeName[] = {
-  "iBase_INTEGER",
-  "iBase_DOUBLE",
-  "iBase_ENTITY_HANDLE",
-  "iBase_BYTES"
+  [iBase_BYTES]             = "iBase_BYTES",
+  [iBase_INTEGER]           = "iBase_INTEGER",
+  [iBase_DOUBLE]            = "iBase_DOUBLE",
+  [iBase_ENTITY_HANDLE]     = "iBase_ENTITY_HANDLE",
+  [iBase_ENTITY_SET_HANDLE] = "iBase_ENTITY_SET_HANDLE",
 };
 
 dErr dMeshListIntView(MeshListInt *ml,const char *name)
