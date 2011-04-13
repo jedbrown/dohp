@@ -145,6 +145,7 @@ extern dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ec
 extern dErr dMeshTagSSetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,const void *data,dInt count,dDataType type);
 extern dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount,void *data,dInt count,dDataType type);
 extern dErr dMeshGetTaggedSet(dMesh,dMeshTag,const void*,dMeshESH*);
+extern dErr dMeshGetTaggedSets(dMesh,dMeshTag,dInt,const void *,dInt *,dMeshESH **);
 extern dErr dMeshSetFromOptions(dMesh);
 extern dErr dMeshTagBcast(dMesh mesh,dMeshTag tag);
 extern dErr dMeshSetCreate(dMesh,dMeshSetOrdering,dMeshESH*);

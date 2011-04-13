@@ -580,6 +580,30 @@ dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
   dFunctionReturn(0);
 }
 
+/* free sets with dFree() */
+dErr dMeshGetTaggedSets(dMesh mesh,dMeshTag tag,dInt nvalues,const void *values,dInt *nsets,dMeshESH **sets)
+{
+  const char *const*pvals = values ? (const char*const*)&values : NULL;
+  dIInt ierr,alloc=0,size;
+  dMeshESH *isets = NULL;
+  dErr err;
+
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  if (nvalues > 0) dValidPointer(values,4);
+  if (nvalues > 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Can only search for one value or all values");
+  dValidPointer(nsets,5);
+  dValidPointer(sets,6);
+  *nsets = -1;
+  *sets = NULL;
+  iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,nvalues?pvals:NULL,1,0,&isets,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
+  err = dMallocA(size,sets);dCHK(err);
+  *nsets = size;
+  err = dMallocA(*nsets,sets);dCHK(err);
+  for (dInt i=0; i<size; i++) (*sets)[i] = isets[i];
+  dFunctionReturn(0);
+}
+
 dErr dMeshGetNumEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dInt *num)
 {
   dIInt ierr,n;
