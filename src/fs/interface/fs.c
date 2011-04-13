@@ -369,7 +369,7 @@ dErr dFSBuildSpace(dFS fs)
   dFunctionReturn(0);
 }
 
-/* Set offsets (global, closure, local) of first node associated with every entity
+/* Set offsets (global, closure, local) of first node associated with every entity.
  *
  * @param indexTag index into inodes
  * @param inodes number of interior nodes associated with each entity inodes[idx[i]]
@@ -410,6 +410,10 @@ dErr dFSBuildSpaceOffsets_Private(dFS fs,dMeshTag indexTag,const dInt inodes[],d
   for (i=0,scan=0; i<nents; scan+=inodes[idx[i++]])
     offset[i] = scan;
   err = dMeshTagSetData(mesh,fs->tag.loffset,ents,nents,offset,nents,dDATA_INT);dCHK(err);
+
+  /* communicate global and closure offset for ghosts */
+  err = dMeshTagBcast(mesh,fs->tag.goffset);dCHK(err);
+  err = dMeshTagBcast(mesh,fs->tag.gcoffset);dCHK(err);
 
   err = dFree2(offset,idx);dCHK(err);
   *ghstart = nentsExplicit + nentsDirichlet;
