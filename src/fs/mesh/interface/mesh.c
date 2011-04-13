@@ -597,10 +597,10 @@ dErr dMeshGetTaggedSets(dMesh mesh,dMeshTag tag,dInt nvalues,const void *values,
   *nsets = -1;
   *sets = NULL;
   iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,nvalues?pvals:NULL,1,0,&isets,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
-  err = dMallocA(size,sets);dCHK(err);
   *nsets = size;
   err = dMallocA(*nsets,sets);dCHK(err);
-  for (dInt i=0; i<size; i++) (*sets)[i] = isets[i];
+  err = dMemcpy(*sets,isets,*nsets*sizeof isets[0]);dCHK(err);
+  free(isets);
   dFunctionReturn(0);
 }
 
