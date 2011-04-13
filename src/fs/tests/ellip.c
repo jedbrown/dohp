@@ -27,7 +27,6 @@ struct EllipParam {
   dReal epsilon;
   dReal p;
   dReal lambda;
-  dBool  onlyproject;
   dBool  bdy100;
 };
 
@@ -142,7 +141,6 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   prm->p           = 2.0;       /* p in p-Laplacian */
   prm->epsilon     = 1.0;
   prm->lambda      = 0.0;       /* Bratu nonlinearity */
-  prm->onlyproject = dFALSE;
   elp->function_qmethod = dQUADRATURE_METHOD_FAST;
   elp->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
@@ -190,7 +188,6 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsReal("-ellip_lam","Strength of Bratu nonlinearity","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsEnum("-ellip_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)elp->function_qmethod,(PetscEnum*)&elp->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-ellip_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)elp->jacobian_qmethod,(PetscEnum*)&elp->jacobian_qmethod,NULL);dCHK(err);
-    err = PetscOptionsBool("-onlyproject","Actually just do a projection","",prm->onlyproject,&prm->onlyproject,NULL);dCHK(err);
     err = PetscOptionsBool("-bdy100","Only use boundary 100","",prm->bdy100,&prm->bdy100,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
@@ -326,14 +323,9 @@ static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExa
   EllipPointwiseComputeStore(prm,x,u,Du,st);
   exact->forcing(exactctx,prm,x,f);
   v[0] = - weight * f[0];       /* Coefficient of \a v in weak form */
-  if (prm->onlyproject) {
-    v[0] += weight * u[0];
-    Dv[0] = Dv[1] = Dv[2] = 0;
-  } else {
-    v[0] += -weight * st->lambda_exp_u;
-    for (dInt i=0; i<3; i++) {
-      Dv[i] = weight * st->eta * Du[i]; /* Coefficient of Dv in weak form */
-    }
+  v[0] += -weight * st->lambda_exp_u;
+  for (dInt i=0; i<3; i++) {
+    Dv[i] = weight * st->eta * Du[i]; /* Coefficient of Dv in weak form */
   }
 }
 
@@ -343,13 +335,8 @@ static inline void EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const s
 {
   const dScalar dotw = dDotScalar3(st->sqrt_mdeta_Du,Du)*weight;
   const dReal etaw = st->eta*weight;
-  if (prm->onlyproject) {
-    v[0] = weight * u[0];
-    Dv[0] = Dv[1] = Dv[2] = 0;
-  } else {
-    v[0] = -weight * st->lambda_exp_u * u[0];
-    for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] - dotw*st->sqrt_mdeta_Du[i];
-  }
+  v[0] = -weight * st->lambda_exp_u * u[0];
+  for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] - dotw*st->sqrt_mdeta_Du[i];
 }
 
 static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
