@@ -112,6 +112,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     err = dMeshGetTagName(fs->mesh,fs->tag.gcoffset,&fs5.global_offset);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->tag.partition,&fs5.partition);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->tag.orderedsub,&fs5.ordered_subdomain);dCHK(err);
+    err = dMeshGetTagName(fs->mesh,fs->tag.bstatus,&fs5.bstatus);dCHK(err);
     herr = H5Rcreate(&fs5.mesh,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
     fs5.time = dhm->time;
     err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);
@@ -130,6 +131,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     err = dFree(field5);dCHK(err);
     err = dFree(fs5.partition);dCHK(err);
     err = dFree(fs5.ordered_subdomain);dCHK(err);
+    err = dFree(fs5.bstatus);dCHK(err);
     err = dFree(fs5.global_offset);dCHK(err);
     err = dFree(fs5.degree);dCHK(err);
     herr = H5Dclose(fsdset);dH5CHK(herr,H5Dclose);
@@ -311,7 +313,8 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
       {
         dMeshTag tag;
         dJacobi jac;
-        dMeshESH set;
+        dMeshESH set,*sets;
+        dInt nsets;
         dIInt readrank = 0;         /* Hard-code the rank for now */
         err = dMeshGetTag(mesh,fs5.partition,&tag);dCHK(err);
         err = dMeshGetTaggedSet(mesh,tag,&readrank,&set);dCHK(err);
@@ -322,7 +325,14 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
           err = dMeshSetDestroy(mesh,fs->set.ordered);dCHK(err);
           fs->set.ordered = set;
         }
-
+        err = dMeshGetTag(mesh,fs5.bstatus,&tag);dCHK(err);
+        err = dMeshGetTaggedSets(mesh,tag,0,NULL,&nsets,&sets);dCHK(err);
+        for (dInt i=0; i<nsets; i++) {
+          dFSBStatus bstat;
+          err = dMeshTagSGetData(mesh,tag,&sets[i],1,&bstat,sizeof bstat,dDATA_BYTE);dCHK(err);
+          err = dFSRegisterBoundarySet(fs,sets[i],bstat,NULL,NULL);dCHK(err); /* @todo How to recover the user's constraint function and context? */
+        }
+        err = dFree(sets);dCHK(err);
         err = dMeshGetTag(mesh,fs5.degree,&tag);dCHK(err);
         err = dFSGetJacobi(fs,&jac);dCHK(err);
         err = dFSSetDegree(fs,jac,tag);dCHK(err);

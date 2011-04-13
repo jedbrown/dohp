@@ -83,6 +83,7 @@ typedef struct {
   char       *global_offset;
   char       *partition;
   char       *ordered_subdomain;
+  char       *bstatus;
   hobj_ref_t mesh;
   dReal      time;
   dInt       internal_state;
