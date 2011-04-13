@@ -416,6 +416,40 @@ dErr dFSBuildSpaceOffsets_Private(dFS fs,dMeshTag indexTag,const dInt inodes[],d
   dFunctionReturn(0);
 }
 
+dErr dFSBuildSpaceVectors_Private(dFS fs,dMeshTag indexTag,const dInt inodes[],dInt rstart,dInt ghents_s,const dMeshEH ghents[])
+{
+  dErr err;
+  dInt *gcoffset,*ghidx,*idx;
+  dMesh mesh;
+
+  dFunctionBegin;
+  err = dMallocA3(ghents_s,&gcoffset,ghents_s,&ghidx,ghents_s,&idx);dCHK(err);
+  err = dFSGetMesh(fs,&mesh);dCHK(err);
+  err = dMeshTagGetData(mesh,indexTag,ghents,ghents_s,idx,ghents_s,dDATA_INT);dCHK(err);
+
+  /* Retrieve ghost offsets, to create localupdate. */
+  err = dMeshTagGetData(mesh,fs->tag.gcoffset,ghents,ghents_s,gcoffset,ghents_s,dDATA_INT);dCHK(err);
+  for (dInt i=0; i<ghents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
+    if (gcoffset[i] < 0) dERROR(PETSC_COMM_SELF,1,"Tag exchange did not work");
+  }
+
+  /* Set ghost indices of every node using \a ghidx, create global vector. */
+  {
+    dInt gh=0;
+    for (dInt i=0; i<ghents_s; i++) {
+      for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = gcoffset[i] + j;
+    }
+    if (gh != fs->ngh) dERROR(PETSC_COMM_SELF,1,"Ghost count inconsistent");
+    err = VecCreateDohp(((dObject)fs)->comm,fs->bs,fs->n,fs->nc,fs->ngh,ghidx,&fs->gvec);dCHK(err);
+  }
+  err = dFree3(gcoffset,ghidx,idx);dCHK(err);
+
+  /* Create fs->bmapping and fs->mapping */
+  err = dFSCreateLocalToGlobal_Private(fs,fs->n,fs->nc,fs->ngh,ghidx,rstart);dCHK(err);
+
+  err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
+  dFunctionReturn(0);dCHK(err);
+}
 
 dErr dFSCreateExpandedVector(dFS fs,Vec *x)
 {

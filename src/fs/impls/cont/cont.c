@@ -265,7 +265,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
   dPolynomialOrder      *deg,*rdeg,*regBDeg;
-  dInt                  *inodes,*xnodes,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx,*ghidx;
+  dInt                  *inodes,*xnodes,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx;
   dInt                  *xstart,xcnt;
   dInt                   rstart,crstart;
   dIInt                  ierr;
@@ -283,7 +283,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
   /* Allocate a workspace that's plenty big, so that we don't have to allocate memory constantly */
   ents_a = ma.nents;
-  err = dMallocA4(ents_a,&ents,ents_a,&intdata,ents_a,&idx,ents_a,&ghidx);dCHK(err);
+  err = dMallocA3(ents_a,&ents,ents_a,&intdata,ents_a,&idx);dCHK(err);
 
   /* Partition entities in active set into owned explicit, owned Dirichlet, and ghost */
   {
@@ -362,30 +362,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
     ghents_s = ents_s - ghstart;
   }
 
-  /* communicate global and closure offset for ghosts */
-  err = dMeshTagBcast(mesh,fs->tag.goffset);dCHK(err);
-  err = dMeshTagBcast(mesh,fs->tag.gcoffset);dCHK(err);
-
-  /* Retrieve ghost offsets, to create localupdate. */
-  err = dMeshTagGetData(mesh,fs->tag.gcoffset,ghents,ghents_s,intdata,ghents_s,dDATA_INT);dCHK(err);
-  for (dInt i=0; i<ghents_s; i++) { /* Paranoia: confirm that all ghost entities were updated. */
-    if (intdata[i] < 0) dERROR(PETSC_COMM_SELF,1,"Tag exchange did not work");
-  }
-
-  /* Set ghost indices of every node using \a ghidx, create global vector. */
-  {
-    dInt gh=0;
-    for (dInt i=0; i<ghents_s; i++) {
-      for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = intdata[i] + j;
-    }
-    if (gh != fs->ngh) dERROR(PETSC_COMM_SELF,1,"Ghost count inconsistent");
-    err = VecCreateDohp(((dObject)fs)->comm,fs->bs,fs->n,fs->nc,fs->ngh,ghidx,&fs->gvec);dCHK(err);
-  }
-
-  /* Create fs->bmapping and fs->mapping */
-  err = dFSCreateLocalToGlobal_Private(fs,fs->n,fs->nc,fs->ngh,ghidx,rstart);dCHK(err);
-
-  err = VecDohpCreateDirichletCache(fs->gvec,&fs->dcache,&fs->dscat);dCHK(err);
+  err = dFSBuildSpaceVectors_Private(fs,ma.indexTag,inodes,rstart,ghents_s,ghents);dCHK(err);
 
   /**
   * At this point the local to global mapping is complete.  Now we need to assemble the constraint matrices which take
@@ -424,7 +401,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
   err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
   err = dFree4(deg,rdeg,inodes,status);dCHK(err);
-  err = dFree4(ents,intdata,idx,ghidx);dCHK(err);
+  err = dFree3(ents,intdata,idx);dCHK(err);
   dFunctionReturn(0);
 }
 
