@@ -490,6 +490,7 @@ dErr dMeshTagGetData(dMesh mesh,dMeshTag tag,const dMeshEH ents[],dInt ecount,vo
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
+  if (!ecount) dFunctionReturn(0);
   dValidPointer(ents,3);
   dValidPointer(data,5);
   alloc = count * iBase_SizeFromType(type);
@@ -545,6 +546,7 @@ dErr dMeshTagSGetData(dMesh mesh,dMeshTag tag,const dMeshESH esets[],dInt ecount
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
+  if (!ecount) dFunctionReturn(0);
   dValidPointer(esets,3);
   dValidPointer(data,5);
   alloc = count * iBase_SizeFromType(type);
