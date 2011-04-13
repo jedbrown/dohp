@@ -254,7 +254,7 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
 *
 * @param fs The space to build
 */
-static dErr dFSBuildSpace_Cont(dFS fs)
+dErr dFSBuildSpace_Cont(dFS fs)
 {
   MPI_Comm               comm  = ((dObject)fs)->comm;
   /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
@@ -265,10 +265,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
   dPolynomialOrder      *deg,*regBDeg;
-  dInt                  *inodes,*xnodes,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx;
+  dInt                  *inodes,*xnodes,nregions,ents_a,ents_s,ghents_s,*idx;
   dInt                  *xstart,xcnt;
   dInt                   rstart,crstart;
-  dIInt                  ierr;
   dMeshEH               *ents,*ghents;
   dErr                   err;
 
@@ -282,39 +281,9 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
   /* Allocate a workspace that's plenty big, so that we don't have to allocate memory constantly */
   ents_a = ma.nents;
-  err = dMallocA3(ents_a,&ents,ents_a,&intdata,ents_a,&idx);dCHK(err);
+  err = dMallocA4(ents_a,&ents,ents_a,&idx,ents_a,&deg,ents_a,&inodes);dCHK(err);
 
-  /* Partition entities in active set into owned explicit, owned Dirichlet, and ghost */
-  {
-    dInt      nboundaries,ghstart;
-    dMeshESH *bdysets;
-    iMesh_addEntArrToSet(mi,ma.ents,ma.nents,fs->set.explicit,&ierr);dICHK(mi,ierr);
-    /* Move ghost ents from \a explicitSet to \a ghostSet */
-    iMesh_getEntitiesRec(mi,fs->set.explicit,dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-    err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-    iMesh_rmvEntArrFromSet(mi,ents+ghstart,ents_s-ghstart,fs->set.explicit,&ierr);dICHK(mi,ierr);
-    iMesh_addEntArrToSet(mi,ents+ghstart,ents_s-ghstart,fs->set.ghost,&ierr);dICHK(mi,ierr);
-    /* Move owned Dirichlet ents from \a explicitSet to \a dirichletSet */
-    err = dMeshGetNumSubsets(mesh,fs->set.boundaries,0,&nboundaries);dCHK(err);
-    if (!nboundaries) goto after_boundaries;
-    err = dMallocA2(nboundaries,&bdysets,nboundaries,&bstat);dCHK(err);
-    err = dMeshGetSubsets(mesh,fs->set.boundaries,0,bdysets,nboundaries,NULL);dCHK(err);
-    err = dMeshTagSGetData(mesh,fs->tag.bstatus,bdysets,nboundaries,bstat,nboundaries,dDATA_INT);dCHK(err);
-    for (int i=0; i<nboundaries; i++) {
-      if (bstat[i] & dFSBSTATUS_DIRICHLET) {
-        iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_ALL,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-        err = dMeshPartitionOnOwnership(mesh,ents,ents_s,&ghstart);dCHK(err);
-        iMesh_rmvEntArrFromSet(mi,ents,ghstart,fs->set.explicit,&ierr);dICHK(mi,ierr);
-        iMesh_addEntArrToSet(mi,ents,ghstart,fs->set.dirichlet,&ierr);dICHK(mi,ierr);
-      }
-      if (bstat[i] & dFSBSTATUS_WEAK) {
-        iMesh_getEntitiesRec(mi,bdysets[i],dTYPE_FACE,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
-        iMesh_addEntArrToSet(mi,ents,ents_s,fs->set.weakFace,&ierr);dICHK(mi,ierr);
-      }
-    }
-    err = dFree2(bdysets,bstat);dCHK(err);
-  }
-  after_boundaries:
+  err = dFSPopulatePartitionedSets_Private(fs,&ma);dCHK(err);
 
   err = dMeshPopulateOrderedSet_Private(mesh,fs->set.ordered,fs->set.explicit,fs->set.dirichlet,fs->set.ghost,fs->orderingtype);dCHK(err);
   {
@@ -336,7 +305,6 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
 
   /* Get number of nodes for all entities */
-  err = dMallocA2(ma.nents,&deg,ma.nents,&inodes);dCHK(err);
   err = dMeshTagGetData(mesh,fs->tag.degree,ma.ents,ma.nents,deg,ma.nents,dDATA_INT);dCHK(err);
   /* Fill the \a inodes array with the number of interior nodes for each (topology,degree) pair */
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
@@ -397,9 +365,8 @@ static dErr dFSBuildSpace_Cont(dFS fs)
 
   err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
-  err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
-  err = dFree2(deg,inodes);dCHK(err);
-  err = dFree3(ents,intdata,idx);dCHK(err);
+  err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err);
+  err = dFree4(ents,idx,deg,inodes);dCHK(err);
   dFunctionReturn(0);
 }
 

@@ -38,6 +38,8 @@ typedef struct {
   Mat B;
 } dFS_Cont;
 
+extern dErr dFSBuildSpace_Cont(dFS fs);
+
 dEXTERN_C_END
 
 #endif  /* _CONT_H */
