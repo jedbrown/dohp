@@ -16,7 +16,7 @@ static dErr dFSView_Cont(dFS fs,dViewer viewer)
     err = PetscViewerASCIIPrintf(viewer,"Continuous Galerkin function space\n");dCHK(err);
   } else if (dhm) {
     err = dFSView_Cont_DHM(fs,viewer);dCHK(err);
-  }
+  } else dERROR(((PetscObject)viewer)->comm,PETSC_ERR_SUP,"viewer type \"%s\"",((PetscObject)viewer)->type_name);
   dFunctionReturn(0);
 }
 
@@ -264,13 +264,12 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   dMesh                  mesh;
   iMesh_Instance         mi;
   dEntTopology          *regTopo;
-  dPolynomialOrder      *deg,*rdeg,*regBDeg;
+  dPolynomialOrder      *deg,*regBDeg;
   dInt                  *inodes,*xnodes,nregions,*bstat,ents_a,ents_s,ghents_s,*intdata,*idx;
   dInt                  *xstart,xcnt;
   dInt                   rstart,crstart;
   dIInt                  ierr;
   dMeshEH               *ents,*ghents;
-  dEntStatus            *status;
   dErr                   err;
 
   dFunctionBegin;
@@ -336,12 +335,11 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dMeshGetEnts(fs->mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
 
-  /* Get number of nodes for all entities, and parallel status */
-  err = dMallocA4(ma.nents,&deg,ma.nents,&rdeg,ma.nents,&inodes,ma.nents,&status);dCHK(err);
+  /* Get number of nodes for all entities */
+  err = dMallocA2(ma.nents,&deg,ma.nents,&inodes);dCHK(err);
   err = dMeshTagGetData(mesh,fs->tag.degree,ma.ents,ma.nents,deg,ma.nents,dDATA_INT);dCHK(err);
   /* Fill the \a inodes array with the number of interior nodes for each (topology,degree) pair */
   err = dJacobiGetNodeCount(fs->jacobi,ma.nents,ma.topo,deg,inodes,NULL);dCHK(err);
-  err = dMeshGetStatus(mesh,ma.ents,ma.nents,status);dCHK(err);
 
   {
     dInt counts[3],rstarts[3];
@@ -400,7 +398,7 @@ static dErr dFSBuildSpace_Cont(dFS fs)
   err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
   err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err); /* Any reason to leave this around for longer? */
-  err = dFree4(deg,rdeg,inodes,status);dCHK(err);
+  err = dFree2(deg,inodes);dCHK(err);
   err = dFree3(ents,intdata,idx);dCHK(err);
   dFunctionReturn(0);
 }
