@@ -17,6 +17,7 @@ static PetscLogEvent LOG_ElastShellMult;
 
 struct ElastParam {
   dReal lambda,mu,gamma;
+  dBool bdy100;
 };
 
 struct ElastExactCtx {
@@ -123,6 +124,7 @@ static dErr ElastCreate(MPI_Comm comm,Elast *elast)
   elt->param.lambda = 10;
   elt->param.mu     = 100;
   elt->param.gamma  = 0;
+  elt->param.bdy100 = dFALSE;
   elt->function_qmethod = dQUADRATURE_METHOD_FAST;
   elt->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
@@ -150,6 +152,7 @@ static dErr ElastSetFromOptions(Elast elt)
     err = PetscOptionsReal("-elast_lambda","first Lame parameter","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_mu","Second Lame parameter","",prm->mu,&prm->mu,NULL);dCHK(err);
     err = PetscOptionsReal("-elast_gamma","Strength of nonlinearity [0,1]","",prm->gamma,&prm->gamma,NULL);dCHK(err);
+    err = PetscOptionsBool("-bdy100","Only use boundary 100","",prm->bdy100,&prm->bdy100,NULL);dCHK(err);
     err = PetscOptionsEnum("-elast_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)elt->function_qmethod,(PetscEnum*)&elt->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-elast_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)elt->jacobian_qmethod,(PetscEnum*)&elt->jacobian_qmethod,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
@@ -190,8 +193,10 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSRegisterBoundary(fs,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-  err = dFSRegisterBoundary(fs,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-  err = dFSRegisterBoundary(fs,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  if (!elt->param.bdy100) {
+    err = dFSRegisterBoundary(fs,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+    err = dFSRegisterBoundary(fs,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  }
   err = dFSSetFromOptions(fs);dCHK(err);
   elt->fs = fs;
 
