@@ -407,12 +407,14 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   dRulesetIterator iter;
   dInt     sub,subc,nnz,*ai,*aj;
   dBool    done;
+  Mat      E1;
 
   dFunctionBegin;
   err = dMemzero(subtopo,sizeof(*subtopo)*nsubelems);dCHK(err);
   err = dMemzero(suboff,sizeof(*suboff)*(nsubelems+1));dCHK(err);
   err = dMemzero(subind,sizeof(*subind)*nsubconn);dCHK(err);
-  err = MatGetRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
+  err = MatMAIJGetAIJ(fs->E,&E1);dCHK(err);
+  err = MatGetRowIJ(E1,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not gotten");
 
   /* Traverse the domain extracting the connectivity of each sub-element.  It is okay to use the scalar FS in place of
@@ -449,7 +451,7 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
 
   dASSERT(subc == nsubconn);
   suboff[nsubelems] = subc;
-  err = MatRestoreRowIJ(fs->E,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
+  err = MatRestoreRowIJ(E1,0,PETSC_FALSE,PETSC_FALSE,&nnz,&ai,&aj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Element assembly matrix not restored");
   dFunctionReturn(0);
 }
