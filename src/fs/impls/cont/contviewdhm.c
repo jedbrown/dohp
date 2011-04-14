@@ -375,7 +375,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
     err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
     if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
 
-    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,bdeg,ents_s,dDATA_INT);dCHK(err);
+    err = dMeshTagGetData(mesh,fs->tag.degree,meshadj->ents,meshadj->nents,bdeg,ents_s,dDATA_INT);dCHK(err);
     err = dJacobiGetNodeCount(fs->jacobi,ents_s,meshadj->topo,bdeg,inodes,NULL);dCHK(err);
 
     {
