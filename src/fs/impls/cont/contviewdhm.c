@@ -1,7 +1,10 @@
 #include <dohpfs.h>
 #include <dohpvec.h>
+#include <dohpstring.h>
 #include "cont.h"
 #include "../../../viewer/dhm.h"
+
+#include <libgen.h>             /* dirname() */
 
 extern dErr VecView_Dohp_FSCont(Vec,dViewer);
 
@@ -301,13 +304,16 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
       hid_t mstring,strspace;
       dMesh mesh;
       char *imeshstr;           /* We are reading to a vlen string so HDF5 will allocate memory */
+      char imeshpath[PETSC_MAX_PATH_LEN],tmp[PETSC_MAX_PATH_LEN];
+      const char *filepath;
       err = dViewerDHMGetStringTypes(viewer,NULL,&mstring,&strspace);dCHK(err);
       herr = H5Dread(meshobj,mstring,H5S_ALL,H5S_ALL,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dread);
-      if (debug) {
-        err = dPrintf(PETSC_COMM_SELF,"imeshstr = %s\n",imeshstr);dCHK(err);
-      }
+      err = PetscViewerFileGetName(viewer,&filepath);dCHK(err);
+      err = dStrcpyS(tmp,sizeof tmp,filepath);dCHK(err);
+      err = PetscSNPrintf(imeshpath,sizeof imeshpath,"%s/%s",dirname(tmp),imeshstr);dCHK(err);
+      if (debug) {err = dPrintf(PETSC_COMM_SELF,"imeshstr = '%s', imeshpath = '%s'\n",imeshstr,imeshpath);dCHK(err);}
       err = dFSGetMesh(fs,&mesh);dCHK(err);
-      err = dMeshSetInFile(mesh,imeshstr,NULL);dCHK(err);
+      err = dMeshSetInFile(mesh,imeshpath,NULL);dCHK(err);
       err = dMeshSetType(mesh,dMESHSERIAL);dCHK(err);
       err = dMeshLoad(mesh);dCHK(err);
       {
@@ -325,6 +331,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
           err = dMeshSetDestroy(mesh,fs->set.ordered);dCHK(err);
           fs->set.ordered = set;
         }
+
         err = dMeshGetTag(mesh,fs5.bstatus,&tag);dCHK(err);
         err = dMeshGetTaggedSets(mesh,tag,0,NULL,&nsets,&sets);dCHK(err);
         for (dInt i=0; i<nsets; i++) {

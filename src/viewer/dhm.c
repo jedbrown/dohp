@@ -295,6 +295,15 @@ static dErr PetscViewerFileSetName_DHM(PetscViewer v,const char *name)
   dFunctionReturn(0);
 }
 
+static dErr PetscViewerFileGetName_DHM(PetscViewer v,const char **name)
+{
+  dViewer_DHM *dhm = v->data;
+
+  dFunctionBegin;
+  *name = dhm->filename;
+  dFunctionReturn(0);
+}
+
 static dErr PetscViewerFileSetMode_DHM(PetscViewer v,PetscFileMode btype)
 {
   dViewer_DHM *dhm = v->data;
@@ -397,6 +406,7 @@ PetscErrorCode PetscViewerCreate_DHM(PetscViewer v)
   dhm->stepnumber  = -1;
 
   err = PetscObjectComposeFunctionDynamic((PetscObject)v,"PetscViewerFileSetName_C","PetscViewerFileSetName_DHM",PetscViewerFileSetName_DHM);dCHK(err);
+  err = PetscObjectComposeFunctionDynamic((PetscObject)v,"PetscViewerFileGetName_C","PetscViewerFileGetName_DHM",PetscViewerFileGetName_DHM);dCHK(err);
   err = PetscObjectComposeFunctionDynamic((PetscObject)v,"PetscViewerFileSetMode_C","PetscViewerFileSetMode_DHM",PetscViewerFileSetMode_DHM);dCHK(err);
   err = PetscObjectComposeFunctionDynamic((PetscObject)v,"dViewerDHMSetTime_C","dViewerDHMSetTime_DHM",dViewerDHMSetTime_DHM);dCHK(err);
   err = PetscObjectComposeFunctionDynamic((PetscObject)v,"dViewerDHMSetTimeUnits_C","dViewerDHMSetTimeUnits_DHM",dViewerDHMSetTimeUnits_DHM);dCHK(err);
