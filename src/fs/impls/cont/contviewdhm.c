@@ -340,6 +340,13 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
           err = dFSRegisterBoundarySet(fs,sets[i],bstat,NULL,NULL);dCHK(err); /* @todo How to recover the user's constraint function and context? */
         }
         err = dFree(sets);dCHK(err);
+
+        err = dFSSetBlockSize(fs,(dInt)fs5.fields.len);dCHK(err);
+        for (dInt i=0; i<fs->bs; i++) {
+          const dht_Field *field5 = fs5.fields.p;
+          err = dFSSetFieldName(fs,i,field5[i].name);dCHK(err);
+        }
+
         err = dMeshGetTag(mesh,fs5.degree,&tag);dCHK(err);
         err = dFSGetJacobi(fs,&jac);dCHK(err);
         err = dFSSetDegree(fs,jac,tag);dCHK(err);

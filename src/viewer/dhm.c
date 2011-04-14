@@ -554,7 +554,15 @@ static herr_t field_traverse_func(hid_t base,const char *name,const H5L_info_t d
       }
     }
   }
-  new_field->bs = 1;
+
+  {
+    hid_t vecspace;
+    hsize_t gdims[2];
+    vecspace = H5Dget_space(field);if (vecspace < 0) {ret = -6; goto out;}
+    herr = H5Sget_simple_extent_dims(vecspace,gdims,NULL);if (herr < 0) {ret = -7; goto out;}
+    herr = H5Sclose(vecspace);if (herr < 0) {ret = -8; goto out;}
+    new_field->bs = (dInt)gdims[1];
+  }
 
   /* cons with list */
   new_field->next = ctx->field_head;
@@ -590,8 +598,8 @@ static herr_t field_traverse_func(hid_t base,const char *name,const H5L_info_t d
       }
       H5Dclose(fs);
     }
-    if (PetscStrallocpy(new_field->fsname,&new_fs.name)) {ret = -7; goto out;}
-    if (dMallocA(1,&p)) {(void)dFree(new_fs.name); ret = -8; goto out;}
+    if (PetscStrallocpy(new_field->fsname,&new_fs.name)) {ret = -9; goto out;}
+    if (dMallocA(1,&p)) {(void)dFree(new_fs.name); ret = -10; goto out;}
     dMemcpy(p,&new_fs,sizeof(new_fs));
     p->next = ctx->fs_head;
     ctx->fs_head = p;
