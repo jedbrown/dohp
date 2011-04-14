@@ -95,7 +95,18 @@ avtDohpFileFormat::avtDohpFileFormat(const char *filename)
   }
   PETSC_COMM_WORLD = MPI_COMM_SELF;
   err = dInitialize(0,0,0,0);avtCHK(err);
-  if (getenv("DOHP_DHM_DEBUG")) {err = PetscPushErrorHandler(PetscAttachDebuggerErrorHandler,NULL);avtCHK(err);}
+  {
+    const char *debug = getenv("DOHP_DHM_DEBUG");
+    if (debug) {
+      if (!strcmp(debug,"on_error")) {err = PetscPushErrorHandler(PetscAttachDebuggerErrorHandler,NULL);avtCHK(err);}
+      else if (!strcmp(debug,"start")) {err = PetscAttachDebugger();avtCHK(err);}
+      else if (debug) {
+        char buf[512];
+        snprintf(buf,sizeof buf,"Unknown debugging flag set: '%s'",debug);
+        EXCEPTION1(ImproperUseException,buf);
+      }
+    }
+  }
   err = PetscViewerCreate(MPI_COMM_SELF,&this->viewer);avtCHK(err);
   err = PetscViewerSetType(this->viewer,PETSCVIEWERDHM);avtCHK(err);
   err = PetscViewerFileSetName(this->viewer,filename);avtCHK(err);
@@ -289,24 +300,27 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
   {
     dInt n,bs;
     const dScalar *x;
-    Vec X;
+    Vec X,Xc;
     err = dFSGetNodalCoordinatesGlobal(fs,&X);avtCHK(err);
-    err = VecGetLocalSize(X,&n);avtCHK(err);
-    err = VecGetBlockSize(X,&bs);avtCHK(err);
+    err = VecDohpGetClosure(X,&Xc);avtCHK(err);
+    err = VecGetLocalSize(Xc,&n);avtCHK(err);
+    err = VecGetBlockSize(Xc,&bs);avtCHK(err);
     if (bs != 3) EXCEPTION1(InvalidVariableException,"Unexpected block size bs != 3");
     if (n != nverts*bs) {       // This test will fail in parallel, need to map to a local vector
       char buf[512];
-      snprintf(buf,sizeof buf,"Expanded Vec of size %d with bs %d and FS with nverts=%d and nconn=%d do not agree about sizes",n,bs,nverts,nconn);
+      snprintf(buf,sizeof buf,"Closure Vec of size %d with bs %d and FS with nverts=%d and nconn=%d do not agree about sizes",n,bs,nverts,nconn);
+      PetscAttachDebugger();
       EXCEPTION1(InvalidVariableException,buf);
     }
-    err = VecGetArrayRead(X,&x);avtCHK(err);
+    err = VecGetArrayRead(Xc,&x);avtCHK(err);
     vtkPoints *points = vtkPoints::New();
     points->SetNumberOfPoints(nverts);
     float *pts = (float*)points->GetVoidPointer(0);
     for (dInt i=0; i<n; i++) pts[i] = (float)x[i];
     grid->SetPoints(points);
     points->Delete();
-    err = VecRestoreArrayRead(X,&x);avtCHK(err);
+    err = VecRestoreArrayRead(Xc,&x);avtCHK(err);
+    err = VecDohpGetClosure(X,&Xc);avtCHK(err);
   }
 
   err = dFSDestroy(fs);avtCHK(err);
@@ -343,7 +357,7 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
 {
   dErr    err;
   dFS     fs;
-  Vec     X;
+  Vec     X,Xc;
   dScalar *x;
   dInt    n,bs;
 
@@ -356,10 +370,11 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
   err = VecDohpLoadIntoVector(this->viewer,varname,X);avtCHK(err);
   err = dFSDestroy(fs);avtCHK(err);
 
-  err = VecGetLocalSize(X,&n);avtCHK(err);
-  err = VecGetBlockSize(X,&bs);avtCHK(err);
+  err = VecDohpGetClosure(X,&Xc);avtCHK(err);
+  err = VecGetLocalSize(Xc,&n);avtCHK(err);
+  err = VecGetBlockSize(Xc,&bs);avtCHK(err);
   n /= bs;
-  err = VecGetArray(X,&x);avtCHK(err);
+  err = VecGetArray(Xc,&x);avtCHK(err);
   vtkFloatArray *var = vtkFloatArray::New();
   var->SetNumberOfComponents(bs);
   var->SetNumberOfTuples(n);
@@ -379,7 +394,8 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
       }
     }
   }
-  err = VecRestoreArray(X,&x);avtCHK(err);
+  err = VecRestoreArray(Xc,&x);avtCHK(err);
+  err = VecDohpGetClosure(X,&Xc);avtCHK(err);
   err = VecDestroy(X);avtCHK(err);
   return var;
 }
