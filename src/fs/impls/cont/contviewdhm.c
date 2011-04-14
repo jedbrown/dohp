@@ -399,7 +399,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 
     err = dFSBuildSpaceVectors_Private(fs,meshadj->indexTag,inodes,rstart,ghents_s,ghents);dCHK(err);
 
-    err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+    err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
     err = dMeshTagGetData(mesh,meshadj->indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
     nregions = ents_s;
     err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions,&regBDeg,nregions,&xnodes);dCHK(err);
