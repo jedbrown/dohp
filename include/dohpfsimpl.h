@@ -101,7 +101,6 @@ struct _p_dFS {
   dBool        spacebuilt;
   dBool        assemblefull;    /**< Use full order constraints for assembly */
   dBool        assemblereduced; /**< Assemble only diagonal part of blocks, only matters for bs>1 and MATAIJ */
-  dInt         ruleStrength;
   dInt         bs;              /**< Block size (number of dofs per node) */
   dInt         nelem;
   dInt        *off;             /**< Offset of element dofs in expanded vector */
@@ -127,7 +126,6 @@ struct _p_dFS {
     dFS fs;
   } nodalcoord;
 
-  dInt         maxQ;
   dFSRotation  rot;             /**< Rotation for local vector */
   char         orderingtype[256];
   char       **fieldname;

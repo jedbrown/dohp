@@ -118,7 +118,6 @@ dErr dFSSetFromOptions(dFS fs)
   } else if (!((dObject)fs)->type_name) {
     err = dFSSetType(fs,deft);dCHK(err);
   }
-  err = PetscOptionsInt("-dfs_rule_strength","Choose rules that are stronger than necessary","dFSRuleStrength",fs->ruleStrength,&fs->ruleStrength,NULL);dCHK(err);
   err = PetscOptionsList("-dfs_ordering_type","Function Space ordering, usually to reduce bandwidth","dFSBuildSpace",MatOrderingList,fs->orderingtype,fs->orderingtype,256,NULL);dCHK(err);
   err = PetscOptionsBool("-dfs_assemble_reduced","Assemble only diagonal part of blocks","",fs->assemblereduced,&fs->assemblereduced,NULL);dCHK(err);
   if (fs->ops->setfromoptions) {
