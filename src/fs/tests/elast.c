@@ -225,6 +225,8 @@ static dErr ElastSetFromOptions(Elast elt)
     err = dFSRegisterBoundary(fs,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   }
   err = dFSSetFromOptions(fs);dCHK(err);
+  err = PetscObjectSetName((PetscObject)fs,"dFS_0");dCHK(err);
+  err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
   elt->fs = fs;
 
   err = dFSCreateExpandedVector(fs,&elt->x);dCHK(err);
@@ -610,6 +612,7 @@ int main(int argc,char *argv[])
   err = SNESSetFromOptions(snes);dCHK(err);
   err = VecZeroEntries(r);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
+  err = PetscObjectSetName((PetscObject)x,"Displacement");dCHK(err);
   err = ElastGetSolutionVector(elt,&soln);dCHK(err);
   {
     Vec sc;

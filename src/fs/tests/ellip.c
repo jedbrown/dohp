@@ -248,6 +248,8 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = dFSRegisterBoundary(fs,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   }
   err = dFSSetFromOptions(fs);dCHK(err);
+  err = PetscObjectSetName((PetscObject)fs,"dFS_0");dCHK(err);
+  err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
   elp->fs = fs;
 
   if (mesh_out) {
@@ -675,6 +677,7 @@ int main(int argc,char *argv[])
   err = SNESSetFromOptions(snes);dCHK(err);
   err = VecZeroEntries(r);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
+  err = PetscObjectSetName((PetscObject)x,"U");dCHK(err);
   err = EllipGetNodalSolutionVector(elp,&soln);dCHK(err);
   {
     Vec sc;
