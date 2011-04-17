@@ -87,6 +87,29 @@ static void ElastExact_1_Forcing(const struct ElastExactCtx dUNUSED *ctx,const s
   f[2] = 0;
 }
 
+static void ElastExact_2_Solution(const struct ElastExactCtx dUNUSED *ctx,const struct ElastParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar u[3],dScalar du_flat[9])
+{
+  dScalar (*du)[3] = (dScalar(*)[3])du_flat;
+  u[0] = 0;
+  u[1] = 0;
+  u[2] = 0;
+  du[0][0] = 0;
+  du[0][1] = 0;
+  du[0][2] = 0;
+  du[1][0] = 0;
+  du[1][1] = 0;
+  du[1][2] = 0;
+  du[2][0] = 0;
+  du[2][1] = 0;
+  du[2][2] = 0;
+}
+static void ElastExact_2_Forcing(const struct ElastExactCtx dUNUSED *ctx,const struct ElastParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[3])
+{
+  f[0] = 0;
+  f[1] = 1;
+  f[2] = 0;
+}
+
 
 struct ElastStore {
   dReal Du[3][3];
@@ -170,6 +193,10 @@ static dErr ElastSetFromOptions(Elast elt)
     case 1:
       elt->exact.solution = ElastExact_1_Solution;
       elt->exact.forcing = ElastExact_1_Forcing;
+      break;
+    case 2:
+      elt->exact.solution = ElastExact_2_Solution;
+      elt->exact.forcing = ElastExact_2_Forcing;
       break;
     default: dERROR(PETSC_COMM_SELF,1,"Exact solution %d not implemented");
   }
