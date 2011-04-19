@@ -85,3 +85,44 @@ dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *for
   }
   dFunctionReturn(0);
 }
+
+dErr dNormsStart(dReal uerr[],dReal gerr[])
+{
+  dErr err;
+
+  dFunctionBegin;
+  if (uerr) {err = dMemzero(uerr,3*sizeof(uerr[0]));dCHK(err);}
+  if (gerr) {err = dMemzero(gerr,3*sizeof(gerr[0]));dCHK(err);}
+  dFunctionReturn(0);
+}
+
+dErr dNormsUpdate(dReal uerr[],dReal gerr[],dReal jw,dInt bs,const dScalar uu[],const dScalar u[],const dScalar duu[],const dScalar du[])
+{
+  dFunctionBegin;
+  for (dInt i=0; i<bs; i++) {
+    if (uerr && uu && u) {
+      dReal r = uu[i] - u[i];
+      uerr[0] += dAbs(r)*jw;
+      uerr[1] += dSqr(r)*jw;
+      uerr[2] = dMax(uerr[2],dAbs(r));
+    }
+    if (gerr && duu && du) {
+      dReal dr[3] = {duu[i*3+0] - du[i*3+0],
+                     duu[i*3+1] - du[i*3+1],
+                     duu[i*3+2] - du[i*3+2]};
+      dReal gr2 = dSqr(dr[0]) + dSqr(dr[1]) + dSqr(dr[2]),grabs = dSqrt(gr2);
+      gerr[0] += grabs*jw;
+      gerr[1] += gr2*jw;
+      gerr[2] = dMax(gerr[2],grabs);
+    }
+  }
+  dFunctionReturn(0);
+}
+
+dErr dNormsFinish(dReal uerr[],dReal gerr[])
+{
+  dFunctionBegin;
+  if (uerr) uerr[1] = dSqrt(uerr[1]);
+  if (gerr) gerr[1] = dSqrt(gerr[1]);
+  dFunctionReturn(0);
+}

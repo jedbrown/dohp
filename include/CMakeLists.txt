@@ -15,4 +15,5 @@ install_files (/include FILES
   dohpfsimpl.h
   dohpjacimpl.h
   dohpmeshimpl.h
+  dohputil.h
   )

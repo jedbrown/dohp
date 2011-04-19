@@ -2,6 +2,7 @@
 #define _DOHP_H
 
 #include "dohptype.h"
+#include "dohputil.h"
 #include <stdint.h>
 #include <petscsys.h>
 
