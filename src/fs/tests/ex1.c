@@ -5,6 +5,7 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 #include <dohpmesh.h>
 #include <dohpvec.h>
 #include <dohpsys.h>
+#include <dohpviewer.h>
 #include <dohp.h>
 
 #define ALEN(a) (dInt)(sizeof(a)/sizeof((a)[0]))
@@ -12,6 +13,7 @@ static const char help[] = "Test the construction of dFS objects and anisotropic
 struct Options {
   dInt constBDeg;
   dBool  showsoln;
+  dBool viewdhm;
   dInt cycles;
   dInt  proj_version;
   dQuadratureMethod proj_qmethod;
@@ -631,6 +633,7 @@ static dErr doProjection(dFS fs)
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-12,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
   err = VecDuplicate(r,&x);dCHK(err);
+  err = PetscObjectSetName((PetscObject)x,"U");dCHK(err);
   for (dInt i=0; i<gopt.cycles; i++) {
     err = VecZeroEntries(x);dCHK(err);
     err = SNESSolve(snes,NULL,x);dCHK(err);
@@ -647,6 +650,16 @@ static dErr doProjection(dFS fs)
     err = confirmSufficientResiduals("Pointwise residuals",resNorms,gopt.normRequirePtwise);dCHK(err);
     err = confirmSufficientResiduals("Pointwise gradients",gresNorms,gopt.normRequireGrad);dCHK(err);
   }
+  if (gopt.viewdhm) {
+    dViewer viewdhm;
+    err = PetscViewerCreate(comm,&viewdhm);dCHK(err);
+    err = PetscViewerSetType(viewdhm,PETSCVIEWERDHM);dCHK(err);
+    err = PetscViewerFileSetName(viewdhm,"proj.dhm");dCHK(err);
+    err = PetscViewerFileSetMode(viewdhm,FILE_MODE_WRITE);dCHK(err);
+    err = VecView(x,viewdhm);dCHK(err);
+    err = PetscViewerDestroy(viewdhm);dCHK(err);
+  }
+
   err = SNESDestroy(snes);dCHK(err);
   err = MatDestroy(Jp);dCHK(err);
   err = VecDestroy(r);dCHK(err);
@@ -664,7 +677,6 @@ static dErr doProjection(dFS fs)
 
 int main(int argc,char *argv[])
 {
-  /* const char pTagName[] = "dohp_partition"; */
   iMesh_Instance mi;
   dJacobi jac;
   dFS fs;
@@ -681,6 +693,7 @@ int main(int argc,char *argv[])
   comm = PETSC_COMM_WORLD;
   viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscOptionsBegin(comm,NULL,"Test options","ex1");dCHK(err); {
+    err = dMemzero(&gopt,sizeof gopt);dCHK(err);
     gopt.constBDeg = 4; gopt.showsoln = dFALSE; gopt.cycles = 1; gopt.proj_version = 1;
     gopt.proj_qmethod = dQUADRATURE_METHOD_FAST;
     gopt.jac_qmethod = dQUADRATURE_METHOD_SPARSE; gopt.q1scale = 1.0;
