@@ -1,10 +1,12 @@
 static const char help[] = "Solve nonlinear elasticity using dual order hp elements.\n"
   "The model problem is\n"
-  "  -div(lambda tr(Du)I + 2 mu (Du - gamma*dot(grad(U),grad(U))/2)) = f \n"
+  "  -div(F S) = f\n"
   "where\n"
+  "  F = 1 + Du                  (deformation gradient)\n"
+  "  S = lambda tr(E) I + 2 mu E (Second Piola-Kirchoff tensor, Saint-Venant Kirchoff constitutive model)\n"
+  "  E = (Du + Du^T + Du^T Du)/2 (Green-Lagrange tensor)\n"
   "  D is the symmetric gradient operator\n"
-  "  mu and lambda are the Lame parameters\n"
-  "  gamma controls the nonlinearity, gamma=1 is the standard finite strain tensor and gamma=0 is linear elasticity\n\n";
+  "  mu and lambda are the Lame parameters\n\n";
 
 #include <petscsnes.h>
 #include <dohpfs.h>
@@ -13,106 +15,17 @@ static const char help[] = "Solve nonlinear elasticity using dual order hp eleme
 #include <dohpsys.h>
 #include <dohp.h>
 
+#include "elastexact.h"
+
 static PetscLogEvent LOG_ElastShellMult;
 
-struct ElastParam {
-  dReal lambda,mu,gamma;
-  dBool bdy100;
-};
-
-struct ElastExactCtx {
-  dReal a,b,c;
-};
 struct ElastExact {
-  void (*solution)(const struct ElastExactCtx*,const struct ElastParam*,const dReal x[3],dScalar u[3],dScalar du[9]);
+  void (*solution)(const struct ElastExactCtx*,const dReal x[3],dScalar u[3],dScalar du[9]);
   void (*forcing)(const struct ElastExactCtx*,const struct ElastParam*,const dReal x[3],dScalar f[3]);
 };
 
-/* Exact solutions are generated using sympy:
-from sympy import *
-from sympy.abc import *
-xyz = [x,y,z]
-u0 = cos(a*x) * exp(b*y) * sin(c*z); u1 = sin(a*x) * tanh(b*y) * cosh(c*z); u2 = exp(a*x) * sinh(b*y) * log(1+(c*z)**2); u = [u0,u1,u2]
-du = [[diff(v,x),diff(v,y),diff(v,z)] for v in u]
-s = [ [l*(du[0][0]+du[1][1]+du[2][2])*(i==j) + mu*(du[i][j] + du[j][i]) + gamma*np.sum([du[k][i]*du[k][j] for k in range(3)]) for j in range(3)] for i in range(3) ]
-[ccode(-np.sum([diff(s[i][j],xyz[j]) for j in range(3)])) for i in range(3)]
-*/
-static void ElastExact_0_Solution(const struct ElastExactCtx *ctx,const struct ElastParam dUNUSED *prm,const dReal xyz[3],dScalar u[3],dScalar du_flat[9])
-{
-  const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
-  dScalar (*du)[3] = (dScalar(*)[3])du_flat;
-  u[0] = cos(a*x) * exp(b*y) * sin(c*z);
-  u[1] = sin(a*x) * tanh(b*y) * cosh(c*z);
-  u[2] = exp(a*x) * sinh(b*y) * log(1+dSqr(c*z));
-  du[0][0] = -a*exp(b*y)*sin(a*x)*sin(c*z);
-  du[0][1] = b*cos(a*x)*exp(b*y)*sin(c*z);
-  du[0][2] = c*cos(a*x)*cos(c*z)*exp(b*y);
-  du[1][0] = a*cos(a*x)*cosh(c*z)*tanh(b*y);
-  du[1][1] = b*(1 - pow(tanh(b*y),2))*cosh(c*z)*sin(a*x);
-  du[1][2] = c*sin(a*x)*sinh(c*z)*tanh(b*y);
-  du[2][0] = a*exp(a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y);
-  du[2][1] = b*cosh(b*y)*exp(a*x)*log(1 + pow(c,2)*pow(z,2));
-  du[2][2] = 2*z*pow(c,2)*exp(a*x)*sinh(b*y)/(1 + pow(c,2)*pow(z,2));
-}
-static void ElastExact_0_Forcing(const struct ElastExactCtx *ctx,const struct ElastParam *prm,const dReal xyz[3],dScalar f[3])
-{
-  const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],l = prm->lambda,mu = prm->mu,gamma = prm->gamma;
-  f[0] = -gamma*(-2*pow(a,3)*pow(cosh(c*z),2)*pow(tanh(b*y),2)*cos(a*x)*sin(a*x) + 2*pow(a,3)*pow(sin(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) + 2*pow(a,3)*pow(log(1 + pow(c,2)*pow(z,2)),2)*pow(sinh(b*y),2)*exp(2*a*x)) - gamma*(a*pow(b,2)*pow((1 - pow(tanh(b*y),2)),2)*pow(cosh(c*z),2)*cos(a*x)*sin(a*x) - 2*a*pow(b,2)*pow(sin(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) - 2*a*pow(b,2)*pow(cosh(c*z),2)*pow(tanh(b*y),2)*(1 - pow(tanh(b*y),2))*cos(a*x)*sin(a*x) + a*pow(b,2)*pow(cosh(b*y),2)*pow(log(1 + pow(c,2)*pow(z,2)),2)*exp(2*a*x) + a*pow(b,2)*pow(log(1 + pow(c,2)*pow(z,2)),2)*pow(sinh(b*y),2)*exp(2*a*x)) - gamma*(a*pow(c,2)*pow(cosh(c*z),2)*pow(tanh(b*y),2)*cos(a*x)*sin(a*x) + a*pow(c,2)*pow(sin(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) + a*pow(c,2)*pow(sinh(c*z),2)*pow(tanh(b*y),2)*cos(a*x)*sin(a*x) - a*pow(c,2)*pow(cos(c*z),2)*cos(a*x)*exp(2*b*y)*sin(a*x) + 2*a*pow(c,2)*pow(sinh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/(1 + pow(c,2)*pow(z,2)) - 4*a*pow(c,4)*pow(z,2)*pow(sinh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/pow((1 + pow(c,2)*pow(z,2)),2) + 4*a*pow(c,4)*pow(z,2)*pow(sinh(b*y),2)*exp(2*a*x)/pow((1 + pow(c,2)*pow(z,2)),2)) - l*(-pow(a,2)*cos(a*x)*exp(b*y)*sin(c*z) + a*b*(1 - pow(tanh(b*y),2))*cos(a*x)*cosh(c*z) + 2*a*z*pow(c,2)*exp(a*x)*sinh(b*y)/(1 + pow(c,2)*pow(z,2))) - mu*(pow(b,2)*cos(a*x)*exp(b*y)*sin(c*z) + a*b*(1 - pow(tanh(b*y),2))*cos(a*x)*cosh(c*z)) - mu*(-pow(c,2)*cos(a*x)*exp(b*y)*sin(c*z) + 2*a*z*pow(c,2)*exp(a*x)*sinh(b*y)/(1 + pow(c,2)*pow(z,2))) + 2*mu*pow(a,2)*cos(a*x)*exp(b*y)*sin(c*z);
-  f[1] = -gamma*(-4*pow(b,3)*pow((1 - pow(tanh(b*y),2)),2)*pow(cosh(c*z),2)*pow(sin(a*x),2)*tanh(b*y) + 2*pow(b,3)*pow(log(1 + pow(c,2)*pow(z,2)),2)*cosh(b*y)*exp(2*a*x)*sinh(b*y) + 2*pow(b,3)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)) - gamma*(b*pow(a,2)*pow(cos(a*x),2)*pow(cosh(c*z),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) - b*pow(a,2)*pow(cosh(c*z),2)*pow(sin(a*x),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) + 2*b*pow(a,2)*pow(log(1 + pow(c,2)*pow(z,2)),2)*cosh(b*y)*exp(2*a*x)*sinh(b*y) + b*pow(a,2)*pow(sin(a*x),2)*pow(sin(c*z),2)*exp(2*b*y) - b*pow(a,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)) - gamma*(b*pow(c,2)*pow(cosh(c*z),2)*pow(sin(a*x),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) + b*pow(c,2)*pow(sin(a*x),2)*pow(sinh(c*z),2)*(1 - pow(tanh(b*y),2))*tanh(b*y) + 2*b*pow(c,2)*cosh(b*y)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y)/(1 + pow(c,2)*pow(z,2)) + 4*b*pow(c,4)*pow(z,2)*cosh(b*y)*exp(2*a*x)*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2) - 4*b*pow(c,4)*pow(z,2)*cosh(b*y)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2) + b*pow(c,2)*pow(cos(a*x),2)*pow(cos(c*z),2)*exp(2*b*y) - b*pow(c,2)*pow(cos(a*x),2)*pow(sin(c*z),2)*exp(2*b*y)) - l*(-a*b*exp(b*y)*sin(a*x)*sin(c*z) - 2*pow(b,2)*(1 - pow(tanh(b*y),2))*cosh(c*z)*sin(a*x)*tanh(b*y) + 2*b*z*pow(c,2)*cosh(b*y)*exp(a*x)/(1 + pow(c,2)*pow(z,2))) - mu*(pow(c,2)*cosh(c*z)*sin(a*x)*tanh(b*y) + 2*b*z*pow(c,2)*cosh(b*y)*exp(a*x)/(1 + pow(c,2)*pow(z,2))) - mu*(-pow(a,2)*cosh(c*z)*sin(a*x)*tanh(b*y) - a*b*exp(b*y)*sin(a*x)*sin(c*z)) + 4*mu*pow(b,2)*(1 - pow(tanh(b*y),2))*cosh(c*z)*sin(a*x)*tanh(b*y);
-  f[2] = -gamma*(-2*pow(c,3)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) + 2*pow(c,3)*pow(sin(a*x),2)*pow(tanh(b*y),2)*cosh(c*z)*sinh(c*z) - 16*pow(c,6)*pow(z,3)*pow(sinh(b*y),2)*exp(2*a*x)/pow((1 + pow(c,2)*pow(z,2)),3) + 8*z*pow(c,4)*pow(sinh(b*y),2)*exp(2*a*x)/pow((1 + pow(c,2)*pow(z,2)),2)) - gamma*(c*pow(a,2)*pow(cos(a*x),2)*pow(tanh(b*y),2)*cosh(c*z)*sinh(c*z) + c*pow(a,2)*pow(sin(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) - c*pow(a,2)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) - c*pow(a,2)*pow(sin(a*x),2)*pow(tanh(b*y),2)*cosh(c*z)*sinh(c*z) + 4*z*pow(a,2)*pow(c,2)*pow(sinh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/(1 + pow(c,2)*pow(z,2))) - gamma*(c*pow(b,2)*pow((1 - pow(tanh(b*y),2)),2)*pow(sin(a*x),2)*cosh(c*z)*sinh(c*z) + 2*c*pow(b,2)*pow(cos(a*x),2)*cos(c*z)*exp(2*b*y)*sin(c*z) - 2*c*pow(b,2)*pow(sin(a*x),2)*pow(tanh(b*y),2)*(1 - pow(tanh(b*y),2))*cosh(c*z)*sinh(c*z) + 2*z*pow(b,2)*pow(c,2)*pow(cosh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/(1 + pow(c,2)*pow(z,2)) + 2*z*pow(b,2)*pow(c,2)*pow(sinh(b*y),2)*exp(2*a*x)*log(1 + pow(c,2)*pow(z,2))/(1 + pow(c,2)*pow(z,2))) - l*(2*pow(c,2)*exp(a*x)*sinh(b*y)/(1 + pow(c,2)*pow(z,2)) + b*c*(1 - pow(tanh(b*y),2))*sin(a*x)*sinh(c*z) - a*c*cos(c*z)*exp(b*y)*sin(a*x) - 4*pow(c,4)*pow(z,2)*exp(a*x)*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2)) - mu*(pow(a,2)*exp(a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y) - a*c*cos(c*z)*exp(b*y)*sin(a*x)) - mu*(pow(b,2)*exp(a*x)*log(1 + pow(c,2)*pow(z,2))*sinh(b*y) + b*c*(1 - pow(tanh(b*y),2))*sin(a*x)*sinh(c*z)) - 4*mu*pow(c,2)*exp(a*x)*sinh(b*y)/(1 + pow(c,2)*pow(z,2)) + 8*mu*pow(c,4)*pow(z,2)*exp(a*x)*sinh(b*y)/pow((1 + pow(c,2)*pow(z,2)),2);
-}
-
-static void ElastExact_1_Solution(const struct ElastExactCtx *ctx,const struct ElastParam dUNUSED *prm,const dReal xyz[3],dScalar u[3],dScalar du_flat[9])
-{
-  const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
-  dScalar (*du)[3] = (dScalar(*)[3])du_flat;
-  u[0] = a*x;
-  u[1] = b*y;
-  u[2] = c*z;
-  du[0][0] = a;
-  du[0][1] = 0;
-  du[0][2] = 0;
-  du[1][0] = 0;
-  du[1][1] = b;
-  du[1][2] = 0;
-  du[2][0] = 0;
-  du[2][1] = 0;
-  du[2][2] = c;
-}
-static void ElastExact_1_Forcing(const struct ElastExactCtx dUNUSED *ctx,const struct ElastParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[3])
-{
-  //const dReal a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2],l = prm->lambda,mu = prm->mu,gamma = prm->gamma;
-  f[0] = 0;
-  f[1] = 0;
-  f[2] = 0;
-}
-
-static void ElastExact_2_Solution(const struct ElastExactCtx dUNUSED *ctx,const struct ElastParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar u[3],dScalar du_flat[9])
-{
-  dScalar (*du)[3] = (dScalar(*)[3])du_flat;
-  u[0] = 0;
-  u[1] = 0;
-  u[2] = 0;
-  du[0][0] = 0;
-  du[0][1] = 0;
-  du[0][2] = 0;
-  du[1][0] = 0;
-  du[1][1] = 0;
-  du[1][2] = 0;
-  du[2][0] = 0;
-  du[2][1] = 0;
-  du[2][2] = 0;
-}
-static void ElastExact_2_Forcing(const struct ElastExactCtx dUNUSED *ctx,const struct ElastParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[3])
-{
-  f[0] = 0;
-  f[1] = 1;
-  f[2] = 0;
-}
-
-
 struct ElastStore {
-  dReal Du[3][3];
+  dReal Du[3][3];                /* Displacement gradient */
 };
 
 typedef enum {EVAL_FUNCTION,EVAL_JACOBIAN, EVAL_UB} ElastEvaluation;
@@ -128,10 +41,21 @@ struct ElastCtx {
   dFS                   fs;
   Vec                   x,y;
   dInt                  constBDeg;
-  dBool                 errorview;
+  dBool                 errorview,bdy100;
+  dReal                 E0,nu;  /* Material parameters, here only for diagnostics */
   dQuadratureMethod     function_qmethod,jacobian_qmethod;
   dRulesetIterator      regioniter[EVAL_UB];
 };
+
+static dErr ElastSetMaterial(Elast elt,dReal E0,dReal nu)
+{
+  dFunctionBegin;
+  elt->E0 = E0;
+  elt->nu = nu;
+  elt->param.lambda = E0*nu / ((1 + nu)*(1-2*nu));
+  elt->param.mu     = E0 / (2*(1+nu));
+  dFunctionReturn(0);
+}
 
 static dErr ElastCreate(MPI_Comm comm,Elast *elast)
 {
@@ -144,10 +68,8 @@ static dErr ElastCreate(MPI_Comm comm,Elast *elast)
   elt->comm = comm;
 
   elt->constBDeg = 3;
-  elt->param.lambda = 10;
-  elt->param.mu     = 100;
-  elt->param.gamma  = 0;
-  elt->param.bdy100 = dFALSE;
+  err = ElastSetMaterial(elt,1,0.3);dCHK(err);
+  elt->bdy100 = dFALSE;
   elt->function_qmethod = dQUADRATURE_METHOD_FAST;
   elt->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
@@ -157,7 +79,6 @@ static dErr ElastCreate(MPI_Comm comm,Elast *elast)
 
 static dErr ElastSetFromOptions(Elast elt)
 {
-  struct ElastParam *prm = &elt->param;
   struct ElastExactCtx *exc = &elt->exactctx;
   dMesh mesh;
   dFS fs;
@@ -168,21 +89,21 @@ static dErr ElastSetFromOptions(Elast elt)
   dErr err;
 
   dFunctionBegin;
-  exact = 0; exc->a = exc->b = exc->c = 1;
+  exact = 0; exc->a = exc->b = exc->c = 1, exc->scale = 1;
   err = PetscOptionsBegin(elt->comm,NULL,"Elasticity options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",elt->constBDeg,&elt->constBDeg,NULL);dCHK(err);
     err = PetscOptionsBool("-error_view","View errors","",elt->errorview,&elt->errorview,NULL);dCHK(err);
-    err = PetscOptionsReal("-elast_lambda","first Lame parameter","",prm->lambda,&prm->lambda,NULL);dCHK(err);
-    err = PetscOptionsReal("-elast_mu","Second Lame parameter","",prm->mu,&prm->mu,NULL);dCHK(err);
-    err = PetscOptionsReal("-elast_gamma","Strength of nonlinearity [0,1]","",prm->gamma,&prm->gamma,NULL);dCHK(err);
-    err = PetscOptionsBool("-bdy100","Only use boundary 100","",prm->bdy100,&prm->bdy100,NULL);dCHK(err);
+    err = PetscOptionsReal("-elast_E0","Young's modulus","",elt->E0,&elt->E0,NULL);dCHK(err);
+    err = PetscOptionsReal("-elast_nu","Poisson ratio","",elt->nu,&elt->nu,NULL);dCHK(err);
+    err = ElastSetMaterial(elt,elt->E0,elt->nu);dCHK(err);
+    err = PetscOptionsBool("-bdy100","Only use boundary 100","",elt->bdy100,&elt->bdy100,NULL);dCHK(err);
     err = PetscOptionsEnum("-elast_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)elt->function_qmethod,(PetscEnum*)&elt->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-elast_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)elt->jacobian_qmethod,(PetscEnum*)&elt->jacobian_qmethod,NULL);dCHK(err);
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
-
+    err = PetscOptionsReal("-exact_scale","Scale the amount of deformation [0,1]","",exc->scale,&exc->scale,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
 
   switch (exact) {
@@ -220,7 +141,7 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSRegisterBoundary(fs,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-  if (!elt->param.bdy100) {
+  if (!elt->bdy100) {
     err = dFSRegisterBoundary(fs,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
     err = dFSRegisterBoundary(fs,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   }
@@ -282,61 +203,74 @@ static dErr ElastDestroy(Elast elt)
 
 static inline void ElastPointwiseComputeStore(struct ElastParam dUNUSED *prm,const dReal dUNUSED x[3],const dScalar dUNUSED u[3],const dScalar Du[9],struct ElastStore *st)
 {
-  memcpy(st->Du,Du,9*sizeof Du[0]);
+  dMemcpy(st->Du,Du,sizeof(st->Du));
 }
 
 static inline dScalar DotColumn(const dScalar a[3][3],const dScalar b[3][3],dInt i,dInt j)
 {return a[0][i]*b[0][j] + a[1][i]*b[1][j] + a[2][i]*b[2][j];}
+static inline void DeformationGradient(const dScalar H[3][3],dScalar F[3][3])
+{for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) F[i][j] = (i==j) + H[i][j];}
 
+static inline void ElastPiolaKirchoff2(struct ElastParam *prm,const dScalar H[3][3],dScalar S[6])
+{
+  dScalar E[6],trace;
+  /* Green-Lagrangian strain tensor: E = (H + H' + H'*H)/2 */
+  E[0] = H[0][0]            + 0.5*DotColumn(H,H,0,0);
+  E[1] = H[1][1]            + 0.5*DotColumn(H,H,1,1);
+  E[2] = H[2][2]            + 0.5*DotColumn(H,H,2,2);
+  E[3] = 0.5*(H[0][1] + H[1][0] + DotColumn(H,H,0,1));
+  E[4] = 0.5*(H[0][2] + H[2][0] + DotColumn(H,H,0,2));
+  E[5] = 0.5*(H[1][2] + H[2][1] + DotColumn(H,H,1,2));
+  trace = E[0] + E[1] + E[2];
+  for (dInt i=0; i<6; i++)      /* Second Piola-Kirchoff stress tensor: S = lambda*tr(E)*1 + 2*mu*E */
+    S[i] = prm->lambda*trace*(i<3) + 2*prm->mu*E[i];
+}
+static inline void ElastPiolaKirchoff2Jacobian(struct ElastParam *prm,const dScalar H[3][3],const dScalar dH[3][3],dScalar dS[6])
+{
+  dScalar dE[6],dtrace;
+  // Green-Lagrangian strain tensor: E = (H + H' + H'*H)/2
+  // The perturbation of E in direction dH is: dE = (dH + dH' + dH'*H + H'*dH)/2
+  dE[0] = dH[0][0]            + 0.5*(DotColumn(dH,H,0,0) + DotColumn(H,dH,0,0));
+  dE[1] = dH[1][1]            + 0.5*(DotColumn(dH,H,1,1) + DotColumn(H,dH,1,1));
+  dE[2] = dH[2][2]            + 0.5*(DotColumn(dH,H,2,2) + DotColumn(H,dH,2,2));
+  dE[3] = 0.5*(dH[0][1] + dH[1][0] + DotColumn(dH,H,0,1) + DotColumn(H,dH,0,1));
+  dE[4] = 0.5*(dH[0][2] + dH[2][0] + DotColumn(dH,H,0,2) + DotColumn(H,dH,0,2));
+  dE[5] = 0.5*(dH[1][2] + dH[2][1] + DotColumn(dH,H,1,2) + DotColumn(H,dH,1,2));
+  dtrace = dE[0] + dE[1] + dE[2];
+  for (dInt i=0; i<6; i++)      // Saint-Venant Kirchoff model: S = lambda*tr(E)*1 + 2*mu*E
+    dS[i] = prm->lambda*dtrace*(i<3) + 2*prm->mu*dE[i];
+}
 static inline void ElastPointwiseFunction(struct ElastParam *prm,struct ElastExact *exact,struct ElastExactCtx *exactctx,
                                           const dReal x[3],dReal weight,const dScalar u[3],const dScalar Du_flat[9],
                                           struct ElastStore *st,dScalar v[3],dScalar Dv_flat[9])
 {
-  const dScalar (*restrict Du)[3] = (const dScalar(*)[3])Du_flat;
-  dScalar       (*restrict Dv)[3] = (dScalar(*)[3])Dv_flat;
-  dScalar f[3],E0,E1,E2,E3,E4,E5,volume;
-  ElastPointwiseComputeStore(prm,x,u,&Du[0][0],st);
+  const dScalar (*Du)[3] = (const dScalar(*)[3])Du_flat;
+  dScalar       (*Dv)[3] =       (dScalar(*)[3])Dv_flat;
+  dScalar f[3],S[6],F[3][3];
   exact->forcing(exactctx,prm,x,f);
-  v[0] = -weight * f[0];       /* Coefficient of \a v in weak form */
-  v[1] = -weight * f[1];
-  v[2] = -weight * f[2];
-                                /* Twice the Green-Lagrangian strain tensor */
-  E0 = 2*Du[0][0] + prm->gamma*DotColumn(Du,Du,0,0);
-  E1 = 2*Du[1][1] + prm->gamma*DotColumn(Du,Du,1,1);
-  E2 = 2*Du[2][2] + prm->gamma*DotColumn(Du,Du,2,2);
-  E3 = Du[0][1] + Du[1][0] + prm->gamma*DotColumn(Du,Du,0,1);
-  E4 = Du[0][2] + Du[2][0] + prm->gamma*DotColumn(Du,Du,0,2);
-  E5 = Du[1][2] + Du[2][1] + prm->gamma*DotColumn(Du,Du,1,2);
-                                /* volume strain, should use \f$ e = 3\det{Du}^{1/3} \f$ */
-  volume = Du[0][0] + Du[1][1] + Du[2][2];
-                                /* Coefficients in weak form of deformation gradient of test functions */
-  Dv[0][0] = weight*(prm->lambda*volume + prm->mu*E0);
-  Dv[1][1] = weight*(prm->lambda*volume + prm->mu*E1);
-  Dv[2][2] = weight*(prm->lambda*volume + prm->mu*E2);
-  Dv[0][1] = Dv[1][0] = weight*prm->mu*E3;
-  Dv[0][2] = Dv[2][0] = weight*prm->mu*E4;
-  Dv[1][2] = Dv[2][1] = weight*prm->mu*E5;
+  for (dInt i=0; i<3; i++) v[i] = -weight * f[i]; // Body force
+  ElastPointwiseComputeStore(prm,x,u,Du_flat,st);
+  ElastPiolaKirchoff2(prm,Du,S);
+  DeformationGradient(Du,F);
+  dTensorMultGESY3(Dv,(const dScalar(*)[3])F,S); // Weak form integrand is:   Dv:Pi, Pi = F*S, F = 1+H, H = Dv
+  for (dInt i=0; i<9; i++) Dv_flat[i] *= weight;
 }
 
 static inline void ElastPointwiseJacobian(struct ElastParam dUNUSED *prm,const struct ElastStore *restrict st,dReal weight,
                                           const dScalar dUNUSED u[restrict static 3],const dScalar Du_flat[restrict static 9],
                                           dScalar v[restrict static 3],dScalar Dv_flat[restrict static 9])
 {
-  const dScalar (*Du)[3] = (const dScalar(*restrict)[3])Du_flat;
-  dScalar (*Dv)[3] = (dScalar (*)[3])Dv_flat;
-  const dScalar volume = Du[0][0] + Du[1][1] + Du[2][2]; /* volume strain, should use \f$ e = 3\det{Du}^{1/3} \f$ */
-  v[0] = 0;
-  v[1] = 0;
-  v[2] = 0;
-                                /* Coefficients in weak form of Jacobian */
-  for (dInt i=0; i<3; i++) {
-    for (dInt j=0; j<3; j++) {
-      Dv[i][j] = weight*((i==j)*prm->lambda*volume + prm->mu*(Du[i][j] + Du[j][i]
-                                                              + prm->gamma*(+ st->Du[0][i]*Du[0][j] + st->Du[0][j]*Du[0][i]
-                                                                            + st->Du[1][i]*Du[1][j] + st->Du[1][j]*Du[1][i]
-                                                                            + st->Du[2][i]*Du[2][j] + st->Du[2][j]*Du[2][i])));
-    }
-  }
+  const dScalar (*Du)[3] = (const dScalar(*)[3])Du_flat;
+  dScalar       (*Dv)[3] =       (dScalar(*)[3])Dv_flat;
+  dScalar S[6],dS[6],F[3][3],dF[3][3];
+  v[0] = v[1] = v[2] = 0;
+  ElastPiolaKirchoff2(prm,st->Du,S);             // Recompute second Piola-Kirchoff tensor
+  ElastPiolaKirchoff2Jacobian(prm,st->Du,Du,dS); // Compute derivative of S in direction Du
+  DeformationGradient(st->Du,F);
+  DeformationGradient(Du,dF);
+  dTensorMultGESY3(Dv,(const dScalar(*)[3])F,dS);    // Dv : F dS
+  dTensorMultAddGESY3(Dv,(const dScalar(*)[3])dF,S); // Dv : dH S
+  for (dInt i=0; i<9; i++) Dv_flat[i] *= weight;
 }
 
 static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
@@ -448,6 +382,7 @@ static dErr ElastJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
           }
         }
       }
+      err = dRealTableView(P*3,P*3,&K[0][0][0][0],PETSC_VIEWER_STDOUT_WORLD,"K");dCHK(err);
       err = dFSMatSetValuesBlockedExpanded(elt->fs,*Jp,P,rowcol,P,rowcol,&K[0][0][0][0],ADD_VALUES);dCHK(err);
     }
     err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat);dCHK(err);
@@ -486,7 +421,7 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
     err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar uu[3],duu[3][3],r[3],gr[3],rsum=0,grsum=0;
-      elt->exact.solution(&elt->exactctx,&elt->param,x[i],uu,&duu[0][0]);
+      elt->exact.solution(&elt->exactctx,x[i],uu,&duu[0][0]);
       for (dInt j=0; j<3; j++) {
         r[j] = u[i][j] - uu[j]; /* Function error at point */
         rsum += dSqr(r[j]);
@@ -548,7 +483,7 @@ static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
   err = VecGetArrayRead(cvec,&coords);dCHK(err);
   for (dInt i=0; i<n/bs; i++) {
     dScalar du_unused[3*bs];
-    elt->exact.solution(&elt->exactctx,&elt->param,&coords[3*i],&x[i*bs],du_unused);
+    elt->exact.solution(&elt->exactctx,&coords[3*i],&x[i*bs],du_unused);
     /* printf("Node %3d: coords %+8f %+8f %+8f   exact %+8f %+8f %+8f\n",i,coords[3*i],coords[3*i+1],coords[3*i+2],x[3*i],x[3*i+1],x[3*i+2]); */
   }
   err = VecRestoreArray(xc,&x);dCHK(err);

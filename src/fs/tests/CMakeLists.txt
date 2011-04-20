@@ -1,10 +1,16 @@
+add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/elastexact.h" "${CMAKE_CURRENT_BINARY_DIR}/elastexact.c"
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py"
+  )
+set_source_files_properties (elast.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}")
+
 dohp_link_executable (fs-ex1 ex1.c)
 dohp_link_executable (fs-ex4 fsex4.c)
 dohp_link_executable (ellip ellip.c)
 # dohp_link_executable (cellip cellip.c)
 dohp_link_executable (bu bu.c)
 dohp_link_executable (cunit cunit.c)
-dohp_link_executable (elast elast.c)
+dohp_link_executable (elast elast.c elastexact.c)
 dohp_link_executable (stokes stokes.c)
 
 dohp_add_test (fs-mf-projection-v1 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 5 -snes_monitor_short -ksp_converged_reason -dfs_ordering_type natural -proj_version 1)
