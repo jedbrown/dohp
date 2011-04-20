@@ -71,8 +71,8 @@ set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Convenience for testing
 function (dohp_link_executable name source)
-  add_executable (${name} ${source})
-  target_link_libraries (${name} dohp)
+  add_executable ("${name}" "${source}" "${ARGN}")
+  target_link_libraries ("${name}" dohp)
 endfunction ()
 function (dohp_add_test name np)
   if (Dohp_TESTS_MALLOC_DUMP)
