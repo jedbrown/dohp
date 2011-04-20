@@ -182,7 +182,7 @@ dErr dRulesetIteratorGetMatrixSpaceSizes(dRulesetIterator it,dInt *nrows,dInt *n
     err = dMallocA(nr*nc,&it->Ksplit_sizes);dCHK(err);
     for (i=0,row=it->link; i<nr; i++,row=row->next) {
       for (j=0,col=it->link; j<nc; j++,col=col->next) {
-        it->Ksplit_sizes[i*nc+j] = row->maxP * col->maxP;
+        it->Ksplit_sizes[i*nc+j] = row->maxP * row->bs * col->maxP * col->bs;
       }
     }
   }
