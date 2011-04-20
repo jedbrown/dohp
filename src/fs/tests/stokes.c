@@ -35,7 +35,7 @@ struct StokesExact {
 };
 
 static void StokesExact_0_Solution(const struct StokesExactCtx *ctx,const struct StokesRheology dUNUSED *rheo,const dReal xyz[3],
-                                   dScalar u[],dScalar p[],dScalar du[],dScalar dp[])
+                                   dScalar u[],dScalar du[],dScalar p[],dScalar dp[])
 {
   const dReal dUNUSED a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
   u[0] = x*x*y;
@@ -66,7 +66,7 @@ static void StokesExact_0_Forcing(const struct StokesExactCtx *ctx,const struct 
 }
 
 static void StokesExact_1_Solution(const struct StokesExactCtx *ctx,const struct StokesRheology dUNUSED *rheo,const dReal xyz[3],
-                                   dScalar u[],dScalar p[],dScalar du[],dScalar dp[])
+                                   dScalar u[],dScalar du[],dScalar p[],dScalar dp[])
 {
   const dReal dUNUSED a = ctx->a,b = ctx->b,c = ctx->c,x = xyz[0],y = xyz[1],z = xyz[2];
   u[0] = +sin(0.5*PETSC_PI*x) * cos(0.5*PETSC_PI*y);
@@ -134,7 +134,7 @@ struct _p_Stokes {
   Vec                    gvelocity,gvelocity_extra,gpressure,gpressure_extra,gpacked;
   IS                     ublock,pblock;
   VecScatter             extractVelocity,extractPressure;
-  dInt                   constBDeg,pressureCodim,nominalRDeg;
+  dInt                   constBDeg,pressureCodim;
   dBool                  errorview,cardinalMass,neumann300;
   char                   mattype_A[256],mattype_D[256];
   dQuadratureMethod      function_qmethod,jacobian_qmethod;
@@ -153,7 +153,6 @@ static dErr StokesCreate(MPI_Comm comm,Stokes *stokes)
 
   stk->constBDeg     = 3;
   stk->pressureCodim = 2;
-  stk->nominalRDeg   = 0;
   stk->rheo.A        = 1;
   stk->rheo.eps      = 1;
   stk->rheo.p        = 2;
@@ -211,9 +210,7 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dStrcpyS(stk->mattype_D,sizeof(stk->mattype_D),MATAIJ);dCHK(err);
   err = PetscOptionsBegin(stk->comm,NULL,"Stokesicity options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",stk->constBDeg,&stk->constBDeg,NULL);dCHK(err);
-    stk->nominalRDeg = stk->constBDeg; /* The cheapest option, usually a good default */
     err = PetscOptionsInt("-pressure_codim","Reduce pressure space by this factor","",stk->pressureCodim,&stk->pressureCodim,NULL);dCHK(err);
-    err = PetscOptionsInt("-nominal_rdeg","Nominal rule degree (will be larger if basis requires it)","",stk->nominalRDeg,&stk->nominalRDeg,NULL);dCHK(err);
     err = PetscOptionsBool("-cardinal_mass","Assemble diagonal mass matrix","",stk->cardinalMass,&stk->cardinalMass,NULL);dCHK(err);
     err = PetscOptionsBool("-error_view","View errors","",stk->errorview,&stk->errorview,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_A","Rate factor (rheology)","",rheo->A,&rheo->A,NULL);dCHK(err);
@@ -846,69 +843,37 @@ static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure 
   dFunctionReturn(0);
 }
 
-#if defined(ENABLE_PRECONDITIONING)
-static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3])
+static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[3],dReal gerrorNorms[3],dReal perrorNorms[3])
 {
-  dFS fs = stk->fs;
-  dInt n,*off,*geomoff;
-  s_dRule *rule;
-  s_dEFS *efs;
-  dReal (*geom)[3],(*q)[3],(*jinv)[3][3],*jw;
-  dScalar *x,(*u)[3],(*du)[9];
-  dErr err;
+  dErr             err;
+  Vec              Coords,gxu,gxp;
+  dRulesetIterator iter;
 
   dFunctionBegin;
-  err = dMemzero(errorNorms,3*sizeof(errorNorms));dCHK(err);
-  err = dMemzero(gerrorNorms,3*sizeof(gerrorNorms));dCHK(err);
-  err = dFSGlobalToExpanded(fs,gx,stk->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(stk->x,&x);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&q,&jinv,&jw,(dReal**)&u,NULL,(dReal**)&du,NULL);dCHK(err);
-  for (dInt e=0; e<n; e++) {
+  err = dNormsStart(errorNorms,gerrorNorms);dCHK(err);
+  err = dNormsStart(perrorNorms,NULL);dCHK(err);
+  err = StokesExtractGlobalSplit(stk,gx,&gxu,&gxp);dCHK(err);
+  err = StokesGetRegionIterator(stk,EVAL_FUNCTION,&iter);dCHK(err);
+  err = dFSGetGeometryVectorExpanded(stk->fsu,&Coords);dCHK(err);
+  err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gxu,dFS_INHOMOGENEOUS,NULL, gxp,dFS_INHOMOGENEOUS,NULL);dCHK(err);
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dReal *jw;
+    const dScalar (*x)[3],(*dx)[9],(*u)[3],(*du)[9],(*p)[1];
     dInt Q;
-    err = dRuleComputeGeometry(&rule[e],(const dReal(*)[3])(geom+geomoff[e]),q,jinv,jw);dCHK(err);
-    err = dRuleGetSize(&rule[e],0,&Q);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],&u[0][0],dAPPLY_INTERP,INSERT_VALUES);dCHK(err);
-    err = dEFSApply(&efs[e],(const dReal*)jinv,3,x+3*off[e],&du[0][0],dAPPLY_GRAD,INSERT_VALUES);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, (const dScalar**)&u,(const dScalar**)&du,NULL,NULL, (const dScalar**)&p,NULL,NULL,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      dScalar uu[3],duu[9],r[3],gr[3],rsum=0,grsum=0;
-      stk->exact.solution(&stk->exactctx,&stk->rheo,q[i],uu,duu);
-      for (dInt j=0; j<3; j++) {
-        r[j] = u[i][j] - uu[j]; /* Function error at point */
-        rsum += dSqr(r[j]);
-        gr[j] = dSqrt(dSqr(du[i][j*3+0]-duu[j*3+0]) + dSqr(du[i][j*3+1]-duu[j*3+1]) + dSqr(du[i][j*3+2]-duu[j*3+2])); /* Gradient error at point */
-        grsum += dSqr(gr[j]);
-      }
-      if (stk->errorview) {
-        printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e %10.2e %10.2e   exact %10.2e %10.2e %10.2e   error %10.e\n",
-               e,i,q[i][0],q[i][1],q[i][2],u[i][0],u[i][1],u[i][2],uu[0],uu[1],uu[2],rsum);
-      }
-      errorNorms[0] += (dAbs(r[0]) + dAbs(r[1]) + dAbs(r[2])) * jw[i];                   /* 1-norm */
-      errorNorms[1] += grsum * jw[i];                                                    /* 2-norm */
-      errorNorms[2] = dMax(errorNorms[2],dMax(dAbs(r[0]),dMax(dAbs(r[1]),dAbs(r[2])))); /* Sup-norm */
-      gerrorNorms[0] += (dAbs(gr[0]) + dAbs(gr[1]) + dAbs(gr[2])) * jw[i];
-      gerrorNorms[1] += grsum * jw[i];
-      gerrorNorms[2] = dMax(gerrorNorms[2],dMax(dAbs(gr[0]),dMax(dAbs(gr[1]),dAbs(gr[2]))));
-#if 0
-      printf("pointwise stats %8g %8g %8g %8g\n",jw[i],r[0],dSqr(r[0]),errorNorms[1]);
-      printf("pointwise grads %8g %8g %8g (%8g)\n",gr[0],gr[1],gr[2],grsum);
-# if 0
-      printf("jinv[%2d][%3d]   %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f\n",e,i,
-             jinv[i][0][0],jinv[i][0][1],jinv[i][0][2],
-             jinv[i][1][0],jinv[i][1][1],jinv[i][1][2],
-             jinv[i][2][0],jinv[i][2][1],jinv[i][2][2]);
-# endif
-#endif
+      dScalar uu[3],duu[9],pp[1],dpp[3];
+      stk->exact.solution(&stk->exactctx,&stk->rheo,x[i],uu,duu,pp,dpp);
+      err = dNormsUpdate(errorNorms,gerrorNorms,jw[i],3,uu,u[i],duu,du[i]);dCHK(err);
+      err = dNormsUpdate(perrorNorms,NULL,jw[i],1,pp,p[i],NULL,NULL);dCHK(err);
     }
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
-  err = dFSRestoreWorkspace(fs,__func__,&q,&jinv,&jw,(dReal**)&u,NULL,NULL,NULL);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(stk->x,&x);dCHK(err);
-  errorNorms[1] = dSqrt(errorNorms[1]);
-  gerrorNorms[1] = dSqrt(gerrorNorms[1]);
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  err = dNormsFinish(errorNorms,gerrorNorms);dCHK(err);
+  err = dNormsFinish(perrorNorms,NULL);dCHK(err);
   dFunctionReturn(0);
 }
-#endif /* defined(ENABLE_PRECONDITIONING) */
 
 static dErr StokesGetSolutionField_All(Stokes stk,dFS fs,dBool isvel,Vec *insoln)
 {
@@ -936,7 +901,7 @@ static dErr StokesGetSolutionField_All(Stokes stk,dFS fs,dBool isvel,Vec *insoln
   for (dInt i=0; i<n/bs; i++) {
     dScalar u_unused[3],p_unused[1],du_unused[3*3],dp_unused[3];
     /* if \a isvel then \a x is the velocity field, otherwise it is the pressure field */
-    stk->exact.solution(&stk->exactctx,&stk->rheo,&coords[3*i],isvel ? &x[i*bs] : u_unused,isvel ? p_unused : &x[i*bs],du_unused,dp_unused);
+    stk->exact.solution(&stk->exactctx,&stk->rheo,&coords[3*i],isvel ? &x[i*bs] : u_unused,du_unused,isvel ? p_unused : &x[i*bs],dp_unused);
     /* printf("Node %3d: coords %+8f %+8f %+8f   exact %+8f %+8f %+8f\n",i,coords[3*i],coords[3*i+1],coords[3*i+2],x[3*i],x[3*i+1],x[3*i+2]); */
   }
   err = VecRestoreArray(xc,&x);dCHK(err);
@@ -1182,8 +1147,8 @@ int main(int argc,char *argv[])
     err = MatNullSpaceRemove(matnull,x,NULL);dCHK(err);
   }
   if (!nocheck) {
-    dReal anorm[2],anorminf,inorm[3];//,enorm[3],gnorm[3];
-    //err = StokesErrorNorms(stk,x,enorm,gnorm);dCHK(err);
+    dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3],epnorm[3];
+    err = StokesErrorNorms(stk,x,enorm,gnorm,epnorm);dCHK(err);
     err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
     err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
     err = VecWAXPY(r,-1,soln,x);dCHK(err);
@@ -1191,8 +1156,8 @@ int main(int argc,char *argv[])
     err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
     err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
-    //err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
-    //err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
+    err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
+    err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
   }
 
   err = VecDestroy(r);dCHK(err);
