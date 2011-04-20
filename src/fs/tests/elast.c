@@ -570,7 +570,7 @@ int main(int argc,char *argv[])
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dBool  nojshell = dFALSE,nocheck = dFALSE,view_soln = dFALSE;
+  dBool  nojshell = dFALSE,nocheck = dFALSE,viewdhm = dFALSE;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -590,7 +590,7 @@ int main(int argc,char *argv[])
   err = PetscOptionsBegin(elt->comm,NULL,"Elasticity solver options",__FILE__);dCHK(err); {
     err = PetscOptionsBool("-nojshell","Do not use shell Jacobian","",nojshell,&nojshell,NULL);dCHK(err);
     err = PetscOptionsBool("-nocheck_error","Do not compute errors","",nocheck,&nocheck,NULL);dCHK(err);
-    err = PetscOptionsBool("-view_soln","View the solution","",view_soln,&view_soln,NULL);dCHK(err);
+    err = PetscOptionsBool("-viewdhm","View the solution","",viewdhm,&viewdhm,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   if (nojshell) {
     /* Use the preconditioning matrix in place of the Jacobin.  This will NOT converge unless the elements are actually
@@ -635,16 +635,16 @@ int main(int argc,char *argv[])
     err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
   }
-  if (view_soln) {
-    dViewer viewdhm;
-    err = PetscViewerCreate(comm,&viewdhm);dCHK(err);
-    err = PetscViewerSetType(viewdhm,PETSCVIEWERDHM);dCHK(err);
-    err = PetscViewerFileSetName(viewdhm,"elast.dhm");dCHK(err);
-    err = PetscViewerFileSetMode(viewdhm,FILE_MODE_WRITE);dCHK(err);
-    err = dViewerDHMSetTimeUnits(viewdhm,"hour",PETSC_PI*1e7/3600);dCHK(err);
-    err = dViewerDHMSetTime(viewdhm,0.1);dCHK(err);
-    err = VecView(x,viewdhm);dCHK(err);
-    err = PetscViewerDestroy(viewdhm);dCHK(err);
+  if (viewdhm) {
+    dViewer view;
+    err = PetscViewerCreate(comm,&view);dCHK(err);
+    err = PetscViewerSetType(view,PETSCVIEWERDHM);dCHK(err);
+    err = PetscViewerFileSetName(view,"elast.dhm");dCHK(err);
+    err = PetscViewerFileSetMode(view,FILE_MODE_WRITE);dCHK(err);
+    err = dViewerDHMSetTimeUnits(view,"hour",PETSC_PI*1e7/3600);dCHK(err);
+    err = dViewerDHMSetTime(view,0.1);dCHK(err);
+    err = VecView(x,view);dCHK(err);
+    err = PetscViewerDestroy(view);dCHK(err);
   }
 
   err = VecDestroy(r);dCHK(err);

@@ -718,6 +718,7 @@ int main(int argc,char *argv[])
     nset = 3;
     err = PetscOptionsRealArray("-require_grad","<L^1,L^2,L^infty> Error if pointwise gradient norms exceed given values, negative to disable",NULL,gopt.normRequireGrad,&nset,&flg);dCHK(err);
     if (flg && nset != 3) dERROR(PETSC_COMM_SELF,1,"You must set 3 values for -require_grad");
+    err = PetscOptionsBool("-viewdhm","View to a file using DHM","",gopt.viewdhm,&gopt.viewdhm,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   err = dMeshCreate(comm,&mesh);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
@@ -740,6 +741,8 @@ int main(int argc,char *argv[])
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
   err = dFSSetFromOptions(fs);dCHK(err);
+  err = PetscObjectSetName((PetscObject)fs,"dFS_0");dCHK(err);
+  err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
 
   err = useFS(fs);dCHK(err);
 
