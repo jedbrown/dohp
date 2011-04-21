@@ -38,7 +38,7 @@ dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *ghidx,d
   err = VecRestoreArray(lf,&a);dCHK(err);
   err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
   err = VecDohpRestoreClosure(g,&gc);dCHK(err);
-  err = VecDestroy(g);dCHK(err);
+  err = VecDestroy(&g);dCHK(err);
   err = ISLocalToGlobalMappingCreate(((dObject)fs)->comm,nc+ngh,globals,PETSC_OWN_POINTER,&fs->bmapping);dCHK(err);
   /* Don't free \a globals because we used the no-copy variant, so the IS takes ownership. */
   {

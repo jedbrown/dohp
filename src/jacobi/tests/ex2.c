@@ -69,7 +69,7 @@ int main(int argc,char *argv[])
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = TestModalBases(jac,viewer);dCHK(err);
-  err = dJacobiDestroy(jac);dCHK(err);
+  err = dJacobiDestroy(&jac);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;
 }

@@ -159,7 +159,7 @@ int main(int argc,char *argv[])
   } else {
     err = TestExplicitBases(jac,viewer);dCHK(err);
   }
-  err = dJacobiDestroy(jac);dCHK(err);
+  err = dJacobiDestroy(&jac);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;
 }

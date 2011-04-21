@@ -234,9 +234,9 @@ static dErr useFS(dFS fs)
       dERROR(PETSC_COMM_SELF,1,"Don't know how to check for non-const Basis Degree");
     }
   }
-  err = VecDestroy(x);dCHK(err);
-  err = VecDestroy(y);dCHK(err);
-  err = VecDestroy(g);dCHK(err);
+  err = VecDestroy(&x);dCHK(err);
+  err = VecDestroy(&y);dCHK(err);
+  err = VecDestroy(&g);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -657,20 +657,20 @@ static dErr doProjection(dFS fs)
     err = PetscViewerFileSetName(viewdhm,"proj.dhm");dCHK(err);
     err = PetscViewerFileSetMode(viewdhm,FILE_MODE_WRITE);dCHK(err);
     err = VecView(x,viewdhm);dCHK(err);
-    err = PetscViewerDestroy(viewdhm);dCHK(err);
+    err = PetscViewerDestroy(&viewdhm);dCHK(err);
   }
 
-  err = SNESDestroy(snes);dCHK(err);
-  err = MatDestroy(Jp);dCHK(err);
-  err = VecDestroy(r);dCHK(err);
-  err = VecDestroy(x);dCHK(err);
-  err = VecDestroy(proj.x);dCHK(err);
-  err = VecDestroy(proj.y);dCHK(err);
+  err = SNESDestroy(&snes);dCHK(err);
+  err = MatDestroy(&Jp);dCHK(err);
+  err = VecDestroy(&r);dCHK(err);
+  err = VecDestroy(&x);dCHK(err);
+  err = VecDestroy(&proj.x);dCHK(err);
+  err = VecDestroy(&proj.y);dCHK(err);
   for (dInt i=0; i<ALEN(proj.ruleset); i++) {
-    if (proj.ruleset[i]) {err = dRulesetDestroy(proj.ruleset[i]);dCHK(err);}
+    err = dRulesetDestroy(&proj.ruleset[i]);dCHK(err);
   }
   for (dInt i=0; i<ALEN(proj.regioniter); i++) {
-    if (proj.regioniter[i]) {err = dRulesetIteratorDestroy(proj.regioniter[i]);dCHK(err);}
+    err = dRulesetIteratorDestroy(&proj.regioniter[i]);dCHK(err);
   }
   dFunctionReturn(0);
 }
@@ -759,9 +759,9 @@ int main(int argc,char *argv[])
   }
   err = doProjection(fs);dCHK(err);
 
-  err = dFSDestroy(fs);dCHK(err);
-  err = dJacobiDestroy(jac);dCHK(err);
-  err = dMeshDestroy(mesh);
+  err = dFSDestroy(&fs);dCHK(err);
+  err = dJacobiDestroy(&jac);dCHK(err);
+  err = dMeshDestroy(&mesh);
   err = dFinalize();dCHK(err);
   return 0;
 }

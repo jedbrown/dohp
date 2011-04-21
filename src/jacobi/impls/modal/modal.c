@@ -240,7 +240,7 @@ static dErr dJacobiDestroy_Modal(dJacobi jac)
   }
   kh_destroy_efs(modal->efs);
   for (dQuadratureMethod m=0; m<dQUADRATURE_METHOD_INVALID; m++) {
-    if (jac->quad[m]) {err = dQuadratureDestroy(jac->quad[m]);dCHK(err);}
+    err = dQuadratureDestroy(&jac->quad[m]);dCHK(err);
   }
   err = dFree3(modal->efsOpsLine,modal->efsOpsQuad,modal->efsOpsHex);dCHK(err);
   err = dFree(modal);dCHK(err);

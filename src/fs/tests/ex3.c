@@ -102,9 +102,9 @@ int main(int argc,char *argv[])
     iMesh_save(mi,0,outname,"",&err,sizeof(outname),0);dCHK(err);
   }
 
-  err = dFSDestroy(fs);dCHK(err);
-  err = dJacobiDestroy(jac);dCHK(err);
-  err = dMeshDestroy(mesh);
+  err = dFSDestroy(&fs);dCHK(err);
+  err = dJacobiDestroy(&jac);dCHK(err);
+  err = dMeshDestroy(&mesh);
   err = dFinalize();dCHK(err);
   return 0;
 }

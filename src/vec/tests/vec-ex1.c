@@ -52,7 +52,7 @@ int main(int argc,char *argv[])
   err = VecCreateMPI(comm,(n+nghost)*bs,PETSC_DECIDE,&z);dCHK(err);
   err = ISCreateStride(comm,(n+nghost)*bs,(n+nghost)*bs*rank,1,&isg);dCHK(err);
   err = VecScatterCreate(z,isg,xl,NULL,&scatter);dCHK(err);
-  err = ISDestroy(isg);dCHK(err);
+  err = ISDestroy(&isg);dCHK(err);
   err = VecScatterBegin(scatter,xl,z,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecScatterEnd(scatter,xl,z,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = PetscPrintf(comm,"Before VecGhostUpdateBegin/End\n");dCHK(err);
@@ -63,8 +63,8 @@ int main(int argc,char *argv[])
   err = VecScatterEnd(scatter,xl,z,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = PetscPrintf(comm,"After VecGhostUpdateBegin/End\n");dCHK(err);
   err = VecView(z,viewer);dCHK(err);
-  err = VecScatterDestroy(scatter);dCHK(err);
-  err = VecDestroy(z);dCHK(err);
+  err = VecScatterDestroy(&scatter);dCHK(err);
+  err = VecDestroy(&z);dCHK(err);
   err = VecGhostRestoreLocalForm(xc,&xl);dCHK(err);
 
   err = VecDuplicate(x,&y);dCHK(err);
@@ -82,8 +82,8 @@ int main(int argc,char *argv[])
 
   err = VecDohpRestoreClosure(x,&xc);dCHK(err);
   err = VecDohpRestoreClosure(y,&yc);dCHK(err);
-  err = VecDestroy(x);dCHK(err);
-  err = VecDestroy(y);dCHK(err);
+  err = VecDestroy(&x);dCHK(err);
+  err = VecDestroy(&y);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;
 }

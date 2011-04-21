@@ -17,14 +17,14 @@ dErr TensorRuleView(TensorRule rule,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
-static dErr TensorRuleDestroy(TensorRule rule)
+static dErr TensorRuleDestroy(TensorRule *rule)
 {
   dErr err;
 
   dFunctionBegin;
-  if (!rule) dFunctionReturn(0);
-  err = dFree2(rule->weight,rule->coord);dCHK(err);
-  err = dFree(rule);dCHK(err);
+  if (!*rule) dFunctionReturn(0);
+  err = dFree2((*rule)->weight,(*rule)->coord);dCHK(err);
+  err = dFree(*rule);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -387,12 +387,12 @@ static dErr dQuadratureDestroy_Tensor(dQuadrature quad)
   /* Destroy all cached 1D tensor rules */
   for (k=kh_begin(tnsr->tensor); k!= kh_end(tnsr->tensor); k++) {
     if (!kh_exist(tnsr->tensor,k)) continue;
-    err = TensorRuleDestroy(kh_val(tnsr->tensor,k));dCHK(err);
+    err = TensorRuleDestroy(&kh_val(tnsr->tensor,k));dCHK(err);
   }
   kh_destroy_tensor(tnsr->tensor);
-  if (tnsr->ruleOpsLine) { err = dFree(tnsr->ruleOpsLine);dCHK(err); }
-  if (tnsr->ruleOpsQuad) { err = dFree(tnsr->ruleOpsQuad);dCHK(err); }
-  if (tnsr->ruleOpsHex)  { err = dFree(tnsr->ruleOpsHex);dCHK(err); }
+  err = dFree(tnsr->ruleOpsLine);dCHK(err);
+  err = dFree(tnsr->ruleOpsQuad);dCHK(err);
+  err = dFree(tnsr->ruleOpsHex);dCHK(err);
   err = dFree(tnsr);dCHK(err);
   err = PetscObjectComposeFunctionDynamic((PetscObject)quad,"dQuadratureTensorSetGaussFamily_C","",NULL);dCHK(err);
   dFunctionReturn(0);dCHK(err);

@@ -97,7 +97,7 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
   * I will be sufficiently involved to notice changes here. Famous last words. */
   err = VecCreate(((dObject)x)->comm,&y);dCHK(err);
 
-  err = PetscLayoutDestroy(y->map);dCHK(err);
+  err = PetscLayoutDestroy(&y->map);dCHK(err);
   y->map = x->map;
   y->map->refcnt++;
 
@@ -192,7 +192,7 @@ dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat)
   err = ISCreateStride(comm,nc-n,crstart+n,1,&from);dCHK(err);
   err = VecScatterCreate(gc,from,*dcache,NULL,dscat);dCHK(err);
   err = VecDohpRestoreClosure(gvec,&gc);dCHK(err);
-  err = ISDestroy(from);dCHK(err);
+  err = ISDestroy(&from);dCHK(err);
   /* \todo deal with rotations */
   dFunctionReturn(0);
 }

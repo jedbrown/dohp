@@ -1080,11 +1080,13 @@ dErr dMeshGetInstance(dMesh m,iMesh_Instance *mi)
   dFunctionReturn(0);
 }
 
-dErr dMeshDestroy(dMesh m)
+dErr dMeshDestroy(dMesh *meshp)
 {
+  dMesh m = *meshp;
   dErr err;
 
   dFunctionBegin;
+  if (!m) dFunctionReturn(0);
   PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
   if (--((PetscObject)m)->refct > 0) dFunctionReturn(0);
   if (m->ops->destroy) {
@@ -1097,7 +1099,7 @@ dErr dMeshDestroy(dMesh m)
   iMesh_dtor(m->mi,&err);dICHK(m->mi,err);
   err = PetscFree(m->infile);dCHK(err);
   err = PetscFree(m->inoptions);dCHK(err);
-  err = PetscHeaderDestroy(m);dCHK(err);
+  err = PetscHeaderDestroy(meshp);dCHK(err);
   dFunctionReturn(0);
 }
 

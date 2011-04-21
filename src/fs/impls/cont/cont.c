@@ -157,7 +157,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
 
   /* Compute reordering */
   err = MatGetOrdering(madj,orderingtype,&rperm,&cperm);dCHK(err);
-  err = MatDestroy(madj);dCHK(err);
+  err = MatDestroy(&madj);dCHK(err);
   err = ISEqual(rperm,cperm,&flg);dCHK(err);
   if (!flg) dERROR(PETSC_COMM_SELF,1,"Cannot use ordering");
   err = ISGetIndices(rperm,&newindices);dCHK(err);
@@ -167,8 +167,8 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   for (dInt i=0; i<ents_s; i++) ents[i] = adj[newindices[i]];
 
   err = ISRestoreIndices(rperm,&newindices);dCHK(err);
-  err = ISDestroy(rperm);dCHK(err);
-  err = ISDestroy(cperm);dCHK(err);
+  err = ISDestroy(&rperm);dCHK(err);
+  err = ISDestroy(&cperm);dCHK(err);
   free(adj); adj = NULL; adj_a = 0; /* iMesh allocated this memory */
 
   err = dMeshSetAddEnts(mesh,orderedSet,ents,ents_a);dCHK(err);
@@ -242,8 +242,8 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
     err = PetscObjectReference((PetscObject)*inEp);dCHK(err);
   } else {err = MatCreateMAIJ(Ep,bs,inEp);dCHK(err);}
 
-  err = MatDestroy(E);dCHK(err);
-  err = MatDestroy(Ep);dCHK(err);
+  err = MatDestroy(&E);dCHK(err);
+  err = MatDestroy(&Ep);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -446,8 +446,8 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
     sub++;
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  err = dRulesetIteratorDestroy(iter);dCHK(err);
-  err = dRulesetDestroy(ruleset);dCHK(err);
+  err = dRulesetIteratorDestroy(&iter);dCHK(err);
+  err = dRulesetDestroy(&ruleset);dCHK(err);
 
   dASSERT(subc == nsubconn);
   suboff[nsubelems] = subc;

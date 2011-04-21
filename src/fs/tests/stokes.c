@@ -252,7 +252,7 @@ static dErr StokesGetRegionIterator(Stokes stk,StokesEvaluation eval,dRulesetIte
     err = dFSGetPreferredQuadratureRuleSet(stk->fsu,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&ruleset);dCHK(err);
     err = dFSGetCoordinateFS(stk->fsu,&cfs);dCHK(err);
     err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
-    err = dRulesetDestroy(ruleset);dCHK(err); /* Give ownership to iterator */
+    err = dRulesetDestroy(&ruleset);dCHK(err); /* Give ownership to iterator */
     err = dRulesetIteratorAddFS(iter,stk->fsu);dCHK(err);
     err = dRulesetIteratorAddFS(iter,stk->fsp);dCHK(err);
     if (eval == EVAL_FUNCTION) {err = dRulesetIteratorAddStash(iter,0,sizeof(struct StokesStore));dCHK(err);}
@@ -301,27 +301,25 @@ static dErr StokesDestroy(Stokes stk)
   dErr err;
 
   dFunctionBegin;
-  err = dFSDestroy(stk->fsu);dCHK(err);
-  err = dFSDestroy(stk->fsp);dCHK(err);
-  err = dJacobiDestroy(stk->jac);dCHK(err);
-  err = dMeshDestroy(stk->mesh);dCHK(err);
+  err = dFSDestroy(&stk->fsu);dCHK(err);
+  err = dFSDestroy(&stk->fsp);dCHK(err);
+  err = dJacobiDestroy(&stk->jac);dCHK(err);
+  err = dMeshDestroy(&stk->mesh);dCHK(err);
   err = dFree(stk->storeoff);dCHK(err);
   err = dFree(stk->store);dCHK(err);
-#define _D(v)  do {if (v) {err = VecDestroy(v);dCHK(err);}} while (0)
-  _D(stk->xu);
-  _D(stk->yu);
-  _D(stk->xp);
-  _D(stk->yp);
-  _D(stk->gvelocity);
-  _D(stk->gpressure);
-  _D(stk->gvelocity_extra);
-  _D(stk->gpressure_extra);
-  _D(stk->gpacked);
-#undef _D
-  err = VecScatterDestroy(stk->extractVelocity);dCHK(err);
-  err = VecScatterDestroy(stk->extractPressure);dCHK(err);
-  err = ISDestroy(stk->ublock);dCHK(err);
-  err = ISDestroy(stk->pblock);dCHK(err);
+  err = VecDestroy(&stk->xu);dCHK(err);
+  err = VecDestroy(&stk->yu);dCHK(err);
+  err = VecDestroy(&stk->xp);dCHK(err);
+  err = VecDestroy(&stk->yp);dCHK(err);
+  err = VecDestroy(&stk->gvelocity);dCHK(err);
+  err = VecDestroy(&stk->gpressure);dCHK(err);
+  err = VecDestroy(&stk->gvelocity_extra);dCHK(err);
+  err = VecDestroy(&stk->gpressure_extra);dCHK(err);
+  err = VecDestroy(&stk->gpacked);dCHK(err);
+  err = VecScatterDestroy(&stk->extractVelocity);dCHK(err);
+  err = VecScatterDestroy(&stk->extractPressure);dCHK(err);
+  err = ISDestroy(&stk->ublock);dCHK(err);
+  err = ISDestroy(&stk->pblock);dCHK(err);
   err = dFree(stk);dCHK(err);
   dFunctionReturn(0);
 }
@@ -369,9 +367,9 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
     err = MatShellSetOperation(*J,MATOP_MULT_TRANSPOSE,(void(*)(void))MatMult_Nest_StokesCoupled);dCHK(err);
   }
 
-  err = MatDestroy(A);dCHK(err);
-  err = MatDestroy(Bt);dCHK(err);
-  err = MatDestroy(B);dCHK(err);
+  err = MatDestroy(&A);dCHK(err);
+  err = MatDestroy(&Bt);dCHK(err);
+  err = MatDestroy(&B);dCHK(err);
 
   /* Create real matrix to be used for preconditioning */
   err = dFSGetMatrix(stk->fsu,stk->mattype_A,&A);dCHK(err);
@@ -390,14 +388,14 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
     err = MatSetFromOptions(L);dCHK(err);
     err = PetscObjectCompose((dObject)D,"LSC_L",(dObject)L);dCHK(err);
     err = PetscObjectCompose((dObject)D,"LSC_Lp",(dObject)L);dCHK(err);
-    err = MatDestroy(L);dCHK(err); /* don't keep a reference */
+    err = MatDestroy(&L);dCHK(err); /* don't keep a reference */
     err = VecDuplicate(stk->gvelocity,&Mdiag);dCHK(err);
     err = PetscObjectCompose((dObject)D,"LSC_M_diag",(dObject)Mdiag);
-    err = VecDestroy(Mdiag);dCHK(err); /* don't keep a reference */
+    err = VecDestroy(&Mdiag);dCHK(err); /* don't keep a reference */
   }
 
-  err = MatDestroy(A);dCHK(err); /* release reference to Jp */
-  err = MatDestroy(D);dCHK(err); /* release reference to Jp */
+  err = MatDestroy(&A);dCHK(err); /* release reference to Jp */
+  err = MatDestroy(&D);dCHK(err); /* release reference to Jp */
   dFunctionReturn(0);
 }
 
@@ -857,8 +855,8 @@ static dErr StokesGetSolutionVector(Stokes stk,Vec *insoln)
   err = VecScatterEnd  (stk->extractVelocity,solu,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecScatterBegin(stk->extractPressure,solp,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecScatterEnd  (stk->extractPressure,solp,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
-  err = VecDestroy(solu);dCHK(err);
-  err = VecDestroy(solp);dCHK(err);
+  err = VecDestroy(&solu);dCHK(err);
+  err = VecDestroy(&solp);dCHK(err);
   *insoln = spacked;
   dFunctionReturn(0);
 }
@@ -876,7 +874,7 @@ static dErr StokesGetNullSpace(Stokes stk,MatNullSpace *matnull)
   err = VecScatterEnd  (stk->extractPressure,stk->gpressure,r,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecNormalize(r,PETSC_NULL);dCHK(err);
   err = MatNullSpaceCreate(stk->comm,dFALSE,1,&r,matnull);dCHK(err);
-  err = VecDestroy(r);dCHK(err);
+  err = VecDestroy(&r);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -911,7 +909,7 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
   err = MatNullSpaceTest(matnull,Jp,&isnull);dCHK(err);
   if (!isnull) dERROR(PETSC_COMM_SELF,1,"Vector is not in the null space of Jp");dCHK(err);
   err = MatNullSpaceDestroy(&matnull);dCHK(err);
-  err = MatDestroy(mffd);dCHK(err);
+  err = MatDestroy(&mffd);dCHK(err);
   if (compute_explicit) {
     Mat expmat,expmat_fd;
     dInt m,n;
@@ -964,11 +962,11 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
       if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
     }
     if (contour) {err = PetscViewerPopFormat(PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-    err = MatDestroy(expmat);dCHK(err);
-    err = MatDestroy(expmat_fd);dCHK(err);
+    err = MatDestroy(&expmat);dCHK(err);
+    err = MatDestroy(&expmat_fd);dCHK(err);
   }
-  err = VecDestroy(U);dCHK(err);
-  err = VecDestroy(F);dCHK(err);
+  err = VecDestroy(&U);dCHK(err);
+  err = VecDestroy(&F);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -979,7 +977,7 @@ int main(int argc,char *argv[])
   MPI_Comm comm;
   PetscViewer viewer;
   Mat J,Jp;
-  MatFDColoring fdcolor = 0;
+  MatFDColoring fdcolor = NULL;
   Vec r,x,soln;
   SNES snes;
   dBool nocheck,check_null,compute_explicit,use_jblock;
@@ -1014,7 +1012,7 @@ int main(int argc,char *argv[])
       ISColoring iscolor;
       err = MatGetColoring(Jp,MATCOLORINGID,&iscolor);dCHK(err);
       err = MatFDColoringCreate(Jp,iscolor,&fdcolor);dCHK(err);
-      err = ISColoringDestroy(iscolor);dCHK(err);
+      err = ISColoringDestroy(&iscolor);dCHK(err);
       err = MatFDColoringSetFunction(fdcolor,(PetscErrorCode(*)(void))StokesFunction,stk);dCHK(err);
       err = MatFDColoringSetFromOptions(fdcolor);dCHK(err);
       err = SNESSetJacobian(snes,J,Jp,SNESDefaultComputeJacobianColor,fdcolor);dCHK(err);
@@ -1050,7 +1048,7 @@ int main(int argc,char *argv[])
     err = VecAXPY(r,1,b);dCHK(err); /* Jx - f */
     err = VecNorm(r,NORM_2,&nrm);dCHK(err);
     err = dPrintf(comm,"Norm of discrete linear residual at exact solution %g\n",nrm);dCHK(err);
-    err = VecDestroy(b);dCHK(err);
+    err = VecDestroy(&b);dCHK(err);
   }
 
   if (!stk->neumann300) {                             /* Set null space */
@@ -1089,13 +1087,13 @@ int main(int argc,char *argv[])
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
   }
 
-  err = VecDestroy(r);dCHK(err);
-  err = VecDestroy(x);dCHK(err);
-  err = VecDestroy(soln);dCHK(err);
-  err = SNESDestroy(snes);dCHK(err);
-  if (fdcolor) {err = MatFDColoringDestroy(fdcolor);dCHK(err);}
-  if (J != Jp) {err = MatDestroy(J);dCHK(err);}
-  err = MatDestroy(Jp);dCHK(err);
+  err = VecDestroy(&r);dCHK(err);
+  err = VecDestroy(&x);dCHK(err);
+  err = VecDestroy(&soln);dCHK(err);
+  err = SNESDestroy(&snes);dCHK(err);
+  err = MatFDColoringDestroy(&fdcolor);dCHK(err);
+  if (J != Jp) {err = MatDestroy(&J);dCHK(err);}
+  err = MatDestroy(&Jp);dCHK(err);
   err = StokesDestroy(stk);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;

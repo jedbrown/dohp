@@ -784,16 +784,18 @@ dErr dRulesetIteratorGetStash(dRulesetIterator it,void *elemstash,void *nodestas
  * @note This function should only be called after dRulesetIteratorFinish().
  * @note Iterators can be reused by calling dRulesetIteratorStart() again.
  */
-dErr dRulesetIteratorDestroy(dRulesetIterator it)
+dErr dRulesetIteratorDestroy(dRulesetIterator *itp)
 {
+  dRulesetIterator it = *itp;
   dErr err;
 
   dFunctionBegin;
+  if (!it) dFunctionReturn(0);
   for (struct dRulesetIteratorLink *p=it->link,*n=p; p; p=n) {
     err = dFSRestoreEFS(p->fs,it->ruleset,&p->nefs,&p->efs);dCHK(err);
-    err = dFSDestroy(p->fs);dCHK(err);
-    err = VecDestroy(p->Xexp);dCHK(err);
-    err = VecDestroy(p->Yexp);dCHK(err);
+    err = dFSDestroy(&p->fs);dCHK(err);
+    err = VecDestroy(&p->Xexp);dCHK(err);
+    err = VecDestroy(&p->Yexp);dCHK(err);
     err = ValueCacheDestroy(&p->vc_elem);dCHK(err);
     err = ValueCacheDestroy(&p->vc_patch);dCHK(err);
     err = ExplicitCacheDestroy(&p->explicit);dCHK(err);
@@ -805,8 +807,8 @@ dErr dRulesetIteratorDestroy(dRulesetIterator it)
   err = dFree2(it->cjinv_elem,it->jw_elem);dCHK(err);
   err = dRulesetIteratorDestroyStash(it);dCHK(err);
   err = ValueCachePhysicalDestroy(&it->phys);dCHK(err);
-  err = dRulesetDestroy(it->ruleset);dCHK(err);
-  err = dFree(it);dCHK(err);
+  err = dRulesetDestroy(&it->ruleset);dCHK(err);
+  err = dFree(*itp);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -1001,5 +1003,6 @@ static dErr ExplicitCacheDestroy(struct ExplicitCache *explicit)
 
   dFunctionBegin;
   err = dFree3(explicit->bidx,explicit->interp,explicit->deriv);dCHK(err);
+  err = dMemzero(explicit,sizeof(*explicit));dCHK(err);
   dFunctionReturn(0);
 }

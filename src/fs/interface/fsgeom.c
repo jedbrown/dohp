@@ -55,7 +55,7 @@ dErr dFSGetNodalCoordinatesExpanded(dFS fs,Vec *inX)
   err = VecRestoreArray(Expanded3,&x);dCHK(err);
   err = dFSRestoreEFS(cfs,ruleset,&nelems,&cefs);dCHK(err);
 
-  err = dRulesetDestroy(ruleset);dCHK(err);
+  err = dRulesetDestroy(&ruleset);dCHK(err);
   *inX = Expanded3;
   dFunctionReturn(0);
 }
@@ -92,7 +92,7 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
   err = VecDohpZeroEntries(Count);dCHK(err);
   err = VecSet(Ones,1.);dCHK(err);
   err = dFSExpandedToGlobal(fs3,Ones,Count,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
-  err = VecDestroy(Ones);dCHK(err);
+  err = VecDestroy(&Ones);dCHK(err);
 
   err = VecDohpZeroEntries(X);dCHK(err);
   err = dFSExpandedToGlobal(fs3,Expanded,X,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
@@ -103,7 +103,7 @@ dErr dFSGetNodalCoordinatesGlobal(dFS fs,Vec *inx)
   err = VecDohpRestoreClosure(X,&Xclosure);dCHK(err);
   err = VecDohpRestoreClosure(Count,&Countclosure);dCHK(err);
 
-  err = VecDestroy(Count);dCHK(err);
+  err = VecDestroy(&Count);dCHK(err);
   *inx = X;
   dFunctionReturn(0);
 }
@@ -162,7 +162,7 @@ static dErr dFSCreateGeometryFromMesh_Private(dFS fs)
   /* Populate \a Global with the average coordinates from all the elements whose closure contains the node */
   err = dFSExpandedToGlobal(cfs,Expanded,Global,dFS_INHOMOGENEOUS,ADD_VALUES);dCHK(err);
   err = VecPointwiseDivide(Global,Global,Count);dCHK(err);
-  err = VecDestroy(Count);dCHK(err);
+  err = VecDestroy(&Count);dCHK(err);
 
   fs->geometry.expanded = Expanded;
   fs->geometry.global   = Global;

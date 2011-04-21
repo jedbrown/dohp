@@ -16,7 +16,7 @@ dErr dFSSetMesh(dFS fs,dMesh mesh,dMeshESH active)
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(mesh,dMESH_CLASSID,2);
   err = PetscObjectReference((PetscObject)mesh);dCHK(err);
-  if (fs->mesh) {err = dMeshDestroy(fs->mesh);dCHK(err);}
+  err = dMeshDestroy(&fs->mesh);dCHK(err);
   fs->mesh = mesh;
   fs->set.active= active;
   err = dMeshGetTag(mesh,fs->bdyTagName,&fs->tag.boundary);dCHK(err);
@@ -267,13 +267,14 @@ dErr dFSLoadIntoFS(PetscViewer viewer,const char fieldname[],dFS fs)
   dFunctionReturn(0);
 }
 
-dErr dFSDestroy(dFS fs)
+dErr dFSDestroy(dFS *fs)
 {
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(fs,DM_CLASSID,1);
-  err = DMDestroy((DM)fs);dCHK(err);
+  if (!*fs) dFunctionReturn(0);
+  dValidHeader(*fs,DM_CLASSID,1);
+  err = DMDestroy((DM*)fs);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -289,13 +290,13 @@ dErr DMDestroy_dFS(DM dm)
   }
   for (dInt i=0; i<fs->bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
   err = dFree(fs->fieldname);dCHK(err);
-  err = VecDestroy(fs->gvec);dCHK(err);
-  err = VecDestroy(fs->dcache);dCHK(err);
-  err = VecScatterDestroy(fs->dscat);dCHK(err);
-  err = MatDestroy(fs->E);dCHK(err);
-  err = MatDestroy(fs->Ep);dCHK(err);
-  err = ISLocalToGlobalMappingDestroy(fs->bmapping);dCHK(err);
-  err = ISLocalToGlobalMappingDestroy(fs->mapping);dCHK(err);
+  err = VecDestroy(&fs->gvec);dCHK(err);
+  err = VecDestroy(&fs->dcache);dCHK(err);
+  err = VecScatterDestroy(&fs->dscat);dCHK(err);
+  err = MatDestroy(&fs->E);dCHK(err);
+  err = MatDestroy(&fs->Ep);dCHK(err);
+  err = ISLocalToGlobalMappingDestroy(&fs->bmapping);dCHK(err);
+  err = ISLocalToGlobalMappingDestroy(&fs->mapping);dCHK(err);
   err = dFree(fs->off);dCHK(err);
   for (struct _dFSIntegrationLink *link=fs->integration,*tmp; link; link=tmp) {
     err = dFree(link->name);dCHK(err);
@@ -305,17 +306,17 @@ dErr DMDestroy_dFS(DM dm)
   }
 
   /* Geometry */
-  if (fs->geometry.expanded) {err = VecDestroy(fs->geometry.expanded);dCHK(err);}
-  if (fs->geometry.global) {err = VecDestroy(fs->geometry.global);dCHK(err);}
-  if (fs->geometry.fs) {err = dFSDestroy(fs->geometry.fs);dCHK(err);}
+  err = VecDestroy(&fs->geometry.expanded);dCHK(err);
+  err = VecDestroy(&fs->geometry.global);dCHK(err);
+  err = dFSDestroy(&fs->geometry.fs);dCHK(err);
 
   /* Nodal Coordinates */
-  if (fs->nodalcoord.expanded) {err = VecDestroy(fs->nodalcoord.expanded);dCHK(err);}
-  if (fs->nodalcoord.global) {err = VecDestroy(fs->nodalcoord.global);dCHK(err);}
-  if (fs->nodalcoord.fs) {err = dFSDestroy(fs->nodalcoord.fs);dCHK(err);}
+  err = VecDestroy(&fs->nodalcoord.expanded);dCHK(err);
+  err = VecDestroy(&fs->nodalcoord.global);dCHK(err);
+  err = dFSDestroy(&fs->nodalcoord.fs);dCHK(err);
 
-  err = dMeshDestroy(fs->mesh);dCHK(err);
-  err = dJacobiDestroy(fs->jacobi);dCHK(err);
+  err = dMeshDestroy(&fs->mesh);dCHK(err);
+  err = dJacobiDestroy(&fs->jacobi);dCHK(err);
   err = dFree(fs->ops);dCHK(err);
   dFunctionReturn(0);
 }
@@ -359,10 +360,10 @@ dErr dFSBuildSpace(dFS fs)
     err = dFSExpandedToLocal(fs,x,g,ADD_VALUES);dCHK(err);
     err = VecGhostUpdateBegin(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
     err = VecGhostUpdateEnd(g,ADD_VALUES,SCATTER_FORWARD);dCHK(err);
-    err = VecDestroy(x);dCHK(err);
+    err = VecDestroy(&x);dCHK(err);
 
     /* \todo Use g to set sparsity pattern */
-    err = VecDestroy(g);dCHK(err);
+    err = VecDestroy(&g);dCHK(err);
   }
 
   fs->spacebuilt = dTRUE;

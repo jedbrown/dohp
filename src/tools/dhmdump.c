@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
       err = dFSLoadIntoFS(load,fspaces[i].name,fs);dCHK(err);
       err = dFSView(fs,view);dCHK(err);
       err = dFSSubElementMeshView(fs,view);dCHK(err);
-      err = dFSDestroy(fs);dCHK(err);
+      err = dFSDestroy(&fs);dCHK(err);
       err = PetscViewerASCIIPopTab(view);dCHK(err);
     }
     err = PetscViewerASCIIPopTab(view);dCHK(err);
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
   }
   err = PetscViewerASCIIPopTab(view);dCHK(err);
   err = dViewerDHMRestoreSteps(load,&nsteps,&times);dCHK(err);
-  err = PetscViewerDestroy(load);dCHK(err);
+  err = PetscViewerDestroy(&load);dCHK(err);
 
   dFinalize();
   return 0;

@@ -97,15 +97,16 @@ dErr dJacobiSetFromOptions(dJacobi jac)
   dFunctionReturn(0);
 }
 
-dErr dJacobiDestroy(dJacobi jac)
+dErr dJacobiDestroy(dJacobi *jac)
 {
   dErr err;
 
   dFunctionBegin;
-  PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
-  if (--((PetscObject)jac)->refct > 0) dFunctionReturn(0);
-  if (jac->ops->Destroy) {
-    err = jac->ops->Destroy(jac);dCHK(err);
+  if (!*jac) dFunctionReturn(0);
+  PetscValidHeaderSpecific(*jac,dJACOBI_CLASSID,1);
+  if (--((PetscObject)*jac)->refct > 0) dFunctionReturn(0);
+  if ((*jac)->ops->Destroy) {
+    err = (*jac)->ops->Destroy(*jac);dCHK(err);
   }
   err = PetscHeaderDestroy(jac);dCHK(err);
   dFunctionReturn(0);

@@ -157,14 +157,14 @@ int main(int argc,char *argv[])
   err = dViewerDHMSetTimeUnits(viewer,"hour",PETSC_PI*1e7/3600);dCHK(err);
   err = dViewerDHMSetTime(viewer,0.1);dCHK(err);
   err = VecView(X,viewer);dCHK(err);
-  err = VecDestroy(X);dCHK(err);
-  err = PetscViewerDestroy(viewer);dCHK(err);
+  err = VecDestroy(&X);dCHK(err);
+  err = PetscViewerDestroy(&viewer);dCHK(err);
 
   err = FSEx4CheckSubMesh(ex4,fs);dCHK(err);
 
-  err = dJacobiDestroy(jac);dCHK(err);
-  err = dFSDestroy(fs);dCHK(err);
-  err = dMeshDestroy(mesh);dCHK(err);
+  err = dJacobiDestroy(&jac);dCHK(err);
+  err = dFSDestroy(&fs);dCHK(err);
+  err = dMeshDestroy(&mesh);dCHK(err);
 
   if (read) {
     PetscMPIInt rank;
@@ -205,12 +205,12 @@ int main(int argc,char *argv[])
       err = VecDohpLoadIntoVector(viewer,"Vec_global_0",Y);dCHK(err);
       err = dPrintf(PETSC_COMM_SELF,"Loaded vector \"Vec_global_0\"\n");dCHK(err);
       err = VecView(Y,viewnative);dCHK(err);
-      err = VecDestroy(Y);dCHK(err);
+      err = VecDestroy(&Y);dCHK(err);
     }
 
     err = dViewerDHMRestoreSteps(viewer,&nsteps,&steptimes);dCHK(err);
-    err = dFSDestroy(fs);dCHK(err);
-    err = PetscViewerDestroy(viewer);dCHK(err);
+    err = dFSDestroy(&fs);dCHK(err);
+    err = PetscViewerDestroy(&viewer);dCHK(err);
   }
 
   err = dFree(ex4);dCHK(err);

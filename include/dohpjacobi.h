@@ -151,7 +151,7 @@ extern dErr dJacobiCreate(MPI_Comm,dJacobi*);
 extern dErr dJacobiSetType(dJacobi,const dJacobiType);
 extern dErr dJacobiGetType(dJacobi,const dJacobiType*);
 extern dErr dJacobiSetFromOptions(dJacobi);
-extern dErr dJacobiDestroy(dJacobi);
+extern dErr dJacobiDestroy(dJacobi*);
 extern dErr dJacobiView(dJacobi,dViewer);
 
 #if defined PETSC_USE_DYNAMIC_LIBRARIES
@@ -203,7 +203,7 @@ extern dErr dQuadratureView(dQuadrature,PetscViewer);
 extern dErr dQuadratureSetType(dQuadrature,dQuadratureType);
 extern dErr dQuadratureSetFromOptions(dQuadrature);
 extern dErr dQuadratureSetMethod(dQuadrature,dQuadratureMethod);
-extern dErr dQuadratureDestroy(dQuadrature);
+extern dErr dQuadratureDestroy(dQuadrature*);
 extern dErr dQuadratureGetRules(dQuadrature,dInt,const dEntTopology[],const dPolynomialOrder[],dRule**);
 extern dErr dQuadratureGetFacetRules(dQuadrature,dInt,const dEntTopology[],const dInt[],const dPolynomialOrder[],dRule**);
 

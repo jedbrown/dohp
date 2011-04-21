@@ -69,14 +69,16 @@ dErr dFSRotationCreate(dFS fs,IS is,dReal rmat[],dInt ns[],Vec v,dFSRotation *in
   dFunctionReturn(0);
 }
 
-dErr dFSRotationDestroy(dFSRotation rot)
+dErr dFSRotationDestroy(dFSRotation *rot)
 {
   dErr err;
 
   dFunctionBegin;
-  err = ISDestroy(rot->is);dCHK(err);
-  err = VecDestroy(rot->strong);dCHK(err);
-  err = dFree2(rot->rmat,rot->nstrong);dCHK(err);
+  if (!*rot) dFunctionReturn(0);
+  dValidHeader(*rot,dFSROT_CLASSID,1);
+  err = ISDestroy(&(*rot)->is);dCHK(err);
+  err = VecDestroy(&(*rot)->strong);dCHK(err);
+  err = dFree2((*rot)->rmat,(*rot)->nstrong);dCHK(err);
   err = PetscHeaderDestroy(rot);dCHK(err);
   dFunctionReturn(0);
 }

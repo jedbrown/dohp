@@ -116,7 +116,7 @@ avtDohpFileFormat::avtDohpFileFormat(const char *filename)
 avtDohpFileFormat::~avtDohpFileFormat()
 {
   /* Throwing exceptions in the destructor might cause a real problem. */
-  PetscViewerDestroy(this->viewer);
+  PetscViewerDestroy(&this->viewer);
   // I *think* it is fine to finalize Dohp+PETSc.  It is definitely not okay to
   // finalize MPI and then initialize it again, but this should not happen since
   // we called MPI_Init ourselves and nobody should be calling MPI_Finalize.
@@ -323,7 +323,7 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
     err = VecDohpGetClosure(X,&Xc);avtCHK(err);
   }
 
-  err = dFSDestroy(fs);avtCHK(err);
+  err = dFSDestroy(&fs);avtCHK(err);
   delete [] off;
   delete [] topo;
   delete [] conn;
@@ -368,7 +368,7 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
   err = dFSLoadIntoFS(this->viewer,varname,fs);avtCHK(err);
   err = dFSCreateGlobalVector(fs,&X);avtCHK(err);
   err = VecDohpLoadIntoVector(this->viewer,varname,X);avtCHK(err);
-  err = dFSDestroy(fs);avtCHK(err);
+  err = dFSDestroy(&fs);avtCHK(err);
 
   err = VecDohpGetClosure(X,&Xc);avtCHK(err);
   err = VecGetLocalSize(Xc,&n);avtCHK(err);
@@ -396,7 +396,7 @@ avtDohpFileFormat::GetVar(int timestate, int domain, const char *varname)
   }
   err = VecRestoreArray(Xc,&x);avtCHK(err);
   err = VecDohpGetClosure(X,&Xc);avtCHK(err);
-  err = VecDestroy(X);avtCHK(err);
+  err = VecDestroy(&X);avtCHK(err);
   return var;
 }
 

@@ -51,8 +51,9 @@ dErr dFSGetPreferredQuadratureRuleSet(dFS fs,dMeshESH set,dEntType etype,dEntTop
   dFunctionReturn(0);
 }
 
-static dErr dRulesetWorkspaceDestroy(struct dRulesetWorkspace *ws)
+static dErr dRulesetWorkspaceDestroy(struct dRulesetWorkspace **wsp)
 {
+  struct dRulesetWorkspace *ws = *wsp;
   dErr err;
 
   dFunctionBegin;
@@ -63,20 +64,21 @@ static dErr dRulesetWorkspaceDestroy(struct dRulesetWorkspace *ws)
     next = link->next;
     err = dFree(link);dCHK(err);
   }
-  err = dFree(ws);dCHK(err);
+  err = dFree(*wsp);dCHK(err);
   dFunctionReturn(0);
 }
 
 
-dErr dRulesetDestroy(dRuleset rset)
+dErr dRulesetDestroy(dRuleset *rset)
 {
   dErr err;
 
   dFunctionBegin;
-  if (--rset->refct > 0) dFunctionReturn(0);
-  err = dFree(rset->rules);dCHK(err);
-  err = dRulesetWorkspaceDestroy(rset->workspace);dCHK(err);
-  err = dFree(rset);dCHK(err);
+  if (!*rset) dFunctionReturn(0);
+  if (--(*rset)->refct > 0) dFunctionReturn(0);
+  err = dFree((*rset)->rules);dCHK(err);
+  err = dRulesetWorkspaceDestroy(&(*rset)->workspace);dCHK(err);
+  err = dFree(*rset);dCHK(err);
   dFunctionReturn(0);
 }
 

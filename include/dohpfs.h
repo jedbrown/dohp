@@ -96,10 +96,10 @@ extern dErr dRulesetGetMaxQ(dRuleset rset,dInt *maxQ,dInt *maxnpatches,dInt *max
 extern dErr dRulesetGetSize(dRuleset rset,dInt *size);
 extern dErr dRulesetGetWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
 extern dErr dRulesetRestoreWorkspace(dRuleset rset,dScalar **q,dScalar **cjac,dScalar **cjinv,dScalar **jw,dInt dof,...);
-extern dErr dRulesetDestroy(dRuleset);
+extern dErr dRulesetDestroy(dRuleset*);
 
 extern dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter);
-extern dErr dRulesetIteratorDestroy(dRulesetIterator);
+extern dErr dRulesetIteratorDestroy(dRulesetIterator*);
 extern dErr dRulesetIteratorAddFS(dRulesetIterator it,dFS fs);
 extern dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,...);
 extern dErr dRulesetIteratorNextPatch(dRulesetIterator it);
@@ -121,7 +121,7 @@ extern dErr dRulesetIteratorFinish(dRulesetIterator);
 extern dErr dRulesetIteratorAddStash(dRulesetIterator it,dInt patchbytes,dInt nodebytes);
 extern dErr dRulesetIteratorGetStash(dRulesetIterator,void *patchstash,void *nodestash);
 
-extern dErr dFSDestroy(dFS);
+extern dErr dFSDestroy(dFS*);
 extern dErr dFSView(dFS,dViewer);
 extern dErr dFSLoadIntoFS(dViewer,const char[],dFS);
 
@@ -140,7 +140,7 @@ extern dErr dFSGlobalToExpanded(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
 extern dErr dFSExpandedToGlobal(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);
 
 extern dErr dFSRotationCreate(dFS,IS,dReal[],dInt[],Vec,dFSRotation*);
-extern dErr dFSRotationDestroy(dFSRotation);
+extern dErr dFSRotationDestroy(dFSRotation*);
 extern dErr dFSRotationView(dFSRotation,dViewer);
 extern dErr dFSRotationApply(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);
 extern dErr dFSRotationApplyLocal(dFSRotation,Vec,dFSRotateMode,dFSHomogeneousMode);

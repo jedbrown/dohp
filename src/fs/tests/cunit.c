@@ -130,7 +130,7 @@ static dErr CUCreateHexMesh(CU cu)
   iMesh_createEntArr(mi,iMesh_LINE_SEGMENT,work,ALEN(econn),MLREF(e),MLREF(stat),&ierr);dICHK(mi,ierr);
   MeshListFree(e); MeshListFree(stat);
   MeshListFree(v);
-  err = PFDestroy(pf);dCHK(err);
+  err = PFDestroy(&pf);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -180,11 +180,11 @@ static dErr CUDestroy(CU cu)
   dErr err;
 
   dFunctionBegin;
-  err = dFSDestroy(cu->fs);dCHK(err);
-  err = dJacobiDestroy(cu->jac);dCHK(err);
-  err = dMeshDestroy(cu->mesh);dCHK(err);
-  err = VecDestroy(cu->x);dCHK(err);
-  err = VecDestroy(cu->gx);dCHK(err);
+  err = dFSDestroy(&cu->fs);dCHK(err);
+  err = dJacobiDestroy(&cu->jac);dCHK(err);
+  err = dMeshDestroy(&cu->mesh);dCHK(err);
+  err = VecDestroy(&cu->x);dCHK(err);
+  err = VecDestroy(&cu->gx);dCHK(err);
   err = dFree(cu);dCHK(err);
   dFunctionReturn(0);
 }
@@ -256,7 +256,7 @@ static dErr CUTestEvaluate(CU cu,dViewer viewer)
       err = PetscViewerASCIIPrintf(viewer,"Comparison of re-expanded global coordinates (-nce_compare)\n");dCHK(err);
       err = VecBlockCompare(ncexpanded,expanded2,viewer);dCHK(err);
     }
-    err = VecDestroy(expanded2);dCHK(err);
+    err = VecDestroy(&expanded2);dCHK(err);
   }
   dFunctionReturn(0);
 }

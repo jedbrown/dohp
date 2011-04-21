@@ -175,7 +175,7 @@ static dErr ElastGetRegionIterator(Elast elt,ElastEvaluation eval,dRulesetIterat
     err = dFSGetPreferredQuadratureRuleSet(elt->fs,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&ruleset);dCHK(err);
     err = dFSGetCoordinateFS(elt->fs,&cfs);dCHK(err);
     err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
-    err = dRulesetDestroy(ruleset);dCHK(err); /* Give ownership to iterator */
+    err = dRulesetDestroy(&ruleset);dCHK(err); /* Give ownership to iterator */
     err = dRulesetIteratorAddFS(iter,elt->fs);dCHK(err);
     if (eval == EVAL_FUNCTION) {err = dRulesetIteratorAddStash(iter,0,sizeof(struct ElastStore));dCHK(err);}
     elt->regioniter[eval] = iter;
@@ -189,13 +189,13 @@ static dErr ElastDestroy(Elast elt)
   dErr err;
 
   dFunctionBegin;
-  err = dFSDestroy(elt->fs);dCHK(err);
-  err = dJacobiDestroy(elt->jac);dCHK(err);
-  err = dMeshDestroy(elt->mesh);dCHK(err);
-  if (elt->x) {err = VecDestroy(elt->x);dCHK(err);}
-  if (elt->y) {err = VecDestroy(elt->y);dCHK(err);}
+  err = dFSDestroy(&elt->fs);dCHK(err);
+  err = dJacobiDestroy(&elt->jac);dCHK(err);
+  err = dMeshDestroy(&elt->mesh);dCHK(err);
+  err = VecDestroy(&elt->x);dCHK(err);
+  err = VecDestroy(&elt->y);dCHK(err);
   for (dInt i=0; i<EVAL_UB; i++) {
-    if (elt->regioniter[i]) {dRulesetIteratorDestroy(elt->regioniter[i]);dCHK(err);}
+    dRulesetIteratorDestroy(&elt->regioniter[i]);dCHK(err);
   }
   err = dFree(elt);dCHK(err);
   dFunctionReturn(0);
@@ -569,15 +569,15 @@ int main(int argc,char *argv[])
     err = dViewerDHMSetTimeUnits(view,"hour",PETSC_PI*1e7/3600);dCHK(err);
     err = dViewerDHMSetTime(view,0.1);dCHK(err);
     err = VecView(x,view);dCHK(err);
-    err = PetscViewerDestroy(view);dCHK(err);
+    err = PetscViewerDestroy(&view);dCHK(err);
   }
 
-  err = VecDestroy(r);dCHK(err);
-  err = VecDestroy(x);dCHK(err);
-  err = VecDestroy(soln);dCHK(err);
-  err = SNESDestroy(snes);dCHK(err);
-  if (J != Jp) {err = MatDestroy(J);dCHK(err);}
-  err = MatDestroy(Jp);dCHK(err);
+  err = VecDestroy(&r);dCHK(err);
+  err = VecDestroy(&x);dCHK(err);
+  err = VecDestroy(&soln);dCHK(err);
+  err = SNESDestroy(&snes);dCHK(err);
+  if (J != Jp) {err = MatDestroy(&J);dCHK(err);}
+  err = MatDestroy(&Jp);dCHK(err);
   err = ElastDestroy(elt);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;

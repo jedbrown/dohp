@@ -86,12 +86,12 @@ static dErr BUDestroy(BU bu)
   dErr err;
 
   dFunctionBegin;
-  err = dFSDestroy(bu->fs);dCHK(err);
-  err = dJacobiDestroy(bu->jac);dCHK(err);
-  err = dMeshDestroy(bu->mesh);dCHK(err);
-  err = VecDestroy(bu->x);dCHK(err);
-  err = VecDestroy(bu->y);dCHK(err);
-  err = VecDestroy(bu->gx);dCHK(err);
+  err = dFSDestroy(&bu->fs);dCHK(err);
+  err = dJacobiDestroy(&bu->jac);dCHK(err);
+  err = dMeshDestroy(&bu->mesh);dCHK(err);
+  err = VecDestroy(&bu->x);dCHK(err);
+  err = VecDestroy(&bu->y);dCHK(err);
+  err = VecDestroy(&bu->gx);dCHK(err);
   err = dFree(bu);dCHK(err);
   dFunctionReturn(0);
 }
@@ -163,7 +163,7 @@ int main(int argc,char *argv[])
   err = BUAssemble(bu,Jp);dCHK(err);
   err = MatView(Jp,viewer);dCHK(err);
 
-  err = MatDestroy(Jp);dCHK(err);
+  err = MatDestroy(&Jp);dCHK(err);
   err = BUDestroy(bu);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;

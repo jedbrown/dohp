@@ -107,14 +107,14 @@ static dErr TensorBasisCreate(dJacobi_Tensor *tnsr,dInt rsize,const dReal rcoord
   dFunctionReturn(0);
 }
 
-static dErr TensorBasisDestroy(TensorBasis basis)
+static dErr TensorBasisDestroy(TensorBasis *basis)
 {
   dErr err;
 
   dFunctionBegin;
-  if (!basis) dFunctionReturn(0);
-  err = dFree6(basis->interp,basis->deriv,basis->interpTranspose,basis->derivTranspose,basis->node,basis->weight);dCHK(err);
-  err = dFree(basis);dCHK(err);
+  if (!*basis) dFunctionReturn(0);
+  err = dFree6((*basis)->interp,(*basis)->deriv,(*basis)->interpTranspose,(*basis)->derivTranspose,(*basis)->node,(*basis)->weight);dCHK(err);
+  err = dFree(*basis);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -157,7 +157,7 @@ static dErr dJacobiDestroy_Tensor(dJacobi jac)
   dFunctionBegin;
   for (khiter_t k=kh_begin(tnsr->tensor); k!=kh_end(tnsr->tensor); k++) {
     if (!kh_exist(tnsr->tensor,k)) continue;
-    err = TensorBasisDestroy(kh_val(tnsr->tensor,k));dCHK(err);
+    err = TensorBasisDestroy(&kh_val(tnsr->tensor,k));dCHK(err);
   }
   kh_destroy_tensor(tnsr->tensor);
   for (khiter_t k=kh_begin(tnsr->efs); k!=kh_end(tnsr->efs); k++) {
@@ -168,7 +168,7 @@ static dErr dJacobiDestroy_Tensor(dJacobi jac)
   }
   kh_destroy_efs(tnsr->efs);
   for (dQuadratureMethod m=0; m<dQUADRATURE_METHOD_INVALID; m++) {
-    if (jac->quad[m]) {err = dQuadratureDestroy(jac->quad[m]);dCHK(err);}
+    err = dQuadratureDestroy(&jac->quad[m]);dCHK(err);
   }
   err = dJacobiEFSOpsDestroy_Tensor(jac);dCHK(err);
   err = dFree(tnsr);dCHK(err);

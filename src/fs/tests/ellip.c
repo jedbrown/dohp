@@ -282,7 +282,7 @@ static dErr EllipGetRegionIterator(Ellip elp,EllipEvaluation eval,dRulesetIterat
     err = dFSGetPreferredQuadratureRuleSet(elp->fs,domain,dTYPE_REGION,dTOPO_ALL,qmethod,&ruleset);dCHK(err);
     err = dFSGetCoordinateFS(elp->fs,&cfs);dCHK(err);
     err = dRulesetCreateIterator(ruleset,cfs,&iter);dCHK(err);
-    err = dRulesetDestroy(ruleset);dCHK(err); /* Give ownership to iterator */
+    err = dRulesetDestroy(&ruleset);dCHK(err); /* Give ownership to iterator */
     err = dRulesetIteratorAddFS(iter,elp->fs);dCHK(err);
     if (eval == EVAL_FUNCTION) {err = dRulesetIteratorAddStash(iter,0,sizeof(struct EllipStore));dCHK(err);}
     elp->regioniter[eval] = iter;
@@ -296,11 +296,11 @@ static dErr EllipDestroy(Ellip elp)
   dErr err;
 
   dFunctionBegin;
-  err = dFSDestroy(elp->fs);dCHK(err);
-  err = dJacobiDestroy(elp->jac);dCHK(err);
-  err = dMeshDestroy(elp->mesh);dCHK(err);
+  err = dFSDestroy(&elp->fs);dCHK(err);
+  err = dJacobiDestroy(&elp->jac);dCHK(err);
+  err = dMeshDestroy(&elp->mesh);dCHK(err);
   for (dInt i=0; i<EVAL_UB; i++) {
-    if (elp->regioniter[i]) {dRulesetIteratorDestroy(elp->regioniter[i]);dCHK(err);}
+    err = dRulesetIteratorDestroy(&elp->regioniter[i]);dCHK(err);
   }
   err = dFree(elp);dCHK(err);
   dFunctionReturn(0);
@@ -608,11 +608,11 @@ static dErr PCDestroy_Ellip(PC pc)
 
   dFunctionBegin;
   err = PCShellGetContext(pc,(void**)&pce);dCHK(err);
-  err = VecDestroy(pce->Mdiag);dCHK(err);
-  err = VecDestroy(pce->work0);dCHK(err);
-  err = VecDestroy(pce->work1);dCHK(err);
-  err = MatDestroy(pce->Mq1);dCHK(err);
-  err = KSPDestroy(pce->ksp);dCHK(err);
+  err = VecDestroy(&pce->Mdiag);dCHK(err);
+  err = VecDestroy(&pce->work0);dCHK(err);
+  err = VecDestroy(&pce->work1);dCHK(err);
+  err = MatDestroy(&pce->Mq1);dCHK(err);
+  err = KSPDestroy(&pce->ksp);dCHK(err);
   err = dFree(pce);dCHK(err);
   dFunctionReturn(0);
 }
@@ -744,15 +744,15 @@ int main(int argc,char *argv[])
     err = dViewerDHMSetTimeUnits(viewer,"hour",PETSC_PI*1e7/3600);dCHK(err);
     err = dViewerDHMSetTime(viewer,0.1);dCHK(err);
     err = VecView(x,viewer);dCHK(err);
-    err = PetscViewerDestroy(viewer);dCHK(err);
+    err = PetscViewerDestroy(&viewer);dCHK(err);
   }
 
-  err = VecDestroy(r);dCHK(err);
-  err = VecDestroy(x);dCHK(err);
-  err = VecDestroy(soln);dCHK(err);
-  err = SNESDestroy(snes);dCHK(err);
-  if (J != Jp) {err = MatDestroy(J);dCHK(err);}
-  err = MatDestroy(Jp);dCHK(err);
+  err = VecDestroy(&r);dCHK(err);
+  err = VecDestroy(&x);dCHK(err);
+  err = VecDestroy(&soln);dCHK(err);
+  err = SNESDestroy(&snes);dCHK(err);
+  if (J != Jp) {err = MatDestroy(&J);dCHK(err);}
+  err = MatDestroy(&Jp);dCHK(err);
   err = EllipDestroy(elp);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;

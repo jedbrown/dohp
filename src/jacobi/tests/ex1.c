@@ -311,7 +311,7 @@ static dErr checkRulesAndEFS(dJacobi jac)
   err = dFree3(topo,rdeg,bdeg);dCHK(err);
   err = dFree(rule);dCHK(err);
   err = dFree(efs);dCHK(err);
-  err = VecDestroy(u);dCHK(err);
+  err = VecDestroy(&u);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -345,7 +345,7 @@ int main(int argc,char *argv[])
   err = dJacobiCreate(comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
   err = checkRulesAndEFS(jac);dCHK(err);
-  err = dJacobiDestroy(jac);dCHK(err);
+  err = dJacobiDestroy(&jac);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;
 }

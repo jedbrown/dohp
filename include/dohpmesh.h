@@ -113,7 +113,7 @@ extern dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
 extern dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
 extern dErr dMeshSetGetOrdering(dMesh,dMeshESH,dMeshSetOrdering*);
 extern dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
-extern dErr dMeshDestroy(dMesh);
+extern dErr dMeshDestroy(dMesh*);
 extern dErr dMeshView(dMesh,dViewer);
 extern dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer);
 extern dErr dMeshRegisterAll(const char path[]);

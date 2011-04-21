@@ -82,15 +82,16 @@ dErr dQuadratureSetMethod(dQuadrature quad,dQuadratureMethod method)
   dFunctionReturn(0);
 }
 
-dErr dQuadratureDestroy(dQuadrature quad)
+dErr dQuadratureDestroy(dQuadrature *quad)
 {
   dErr err;
 
   dFunctionBegin;
-  dValidHeader(quad,dQUADRATURE_CLASSID,1);
-  if (--((PetscObject)quad)->refct > 0) dFunctionReturn(0);
-  if (quad->ops->Destroy) {
-    err = quad->ops->Destroy(quad);dCHK(err);
+  if (!*quad) dFunctionReturn(0);
+  dValidHeader(*quad,dQUADRATURE_CLASSID,1);
+  if (--((PetscObject)*quad)->refct > 0) dFunctionReturn(0);
+  if ((*quad)->ops->Destroy) {
+    err = (*quad)->ops->Destroy(*quad);dCHK(err);
   }
   err = PetscHeaderDestroy(quad);dCHK(err);
   dFunctionReturn(0);
