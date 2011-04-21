@@ -40,6 +40,7 @@ dErr VecBlockView(Vec X,dViewer viewer)
   err = VecGetOwnershipRange(X,&rstart,NULL);dCHK(err);
   err = MPI_Comm_rank(((PetscObject)X)->comm,&rank);dCHK(err);
   err = VecGetArrayRead(X,&x);dCHK(err);
+  err = PetscViewerASCIISynchronizedAllow(viewer,PETSC_TRUE);dCHK(err); // Would be better as a push and pop model
   for (i=0; i<m; i+=bs) {
     switch (bs) {
       case 1:
