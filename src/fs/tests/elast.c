@@ -25,7 +25,7 @@ struct ElastExact {
 };
 
 struct ElastStore {
-  dReal Du[3][3];                /* Displacement gradient */
+  dReal F[9];                /* Deformation gradient */
 };
 
 typedef enum {EVAL_FUNCTION,EVAL_JACOBIAN, EVAL_UB} ElastEvaluation;
@@ -201,76 +201,66 @@ static dErr ElastDestroy(Elast elt)
   dFunctionReturn(0);
 }
 
+static inline dScalar DotColumn(const dScalar a[9],const dScalar b[9],dInt i,dInt j)
+{return a[0*3+i]*b[0*3+j] + a[1*3+i]*b[1*3+j] + a[2*3+i]*b[2*3+j];}
+static inline void DeformationGradient(dScalar F[9],const dScalar H[9])
+{for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) F[i*3+j] = (i==j) + H[i*3+j];}
 static inline void ElastPointwiseComputeStore(struct ElastParam dUNUSED *prm,const dReal dUNUSED x[3],const dScalar dUNUSED u[3],const dScalar Du[9],struct ElastStore *st)
-{
-  dMemcpy(st->Du,Du,sizeof(st->Du));
-}
+{DeformationGradient(st->F,Du);}
 
-static inline dScalar DotColumn(const dScalar a[3][3],const dScalar b[3][3],dInt i,dInt j)
-{return a[0][i]*b[0][j] + a[1][i]*b[1][j] + a[2][i]*b[2][j];}
-static inline void DeformationGradient(const dScalar H[3][3],dScalar F[3][3])
-{for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) F[i][j] = (i==j) + H[i][j];}
-
-static inline void ElastPiolaKirchoff2(struct ElastParam *prm,const dScalar H[3][3],dScalar S[6])
+static inline void ElastPiolaKirchoff2(struct ElastParam *prm,const dScalar F[9],dScalar S[6])
 {
   dScalar E[6],trace;
-  /* Green-Lagrangian strain tensor: E = (H + H' + H'*H)/2 */
-  E[0] = H[0][0]            + 0.5*DotColumn(H,H,0,0);
-  E[1] = H[1][1]            + 0.5*DotColumn(H,H,1,1);
-  E[2] = H[2][2]            + 0.5*DotColumn(H,H,2,2);
-  E[3] = 0.5*(H[0][1] + H[1][0] + DotColumn(H,H,0,1));
-  E[4] = 0.5*(H[0][2] + H[2][0] + DotColumn(H,H,0,2));
-  E[5] = 0.5*(H[1][2] + H[2][1] + DotColumn(H,H,1,2));
+  // Green-Lagrangian strain tensor: E = (H + H' + H'*H)/2 = (F'*F - 1)/2
+  E[0] = 0.5*(DotColumn(F,F,0,0) - 1);
+  E[1] = 0.5*(DotColumn(F,F,1,1) - 1);
+  E[2] = 0.5*(DotColumn(F,F,2,2) - 1);
+  E[3] = 0.5*(DotColumn(F,F,0,1));
+  E[4] = 0.5*(DotColumn(F,F,0,2));
+  E[5] = 0.5*(DotColumn(F,F,1,2));
   trace = E[0] + E[1] + E[2];
   for (dInt i=0; i<6; i++)      /* Second Piola-Kirchoff stress tensor: S = lambda*tr(E)*1 + 2*mu*E */
     S[i] = prm->lambda*trace*(i<3) + 2*prm->mu*E[i];
 }
-static inline void ElastPiolaKirchoff2Jacobian(struct ElastParam *prm,const dScalar H[3][3],const dScalar dH[3][3],dScalar dS[6])
+static inline void ElastPiolaKirchoff2Jacobian(struct ElastParam *prm,const dScalar F[9],const dScalar dF[9],dScalar dS[6])
 {
   dScalar dE[6],dtrace;
-  // Green-Lagrangian strain tensor: E = (H + H' + H'*H)/2
-  // The perturbation of E in direction dH is: dE = (dH + dH' + dH'*H + H'*dH)/2
-  dE[0] = dH[0][0]            + 0.5*(DotColumn(dH,H,0,0) + DotColumn(H,dH,0,0));
-  dE[1] = dH[1][1]            + 0.5*(DotColumn(dH,H,1,1) + DotColumn(H,dH,1,1));
-  dE[2] = dH[2][2]            + 0.5*(DotColumn(dH,H,2,2) + DotColumn(H,dH,2,2));
-  dE[3] = 0.5*(dH[0][1] + dH[1][0] + DotColumn(dH,H,0,1) + DotColumn(H,dH,0,1));
-  dE[4] = 0.5*(dH[0][2] + dH[2][0] + DotColumn(dH,H,0,2) + DotColumn(H,dH,0,2));
-  dE[5] = 0.5*(dH[1][2] + dH[2][1] + DotColumn(dH,H,1,2) + DotColumn(H,dH,1,2));
+  // Green-Lagrangian strain tensor: E = (H + H' + H'*H)/2 = (F'*F - 1)/2
+  // The perturbation of E in direction dF is: dE = (dH + dH' + dH'*H + H'*dH)/2
+  dE[0] = 0.5*(DotColumn(F,dF,0,0) + DotColumn(dF,F,0,0));
+  dE[1] = 0.5*(DotColumn(F,dF,1,1) + DotColumn(dF,F,1,1));
+  dE[2] = 0.5*(DotColumn(F,dF,2,2) + DotColumn(dF,F,2,2));
+  dE[3] = 0.5*(DotColumn(F,dF,0,1) + DotColumn(dF,F,0,1));
+  dE[4] = 0.5*(DotColumn(F,dF,0,2) + DotColumn(dF,F,0,2));
+  dE[5] = 0.5*(DotColumn(F,dF,1,2) + DotColumn(dF,F,1,2));
   dtrace = dE[0] + dE[1] + dE[2];
   for (dInt i=0; i<6; i++)      // Saint-Venant Kirchoff model: S = lambda*tr(E)*1 + 2*mu*E
     dS[i] = prm->lambda*dtrace*(i<3) + 2*prm->mu*dE[i];
 }
 static inline void ElastPointwiseFunction(struct ElastParam *prm,struct ElastExact *exact,struct ElastExactCtx *exactctx,
-                                          const dReal x[3],dReal weight,const dScalar u[3],const dScalar Du_flat[9],
-                                          struct ElastStore *st,dScalar v[3],dScalar Dv_flat[9])
+                                          const dReal x[3],dReal weight,const dScalar u[3],const dScalar Du[9],
+                                          struct ElastStore *st,dScalar v[3],dScalar Dv[9])
 {
-  const dScalar (*Du)[3] = (const dScalar(*)[3])Du_flat;
-  dScalar       (*Dv)[3] =       (dScalar(*)[3])Dv_flat;
-  dScalar f[3],S[6],F[3][3];
+  dScalar f[3],S[6];
   exact->forcing(exactctx,prm,x,f);
   for (dInt i=0; i<3; i++) v[i] = -weight * f[i]; // Body force
-  ElastPointwiseComputeStore(prm,x,u,Du_flat,st);
-  ElastPiolaKirchoff2(prm,Du,S);
-  DeformationGradient(Du,F);
-  dTensorMultGESY3(Dv,(const dScalar(*)[3])F,S); // Weak form integrand is:   Dv:Pi, Pi = F*S, F = 1+H, H = Dv
-  for (dInt i=0; i<9; i++) Dv_flat[i] *= weight;
+  ElastPointwiseComputeStore(prm,x,u,Du,st);
+  ElastPiolaKirchoff2(prm,st->F,S);
+  dTensorMultGESY3(Dv,st->F,S); // Weak form integrand is:   Dv:Pi, Pi = F*S, F = 1+H, H = Dv
+  for (dInt i=0; i<9; i++) Dv[i] *= weight;
 }
 
-static inline void ElastPointwiseJacobian(struct ElastParam dUNUSED *prm,const struct ElastStore *restrict st,dReal weight,
-                                          const dScalar dUNUSED u[restrict static 3],const dScalar Du_flat[restrict static 9],
-                                          dScalar v[restrict static 3],dScalar Dv_flat[restrict static 9])
+static inline void ElastPointwiseJacobian(struct ElastParam *prm,const struct ElastStore *restrict st,dReal weight,
+                                          const dScalar dUNUSED u[restrict static 3],const dScalar Du[restrict static 9],
+                                          dScalar v[restrict static 3],dScalar Dv[restrict static 9])
 {
-  const dScalar (*Du)[3] = (const dScalar(*)[3])Du_flat;
-  dScalar       (*Dv)[3] =       (dScalar(*)[3])Dv_flat;
-  dScalar S[6],dS[6],F[3][3],dF[3][3];
+  dScalar S[6],dS[6];
   v[0] = v[1] = v[2] = 0;
-  ElastPiolaKirchoff2(prm,st->Du,S);             // Recompute second Piola-Kirchoff tensor
-  ElastPiolaKirchoff2Jacobian(prm,st->Du,Du,dS); // Compute derivative of S in direction Du
-  DeformationGradient(st->Du,F);
-  DeformationGradient(Du,dF);
-  dTensorMultGESY3(Dv,(const dScalar(*)[3])F,dS);    // Dv : F dS
-  dTensorMultAddGESY3(Dv,(const dScalar(*)[3])dF,S); // Dv : dH S
-  for (dInt i=0; i<9; i++) Dv_flat[i] *= weight;
+  ElastPiolaKirchoff2(prm,st->F,S);             // Recompute second Piola-Kirchoff tensor
+  ElastPiolaKirchoff2Jacobian(prm,st->F,Du,dS); // Compute derivative of S in direction Du
+  dTensorMultGESY3(Dv,st->F,dS);    // Dv : F dS
+  dTensorMultAddGESY3(Dv,Du,S);     // Dv : dF S
+  for (dInt i=0; i<9; i++) Dv[i] *= weight;
 }
 
 static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
@@ -382,7 +372,7 @@ static dErr ElastJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
           }
         }
       }
-      err = dRealTableView(P*3,P*3,&K[0][0][0][0],PETSC_VIEWER_STDOUT_WORLD,"K");dCHK(err);
+      //err = dRealTableView(P*3,P*3,&K[0][0][0][0],PETSC_VIEWER_STDOUT_WORLD,"K");dCHK(err);
       err = dFSMatSetValuesBlockedExpanded(elt->fs,*Jp,P,rowcol,P,rowcol,&K[0][0][0][0],ADD_VALUES);dCHK(err);
     }
     err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat);dCHK(err);

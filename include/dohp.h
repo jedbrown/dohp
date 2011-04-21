@@ -96,16 +96,20 @@ static inline void dTensorSymCompress3(const dScalar Du[9],dScalar Dv[6])
 {Dv[0] = Du[0]; Dv[1] = Du[4]; Dv[2] = Du[8]; Dv[3] = (Du[1]+Du[3])/2; Dv[4] = (Du[2]+Du[6]); Dv[5] = (Du[5]+Du[7])/2;}
 static inline void dTensorSymUncompress3(const dScalar Du[6],dScalar Dv[9])
 {Dv[0] = Du[0]; Dv[4] = Du[1]; Dv[8] = Du[2]; Dv[1] = Dv[3] = Du[3]; Dv[2] = Dv[6] = Du[4]; Dv[5] = Dv[7] = Du[5];}
-static inline void dTensorMultGESY3(dScalar C[3][3],const dScalar A[3][3],const dScalar S[6])
+static inline void dTensorMultGESY3(dScalar Cf[9],const dScalar Af[9],const dScalar S[6])
 {                               /* C = A*S, S has compressed symmetric storage */
+  dScalar       (*C)[3] =       (dScalar(*)[3])Cf;
+  const dScalar (*A)[3] = (const dScalar(*)[3])Af;
   for (dInt i=0; i<3; i++) {
     C[i][0] = A[i][0]*S[0] + A[i][1]*S[3] + A[i][2]*S[4];
     C[i][1] = A[i][0]*S[3] + A[i][1]*S[1] + A[i][2]*S[5];
     C[i][2] = A[i][0]*S[4] + A[i][1]*S[5] + A[i][2]*S[2];
   }
 }
-static inline void dTensorMultAddGESY3(dScalar C[3][3],const dScalar A[3][3],const dScalar S[6])
+static inline void dTensorMultAddGESY3(dScalar Cf[9],const dScalar Af[9],const dScalar S[6])
 {                               /* C += A*S, S has compressed symmetric storage */
+  dScalar       (*C)[3] =       (dScalar(*)[3])Cf;
+  const dScalar (*A)[3] = (const dScalar(*)[3])Af;
   for (dInt i=0; i<3; i++) {
     C[i][0] += A[i][0]*S[0] + A[i][1]*S[3] + A[i][2]*S[4];
     C[i][1] += A[i][0]*S[3] + A[i][1]*S[1] + A[i][2]*S[5];
