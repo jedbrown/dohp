@@ -2,12 +2,12 @@
 from __future__ import division
 
 import sympy
-from sympy import Matrix, symbols, ccode
+from sympy import Matrix, ccode
 from dohpexact import *
 
 class ElastExact(Exact):
     def __init__(self, name=None, model='lambda mu', param='a b c'):
-        Exact.__init__(self, name=name, model=model, param=param, nfields=3)
+        Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('u',3)])
     def PiolaKirchoff2(self, E):
         lmbda, mu = self.model_get('lambda mu')
         return lmbda*E.trace()*I + 2*mu*E # St. Venant-Kirchoff model
@@ -24,17 +24,17 @@ class ElastExact(Exact):
         L2 = dv.dot(Pi)                               # Move F to the other side of the contraction by identity (obvious in index notation)
         return L2
     def exact_prototype(self):
-        return 'void %(name)s_Solution(const struct ElastExactCtx *ctx,const dReal x[3],dScalar u[3],dScalar du_flat[9])' % dict(name=self.name)
+        return 'void %(name)s_Solution(const struct ElastExactCtx *ctx,const dReal x[3],dScalar u[3],dScalar du[9])' % dict(name=self.name)
     def forcing_prototype(self):
-        return 'void %(name)s_Forcing(const struct ElastExactCtx *ctx,const struct ElastParam *prm,const dReal x[3],dScalar f[3])' % dict(name=self.name)
+        return 'void %(name)s_Forcing(const struct ElastExactCtx *ctx,const struct ElastParam *prm,const dReal x[3],dScalar fu[3])' % dict(name=self.name)
     def exact_code(self):
         from sympy.abc import a,b,c
         x = Matrix(symbol3('x'))
         def body():
             for (i,expr) in enumerate(self.solution_scaled(x,a,b,c)):
-                yield ccode(expr, assign_to='u[%d]'%i)
+                yield ccode(expr, assign_to=self.fieldname(i))
             for (i,expr) in enumerate(self.solution_gradient(x,a,b,c)):
-                yield ccode(expr, assign_to='du_flat[%d]'%i)
+                yield ccode(expr, assign_to=self.dfieldname(i))
         return '''
 %(prototype)s
 {
@@ -49,7 +49,7 @@ class ElastExact(Exact):
             du = self.solution_gradient(x,a,b,c)
             v,dv = self.residual(x,u,du)
             for i,row in enumerate(rows(dv)):
-                yield ccode(v[i] - divergence(row,x), assign_to='f[%d]'%i)
+                yield ccode(v[i] - divergence(row,x), assign_to=self.ffieldname(i))
         return '''
 %(prototype)s
 {

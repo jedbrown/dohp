@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 from __future__ import division
 
 import sympy
@@ -31,14 +30,27 @@ def symbol33(var):
 I = sympy.eye(3)
 
 class Exact:
-    def __init__(self, name=None, model=None, param=None, nfields=1):
+    def __init__(self, fieldspec, name=None, model=None, param=None):
         self.name = name if name is not None else self.__class__.__name__
-        self.nfields = nfields
+        self._fieldspec = fieldspec
+        self.nfields = sum([x[1] for x in fieldspec])
         self._param = dict()
         self._model = dict()
         if model: self.model_add(model)
         if param: self.param_add(param)
         self.param_add('scale') # Always have small-displacement version available
+    def fieldseek(self,i):
+        for (name,count) in self._fieldspec:
+            if i < count: return name, i
+            i -= count
+        raise KeyError
+    def fieldname(self,i):
+        return '%s[%d]' % self.fieldseek(i)
+    def dfieldname(self,i):
+        name, j = self.fieldseek(i//3)
+        return 'd%s[%d]' % (name, j*3+i%3) # Index by flattened index
+    def ffieldname(self,i):
+        return 'f%s[%d]' % self.fieldseek(i)
     def _meta_add(self,attr,symnames):
         if isinstance(symnames,str): symnames = symnames.split()
         getattr(self,'_'+attr).update([(name,sympy.symbols([name])) for name in symnames])
@@ -64,6 +76,6 @@ class Exact:
         functions). The symbols v and dv disappear in differentiation.
         '''
         v = Matrix(symbols('v%d'%i for i in range(self.nfields)))
-        dv = Matrix([symbols('v%d_%d'%(i,j) for i in range(self.nfields)) for j in range(3)])
+        dv = Matrix([symbols('v%d_%d'%(i,j) for j in range(3)) for i in range(self.nfields)])
         L = self.weak_homogeneous(x,u,du,v,dv)
         return testgrad(L,v), testgrad(L,dv)
