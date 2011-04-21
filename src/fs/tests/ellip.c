@@ -729,6 +729,10 @@ int main(int argc,char *argv[])
     inorm[1] /= sqrt(1.*n);
     enorm[1] /= sqrt(1.*n);
     gnorm[1] /= sqrt(1.*n);
+    /* Limit anorm so it is not reported as so small that different rounding modes change the result */
+    anorm[0] *= (anorm[0] > 1e-14);
+    anorm[1] *= (anorm[1] > 1e-14);
+    anorminf *= (anorminf > 1e-14);
     err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
