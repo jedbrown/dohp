@@ -12,7 +12,14 @@ Dohp development is primarily focused on scalable solution of
 indefinite problems such as those found in incompressible flow and
 PDE-constrained optimization.
 
-Dohp currently depends on development versions of PETSc and MOAB.  If
-you are interested in Dohp, please let me know (jed at 59A2 dot org)
+Dohp currently depends on development versions of PETSc [1] and MOAB [2].
+Additionally, some tests depend on SymPy [2] to manufacture the forcing
+terms for exact solutions.
+
+If you are interested in Dohp, please let me know (jed at 59A2 dot org)
 and I'll fill you in on the design and how to get it installed (and
 update this README).
+
+[1] http://mcs.anl.gov/petsc
+[2] http://trac.mcs.anl.gov/projects/ITAPS
+[3] http://sympy.org
