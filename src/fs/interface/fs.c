@@ -702,8 +702,8 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   }
   if (lm > 128) {err = dMallocA(lm,&lidxm);dCHK(err);}
   if (ln > 128) {err = dMallocA(ln,&lidxn);dCHK(err);}
-  if (lm*ln > 1024) {err = dMallocA(lm*ln,&lv);dCHK(err);}
-  if (m*ln > 1024) {err = dMallocA(lm*n,&lvt);dCHK(err);}
+  if (lm*ln*bs*bs > 1024) {err = dMallocA(lm*ln*bs*bs,&lv);dCHK(err);}
+  if (m*ln*bs*bs > 1024) {err = dMallocA(lm*n*bs*bs,&lvt);dCHK(err);}
 
   /* Expand columns into temporary matrix \a lvt */
   for (j=0,lj=0; j<n; j++) {         /* columns in input matrix */
