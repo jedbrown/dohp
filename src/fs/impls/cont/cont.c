@@ -346,7 +346,7 @@ dErr dFSBuildSpace_Cont(dFS fs)
   * be constrained against all nodes on the adjacent entity.
   */
 
-  err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
+  err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   err = dMeshTagGetData(mesh,ma.indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
   nregions = ents_s;
   err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions,&regBDeg,nregions,&xnodes);dCHK(err);
