@@ -8,6 +8,7 @@ TAGS
 *.dvi
 *.log
 *.out
+*.pyc
 sandbox
 *~
 bompi*
