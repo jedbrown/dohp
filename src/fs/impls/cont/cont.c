@@ -51,7 +51,7 @@ static dErr dFSSetFromOptions_Cont(dFS fs)
   dFunctionBegin;
   err = PetscOptionsHead("Continuous Galerkin options");dCHK(err);
   {
-    err = PetscOptionsName("-dfs_cont_constraint_matrix","use explicit SeqAIJ constraint matrix for constraints","None",&flg);dCHK(err);
+    err = PetscOptionsBool("-dfs_cont_constraint_matrix","use explicit SeqAIJ constraint matrix for constraints","None",flg=dFALSE,&flg,NULL);dCHK(err);
     if (flg) { fsc->usecmatrix = true; }
   }
   err = PetscOptionsTail();dCHK(err);

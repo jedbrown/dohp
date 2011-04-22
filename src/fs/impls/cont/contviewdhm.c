@@ -96,9 +96,12 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     {
       hid_t fstring,mstring,sspace,strattr;
       err = dViewerDHMGetStringTypes(viewer,&fstring,&mstring,&sspace);dCHK(err);
-      strattr = H5Dcreate(meshgrp,mstatestr,fstring,sspace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(strattr,H5Dcreate);
-      herr = H5Dwrite(strattr,mstring,sspace,sspace,H5P_DEFAULT,&imeshpath_ptr);dH5CHK(herr,H5Dwrite);
-      herr = H5Dclose(strattr);dH5CHK(strattr,H5Dclose);
+      hflg = H5Lexists(meshgrp,mstatestr,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
+      if (!hflg) {
+        strattr = H5Dcreate(meshgrp,mstatestr,fstring,sspace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(strattr,H5Dcreate);
+        herr = H5Dwrite(strattr,mstring,sspace,sspace,H5P_DEFAULT,&imeshpath_ptr);dH5CHK(herr,H5Dwrite);
+        herr = H5Dclose(strattr);dH5CHK(strattr,H5Dclose);
+      }
     }
 #endif
   }

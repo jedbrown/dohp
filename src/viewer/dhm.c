@@ -319,7 +319,7 @@ static dErr dViewerDHMSetTime_DHM(PetscViewer v,dReal time)
   dErr        err;
 
   dFunctionBegin;
-  if (time != dhm->time) {
+  if (!dhm->totalsteps || time != dhm->time) {
     dhm->stepnumber++;
     dhm->totalsteps++;
     err = dViewerDHMInvalidateCurrentStep(v);dCHK(err);
@@ -352,6 +352,7 @@ dErr dViewerDHMGetStep(PetscViewer viewer,hid_t *step)
     hid_t att,timetype;
     dht_RealWithUnits time;
 
+    if (dhm->stepnumber < 0) {err = dViewerDHMSetTime(viewer,0.);dCHK(err);}
     err = dViewerDHMGetTimeType(viewer,&timetype);dCHK(err);
     err = PetscSNPrintf(stepname,sizeof stepname,"%03d",dhm->stepnumber);dCHK(err);
     if (dhm->btype == FILE_MODE_READ) {
