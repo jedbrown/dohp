@@ -467,7 +467,7 @@ dErr dEFSGetTensorNodes(dEFS efs,dInt *dim,dInt *tsize,dReal *nodes[],dReal *wei
 
   dFunctionBegin;
   dValidPointer(efs,1);
-  err = (*efs->ops.getTensorNodes)(efs,dim,tsize,nodes,weight,mscale,lscale);
+  err = (*efs->ops.getTensorNodes)(efs,dim,tsize,nodes,weight,mscale,lscale);dCHK(err);
   dFunctionReturn(0);
 }
 

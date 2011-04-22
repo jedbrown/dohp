@@ -652,8 +652,7 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Ap,Vec Mdiag,Vec gx)
         StokesPointwiseComputeStore(&stk->rheo,x[q],du[q],&store);
         for (dInt j=0; j<P; j++) { /* trial functions */
           for (dInt fj=0; fj<3; fj++) {
-            dScalar uu[3] = {0},duu[3][3] = {{0},{0},{0}},dv[3][3],Dusym[6],Dvsym[6],q_unused;
-            uu[fj] = interp[q][j];
+            dScalar duu[3][3] = {{0},{0},{0}},dv[3][3],Dusym[6],Dvsym[6],q_unused;
             duu[fj][0] = deriv[q][j][0];
             duu[fj][1] = deriv[q][j][1];
             duu[fj][2] = deriv[q][j][2];
@@ -981,7 +980,6 @@ int main(int argc,char *argv[])
 {
   Stokes stk;
   MPI_Comm comm;
-  PetscViewer viewer;
   Mat J,Jp;
   MatFDColoring fdcolor = NULL;
   Vec r,x,soln;
@@ -991,7 +989,6 @@ int main(int argc,char *argv[])
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
-  viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscLogEventRegister("StokesShellMult",MAT_CLASSID,&LOG_StokesShellMult);dCHK(err);
 
   err = StokesCreate(comm,&stk);dCHK(err);

@@ -319,13 +319,11 @@ int main(int argc,char *argv[])
 {
   dJacobi jac;
   MPI_Comm comm;
-  PetscViewer viewer;
   dInt ex;
   dErr err;
 
   err = dInitialize(&argc,&argv,0,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
-  viewer = PETSC_VIEWER_STDOUT_WORLD;
 
   ex = 0;
   err = PetscOptionsBegin(comm,NULL,"Jacobi ex1 test driver options",NULL);dCHK(err);

@@ -688,7 +688,6 @@ dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt
   va_list ap;
   dInt i;
   struct dRulesetIteratorLink *p;
-  const dReal *cjinv = NULL;
 
   dFunctionBegin;
   va_start(ap,deriv);
@@ -719,7 +718,6 @@ dErr dRulesetIteratorRestorePatchAssembly(dRulesetIterator it,dInt *P,const dInt
       if (rowcol) *rowcol = NULL;
       if (interp) *interp = NULL;
       if (deriv)  *deriv  = NULL;
-      cjinv = it->cjinv_elem;
     }
   }
   va_end(ap);

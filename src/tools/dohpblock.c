@@ -106,7 +106,7 @@ static dErr doGlobalID(iMesh_Instance mesh)
   MeshListEH ents=MLZ;
   MeshListInt type=MLZ;
   int count[4] = {0,0,0,0};
-  int owned,offset,*number;
+  int owned,*number;
   dMeshTag idTag;
   dErr err;
 
@@ -114,7 +114,7 @@ static dErr doGlobalID(iMesh_Instance mesh)
   iMesh_getEntities(mesh,0,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
   iMesh_getEntArrType(mesh,ents.v,ents.s,MLREF(type),&err);dICHK(mesh,err);
   err = dMalloc(ents.s*sizeof(number[0]),&number);dCHK(err);
-  owned = ents.s; offset = 0;
+  owned = ents.s;
   for (int i=0; i<owned; i++) {
     number[i] = count[type.v[i]]++;
   }

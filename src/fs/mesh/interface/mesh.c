@@ -924,13 +924,11 @@ dErr dMeshLoad(dMesh mesh)
 dErr dMeshView(dMesh m,PetscViewer viewer)
 {
   const char *type;
-  iMesh_Instance mi;
   dBool iascii;
   dErr err;
 
   dFunctionBegin;
   PetscValidHeaderSpecific(m,dMESH_CLASSID,1);
-  mi = m->mi;
   if (!viewer) {
     err = PetscViewerASCIIGetStdout(((PetscObject)m)->comm,&viewer);dCHK(err);
   }

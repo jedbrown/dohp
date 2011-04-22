@@ -491,7 +491,6 @@ int main(int argc,char *argv[])
   Elast elt;
   dFS fs;
   MPI_Comm comm;
-  PetscViewer viewer;
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
@@ -500,7 +499,6 @@ int main(int argc,char *argv[])
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
   comm = PETSC_COMM_WORLD;
-  viewer = PETSC_VIEWER_STDOUT_WORLD;
   err = PetscLogEventRegister("ElastShellMult",MAT_CLASSID,&LOG_ElastShellMult);dCHK(err);
 
   err = ElastCreate(comm,&elt);dCHK(err);
