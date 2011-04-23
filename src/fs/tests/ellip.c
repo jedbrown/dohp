@@ -12,6 +12,7 @@ static const char help[] = "Solve a scalar elliptic problem, a regularized p-Bra
 #include <dohpsys.h>
 #include <petscsnes.h>
 
+#define ALEN(a) ((dInt)(sizeof(a)/sizeof(a)[0]))
 PetscLogEvent LOG_EllipShellMatMult;
 
 typedef struct EllipCtx *Ellip;
@@ -27,7 +28,7 @@ struct EllipParam {
   dReal epsilon;
   dReal p;
   dReal lambda;
-  dBool  bdy100;
+  dInt  dirichlet[16];           /* Dirichlet sets, 0 means unused */
 };
 
 struct EllipExactCtx {
@@ -141,6 +142,9 @@ static dErr EllipCreate(MPI_Comm comm,Ellip *ellip)
   prm->p           = 2.0;       /* p in p-Laplacian */
   prm->epsilon     = 1.0;
   prm->lambda      = 0.0;       /* Bratu nonlinearity */
+  prm->dirichlet[0] = 100;
+  prm->dirichlet[1] = 200;
+  prm->dirichlet[2] = 300;
   elp->function_qmethod = dQUADRATURE_METHOD_FAST;
   elp->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
@@ -188,7 +192,11 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsReal("-ellip_lam","Strength of Bratu nonlinearity","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsEnum("-ellip_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)elp->function_qmethod,(PetscEnum*)&elp->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-ellip_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)elp->jacobian_qmethod,(PetscEnum*)&elp->jacobian_qmethod,NULL);dCHK(err);
-    err = PetscOptionsBool("-bdy100","Only use boundary 100","",prm->bdy100,&prm->bdy100,NULL);dCHK(err);
+    {
+      dBool flg; dInt n = ALEN(prm->dirichlet);
+      err = PetscOptionsIntArray("-dirichlet","List of boundary sets on which to impose Dirichlet conditions","",prm->dirichlet,&n,&flg);dCHK(err);
+      if (flg) for (dInt i=n; i<ALEN(prm->dirichlet); i++) prm->dirichlet[i] = 0; /* Clear out any leftover values */
+    }
     err = PetscOptionsInt("-exact","Exact solution choice","",exact,&exact,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
@@ -242,10 +250,8 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dFSCreate(elp->comm,&fs);dCHK(err);
   err = dFSSetMesh(fs,mesh,domain);dCHK(err);
   err = dFSSetDegree(fs,jac,dtag);dCHK(err);
-  err = dFSRegisterBoundary(fs,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-  if (!elp->param.bdy100) {
-    err = dFSRegisterBoundary(fs,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-    err = dFSRegisterBoundary(fs,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  for (dInt i=0; i<ALEN(elp->param.dirichlet) && elp->param.dirichlet[i]>0; i++) {
+    err = dFSRegisterBoundary(fs,elp->param.dirichlet[i],dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   }
   err = dFSSetFromOptions(fs);dCHK(err);
   err = PetscObjectSetName((PetscObject)fs,"dFS_0");dCHK(err);
