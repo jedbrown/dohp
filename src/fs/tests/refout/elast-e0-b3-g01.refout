@@ -340,5 +340,5 @@
  10 SNES Function norm 5.076e-10 
 Algebraic residual        |x|_1 1.43e-08  |x|_2 5.08e-10  |x|_inf 2.64e-10
 Interpolation residual    |x|_1 1.85e-02  |x|_2 4.31e-04  |x|_inf 5.12e-05
-Pointwise solution error  |x|_1 5.98e-04  |x|_2 4.23e-03  |x|_inf 2.06e-04
+Pointwise solution error  |x|_1 5.98e-04  |x|_2 1.81e-04  |x|_inf 2.06e-04
 Pointwise gradient error  |x|_1 1.61e-02  |x|_2 4.23e-03  |x|_inf 2.88e-03

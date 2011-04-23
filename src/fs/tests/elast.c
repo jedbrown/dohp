@@ -398,8 +398,7 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = dMemzero(errorNorms,3*sizeof(errorNorms));dCHK(err);
-  err = dMemzero(gerrorNorms,3*sizeof(gerrorNorms));dCHK(err);
+  err = dNormsStart(errorNorms,gerrorNorms);dCHK(err);
   err = dFSGetGeometryVectorExpanded(elt->fs,&Coords);dCHK(err);
   err = ElastGetRegionIterator(elt,EVAL_FUNCTION,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
@@ -410,42 +409,16 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
     dInt Q;
     err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      dScalar uu[3],duu[3][3],r[3],gr[3],rsum=0,grsum=0;
+      dScalar uu[3],duu[3][3];
       elt->exact.solution(&elt->exactctx,x[i],uu,&duu[0][0]);
-      for (dInt j=0; j<3; j++) {
-        r[j] = u[i][j] - uu[j]; /* Function error at point */
-        rsum += dSqr(r[j]);
-        gr[j] = dSqrt(dSqr(du[i][j][0]-duu[j][0]) + dSqr(du[i][j][1]-duu[j][1]) + dSqr(du[i][j][2]-duu[j][2])); /* Gradient error at point */
-        grsum += dSqr(gr[j]);
-      }
-      if (elt->errorview) {
-        printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e %10.2e %10.2e   exact %10.2e %10.2e %10.2e   error %10.e\n",
-               patchcnt,i,x[i][0],x[i][1],x[i][2],u[i][0],u[i][1],u[i][2],uu[0],uu[1],uu[2],rsum);
-      }
-      errorNorms[0] += (dAbs(r[0]) + dAbs(r[1]) + dAbs(r[2])) * jw[i];                   /* 1-norm */
-      errorNorms[1] += grsum * jw[i];                                                    /* 2-norm */
-      errorNorms[2] = dMax(errorNorms[2],dMax(dAbs(r[0]),dMax(dAbs(r[1]),dAbs(r[2])))); /* Sup-norm */
-      gerrorNorms[0] += (dAbs(gr[0]) + dAbs(gr[1]) + dAbs(gr[2])) * jw[i];
-      gerrorNorms[1] += grsum * jw[i];
-      gerrorNorms[2] = dMax(gerrorNorms[2],dMax(dAbs(gr[0]),dMax(dAbs(gr[1]),dAbs(gr[2]))));
-#if 0
-      printf("pointwise stats %8g %8g %8g %8g\n",jw[i],r[0],dSqr(r[0]),errorNorms[1]);
-      printf("pointwise grads %8g %8g %8g (%8g)\n",gr[0],gr[1],gr[2],grsum);
-# if 0
-      printf("jinv[%2d][%3d]   %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f\n",e,i,
-             jinv[i][0][0],jinv[i][0][1],jinv[i][0][2],
-             jinv[i][1][0],jinv[i][1][1],jinv[i][1][2],
-             jinv[i][2][0],jinv[i][2][1],jinv[i][2][2]);
-# endif
-#endif
+      err = dNormsUpdate(errorNorms,gerrorNorms,jw[i],3,uu,u[i],&duu[0][0],&du[i][0][0]);dCHK(err);
     }
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
     patchcnt++;
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  errorNorms[1] = dSqrt(errorNorms[1]);
-  gerrorNorms[1] = dSqrt(gerrorNorms[1]);
-  dFunctionReturn(0);
+  err = dNormsFinish(errorNorms,gerrorNorms);dCHK(err);
+dFunctionReturn(0);
 }
 
 static dErr ElastGetSolutionVector(Elast elt,Vec *insoln)
