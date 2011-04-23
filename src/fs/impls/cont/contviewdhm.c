@@ -331,7 +331,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
         err = dMeshGetTag(mesh,fs5.ordered_subdomain,&tag);dCHK(err);
         err = dMeshGetTaggedSet(mesh,tag,&readrank,&set);dCHK(err);
         if (set != fs->set.ordered) { /* Replace it */
-          err = dMeshSetDestroy(mesh,fs->set.ordered);dCHK(err);
+          err = dMeshSetDestroy(mesh,fs->set.ordered);dCHK(err); // @bug Need reference counting for sets, or need to always copy
           fs->set.ordered = set;
         }
 
@@ -357,7 +357,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
 
         err = dMeshGetTag(mesh,fs5.global_offset,&tag);dCHK(err);
         if (tag != fs->tag.gcoffset) { /* Replace it */
-          err = dMeshTagDestroy(mesh,fs->tag.gcoffset);dCHK(err);
+          err = dMeshTagDestroy(mesh,fs->tag.gcoffset);dCHK(err); // @bug we either need reference counting for tags or need to always copy
           fs->tag.gcoffset= tag;
         }
       }
