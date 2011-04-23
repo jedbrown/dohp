@@ -1,6 +1,7 @@
 #if !defined _dohputil_h
 #define _dohputil_h
 #include "dohptype.h"
+#include <petscvec.h>
 
 dEXTERN_C_BEGIN
 
@@ -10,6 +11,7 @@ extern dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const ch
 dErr dNormsStart(dReal uerr[],dReal gerr[]);
 dErr dNormsUpdate(dReal uerr[],dReal gerr[],dReal jw,dInt bs,const dScalar uu[],const dScalar u[],const dScalar duu[],const dScalar du[]);
 dErr dNormsFinish(dReal uerr[],dReal gerr[]);
+dErr dNormsAlgebraicScaled(dReal norms[3],Vec r);
 
 dEXTERN_C_END
 #endif

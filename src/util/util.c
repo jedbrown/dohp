@@ -126,3 +126,22 @@ dErr dNormsFinish(dReal uerr[],dReal gerr[])
   if (gerr) gerr[1] = dSqrt(gerr[1]);
   dFunctionReturn(0);
 }
+
+dErr dNormsAlgebraicScaled(dReal norms[3],Vec r)
+{
+  dErr err;
+  dInt n,bs;
+
+  dFunctionBegin;
+  err = VecNorm(r,NORM_1_AND_2,norms);dCHK(err);
+  err = VecNorm(r,NORM_INFINITY,&norms[2]);dCHK(err);
+  err = VecGetSize(r,&n);dCHK(err);
+  err = VecGetBlockSize(r,&bs);dCHK(err);
+  n /= bs;
+  if (!n) n = 1;                /* Handle empty subdomain case */
+  /* Scale norms to mimic L^p instead of l^p */
+  norms[0] /= n;
+  norms[1] /= sqrt(1.*n);
+  for (dInt i=0; i<3; i++) if (norms[i] < 1e-14) norms[i] = 1e-99; /* limit norms so that we don't see rounding error */
+  dFunctionReturn(0);
+}

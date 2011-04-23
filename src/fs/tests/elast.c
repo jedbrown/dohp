@@ -519,14 +519,12 @@ int main(int argc,char *argv[])
   err = VecZeroEntries(x);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err);
   if (!nocheck) {
-    dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3];
+    dReal anorm[3],inorm[3],enorm[3],gnorm[3];
     err = ElastErrorNorms(elt,x,enorm,gnorm);dCHK(err);
-    err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
-    err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
+    err = dNormsAlgebraicScaled(anorm,r);dCHK(err); // Algebraic residual for solution, scaled by number of degrees of freedom
     err = VecWAXPY(r,-1,soln,x);dCHK(err);
-    err = VecNorm(r,NORM_1_AND_2,inorm);dCHK(err);
-    err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
-    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
+    err = dNormsAlgebraicScaled(inorm,r);dCHK(err); // Algebraic difference between interpolated exact solution and computed solution
+    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorm[2]);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
