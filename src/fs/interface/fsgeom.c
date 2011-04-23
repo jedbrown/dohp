@@ -189,6 +189,7 @@ dErr dFSGetCoordinateFS(dFS fs,dFS *incfs)
     err = dFSGetJacobi(fs,&jacobi);dCHK(err);
     err = dFSCreate(((dObject)fs)->comm,&cfs);dCHK(err);
     err = dFSSetMesh(cfs,mesh,fs->set.active);dCHK(err);
+    err = dFSSetOrderingType(cfs,fs->orderingtype);dCHK(err);
     err = PetscSNPrintf(degreename,sizeof degreename,"%scfs_degree",dNonNullElse(((dObject)fs)->prefix,""));dCHK(err);
     err = dMeshCreateRuleTagIsotropic(mesh,fs->set.active,degreename,1,&dtag);dCHK(err);
     err = dFSSetDegree(cfs,jacobi,dtag);dCHK(err);
@@ -332,7 +333,18 @@ dErr dFSRedimension(dFS fs,dInt bs,dFSClosureMode mode,dFS *infs)
   }
   err = dFSSetType(rfs,((dObject)fs)->type_name);dCHK(err);
   err = dFSSetOrderingType(rfs,fs->orderingtype);dCHK(err);
-  err = dFSBuildSpace(rfs);dCHK(err);
+  rfs->set.ordered = fs->set.ordered;
+  { // The FS has the layout, ordering, and boundary status tags set so we are ready to build the function space.
+    dMesh          mesh;
+    dMeshAdjacency meshadj;
+
+    err = dFSGetMesh(rfs,&mesh);dCHK(err);
+    err = dMeshGetAdjacency(mesh,rfs->set.ordered,&meshadj);dCHK(err);
+    err = dFSPopulatePartitionedSets_Private(rfs,meshadj);dCHK(err);
+    err = dFSBuildSpaceWithOrderedSet_Private(rfs,meshadj);dCHK(err);
+    err = dMeshRestoreAdjacency(mesh,rfs->set.ordered,&meshadj);dCHK(err);
+  }
+
   *infs = rfs;
   dFunctionReturn(0);
 }
