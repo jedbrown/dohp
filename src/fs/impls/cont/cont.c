@@ -148,6 +148,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   err = MatCreateSeqAIJ(PETSC_COMM_SELF,ents_s,ents_s,0,nnz,&madj);dCHK(err);
   for (dInt i=0; i<256; i++) weights[i] = 1.0; /* Maybe we should use the topology */
   for (dInt i=0; i<ents_s; i++) {
+    err = MatSetValue(madj,i,i,1.0,INSERT_VALUES);dCHK(err); // @todo Fix MatGetRowIJ_SeqAIJ_Inode_Symmetric so the diagonal is not required
     err = MatSetValues(madj,1,&i,adjoff[i+1]-adjoff[i],ordering+adjoff[i],weights,INSERT_VALUES);dCHK(err);
   }
   err = dFree2(ordering,nnz);dCHK(err);
