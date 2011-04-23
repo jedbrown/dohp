@@ -481,7 +481,6 @@ static dErr EllipJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structur
 static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal gerrorNorms[static 3])
 {
   dErr err;
-  dInt patchcnt;
   Vec Coords;
   dRulesetIterator iter;
 
@@ -490,7 +489,6 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
   err = dFSGetGeometryVectorExpanded(elp->fs,&Coords);dCHK(err);
   err = EllipGetRegionIterator(elp,EVAL_FUNCTION,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
-  patchcnt = 0;
   while (dRulesetIteratorHasPatch(iter)) {
     const dScalar *jw;
     dScalar (*x)[3],(*dx)[3][3],(*u)[1],(*du)[1][3];
@@ -502,7 +500,6 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
       err = dNormsUpdate(errorNorms,gerrorNorms,jw[i],1,uu,u[i],&duu[0][0],&du[i][0][0]);dCHK(err);
     }
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
-    patchcnt++;
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
   err = dNormsFinish(errorNorms,gerrorNorms);dCHK(err);
@@ -690,30 +687,12 @@ int main(int argc,char *argv[])
   err = VecZeroEntries(x);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err);
   if (!nocheck) {
-    dInt n;
-    dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3];
+    dReal anorm[3],inorm[3],enorm[3],gnorm[3];
     err = EllipErrorNorms(elp,x,enorm,gnorm);dCHK(err);
-    err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
-    err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
+    err = dNormsAlgebraicScaled(anorm,r);dCHK(err); // Algebraic residual for solution, scaled by number of degrees of freedom
     err = VecWAXPY(r,-1,soln,x);dCHK(err);
-    err = VecNorm(r,NORM_1_AND_2,inorm);dCHK(err);
-    err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
-    /* Scale 1-norms for constant domain size (to mimic L^p instead of l^p) */
-    err = VecGetSize(r,&n);dCHK(err);
-    anorm[0] /= 1.*n;
-    inorm[0] /= 1.*n;
-    enorm[0] /= 1.*n;
-    gnorm[0] /= 1.*n;
-    /* Correct 2-norms for domain size */
-    anorm[1] /= sqrt(1.*n);
-    inorm[1] /= sqrt(1.*n);
-    enorm[1] /= sqrt(1.*n);
-    gnorm[1] /= sqrt(1.*n);
-    /* Limit anorm so it is not reported as so small that different rounding modes change the result */
-    anorm[0] *= (anorm[0] > 1e-14);
-    anorm[1] *= (anorm[1] > 1e-14);
-    anorminf *= (anorminf > 1e-14);
-    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
+    err = dNormsAlgebraicScaled(inorm,r);dCHK(err); // Algebraic difference between interpolated exact solution and computed solution
+    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorm[2]);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);

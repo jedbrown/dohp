@@ -11,7 +11,7 @@
     0 KSP Residual norm 1.26496e-08 
     1 KSP Residual norm < 1.e-11
   4 SNES Function norm < 1.e-11
-Algebraic residual        |x|_1 0.00e+00  |x|_2 0.00e+00  |x|_inf 0.00e+00
+Algebraic residual        |x|_1 1.00e-99  |x|_2 1.00e-99  |x|_inf 1.00e-99
 Interpolation residual    |x|_1 9.00e-03  |x|_2 1.30e-02  |x|_inf 3.37e-02
-Pointwise solution error  |x|_1 1.41e-02  |x|_2 4.09e-02  |x|_inf 3.03e-01
-Pointwise gradient error  |x|_1 1.95e-01  |x|_2 5.52e-01  |x|_inf 3.98e+00
+Pointwise solution error  |x|_1 3.80e-01  |x|_2 2.13e-01  |x|_inf 3.03e-01
+Pointwise gradient error  |x|_1 4.06e+00  |x|_2 2.30e+00  |x|_inf 3.33e+00
