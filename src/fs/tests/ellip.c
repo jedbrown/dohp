@@ -480,8 +480,7 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
   dRulesetIterator iter;
 
   dFunctionBegin;
-  err = dMemzero(errorNorms,3*sizeof(errorNorms));dCHK(err);
-  err = dMemzero(gerrorNorms,3*sizeof(gerrorNorms));dCHK(err);
+  err = dNormsStart(errorNorms,gerrorNorms);dCHK(err);
   err = dFSGetGeometryVectorExpanded(elp->fs,&Coords);dCHK(err);
   err = EllipGetRegionIterator(elp,EVAL_FUNCTION,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
@@ -492,40 +491,15 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
     dInt Q;
     err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
     for (dInt i=0; i<Q; i++) {
-      dScalar uu[1],duu[1][3],r[1],gr[3];             /* Scalar problem */
-      dReal grsum;
+      dScalar uu[1],duu[1][3];
       elp->exact.solution(&elp->exactctx,&elp->param,x[i],uu,(dScalar*)duu);
-      r[0] = u[i][0] - uu[0];   /* Function error at point */
-      gr[0] = du[i][0][0] - duu[0][0]; /* Gradient error at point */
-      gr[1] = du[i][0][1] - duu[0][1];
-      gr[2] = du[i][0][2] - duu[0][2];
-      if (elp->errorview) {
-        printf("e,q = %3d %3d (% 5f,% 5f,% 5f) dohp %10.2e   exact %10.2e   error %10.e\n",patchcnt,i,x[i][0],x[i][1],x[i][2],u[i][0],uu[0],r[0]);
-      }
-      grsum = dAbs(dDotScalar3(gr,gr));
-      errorNorms[0] += dAbs(r[0]) * jw[i];               /* 1-norm */
-      errorNorms[1] += dSqr(r[0]) * jw[i];               /* 2-norm */
-      errorNorms[2] = dMax(errorNorms[2],dAbs(r[0])); /* Sup-norm */
-      gerrorNorms[0] += grsum * jw[i];
-      gerrorNorms[1] += dSqr(grsum) * jw[i];
-      gerrorNorms[2] = dMax(gerrorNorms[2],grsum);
-#if 0
-      printf("pointwise stats %8g %8g %8g %8g\n",jw[i],r[0],dSqr(r[0]),errorNorms[1]);
-      printf("pointwise grads %8g %8g %8g (%8g)\n",gr[0],gr[1],gr[2],grsum);
-# if 0
-      printf("jinv[%2d][%3d]   %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f    %+3.1f %+3.1f %+3.1f\n",e,i,
-             jinv[i][0][0],jinv[i][0][1],jinv[i][0][2],
-             jinv[i][1][0],jinv[i][1][1],jinv[i][1][2],
-             jinv[i][2][0],jinv[i][2][1],jinv[i][2][2]);
-# endif
-#endif
+      err = dNormsUpdate(errorNorms,gerrorNorms,jw[i],1,uu,u[i],&duu[0][0],&du[i][0][0]);dCHK(err);
     }
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
     patchcnt++;
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  errorNorms[1] = dSqrt(errorNorms[1]);
-  gerrorNorms[1] = dSqrt(gerrorNorms[1]);
+  err = dNormsFinish(errorNorms,gerrorNorms);dCHK(err);
   dFunctionReturn(0);
 }
 

@@ -89,4 +89,4 @@
 Algebraic residual        |x|_1 0.00e+00  |x|_2 0.00e+00  |x|_inf 0.00e+00
 Interpolation residual    |x|_1 1.54e-01  |x|_2 1.83e-01  |x|_inf 4.10e-01
 Pointwise solution error  |x|_1 7.49e-04  |x|_2 1.25e-02  |x|_inf 4.10e-01
-Pointwise gradient error  |x|_1 1.41e-03  |x|_2 2.91e-02  |x|_inf 2.45e+00
+Pointwise gradient error  |x|_1 2.59e-03  |x|_2 3.76e-02  |x|_inf 1.56e+00
