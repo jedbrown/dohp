@@ -1347,7 +1347,7 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
 #if defined(dMESHADJACENCY_HAS_CONNECTIVITY)
   err = dFree2(ma->connoff,ma->conn);dCHK(err);
 #endif
-  err = dFree(ma);dCHK(err);
+  err = dFree(*inma);dCHK(err);
   dFunctionReturn(0);
 }
 
