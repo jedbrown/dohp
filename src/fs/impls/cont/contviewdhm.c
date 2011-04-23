@@ -366,79 +366,15 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
     herr = H5Dclose(meshobj);dH5CHK(herr,H5Aclose);
     // \bug herr = H5Dvlen_reclaim(&fs5);
   }
-  /** @note The FS has the layout, ordering, and boundary status tags set so we are ready to build the function space.
-  **/
-
-  /* @todo Most of this block mirrors dFSBuildSpace_Cont, the common part should be better contained. */
-  {
-    dInt           ents_a,ents_s,nregions,*inodes,*xnodes,*xstart,*idx,xcnt,rstart,crstart,ghents_s;
-    dPolynomialOrder *bdeg,*regBDeg;
-    dEntTopology   *regTopo;
-    dMeshEH        *ents,*ghents;
+  { // The FS has the layout, ordering, and boundary status tags set so we are ready to build the function space.
     dMesh          mesh;
     dMeshAdjacency meshadj;
 
     err = dFSGetMesh(fs,&mesh);dCHK(err);
     err = dMeshGetAdjacency(mesh,fs->set.ordered,&meshadj);dCHK(err);
-
-    ents_a = meshadj->nents;
-    err = dMallocA4(ents_a,&ents,ents_a,&idx,ents_a,&bdeg,ents_a,&inodes);dCHK(err);
-
     err = dFSPopulatePartitionedSets_Private(fs,meshadj);dCHK(err);
-
-    /* Ordered set is already populated so no need to call dMeshPopulateOrderedSet_Private() and assign tags afterward.
-     * This is the key difference between the current code block and dFSBuildSpace_Cont(). */
-
-    err = dMeshGetEnts(mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-    if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
-
-    err = dMeshTagGetData(mesh,fs->tag.degree,meshadj->ents,meshadj->nents,bdeg,ents_s,dDATA_INT);dCHK(err);
-    err = dJacobiGetNodeCount(fs->jacobi,ents_s,meshadj->topo,bdeg,inodes,NULL);dCHK(err);
-
-    {
-      dInt counts[3],rstarts[3];
-      err = dMeshClassifyCountInt(mesh,meshadj->nents,meshadj->ents,inodes,3,(const dMeshESH[]){fs->set.explicit,fs->set.dirichlet,fs->set.ghost},counts);dCHK(err);
-      err = MPI_Scan(counts,rstarts,3,MPIU_INT,MPI_SUM,((dObject)fs)->comm);dCHK(err);
-      for (dInt i=0; i<3; i++) rstarts[i] -= counts[i];
-      fs->n   = counts[0];
-      fs->nc  = counts[0] + counts[1];
-      fs->ngh = counts[2];
-      rstart  = rstarts[0];
-      crstart = rstarts[0] + rstarts[1];
-    }
-
-    {
-      dInt ghstart;
-      err = dFSBuildSpaceOffsets_Private(fs,meshadj->indexTag,inodes,rstart,crstart,ents_s,ents,&ghstart);dCHK(err);
-      ghents = ents + ghstart;
-      ghents_s = ents_s - ghstart;
-    }
-
-    err = dFSBuildSpaceVectors_Private(fs,meshadj->indexTag,inodes,rstart,ghents_s,ghents);dCHK(err);
-
-    err = dMeshGetEnts(mesh,fs->set.active,dTYPE_REGION,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
-    err = dMeshTagGetData(mesh,meshadj->indexTag,ents,ents_s,idx,ents_s,dDATA_INT);dCHK(err);
-    nregions = ents_s;
-    err = dMallocA4(nregions+1,&xstart,nregions,&regTopo,nregions,&regBDeg,nregions,&xnodes);dCHK(err);
-    err = dMeshGetTopo(mesh,ents_s,ents,regTopo);dCHK(err);
-    err = dMeshTagGetData(mesh,fs->tag.degree,ents,ents_s,regBDeg,nregions,dDATA_INT);dCHK(err);
-    err = dJacobiGetNodeCount(fs->jacobi,ents_s,regTopo,regBDeg,NULL,xnodes);dCHK(err);
-
-    xcnt = xstart[0] = 0;
-    for (dInt i=0; i<nregions; i++) xstart[i+1] = (xcnt += xnodes[i]);
-
-    fs->nelem = nregions;
-    err = dMallocA(nregions+1,&fs->off);dCHK(err); /* Will be freed by FS */
-    err = dMemcpy(fs->off,xstart,(nregions+1)*sizeof(xstart[0]));dCHK(err);
-
-    err = dFree4(xstart,regTopo,regBDeg,xnodes);dCHK(err);
-
-    err = dMeshTagGetData(mesh,fs->tag.degree,meshadj->ents,meshadj->nents,bdeg,meshadj->nents,dDATA_INT);dCHK(err);
-    err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,meshadj,bdeg,&fs->E,&fs->Ep);dCHK(err);
-
+    err = dFSBuildSpaceWithOrderedSet_Private(fs,meshadj);dCHK(err);
     err = dMeshRestoreAdjacency(mesh,fs->set.ordered,&meshadj);dCHK(err);
-    err = dFree4(ents,idx,bdeg,inodes);dCHK(err);
-    fs->spacebuilt = dTRUE;
   }
 
   herr = H5Sclose(fsspace);dH5CHK(herr,H5Sclose);

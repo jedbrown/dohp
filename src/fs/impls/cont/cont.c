@@ -257,34 +257,17 @@ dErr dFSBuildSpace_Cont_CreateElemAssemblyMats(dFS fs,const dInt idx[],const dMe
 */
 dErr dFSBuildSpace_Cont(dFS fs)
 {
-  MPI_Comm               comm  = ((dObject)fs)->comm;
-  /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
-  dUNUSED dFS_Cont      *cont  = fs->data;
-  struct _p_dMeshAdjacency ma;
-  dMeshAdjacency         meshAdj;
-  dMesh                  mesh;
-  iMesh_Instance         mi;
-  dEntTopology          *regTopo;
-  dPolynomialOrder      *deg,*regBDeg;
-  dInt                  *inodes,*xnodes,nregions,ents_a,ents_s,ghents_s,*idx;
-  dInt                  *xstart,xcnt;
-  dInt                   rstart,crstart;
-  dMeshEH               *ents,*ghents;
-  dErr                   err;
+  dErr err;
+  dMeshAdjacency meshAdj;
+  dMesh mesh;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  mesh = fs->mesh;
-  err = dMeshGetInstance(mesh,&mi);dCHK(err);
+  err = dFSGetMesh(fs,&mesh);dCHK(err);
   err = dMeshGetAdjacency(mesh,fs->set.active,&meshAdj);dCHK(err);
-  err = dMemcpy(&ma,meshAdj,sizeof ma);dCHK(err); /* To have object rather than pointer semantics in this function. */
   err = dFSContPropagateDegree(fs,meshAdj);dCHK(err);
 
-  /* Allocate a workspace that's plenty big, so that we don't have to allocate memory constantly */
-  ents_a = ma.nents;
-  err = dMallocA4(ents_a,&ents,ents_a,&idx,ents_a,&deg,ents_a,&inodes);dCHK(err);
-
-  err = dFSPopulatePartitionedSets_Private(fs,&ma);dCHK(err);
+  err = dFSPopulatePartitionedSets_Private(fs,meshAdj);dCHK(err);
 
   err = dMeshPopulateOrderedSet_Private(mesh,fs->set.ordered,fs->set.explicit,fs->set.dirichlet,fs->set.ghost,fs->orderingtype);dCHK(err);
   {
@@ -302,6 +285,36 @@ dErr dFSBuildSpace_Cont(dFS fs)
     err = dMeshTagCreate(mesh,strbuf,1,dDATA_INT,&fs->tag.orderedsub);dCHK(err);
     err = dMeshTagSSetData(mesh,fs->tag.orderedsub,&fs->set.ordered,1,&rank,1,dDATA_INT);dCHK(err);
   }
+  err = dFSBuildSpaceWithOrderedSet_Private(fs,meshAdj);dCHK(err);
+  err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dFSBuildSpaceWithOrderedSet_Private(dFS fs,dMeshAdjacency meshAdj)
+{
+  MPI_Comm               comm  = ((dObject)fs)->comm;
+  /* \bug The fact that we aren't using our context here indicates that much/all of the logic here could move up into dFS */
+  dUNUSED dFS_Cont      *cont  = fs->data;
+  struct _p_dMeshAdjacency ma;
+  dMesh                  mesh;
+  iMesh_Instance         mi;
+  dEntTopology          *regTopo;
+  dPolynomialOrder      *deg,*regBDeg;
+  dInt                  *inodes,*xnodes,nregions,ents_a,ents_s,ghents_s,*idx;
+  dInt                  *xstart,xcnt;
+  dInt                   rstart,crstart;
+  dMeshEH               *ents,*ghents;
+  dErr                  err;
+
+  dFunctionBegin;
+  mesh = fs->mesh;
+  err = dMeshGetInstance(mesh,&mi);dCHK(err);
+  err = dMemcpy(&ma,meshAdj,sizeof ma);dCHK(err); /* To have object rather than pointer semantics in this function. */
+
+  /* Allocate a workspace that's plenty big, so that we don't have to allocate memory constantly */
+  ents_a = ma.nents;
+  err = dMallocA4(ents_a,&ents,ents_a,&idx,ents_a,&deg,ents_a,&inodes);dCHK(err);
+
   err = dMeshGetEnts(fs->mesh,fs->set.ordered,dTYPE_ALL,dTOPO_ALL,ents,ents_a,&ents_s);dCHK(err);
   if (ents_s != ents_a) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"wrong set size");
 
@@ -366,8 +379,8 @@ dErr dFSBuildSpace_Cont(dFS fs)
 
   err = dFSBuildSpace_Cont_CreateElemAssemblyMats(fs,idx,&ma,deg,&fs->E,&fs->Ep);dCHK(err);
 
-  err = dMeshRestoreAdjacency(fs->mesh,fs->set.active,&meshAdj);dCHK(err);
   err = dFree4(ents,idx,deg,inodes);dCHK(err);
+  fs->spacebuilt = dTRUE;
   dFunctionReturn(0);
 }
 

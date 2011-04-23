@@ -151,6 +151,7 @@ extern dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *
 extern dErr dFSPopulatePartitionedSets_Private(dFS FS,dMeshAdjacency meshadj);
 extern dErr dFSBuildSpaceOffsets_Private(dFS fs,dMeshTag indexTag,const dInt inodes[],dInt rstart,dInt crstart,dInt nents,dMeshEH ents[],dInt *ghstart);
 extern dErr dFSBuildSpaceVectors_Private(dFS fs,dMeshTag indexTag,const dInt inodes[],dInt rstart,dInt ghents_s,const dMeshEH ghents[]);
+extern dErr dFSBuildSpaceWithOrderedSet_Private(dFS fs,dMeshAdjacency meshAdj);
 extern dErr DMDestroy_dFS(DM);
 
 dEXTERN_C_END
