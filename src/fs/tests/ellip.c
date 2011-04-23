@@ -53,7 +53,7 @@ static void EllipExact_0_Solution(const struct EllipExactCtx *ctx,const struct E
   u[0] = cos(a*x) * exp(b*y) * sin(c*z);
   du[0] = -a*sin(a*x) * exp(b*y) * sin(c*z);
   du[1] = cos(a*x) * b*exp(b*y) * sin(c*z);
-  du[2] = cos(a*x) * exp(b*y) * cos(c*z);
+  du[2] = cos(a*x) * exp(b*y) * c*cos(c*z);
 }
 static void EllipExact_0_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam *prm,const dReal xyz[3],dScalar f[1])
 {
