@@ -54,8 +54,6 @@ struct _p_Stokes {
   struct StokesRheology  rheo;
   struct StokesExact     exact;
   struct StokesExactCtx  exactctx;
-  dJacobi                jac;
-  dMesh                  mesh;
   dFS                    fsu,fsp;
   Vec                    xu,xp,yu,yp;
   Vec                    gvelocity,gvelocity_extra,gpressure,gpressure_extra,gpacked;
@@ -179,14 +177,12 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);dCHK(err);
-  stk->mesh = mesh;
   err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
   err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
 
   err = dJacobiCreate(stk->comm,&jac);dCHK(err);
   err = dJacobiSetFromOptions(jac);dCHK(err);
-  stk->jac = jac;
 
   err = dMeshCreateRuleTagIsotropic(mesh,domain,"stokes_efs_velocity_degree",stk->constBDeg,&dtag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(mesh,domain,"stokes_efs_pressure_degree",stk->constBDeg-stk->pressureCodim,&dptag);dCHK(err);
@@ -240,7 +236,8 @@ static dErr StokesSetFromOptions(Stokes stk)
     stk->ublock = ublock;
     stk->pblock = pblock;
   }
-
+  err = dJacobiDestroy(&jac);dCHK(err);
+  err = dMeshDestroy(&mesh);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -315,8 +312,6 @@ static dErr StokesDestroy(Stokes stk)
   dFunctionBegin;
   err = dFSDestroy(&stk->fsu);dCHK(err);
   err = dFSDestroy(&stk->fsp);dCHK(err);
-  err = dJacobiDestroy(&stk->jac);dCHK(err);
-  err = dMeshDestroy(&stk->mesh);dCHK(err);
   err = VecDestroy(&stk->xu);dCHK(err);
   err = VecDestroy(&stk->yu);dCHK(err);
   err = VecDestroy(&stk->xp);dCHK(err);
@@ -330,6 +325,7 @@ static dErr StokesDestroy(Stokes stk)
   err = VecScatterDestroy(&stk->extractPressure);dCHK(err);
   err = ISDestroy(&stk->ublock);dCHK(err);
   err = ISDestroy(&stk->pblock);dCHK(err);
+  for (dInt i=0; i<EVAL_UB; i++) {err = dRulesetIteratorDestroy(&stk->regioniter[i]);dCHK(err);}
   err = dFree(stk);dCHK(err);
   dFunctionReturn(0);
 }
