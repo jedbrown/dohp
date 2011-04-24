@@ -295,8 +295,6 @@ dErr DMDestroy_dFS(DM dm)
   err = VecScatterDestroy(&fs->dscat);dCHK(err);
   err = MatDestroy(&fs->E);dCHK(err);
   err = MatDestroy(&fs->Ep);dCHK(err);
-  err = ISLocalToGlobalMappingDestroy(&fs->bmapping);dCHK(err);
-  err = ISLocalToGlobalMappingDestroy(&fs->mapping);dCHK(err);
   err = dFree(fs->off);dCHK(err);
   for (struct _dFSIntegrationLink *link=fs->integration,*tmp; link; link=tmp) {
     err = dFree(link->name);dCHK(err);
@@ -650,6 +648,7 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
   Mat    J;
   dInt   bs,n;
   dErr   err;
+  ISLocalToGlobalMapping mapping,bmapping;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
@@ -672,8 +671,10 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
     err = MatMPIAIJSetPreallocation(J,bs*27,NULL,bs*25,NULL);dCHK(err);
   }
   err = MatSetBlockSize(J,bs);dCHK(err);
-  err = MatSetLocalToGlobalMappingBlock(J,fs->bmapping,fs->bmapping);dCHK(err);
-  err = MatSetLocalToGlobalMapping(J,fs->mapping,fs->mapping);dCHK(err);
+  err = DMGetLocalToGlobalMapping((DM)fs,&mapping);dCHK(err);
+  err = MatSetLocalToGlobalMapping(J,mapping,mapping);dCHK(err);
+  err = DMGetLocalToGlobalMappingBlock((DM)fs,&bmapping);dCHK(err);
+  err = MatSetLocalToGlobalMappingBlock(J,bmapping,bmapping);dCHK(err);
 
   /* We want the resulting matrices to be usable with matrix-free operations based on this FS */
   err = PetscObjectCompose((dObject)J,"DohpFS",(dObject)fs);dCHK(err);

@@ -112,8 +112,6 @@ struct _p_dFS {
   Vec          gvec;            /**< Global Vec, closure can be obtained with VecDohpGetClosure() */
   Vec          dcache;          /**< All Dirichlet values, this is only a cache so that we can project a vector into the inhomogeneous space */
   VecScatter   dscat;           /**< Scatter from global closure to \a dcache. */
-  ISLocalToGlobalMapping bmapping; /**< Block mapping, Dirichlet blocks have negative global index */
-  ISLocalToGlobalMapping mapping;  /**< Scalar mapping, mapping[i] = bmapping[i/bs]*bs+i%bs; */
 
   struct {
     Vec expanded;               /**< expanded, used for integration */

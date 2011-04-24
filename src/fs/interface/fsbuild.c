@@ -39,13 +39,13 @@ dErr dFSCreateLocalToGlobal_Private(dFS fs,dInt n,dInt nc,dInt ngh,dInt *ghidx,d
   err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
   err = VecDohpRestoreClosure(g,&gc);dCHK(err);
   err = VecDestroy(&g);dCHK(err);
-  err = ISLocalToGlobalMappingCreate(((dObject)fs)->comm,nc+ngh,globals,PETSC_OWN_POINTER,&fs->bmapping);dCHK(err);
+  err = ISLocalToGlobalMappingCreate(((dObject)fs)->comm,nc+ngh,globals,PETSC_OWN_POINTER,&fs->dm.ltogmapb);dCHK(err);
   /* Don't free \a globals because we used the no-copy variant, so the IS takes ownership. */
   {
     dInt *sglobals;        /* Scalar globals */
     err = dMallocA((nc+ngh)*bs,&sglobals);dCHK(err);
     for (i=0; i<(nc+ngh)*bs; i++) sglobals[i] = globals[i/bs]*bs + i%bs;
-    err = ISLocalToGlobalMappingCreate(((dObject)fs)->comm,(nc+ngh)*bs,sglobals,PETSC_OWN_POINTER,&fs->mapping);dCHK(err);
+    err = ISLocalToGlobalMappingCreate(((dObject)fs)->comm,(nc+ngh)*bs,sglobals,PETSC_OWN_POINTER,&fs->dm.ltogmap);dCHK(err);
     /* Don't free \a sglobals because we used the no-copy variant, so the IS takes ownership. */
   }
   dFunctionReturn(0);
