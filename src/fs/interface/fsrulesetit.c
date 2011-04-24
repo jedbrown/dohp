@@ -243,15 +243,16 @@ dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,...)
     p->Y = Y;
     if (!p->Xexp) {err = dFSCreateExpandedVector(p->fs,&p->Xexp);dCHK(err);}
     if (!p->Yexp) {err = dFSCreateExpandedVector(p->fs,&p->Yexp);dCHK(err);}
-    {
-      dBool flg;
-      err = PetscTypeCompare((PetscObject)p->X,VECDOHP,&flg);dCHK(err);
-      if (flg) {                /* A global Vec was passed in so we need to map it to the expanded space */
-        err = dFSGlobalToExpanded(p->fs,p->X,p->Xexp,p->xhomogeneous,INSERT_VALUES);dCHK(err);
-      } else if (p->X) {        /* An expanded Vec was passed in so we just use it */
+    if (!p->X) {                /* No Vec is being used for this traversal, zero the internal storage anyway */
+      err = VecZeroEntries(p->Xexp);dCHK(err);
+    } else {
+      dInt n,nex;
+      err = VecGetSize(p->X,&n);dCHK(err);
+      err = VecGetSize(p->Xexp,&nex);dCHK(err);
+      if (n == nex) {           /* An expanded Vec was passed in so we just use it */
         err = VecCopy(p->X,p->Xexp);dCHK(err);
-      } else {                  /* No Vec is being used for this traversal, zero the internal storage anyway */
-        err = VecZeroEntries(p->Xexp);dCHK(err);
+      } else {                  /* A global Vec was passed in so we need to map it to the expanded space */
+        err = dFSGlobalToExpanded(p->fs,p->X,p->Xexp,p->xhomogeneous,INSERT_VALUES);dCHK(err);
       }
     }
     err = VecGetArray(p->Xexp,&p->x);dCHK(err);

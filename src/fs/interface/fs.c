@@ -461,18 +461,26 @@ dErr dFSInhomogeneousDirichletCommit(dFS fs,Vec gc)
 dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode imode)
 {
   dErr err;
-  Vec  gc,lf;
+  Vec  gc,gd,lf;
+  dBool flg;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(g,VEC_CLASSID,2);
   dValidHeader(x,VEC_CLASSID,3);
-  err = VecDohpGetClosure(g,&gc);dCHK(err);
+  err = PetscTypeCompare((PetscObject)g,VECDOHP,&flg);dCHK(err);
+  if (flg) {
+    gd = g;
+  } else {                      /* Cannot take the closure of a "normal" vector */
+    err = DMGetGlobalVector((DM)fs,&gd);dCHK(err);
+    err = VecCopy(g,gd);dCHK(err);
+  }
+  err = VecDohpGetClosure(gd,&gc);dCHK(err);
   switch (hmode) {
     case dFS_HOMOGENEOUS: {     /* project into homogeneous space */
       dInt     n,nc;
       dScalar *a;
-      err = VecGetLocalSize(g,&n);dCHK(err);
+      err = VecGetLocalSize(gd,&n);dCHK(err);
       err = VecGetLocalSize(gc,&nc);dCHK(err);
       err = VecGetArray(gc,&a);dCHK(err);
       err = dMemzero(a+n,(nc-n)*sizeof(a[0]));dCHK(err);
@@ -490,7 +498,8 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
   err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
   err = dFSLocalToExpanded(fs,lf,x,imode);dCHK(err);
   err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
-  err = VecDohpRestoreClosure(g,&gc);dCHK(err);
+  err = VecDohpRestoreClosure(gd,&gc);dCHK(err);
+  if (gd != g) {err = DMRestoreGlobalVector((DM)fs,&gd);dCHK(err);}
   dFunctionReturn(0);
 }
 
@@ -501,13 +510,20 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
 dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode imode)
 {
   dErr err;
-  Vec  gc,lf;
+  Vec  gd,gc,lf;
+  dBool flg;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(g,VEC_CLASSID,2);
   dValidHeader(x,VEC_CLASSID,3);
-  err = VecDohpGetClosure(g,&gc);dCHK(err);
+  err = PetscTypeCompare((PetscObject)g,VECDOHP,&flg);dCHK(err);
+  if (flg) {
+    gd = g;
+  } else {                      /* Cannot take the closure of a "normal" vector */
+    err = DMGetGlobalVector((DM)fs,&gd);dCHK(err);
+  }
+  err = VecDohpGetClosure(gd,&gc);dCHK(err);
   err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
   if (imode == ADD_VALUES) {    /* If we want to add, we have to kill off the ghost values otherwise they will be assembled twice */
     dInt     gstart,end;
@@ -523,7 +539,11 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode 
   err = VecGhostUpdateBegin(gc,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecGhostUpdateEnd(gc,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
   if (hmode == dFS_HOMOGENEOUS) { /* \todo project into homogeneous space (for rotated coords) */ }
-  err = VecDohpRestoreClosure(g,&gc);dCHK(err);
+  err = VecDohpRestoreClosure(gd,&gc);dCHK(err);
+  if (gd != g) {
+    err = VecCopy(gd,g);dCHK(err);
+    err = DMRestoreGlobalVector((DM)fs,&gd);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
