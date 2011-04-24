@@ -1068,7 +1068,7 @@ static void JacZeros(int n, double *a, double alpha, double beta){
 */
 
 static void TriQL(int n, double *d,double *e){
-  int m,l,iter,i,k;
+  int m,l,iter,i,ii,k;
   double s,r,p,g,f,dd,c,b;
 
   for (l=0;l<n;l++) {
@@ -1088,7 +1088,8 @@ static void TriQL(int n, double *d,double *e){
 	g=d[m]-d[l]+e[l]/(g+sign(r,g));
 	s=c=1.0;
 	p=0.0;
-	for (i=m-1;i>=l;i--) {
+        for (ii=0; ii<m-l; ii++) {
+          i = m-1-ii; /* We want (i=m-1; i>=l; i--), but it is not easy to inform gcc-4.6 that overflow is not a concern */
 	  f=s*e[i];
 	  b=c*e[i];
 	  if (fabs(f) >= fabs(g)) {
