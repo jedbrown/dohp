@@ -1109,14 +1109,12 @@ int main(int argc,char *argv[])
     err = MatNullSpaceRemove(matnull,x,NULL);dCHK(err);
   }
   if (!nocheck) {
-    dReal anorm[2],anorminf,inorm[3],enorm[3],gnorm[3],epnorm[3];
+    dReal anorm[3],inorm[3],enorm[3],gnorm[3],epnorm[3];
     err = StokesErrorNorms(stk,x,enorm,gnorm,epnorm);dCHK(err);
-    err = VecNorm(r,NORM_1_AND_2,anorm);dCHK(err);
-    err = VecNorm(r,NORM_INFINITY,&anorminf);dCHK(err);
+    err = dNormsAlgebraicScaled(anorm,r);dCHK(err);
     err = VecWAXPY(r,-1,soln,x);dCHK(err);
-    err = VecNorm(r,NORM_1_AND_2,inorm);dCHK(err);
-    err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
-    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
+    err = dNormsAlgebraicScaled(inorm,r);dCHK(err);
+    err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorm[2]);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise velocity error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
