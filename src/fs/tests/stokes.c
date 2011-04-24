@@ -54,8 +54,6 @@ struct _p_Stokes {
   struct StokesRheology  rheo;
   struct StokesExact     exact;
   struct StokesExactCtx  exactctx;
-  struct StokesStore    *store;
-  dInt                  *storeoff;
   dJacobi                jac;
   dMesh                  mesh;
   dFS                    fsu,fsp;
@@ -319,8 +317,6 @@ static dErr StokesDestroy(Stokes stk)
   err = dFSDestroy(&stk->fsp);dCHK(err);
   err = dJacobiDestroy(&stk->jac);dCHK(err);
   err = dMeshDestroy(&stk->mesh);dCHK(err);
-  err = dFree(stk->storeoff);dCHK(err);
-  err = dFree(stk->store);dCHK(err);
   err = VecDestroy(&stk->xu);dCHK(err);
   err = VecDestroy(&stk->yu);dCHK(err);
   err = VecDestroy(&stk->xp);dCHK(err);
