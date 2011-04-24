@@ -1339,7 +1339,6 @@ dErr dMeshRestoreAdjacency(dMesh dUNUSED mesh,dMeshESH set,dMeshAdjacency *inma)
   dValidHeader(mesh,dMESH_CLASSID,1);
   dValidPointer(inma,3);
   ma = *inma;
-  *inma = 0;
   if (set != ma->set) dERROR(PETSC_COMM_SELF,1,"Adjacency for the wrong set");
   err = dMeshTagDestroy(mesh,ma->indexTag);dCHK(err);
   err = dFree3(ma->ents,ma->adjoff,ma->topo);dCHK(err);
