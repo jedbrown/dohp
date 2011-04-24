@@ -294,6 +294,7 @@ static dErr dQuadratureCreateTransformedRule(dQuadrature quad,dRule refrule,cons
   dErr err;
 
   dFunctionBegin;
+  *newrule = NULL;
   err = dNewLog(quad,dRule_Transformed,&rule);dCHK(err);
   rule->ops.getSize             = dRuleGetSize_Transformed;
   rule->ops.getNodeWeight       = dRuleGetNodeWeight_Transformed;

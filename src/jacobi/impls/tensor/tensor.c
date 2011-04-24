@@ -418,8 +418,9 @@ static dErr dJacobiAddConstraints_Tensor(dJacobi dUNUSED jac,dInt nx,const dInt 
             nrow = 0; ncol = 0;
             irow[nrow++] = xs[elem] + (start[0]*d1+start[1])*d2+start[2] + (j-start[incd])*scan[incd];
             switch (eP[i]) {
-              case 0: icol[ncol++] = is[e[i]] + (j-start[incd])/inci; break; /* traverse the edge forwards */
-              case 1: icol[ncol++] = is[e[i]] - (j-(end-inci))/inci; break;  /* traverse the edge in reverse */
+            case 0: icol[ncol++] = is[e[i]] + (j-start[incd])/inci; break; /* traverse the edge forwards */
+            case 1: icol[ncol++] = is[e[i]] - (j-(end-inci))/inci; break;  /* traverse the edge in reverse */
+            default: dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"eP[%D] = %D, but must be either 0 or 1",i,eP[i]);
             }
             interp[0] = 1;
             err = PrivateMatSetValue(matE,matEp,irow[0],icol[0],interp[0],INSERT_VALUES);dCHK(err);
