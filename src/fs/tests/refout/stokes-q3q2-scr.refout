@@ -1,0 +1,42 @@
+Norm of discrete residual for exact solution 0.137703
+Norm of discrete linear residual at exact solution 0.137703
+  0 SNES Function norm 1.99068 
+      Linear solve converged due to CONVERGED_RTOL iterations 21
+      0 KSP Residual norm 5.54333 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+      1 KSP Residual norm 2.83853 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+      2 KSP Residual norm 1.28657 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+      3 KSP Residual norm 0.547941 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+      4 KSP Residual norm 0.16784 
+      Linear solve converged due to CONVERGED_RTOL iterations 19
+      5 KSP Residual norm 0.0798255 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+      6 KSP Residual norm 0.0443003 
+      Linear solve converged due to CONVERGED_RTOL iterations 19
+      7 KSP Residual norm 0.0161819 
+      Linear solve converged due to CONVERGED_RTOL iterations 19
+      8 KSP Residual norm 0.00691696 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+      9 KSP Residual norm 0.00407742 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+     10 KSP Residual norm 0.00283979 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+     11 KSP Residual norm 0.00156049 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+     12 KSP Residual norm 0.00066635 
+      Linear solve converged due to CONVERGED_RTOL iterations 19
+     13 KSP Residual norm 0.000158445 
+      Linear solve converged due to CONVERGED_RTOL iterations 21
+     14 KSP Residual norm 5.8757e-05 
+      Linear solve converged due to CONVERGED_RTOL iterations 20
+     15 KSP Residual norm 2.13461e-05 
+      Linear solve converged due to CONVERGED_RTOL iterations 21
+  1 SNES Function norm 1.98402e-05 
+Algebraic residual        |x|_1 2.01e-07  |x|_2 2.89e-07  |x|_inf 1.65e-06
+Interpolation residual    |x|_1 2.84e-02  |x|_2 6.54e-02  |x|_inf 4.52e-01
+Pointwise velocity error  |x|_1 2.54e-01  |x|_2 8.94e-02  |x|_inf 7.30e-02
+Pointwise gradient error  |x|_1 1.27e+00  |x|_2 3.66e-01  |x|_inf 3.88e-01
+Pointwise pressure error  |x|_1 7.96e-01  |x|_2 4.00e-01  |x|_inf 4.39e-01
