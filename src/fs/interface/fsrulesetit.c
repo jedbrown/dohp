@@ -597,6 +597,7 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
   } else {
     va_start(ap,dv);
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
+      InsertMode linkimode = imode;
       const dBool identity = (dBool)(it->npatches_in_elem == 1); /* need better heuristic */
       dEFS efs = p->efs[it->curelem];
       dScalar *ey = &p->y[p->elemstart*p->bs];
@@ -610,12 +611,12 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
         err = ValueCacheDistribute(&p->vc_patch,it->Q*it->npatches_in_elem,it->patchind,identity,p->vc_elem.u,p->vc_elem.du,p->vc_elem.v,p->vc_elem.dv);dCHK(err);
       }
       if (v) {
-        err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.v,ey,dAPPLY_INTERP_TRANSPOSE,imode);dCHK(err);
-        imode = ADD_VALUES;
+        err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.v,ey,dAPPLY_INTERP_TRANSPOSE,linkimode);dCHK(err);
+        linkimode = ADD_VALUES;
       }
       if (dv) {
-        err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.dv,ey,dAPPLY_GRAD_TRANSPOSE,imode);dCHK(err);
-        imode = ADD_VALUES;
+        err = dEFSApply(efs,it->cjinv_elem,p->bs,p->vc_elem.dv,ey,dAPPLY_GRAD_TRANSPOSE,linkimode);dCHK(err);
+        linkimode = ADD_VALUES;
       }
     }
     va_end(ap);
