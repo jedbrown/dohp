@@ -207,30 +207,8 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 # define dFree7(a,b,c,d,e,f,g) dFree(a)
 #endif
 
-#if defined(PETSC_USE_DEBUG)
-# define dFunctionBegin                                                 \
-  do {                                                                  \
-    if (petscstack && (petscstack->currentsize < PETSCSTACKSIZE)) {     \
-      petscstack->function[petscstack->currentsize]  = __func__;        \
-      petscstack->file[petscstack->currentsize]      = __FILE__;        \
-      petscstack->directory[petscstack->currentsize] = __SDIR__;        \
-      petscstack->line[petscstack->currentsize]      = __LINE__;        \
-      petscstack->currentsize++;                                        \
-    }} while (0)
-# define dFunctionReturn(a)                     \
-  do {                                          \
-    PetscStackPop;                              \
-    return(a);} while (0)
-
-# define dFunctionReturnVoid()                  \
-  do {                                          \
-    PetscStackPop;                              \
-    return;} while (0)
-#else
-# define dFunctionBegin do { } while (0)
-# define dFunctionReturn(a) return (a)
-# define dFunctienReturnVoid() return
-#endif
+#define dFunctionBegin     PetscFunctionBegin
+#define dFunctionReturn(a) PetscFunctionReturn(a)
 
 #define dASSERT(cond) if (!(cond)) { dERROR(PETSC_COMM_SELF,1,"Assertion failed: " #cond); }
 
