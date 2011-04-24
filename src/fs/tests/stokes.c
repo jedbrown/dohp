@@ -479,10 +479,11 @@ static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
       StokesPointwiseFunction(&stk->rheo,&stk->exact,&stk->exactctx,x[i],jw[i],Du,p[i],&stash[i],v[i],Dv,&q[i]);
       dTensorSymUncompress3(Dv,dv[i]);
     }
-    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL,v,dv, NULL,NULL,q,NULL);dCHK(err);
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, v,dv, q,NULL);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
+  //err = VecView(gxp,0);dCHK(err);
   err = StokesCommitGlobalSplit(stk,&gxu,&gxp,gy,INSERT_VALUES);dCHK(err);
   dFunctionReturn(0);
 }
@@ -516,7 +517,7 @@ static dErr MatMult_Nest_StokesCoupled(Mat J,Vec gx,Vec gy)
       StokesPointwiseJacobian(&stash[i],jw[i],Du,p[i],Dv,&q[i]);
       dTensorSymUncompress3(Dv,dv[i]);
     }
-    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL,NULL,dv, NULL,NULL,q,NULL);dCHK(err);
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, q,NULL);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
@@ -567,13 +568,13 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
   err = dFSGetGeometryVectorExpanded(stk->fsu,&Coords);dCHK(err);
   switch (mmode) {
   case STOKES_MULT_A:
-    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gx,dFS_HOMOGENEOUS,gz,dFS_HOMOGENEOUS, NULL,NULL);dCHK(err);
+    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gx,dFS_HOMOGENEOUS,gz,dFS_HOMOGENEOUS, NULL,              NULL);dCHK(err);
     break;
   case STOKES_MULT_Bt:
-    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,gz,dFS_HOMOGENEOUS, gx,dFS_HOMOGENEOUS,NULL);dCHK(err);
+    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,              gz,dFS_HOMOGENEOUS, gx,dFS_HOMOGENEOUS,NULL);dCHK(err);
     break;
   case STOKES_MULT_B:
-    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gx,dFS_HOMOGENEOUS,NULL, NULL,gz,dFS_HOMOGENEOUS);dCHK(err);
+    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gx,dFS_HOMOGENEOUS,NULL,               NULL,              gz,dFS_HOMOGENEOUS);dCHK(err);
     break;
   default: dERROR(stk->comm,PETSC_ERR_ARG_OUTOFRANGE,"Invalid mmode");
   }
@@ -592,7 +593,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
         StokesPointwiseJacobian(&stash[i],jw[i],Du,0,Dv,qq_unused);
         dTensorSymUncompress3(Dv,dv[i]);
       }
-      err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL,NULL,dv, NULL,NULL,NULL,NULL);dCHK(err);
+      err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, NULL,NULL);dCHK(err);
       break;
     case STOKES_MULT_Bt:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,NULL,NULL,&dv, &p,NULL,NULL,NULL);dCHK(err);dCHK(err);
@@ -601,7 +602,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
         StokesPointwiseJacobian_Bt(jw[i],p[i],Dv);
         dTensorSymUncompress3(Dv,dv[i]);
       }
-      err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL,NULL,dv, NULL,NULL,NULL,NULL);dCHK(err);
+      err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, NULL,NULL);dCHK(err);
       break;
     case STOKES_MULT_B:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,NULL, NULL,NULL,&q,NULL);dCHK(err);dCHK(err);
@@ -610,7 +611,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
         dTensorSymCompress3(du[i],Du);
         StokesPointwiseJacobian_B(jw[i],Du,&q[i]); /* vv is pressure test function */
       }
-      err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL,NULL,NULL, NULL,NULL,q,NULL);dCHK(err);
+      err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,NULL, q,NULL);dCHK(err);
       break;
     default: dERROR(stk->comm,PETSC_ERR_ARG_OUTOFRANGE,"Invalid mmode");
     }
@@ -678,7 +679,7 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Ap,Vec Mdiag,Vec gx)
         v[i][2] += Mentry;
       }
     }
-    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL,NULL,NULL, NULL,NULL,(dScalar**)&v,NULL, NULL,NULL,NULL,NULL);dCHK(err);
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, (dScalar**)&v,NULL, NULL,NULL);dCHK(err);
     err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat, NULL,NULL,NULL,NULL);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
