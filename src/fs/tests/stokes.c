@@ -57,8 +57,9 @@ struct _p_Stokes {
   struct StokesExactCtx  exactctx;
   dFS                    fsu,fsp;
   Vec                    xu,xp,yu,yp;
-  Vec                    gvelocity,gvelocity_extra,gpressure,gpressure_extra,gpacked;
-  IS                     ublock,pblock;
+  Vec                    gvelocity,gpressure,gpacked;
+  IS                     ublock,pblock;   /* Global index sets for each block */
+  IS                     lublock,lpblock; /* Local index sets for each block */
   VecScatter             extractVelocity,extractPressure;
   dInt                   constBDeg,pressureCodim;
   dBool                  errorview,cardinalMass;
@@ -229,12 +230,11 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = VecDuplicate(stk->xp,&stk->yp);dCHK(err);
 
   {
-    dInt nu,np,rstart;
+    dInt nu,np,rstart,nul,npl;
     IS   ublock,pblock;
+    Vec  Vc,Vgh,Pc,Pgh;
     err = dFSCreateGlobalVector(stk->fsu,&stk->gvelocity);dCHK(err);
-    err = VecDuplicate(stk->gvelocity,&stk->gvelocity_extra);dCHK(err);
     err = dFSCreateGlobalVector(stk->fsp,&stk->gpressure);dCHK(err);
-    err = VecDuplicate(stk->gpressure,&stk->gpressure_extra);dCHK(err);
     err = PetscObjectSetName((PetscObject)stk->gvelocity,"Velocity");dCHK(err);
     err = PetscObjectSetName((PetscObject)stk->gpressure,"Pressure");dCHK(err);
     err = VecGetLocalSize(stk->gvelocity,&nu);dCHK(err);
@@ -243,10 +243,25 @@ static dErr StokesSetFromOptions(Stokes stk)
     err = VecGetOwnershipRange(stk->gpacked,&rstart,NULL);dCHK(err);
     err = ISCreateStride(stk->comm,nu,rstart,1,&ublock);dCHK(err);
     err = ISCreateStride(stk->comm,np,rstart+nu,1,&pblock);dCHK(err);
+    err = ISSetBlockSize(ublock,3);dCHK(err);
     err = VecScatterCreate(stk->gpacked,ublock,stk->gvelocity,NULL,&stk->extractVelocity);dCHK(err);
     err = VecScatterCreate(stk->gpacked,pblock,stk->gpressure,NULL,&stk->extractPressure);dCHK(err);
     stk->ublock = ublock;
     stk->pblock = pblock;
+    /* Create local index sets */
+    err = VecDohpGetClosure(stk->gvelocity,&Vc);dCHK(err);
+    err = VecDohpGetClosure(stk->gpressure,&Pc);dCHK(err);
+    err = VecGhostGetLocalForm(Vc,&Vgh);dCHK(err);
+    err = VecGhostGetLocalForm(Pc,&Pgh);dCHK(err);
+    err = VecGetLocalSize(Vgh,&nul);dCHK(err);
+    err = VecGetLocalSize(Pgh,&npl);dCHK(err);
+    err = VecGhostRestoreLocalForm(Vc,&Vgh);dCHK(err);
+    err = VecGhostRestoreLocalForm(Pc,&Pgh);dCHK(err);
+    err = VecDohpRestoreClosure(stk->gvelocity,&Vc);dCHK(err);
+    err = VecDohpRestoreClosure(stk->gpressure,&Pc);dCHK(err);
+    err = ISCreateStride(PETSC_COMM_SELF,nul,0,1,&stk->lublock);dCHK(err);
+    err = ISCreateStride(PETSC_COMM_SELF,npl,nul,1,&stk->lpblock);dCHK(err);
+    err = ISSetBlockSize(stk->lublock,3);dCHK(err);
   }
   err = dJacobiDestroy(&jac);dCHK(err);
   err = dMeshDestroy(&mesh);dCHK(err);
@@ -317,8 +332,9 @@ static dErr StokesCommitGlobalSplit(Stokes stk,Vec *gxu,Vec *gxp,Vec gy,InsertMo
   dFunctionReturn(0);
 }
 
-static dErr StokesDestroy(Stokes stk)
+static dErr StokesDestroy(Stokes *instk)
 {
+  Stokes stk = *instk;
   dErr err;
 
   dFunctionBegin;
@@ -330,15 +346,15 @@ static dErr StokesDestroy(Stokes stk)
   err = VecDestroy(&stk->yp);dCHK(err);
   err = VecDestroy(&stk->gvelocity);dCHK(err);
   err = VecDestroy(&stk->gpressure);dCHK(err);
-  err = VecDestroy(&stk->gvelocity_extra);dCHK(err);
-  err = VecDestroy(&stk->gpressure_extra);dCHK(err);
   err = VecDestroy(&stk->gpacked);dCHK(err);
   err = VecScatterDestroy(&stk->extractVelocity);dCHK(err);
   err = VecScatterDestroy(&stk->extractPressure);dCHK(err);
   err = ISDestroy(&stk->ublock);dCHK(err);
   err = ISDestroy(&stk->pblock);dCHK(err);
+  err = ISDestroy(&stk->lublock);dCHK(err);
+  err = ISDestroy(&stk->lpblock);dCHK(err);
   for (dInt i=0; i<EVAL_UB; i++) {err = dRulesetIteratorDestroy(&stk->regioniter[i]);dCHK(err);}
-  err = dFree(stk);dCHK(err);
+  err = dFree(*instk);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -764,8 +780,8 @@ static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure 
   Vec Mdiag;
 
   dFunctionBegin;
-  err = MatNestGetSubMat(*Jp,0,0,&A);dCHK(err);
-  err = MatNestGetSubMat(*Jp,1,1,&D);dCHK(err);
+  err = MatGetLocalSubMatrix(*Jp,stk->lublock,stk->lublock,&A);dCHK(err);
+  err = MatGetLocalSubMatrix(*Jp,stk->lpblock,stk->lpblock,&D);dCHK(err);
   err = PetscObjectQuery((dObject)D,"LSC_M_diag",(dObject*)&Mdiag);dCHK(err);
   err = PetscObjectQuery((dObject)D,"LSC_L",(dObject*)&Daux);dCHK(err);
   err = MatZeroEntries(*Jp);dCHK(err);
@@ -776,6 +792,8 @@ static dErr StokesJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure 
     err = MatAssemblyBegin(Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
     err = MatAssemblyEnd  (Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
   }
+  err = MatRestoreLocalSubMatrix(*Jp,stk->lublock,stk->lublock,&A);dCHK(err);
+  err = MatRestoreLocalSubMatrix(*Jp,stk->lpblock,stk->lpblock,&D);dCHK(err);
 
   /* MatNest calls assembly on the constituent pieces */
   err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -1083,7 +1101,7 @@ int main(int argc,char *argv[])
   err = VecZeroEntries(r);dCHK(err);
   err = VecZeroEntries(x);dCHK(err);
   err = SNESSolve(snes,NULL,x);dCHK(err); /* ###  SOLVE  ### */
-  if (1) {
+  if (stk->alldirichlet) {
     MatNullSpace matnull;
     KSP ksp;
     err = SNESGetKSP(snes,&ksp);dCHK(err);
@@ -1124,7 +1142,7 @@ int main(int argc,char *argv[])
   err = MatFDColoringDestroy(&fdcolor);dCHK(err);
   if (J != Jp) {err = MatDestroy(&J);dCHK(err);}
   err = MatDestroy(&Jp);dCHK(err);
-  err = StokesDestroy(stk);dCHK(err);
+  err = StokesDestroy(&stk);dCHK(err);
   err = dFinalize();dCHK(err);
   return 0;
 }
