@@ -119,7 +119,7 @@ static dInt productInt(dInt N,const dInt a[])
 static dErr checkInterp(dInt N,dEFS efs[],Vec u)
 {
   dRule rule;
-  dReal *x[3],z,dz;
+  dReal *x[3],z=0,dz=0;
   const dReal *qx[3],*qw[3];
   dScalar *f,*g=NULL,(*dg)[3]=NULL;
   dInt P[3],Q[3],ind,size,dim,needed,qind,gsize=0;
