@@ -410,6 +410,15 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   err = dFSGetMatrix(stk->fsp,stk->mattype_D,&D);dCHK(err);
   err = MatSetOptionsPrefix(A,"Ap_");dCHK(err);
   err = MatSetOptionsPrefix(D,"Dp_");dCHK(err);
+  err = MatSetOption(A,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
+  err = MatSetOption(D,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
+  {
+    dBool seqsbaij;
+    err = PetscTypeCompare((PetscObject)A,MATSEQSBAIJ,&seqsbaij);dCHK(err);
+    if (seqsbaij) {err = MatSetOption(A,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
+    err = PetscTypeCompare((PetscObject)D,MATSEQSBAIJ,&seqsbaij);dCHK(err);
+    if (seqsbaij) {err = MatSetOption(D,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
+  }
   err = MatCreateNest(stk->comm,2,splitis,2,splitis,((Mat[]){A,NULL,NULL,D}),Jp);dCHK(err);
   err = MatSetOptionsPrefix(*Jp,"Jp_");dCHK(err);
   err = MatSetFromOptions(*Jp);dCHK(err);
