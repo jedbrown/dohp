@@ -921,8 +921,8 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
   if (!isnull) dERROR(PETSC_COMM_SELF,1,"Vector is not in the null space of J");dCHK(err);
   err = SNESComputeJacobian(snes,U,&J,&Jp,&mstruct);dCHK(err); /* To assemble blocks of Jp */
   err = MatNullSpaceTest(matnull,Jp,&isnull);dCHK(err);
-  if (!isnull) dERROR(PETSC_COMM_SELF,1,"Vector is not in the null space of Jp");dCHK(err);
-  err = MatNullSpaceDestroy(&matnull);dCHK(err);
+  // At present, Jp intentionally contains an auxilliary matrix in the (p,p) block. It does not have the same null space as the Jacobian so we disable the error below.
+  if (false && !isnull) dERROR(PETSC_COMM_SELF,1,"Vector is not in the null space of Jp");dCHK(err);
   err = MatDestroy(&mffd);dCHK(err);
   if (compute_explicit) {
     Mat expmat,expmat_fd;
