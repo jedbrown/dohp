@@ -58,7 +58,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
   err = PetscNewLog(fs,struct _dFSOps,&fs->ops);dCHK(err);
 
 /* Defaults */
-  fs->bs = 1;
+  fs->dm.bs = 1;
   err = dCallocA(1,&fs->fieldname);dCHK(err);
 
   *infs = fs;

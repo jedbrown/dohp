@@ -51,7 +51,8 @@ dErr dFSRotationCreate(dFS fs,IS is,dReal rmat[],dInt ns[],Vec v,dFSRotation *in
   *inrot = 0;
   err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_CLASSID,0,"dFSRotation",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
 
-  bs = rot->bs = fs->bs;
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
+  rot->bs = bs;
   err = ISGetSize(is,&n);dCHK(err);
   rot->n = n;
   err = PetscObjectReference((PetscObject)is);dCHK(err);

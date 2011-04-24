@@ -95,22 +95,25 @@ dErr dFSSetDegree(dFS fs,dJacobi jac,dMeshTag deg)
 dErr dFSSetBlockSize(dFS fs,dInt bs)
 {
   dErr err;
+  dInt obs;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  for (dInt i=0; i<fs->bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
+  err = dFSGetBlockSize(fs,&obs);dCHK(err);
+  for (dInt i=0; i<obs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
   err = dFree(fs->fieldname);dCHK(err);
   err = dCallocA(bs,&fs->fieldname);dCHK(err);
-  fs->bs = bs;
+  fs->dm.bs = bs;
   dFunctionReturn(0);
 }
 
 dErr dFSGetBlockSize(dFS fs,dInt *bs)
 {
+  dErr err;
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidIntPointer(bs,2);
-  *bs = fs->bs;
+  err = DMGetBlockSize((DM)fs,bs);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -125,10 +128,12 @@ dErr dFSGetBlockSize(dFS fs,dInt *bs)
 dErr dFSSetFieldName(dFS fs,dInt fn,const char *fname)
 {
   dErr err;
+  dInt bs;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
-  if (fn < 0 || fs->bs <= fn) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
+  if (fn < 0 || bs <= fn) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
   if (fs->fieldname[fn]) {err = dFree(fs->fieldname[fn]);dCHK(err);}
   err = PetscStrallocpy(fname,&fs->fieldname[fn]);dCHK(err);
   dFunctionReturn(0);
@@ -169,11 +174,13 @@ dErr dFSRegisterBoundarySet(dFS fs,dMeshESH bset,dFSBStatus bstat,dFSConstraintF
   iMesh_Instance   mi;
   dErr             err;
   dIInt            ierr;
+  dInt             bs;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
   if (!dFSBStatusValid(bstat)) dERROR(PETSC_COMM_SELF,1,"Boundary status %x invalid",bstat);
-  if (dFSBStatusStrongCount(bstat) > fs->bs) dERROR(PETSC_COMM_SELF,1,"Cannot impose strong conditions on more dofs than the block size");
+  if (dFSBStatusStrongCount(bstat) > bs) dERROR(PETSC_COMM_SELF,1,"Cannot impose strong conditions on more dofs than the block size");
   err = dMeshTagSSetData(fs->mesh,fs->tag.bstatus,&bset,1,&bstat,sizeof(bstat),dDATA_BYTE);dCHK(err);
   if (cfunc) {
     struct dFSConstraintCtx ctx;
@@ -225,11 +232,12 @@ dErr dFSView(dFS fs,dViewer viewer)
       err = PetscViewerASCIIPrintf(viewer,"number of vertices=%d edges=%d faces=%d regions=%d\n",nents[0],nents[1],nents[2],nents[3]);dCHK(err);
     }
     {                           /* print aggregate sizes */
-      dInt lm[4],gm[4];
+      dInt lm[4],gm[4],bs;
       err = MatGetSize(fs->E,&lm[0],&lm[1]);dCHK(err);
-      if (lm[0]%fs->bs || lm[1]%fs->bs) dERROR(PETSC_COMM_SELF,1,"Constraint matrix not a multiple of block size, should not happen");
-      lm[0] /= fs->bs;
-      lm[1] /= fs->bs;
+      err = dFSGetBlockSize(fs,&bs);dCHK(err);
+      if (lm[0]%bs || lm[1]%bs) dERROR(PETSC_COMM_SELF,1,"Constraint matrix not a multiple of block size, should not happen");
+      lm[0] /= bs;
+      lm[1] /= bs;
       if (lm[1] != fs->nc) dERROR(PETSC_COMM_SELF,1,"Inconsistent number of closure nodes");
       lm[2] = fs->n;
       lm[3] = fs->ngh;
@@ -237,7 +245,7 @@ dErr dFSView(dFS fs,dViewer viewer)
       err = PetscViewerASCIIPrintf(viewer,"On rank 0: %d/%d expanded nodes constrained against %d+%d / %d+%d real nodes, %d / %d closure\n",
                                    lm[0],gm[0], lm[2],lm[3], gm[2],gm[3], lm[1],gm[1]);dCHK(err);
       err = PetscViewerASCIIPrintf(viewer,"Block size %d: global dofs %d, ghost dofs %d, closure dofs %d\n",
-                                   fs->bs,fs->bs*gm[2],fs->bs*gm[3],fs->bs*gm[1]);dCHK(err);
+                                   bs,bs*gm[2],bs*gm[3],bs*gm[1]);dCHK(err);
     }
     if (fs->ops->view) {
       err = (*fs->ops->view)(fs,viewer);dCHK(err);
@@ -282,13 +290,15 @@ dErr DMDestroy_dFS(DM dm)
 {
   dFS fs = (dFS)dm;
   dErr err;
+  dInt bs;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   if (fs->ops->impldestroy) {
     err = (*fs->ops->impldestroy)(fs);dCHK(err);
   }
-  for (dInt i=0; i<fs->bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
+  for (dInt i=0; i<bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
   err = dFree(fs->fieldname);dCHK(err);
   err = VecDestroy(&fs->gvec);dCHK(err);
   err = VecDestroy(&fs->dcache);dCHK(err);
@@ -655,7 +665,8 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
   dValidCharPointer(mtype,2);
   dValidPointer(inJ,3);
   *inJ = 0;
-  bs = fs->bs; n = fs->n;
+  n = fs->n;
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
   err = MatCreate(((dObject)fs)->comm,&J);dCHK(err);
   err = MatSetSizes(J,bs*n,bs*n,PETSC_DETERMINE,PETSC_DETERMINE);dCHK(err);
   err = MatSetType(J,mtype);dCHK(err);
@@ -706,7 +717,7 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   dValidPointer(idxm,4);
   dValidPointer(idxn,6);
   dValidPointer(v,7);
-  bs = fs->bs;
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
   err = PetscLogEventBegin(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
   err = MatMAIJGetAIJ(fs->assemblefull?fs->E:fs->Ep,&E);dCHK(err); /* Does not reference so do not destroy or return E */
   err = MatGetRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);

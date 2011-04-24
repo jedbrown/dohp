@@ -164,12 +164,13 @@ dErr dFSBuildSpaceVectors_Private(dFS fs,dMeshTag indexTag,const dInt inodes[],d
 
   /* Set ghost indices of every node using \a ghidx, create global vector. */
   {
-    dInt gh=0;
+    dInt gh=0,bs;
     for (dInt i=0; i<ghents_s; i++) {
       for (dInt j=0; j<inodes[idx[i]]; j++) ghidx[gh++] = gcoffset[i] + j;
     }
     if (gh != fs->ngh) dERROR(PETSC_COMM_SELF,1,"Ghost count inconsistent");
-    err = VecCreateDohp(((dObject)fs)->comm,fs->bs,fs->n,fs->nc,fs->ngh,ghidx,&fs->gvec);dCHK(err);
+    err = dFSGetBlockSize(fs,&bs);dCHK(err);
+    err = VecCreateDohp(((dObject)fs)->comm,bs,fs->n,fs->nc,fs->ngh,ghidx,&fs->gvec);dCHK(err);
   }
   err = dFree3(gcoffset,ghidx,idx);dCHK(err);
 

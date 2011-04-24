@@ -388,7 +388,7 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *n
 {
   /* dFS_Cont *cont = fs->data; */
   dErr    err;
-  dInt    nents,nsub,n;
+  dInt    nents,nsub,n,bs;
   dMeshEH *ents;
   dPolynomialOrder *degree;
   Vec     X;
@@ -407,8 +407,9 @@ static dErr dFSGetSubElementMeshSize_Cont(dFS fs,dInt *nelem,dInt *nvert,dInt *n
   err = VecGetLocalSize(X,&n);dCHK(err);
   err = VecDohpRestoreClosure(fs->gvec,&X);dCHK(err);
   err = dFree2(ents,degree);dCHK(err);
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
   *nelem = nsub;
-  *nvert = n/fs->bs;
+  *nvert = n/bs;
   *nconn = nsub*8;              /* all hex */
   dFunctionReturn(0);
 }

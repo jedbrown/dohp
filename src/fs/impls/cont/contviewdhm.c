@@ -110,7 +110,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     dht_FS     fs5;
     dht_Field *field5;
     hid_t      h5t_fs,fsdset,fsspace;
-    dInt       i;
+    dInt       i,bs;
     PetscMPIInt size;
 
     err = dViewerDHMGetFSType(viewer,&h5t_fs);dCHK(err);
@@ -121,12 +121,13 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     err = dMeshGetTagName(fs->mesh,fs->tag.bstatus,&fs5.bstatus);dCHK(err);
     herr = H5Rcreate(&fs5.mesh,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
     fs5.time = dhm->time;
+    err = dFSGetBlockSize(fs,&bs);dCHK(err);
     err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);
     err = MPI_Comm_size(((dObject)fs)->comm,&size);dCHK(err);
     fs5.number_of_subdomains = size;
-    fs5.fields.len = fs->bs;
+    fs5.fields.len = bs;
     err = dMallocA(fs5.fields.len,&field5);dCHK(err);
-    for (i=0; i<fs->bs; i++) {
+    for (i=0; i<bs; i++) {
       field5[i].name = fs->fieldname[i];
       field5[i].units.dimensions = (char*)"m s-1"; /* we only use it as \c const */
       field5[i].units.scale = exp(1.0);
@@ -323,7 +324,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
         dMeshTag tag;
         dJacobi jac;
         dMeshESH set,*sets;
-        dInt nsets;
+        dInt nsets,bs;
         dIInt readrank = 0;         /* Hard-code the rank for now */
         err = dMeshGetTag(mesh,fs5.partition,&tag);dCHK(err);
         err = dMeshGetTaggedSet(mesh,tag,&readrank,&set);dCHK(err);
@@ -345,7 +346,8 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
         err = dFree(sets);dCHK(err);
 
         err = dFSSetBlockSize(fs,(dInt)fs5.fields.len);dCHK(err);
-        for (dInt i=0; i<fs->bs; i++) {
+        err = dFSGetBlockSize(fs,&bs);dCHK(err);
+        for (dInt i=0; i<bs; i++) {
           const dht_Field *field5 = fs5.fields.p;
           err = dFSSetFieldName(fs,i,field5[i].name);dCHK(err);
         }
