@@ -1088,8 +1088,9 @@ int main(int argc,char *argv[])
     err = VecNorm(r,NORM_INFINITY,&inorm[2]);dCHK(err);
     err = dPrintf(comm,"Algebraic residual        |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",anorm[0],anorm[1],anorminf);dCHK(err);
     err = dPrintf(comm,"Interpolation residual    |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",inorm[0],inorm[1],inorm[2]);dCHK(err);
-    err = dPrintf(comm,"Pointwise solution error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
+    err = dPrintf(comm,"Pointwise velocity error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",enorm[0],enorm[1],enorm[2]);dCHK(err);
     err = dPrintf(comm,"Pointwise gradient error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",gnorm[0],gnorm[1],gnorm[2]);dCHK(err);
+    err = dPrintf(comm,"Pointwise pressure error  |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",epnorm[0],epnorm[1],epnorm[2]);dCHK(err);
   }
   if (viewdhm) {
     Vec Xu,Xp;
