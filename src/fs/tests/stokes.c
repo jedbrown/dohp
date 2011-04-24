@@ -158,15 +158,23 @@ static dErr StokesSetFromOptions(Stokes stk)
   } err = PetscOptionsEnd();dCHK(err);
 
   switch (exact) {
-    case 0:
-      stk->exact.solution = StokesExact_0_Solution;
-      stk->exact.forcing = StokesExact_0_Forcing;
-      break;
-    case 1:
-      stk->exact.solution = StokesExact_1_Solution;
-      stk->exact.forcing = StokesExact_1_Forcing;
-      break;
-    default: dERROR(PETSC_COMM_SELF,1,"Exact solution %d not implemented");
+  case 0:
+    stk->exact.solution = StokesExact_0_Solution;
+    stk->exact.forcing = StokesExact_0_Forcing;
+    break;
+  case 1:
+    stk->exact.solution = StokesExact_1_Solution;
+    stk->exact.forcing = StokesExact_1_Forcing;
+    break;
+  case 2:
+    stk->exact.solution = StokesExact_2_Solution;
+    stk->exact.forcing = StokesExact_2_Forcing;
+    break;
+  case 3:
+    stk->exact.solution = StokesExact_3_Solution;
+    stk->exact.forcing = StokesExact_3_Forcing;
+    break;
+  default: dERROR(PETSC_COMM_SELF,1,"Exact solution %D not implemented",exact);
   }
 
   err = dMeshCreate(stk->comm,&mesh);dCHK(err);

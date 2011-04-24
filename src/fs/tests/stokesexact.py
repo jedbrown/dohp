@@ -75,10 +75,24 @@ class StokesExact_1(StokesExact):
                        -b/3 * cos(xx) * cos(yy) * sin(zz),
                        -c*2/3 * cos(xx) * sin(yy) * cos(zz),
                         cos(xx) * sin(yy) * sin(zz)])
+class StokesExact_2(StokesExact):
+    def solution(self, x,y,z, a,b,c):
+        return Matrix([a*z**3,
+                       b*x**3,
+                       c*y**3,
+                       (1-x**2)*(1-y**2)*(1-z**2)])
+class StokesExact_3(StokesExact):
+    def solution(self, x,y,z, a,b,c):
+        from sympy import sin,cos,pi
+        xx, yy, zz = (pi*s/2 for s in [x,y,z])
+        return Matrix([a*sin(2*xx),
+                       b*cos(yy),
+                       c*cos(zz),
+                       cos(xx)*cos(yy)*cos(zz)])
 
 if __name__ == "__main__":
     import pdb
-    solutions = [StokesExact_0(), StokesExact_1()]
+    solutions = [StokesExact_0(), StokesExact_1(), StokesExact_2(), StokesExact_3()]
     with open('stokesexact.h', 'w') as fheader, open('stokesexact.c', 'w') as fimpl:
         fheader.write('#include <dohptype.h>\n\n')
         fheader.write('struct StokesRheology {dReal A,eps,p;};\n')
