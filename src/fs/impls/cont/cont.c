@@ -142,7 +142,7 @@ static dErr dMeshPopulateOrderedSet_Private(dMesh mesh,dMeshESH orderedSet,dMesh
   for (dInt i=0; i<ents_s; i++) {
     dInt cnt = 0;
     for (dInt j=adjoff[i]; j<adjoff[i+1]; j++) cnt += (ordering[j] >= 0);
-    nnz[i] = cnt;
+    nnz[i] = cnt + 1;           // The 1 is for the diagonal
   }
   /* Create matrix for number of owned entities */
   err = MatCreateSeqAIJ(PETSC_COMM_SELF,ents_s,ents_s,0,nnz,&madj);dCHK(err);
