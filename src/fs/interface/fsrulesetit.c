@@ -955,6 +955,9 @@ static dErr ValueCachePhysicalExtract(struct ValueCachePhysical *phys,dInt n,con
   dFunctionReturn(0);
 }
 
+#if !defined dUSE_DEBUG
+dUNUSED
+#endif
 static dErr ValueCachePhysicalReset(struct ValueCachePhysical *phys)
 {
   dErr err;
