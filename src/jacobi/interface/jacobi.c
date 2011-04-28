@@ -512,9 +512,13 @@ dErr dEFSApply(dEFS efs,const dReal mapdata[],dInt dofs,const dScalar in[],dScal
   if (dofs < 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"dofs %D, must be positive",dofs);
   dValidScalarPointer(in,4);
   dValidScalarPointer(out,5);
+#if defined dUSE_LOG_FINEGRAIN
   err = PetscLogEventBegin(dLOG_EFSApply,0,0,0,0);dCHK(err);
+#endif
   err = (*efs->ops.apply)(efs,mapdata,dofs,in,out,amode,imode);dCHK(err);
+#if defined dUSE_LOG_FINEGRAIN
   err = PetscLogEventEnd(dLOG_EFSApply,0,0,0,0);dCHK(err);
+#endif
   dFunctionReturn(0);
 }
 

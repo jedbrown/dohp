@@ -700,6 +700,12 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
 extern PetscErrorCode MatGetArray_SeqAIJ(Mat A,PetscScalar *array[]);
 extern PetscErrorCode MatRestoreArray_SeqAIJ(Mat A,PetscScalar *array[]);
 
+// We call these directly because otherwise profiling events are done, which adds overhead.
+#if !defined dUSE_LOG_FINEGRAIN
+extern PetscErrorCode MatGetRowIJ_SeqAIJ(Mat A,PetscInt oshift,PetscBool symmetric,PetscBool inodecompressed,PetscInt *m,PetscInt *ia[],PetscInt *ja[],PetscBool *done);
+extern PetscErrorCode MatRestoreRowIJ_SeqAIJ(Mat A,PetscInt oshift,PetscBool symmetric,PetscBool inodecompressed,PetscInt *n,PetscInt *ia[],PetscInt *ja[],PetscBool *done);
+#endif
+
 dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n,const dInt idxn[],const dScalar v[],InsertMode imode)
 {
   dInt lidxms[128],lidxns[128];
@@ -718,10 +724,16 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   dValidPointer(idxn,6);
   dValidPointer(v,7);
   err = dFSGetBlockSize(fs,&bs);dCHK(err);
+#if defined dUSE_LOG_FINEGRAIN
   err = PetscLogEventBegin(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
+#endif
   err = MatMAIJGetAIJ(fs->assemblefull?fs->E:fs->Ep,&E);dCHK(err); /* Does not reference so do not destroy or return E */
+#if defined dUSE_DEBUG
   err = MatGetRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,1,"Could not get indices");
+#else
+  err = MatGetRowIJ_SeqAIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
+#endif
   err = MatGetArray_SeqAIJ(E,&ca);dCHK(err);
   for (i=0,lm=0; i<m; i++) {
     /* Count the number of columns in constraint matrix for each row of input matrix, this will be the total number of
@@ -766,8 +778,12 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   }
 
   err = MatRestoreArray_SeqAIJ(E,&ca);dCHK(err);
+#if defined dUSE_DEBUG
   err = MatRestoreRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,1,"Failed to return indices");
+#else
+  err = MatRestoreRowIJ_SeqAIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
+#endif
   if (fs->assemblereduced) {
     dInt brow[lm],bcol[ln];
     dScalar bval[lm*ln];
@@ -789,6 +805,8 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   if (lidxn != lidxns) {err = dFree(lidxn);dCHK(err);}
   if (lv != lvs)       {err = dFree(lv);dCHK(err);}
   if (lvt != lvts)     {err = dFree(lvt);dCHK(err);}
+#if defined dUSE_LOG_FINEGRAIN
   err = PetscLogEventEnd(dLOG_FSMatSetValuesExpanded,fs,A,0,0);dCHK(err);
+#endif
   dFunctionReturn(0);
 }

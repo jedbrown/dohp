@@ -13,9 +13,10 @@ endif ()
 
 #find_package (Doxygen)
 
-option (dUSE_DEBUG         "Compile Dohp with extra debugging" ON)
-option (dUSE_PARALLEL_HDF5 "Write HDF5 files in parallel"      OFF)
-option (Dohp_BUILD_TESTS   "Build tests"                       ON)
+option (dUSE_DEBUG              "Compile Dohp with extra debugging"                              ON)
+option (dUSE_LOG_FINEGRAIN      "Log fine grained operations for profiling (slower)"             OFF)
+option (dUSE_PARALLEL_HDF5      "Write HDF5 files in parallel"                                   OFF)
+option (Dohp_BUILD_TESTS        "Build tests"                                                    ON)
 if (Dohp_BUILD_TESTS)
   option (Dohp_TESTS_MALLOC_DUMP "Run all tests with -malloc_dump" ON)
   mark_as_advanced (Dohp_TESTS_MALLOC_DUMP)
