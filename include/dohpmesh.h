@@ -14,6 +14,7 @@ typedef struct _p_dMesh *dMesh;
 
 extern dClassId dMESH_CLASSID;
 extern PetscBool dMeshRegisterAllCalled;
+extern PetscLogEvent dLOG_MeshLoad;
 
 extern const char *const iBase_ErrorString[];
 extern const char *const iBase_TagValueTypeName[];

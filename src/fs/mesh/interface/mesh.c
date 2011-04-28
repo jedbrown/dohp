@@ -857,6 +857,8 @@ dErr dMeshLoad(dMesh mesh)
   dErr err;
 
   dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  err = PetscLogEventBegin(dLOG_MeshLoad,mesh,0,0,0);dCHK(err);
   {
     PetscMPIInt rank;
     FILE *file;
@@ -910,6 +912,8 @@ dErr dMeshLoad(dMesh mesh)
   iMesh_getArrData(mi,mesh->r.v,mesh->r.s,orf,&mesh->orf.v,&mesh->orf.a,&mesh->orf.s,&err);dICHK(mi,err); /* region[face] */
   iMesh_getArrData(mi,mesh->f.v,mesh->f.s,ofe,&mesh->ofe.v,&mesh->ofe.a,&mesh->ofe.s,&err);dICHK(mi,err); /* face[edge] */
 #endif
+
+  err = PetscLogEventEnd(dLOG_MeshLoad,mesh,0,0,0);dCHK(err);
 
   /* View if requested */
   err = PetscOptionsHasName(((dObject)mesh)->prefix,"-dmesh_view",&flg);dCHK(err);

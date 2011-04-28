@@ -3,6 +3,7 @@
 
 dClassId dMESH_CLASSID;
 PetscBool dMeshRegisterAllCalled;
+PetscLogEvent dLOG_MeshLoad;
 static PetscFList MeshList;
 
 dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
@@ -88,6 +89,7 @@ dErr dMeshInitializePackage(const char path[])
   initialized = PETSC_TRUE;
   err = PetscClassIdRegister("Mesh",&dMESH_CLASSID);dCHK(err);
   err = dMeshRegisterAll(path);dCHK(err);
+  err = PetscLogEventRegister("dMeshLoad", dMESH_CLASSID,&dLOG_MeshLoad);dCHK(err);
   dFunctionReturn(0);
 }
 
