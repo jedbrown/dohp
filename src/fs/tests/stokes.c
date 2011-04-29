@@ -444,7 +444,7 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
 
 static inline void StokesPointwiseComputeStore(struct StokesRheology *rheo,const dReal dUNUSED x[3],const dScalar Du[],struct StokesStore *st)
 {
-  dScalar gamma_reg = 0.5*dSqr(rheo->eps) + dColonSymScalar3(Du,Du);
+  dScalar gamma_reg = 0.5*dSqr(rheo->eps) + 0.5*dColonSymScalar3(Du,Du);
   st->eta = rheo->A * pow(gamma_reg,0.5*(rheo->p-2));
   st->deta = 0.5*(rheo->p-2) * st->eta / gamma_reg;
   for (dInt i=0; i<6; i++) st->Du[i] = Du[i];
