@@ -230,7 +230,7 @@ static dErr EllipSetFromOptions(Ellip elp)
   err = dMeshCreate(elp->comm,&mesh);dCHK(err);
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
-  err = dMeshLoad(mesh);dCHK(err);dCHK(err);
+  err = dMeshLoad(mesh);dCHK(err);
   {
     MorphCtx ctx = {.morph   = morph,
                     .twist   = twist,
@@ -365,7 +365,7 @@ static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
     dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
     struct EllipStore *stash;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       EllipPointwiseFunction(&elp->param,&elp->exact,&elp->exactctx,&x[i*3],jw[i],&u[i],&du[i*3],&stash[i],&v[i],&dv[i*3]);
@@ -401,7 +401,7 @@ static dErr EllipShellMatMult(Mat J,Vec gx,Vec gy)
     dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
     const struct EllipStore *stash;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       EllipPointwiseJacobian(&elp->param,&stash[i],jw[i],&u[i],&du[i*3],&v[i],&dv[i*3]);
@@ -440,7 +440,7 @@ static dErr EllipJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structur
     const dInt *rowcol;
     dScalar *x,*dx,*u,*du;
     dInt Q,P;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);
     err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat);dCHK(err);
     {                           /* Scope so that we can declare new VLA pointers for convenient assembly */
       const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
@@ -493,7 +493,7 @@ static dErr EllipErrorNorms(Ellip elp,Vec gx,dReal errorNorms[static 3],dReal ge
     const dScalar *jw;
     dScalar (*x)[3],(*dx)[3][3],(*u)[1],(*du)[1][3];
     dInt Q;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar uu[1],duu[1][3];
       elp->exact.solution(&elp->exactctx,&elp->param,x[i],uu,(dScalar*)duu);

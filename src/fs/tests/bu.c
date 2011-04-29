@@ -56,7 +56,7 @@ static dErr BUSetFromOptions(BU bu)
   err = dMeshCreate(bu->comm,&mesh);dCHK(err);
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
-  err = dMeshLoad(mesh);dCHK(err);dCHK(err);
+  err = dMeshLoad(mesh);dCHK(err);
   bu->mesh = mesh;
   err = dMeshGetRoot(mesh,&domain);dCHK(err);
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);

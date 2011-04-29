@@ -125,7 +125,7 @@ static dErr ElastSetFromOptions(Elast elt)
   err = dMeshCreate(elt->comm,&mesh);dCHK(err);
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
-  err = dMeshLoad(mesh);dCHK(err);dCHK(err);
+  err = dMeshLoad(mesh);dCHK(err);
   elt->mesh = mesh;
   err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
@@ -280,7 +280,7 @@ static dErr ElastFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
     dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
     struct ElastStore *stash;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       ElastPointwiseFunction(&elt->param,&elt->exact,&elt->exactctx,&x[i*3],jw[i],&u[i*3],&du[i*9],&stash[i],&v[i*3],&dv[i*9]);
@@ -311,7 +311,7 @@ static dErr ElastShellMatMult(Mat J,Vec gx,Vec gy)
     dScalar *x,*dx,*u,*du,*v,*dv;
     dInt Q;
     const struct ElastStore *stash;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,&v,&dv);dCHK(err);
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       ElastPointwiseJacobian(&elt->param,&stash[i],jw[i],&u[i*3],&du[i*9],&v[i*3],&dv[i*9]);
@@ -343,7 +343,7 @@ static dErr ElastJacobian(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
     const dInt *rowcol;
     dScalar (*x)[3],(*dx)[3][3],(*u)[3],(*du)[3][3];
     dInt Q,P;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, (dScalar**)&u,(dScalar**)&du,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, (dScalar**)&u,(dScalar**)&du,NULL,NULL);dCHK(err);
     err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat);dCHK(err);
     {                           /* Scope so that we can declare new VLA pointers for convenient assembly */
       const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
@@ -407,7 +407,7 @@ static dErr ElastErrorNorms(Elast elt,Vec gx,dReal errorNorms[static 3],dReal ge
     const dScalar *jw;
     dScalar (*x)[3],(*dx)[3][3],(*u)[3],(*du)[3][3];
     dInt Q;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar uu[3],duu[3][3];
       elt->exact.solution(&elt->exactctx,x[i],uu,&duu[0][0]);

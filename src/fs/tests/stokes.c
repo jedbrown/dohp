@@ -191,7 +191,7 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dMeshCreate(stk->comm,&mesh);dCHK(err);
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
-  err = dMeshLoad(mesh);dCHK(err);dCHK(err);
+  err = dMeshLoad(mesh);dCHK(err);
   err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
   err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
@@ -508,7 +508,7 @@ static dErr StokesFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
     dScalar (*x)[3],(*dx)[9],(*u)[3],(*du)[9],(*v)[3],(*dv)[9],*p,*q;
     dInt Q;
     struct StokesStore *stash;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,&v,&dv, &p,NULL,&q,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,&v,&dv, &p,NULL,&q,NULL);dCHK(err);
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar Du[6],Dv[6];
@@ -546,7 +546,7 @@ static dErr MatMult_Nest_StokesCoupled(Mat J,Vec gx,Vec gy)
     dScalar (*x)[3],(*dx)[9],(*u)[3],(*du)[9],(*dv)[9],*p,*q;
     dInt Q;
     struct StokesStore *stash;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,&dv, &p,NULL,&q,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,&dv, &p,NULL,&q,NULL);dCHK(err);
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar Du[6],Dv[6];
@@ -623,7 +623,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     switch (mmode) {
     case STOKES_MULT_A:
-      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,&dv, NULL,NULL,NULL,NULL);dCHK(err);dCHK(err);
+      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,&dv, NULL,NULL,NULL,NULL);dCHK(err);
       for (dInt i=0; i<Q; i++) {
         dScalar Du[6],Dv[6],qq_unused[1];
         dTensorSymCompress3(du[i],Du);
@@ -633,7 +633,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
       err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, NULL,NULL);dCHK(err);
       break;
     case STOKES_MULT_Bt:
-      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,NULL,NULL,&dv, &p,NULL,NULL,NULL);dCHK(err);dCHK(err);
+      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,NULL,NULL,&dv, &p,NULL,NULL,NULL);dCHK(err);
       for (dInt i=0; i<Q; i++) {
         dScalar Dv[6];
         StokesPointwiseJacobian_Bt(jw[i],p[i],Dv);
@@ -642,7 +642,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
       err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, NULL,NULL);dCHK(err);
       break;
     case STOKES_MULT_B:
-      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,NULL, NULL,NULL,&q,NULL);dCHK(err);dCHK(err);
+      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,NULL, NULL,NULL,&q,NULL);dCHK(err);
       for (dInt i=0; i<Q; i++) {
         dScalar Du[6];
         dTensorSymCompress3(du[i],Du);
@@ -678,7 +678,7 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Ap,Vec Mdiag,Vec gx)
     const dInt *rowcol;
     dScalar (*x)[3],(*dx)[3][3],(*du)[9],(*v)[3];
     dInt Q,P;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,&v,NULL, NULL,NULL,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,&v,NULL, NULL,NULL,NULL,NULL);dCHK(err);
     err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat, NULL,NULL,NULL,NULL);dCHK(err);
     {                           /* Scope so that we can declare new VLA pointers for convenient assembly */
       const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
@@ -747,7 +747,7 @@ static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat D,Mat Daux,Vec gx)
     const dInt *rowcol;
     dScalar (*x)[3],(*dx)[3][3],(*du)[9];
     dInt Q,P;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,NULL, NULL,NULL,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,NULL, NULL,NULL,NULL,NULL);dCHK(err);
     err = dRulesetIteratorGetPatchAssembly(iter, NULL,NULL,NULL,NULL, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat);dCHK(err);
     {
       const dReal (*interp)[P] = (const dReal(*)[P])interp_flat;
