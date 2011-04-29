@@ -67,14 +67,14 @@ class StokesExact_0(StokesExact):
                         1 * (c-1) * z,
                         0.25*(cos(pi*x) + cos(pi*y)) + 10*(x+y)])
 class StokesExact_1(StokesExact):
-    'From Larin & Reusken, 2009'
+    'From Larin & Reusken, 2009, with pressure shifted by a constant'
     def solution(self, x,y,z, a,b,c):
         from sympy import sin,cos,pi
         xx, yy, zz = (pi*s/2 for s in [x,y,z])
         return Matrix([+a/3 * sin(xx) * sin(yy) * sin(zz),
                        -b/3 * cos(xx) * cos(yy) * sin(zz),
                        -c*2/3 * cos(xx) * sin(yy) * cos(zz),
-                        cos(xx) * sin(yy) * sin(zz)])
+                        1 + cos(xx) * sin(yy) * sin(zz)])
 class StokesExact_2(StokesExact):
     def solution(self, x,y,z, a,b,c):
         return Matrix([a*z**3,

@@ -819,6 +819,7 @@ static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[3],dReal gerrorN
 {
   dErr             err;
   Vec              Coords,gxu,gxp;
+  PetscScalar      volume = 0,pressureshift = 0;
   dRulesetIterator iter;
 
   dFunctionBegin;
@@ -827,15 +828,34 @@ static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[3],dReal gerrorN
   err = StokesExtractGlobalSplit(stk,gx,&gxu,&gxp);dCHK(err);
   err = StokesGetRegionIterator(stk,EVAL_FUNCTION,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(stk->fsu,&Coords);dCHK(err);
+  if (stk->alldirichlet) { // Do a volume integral of the exact solution to that we can remove the constant pressure mode
+    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,NULL, NULL,NULL);dCHK(err);
+    while (dRulesetIteratorHasPatch(iter)) {
+      const dReal *jw;
+      const dScalar (*x)[3];
+      dInt Q;
+      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,NULL,NULL,NULL, NULL,NULL,NULL,NULL, NULL,NULL,NULL,NULL);dCHK(err);
+      for (dInt i=0; i<Q; i++) {
+        dScalar uu[3],duu[9],pp[1],dpp[3];
+        stk->exact.solution(&stk->exactctx,x[i],uu,duu,pp,dpp);
+        volume += jw[i];
+        pressureshift += pp[0] * jw[i];
+      }
+      err = dRulesetIteratorNextPatch(iter);dCHK(err);
+    }
+    err = dRulesetIteratorFinish(iter);dCHK(err);
+    pressureshift /= volume;
+  }
   err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gxu,dFS_INHOMOGENEOUS,NULL, gxp,dFS_INHOMOGENEOUS,NULL);dCHK(err);
   while (dRulesetIteratorHasPatch(iter)) {
     const dReal *jw;
     const dScalar (*x)[3],(*dx)[9],(*u)[3],(*du)[9],(*p)[1];
     dInt Q;
-    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, (const dScalar**)&u,(const dScalar**)&du,NULL,NULL, (const dScalar**)&p,NULL,NULL,NULL);dCHK(err);dCHK(err);
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, (const dScalar**)&u,(const dScalar**)&du,NULL,NULL, (const dScalar**)&p,NULL,NULL,NULL);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar uu[3],duu[9],pp[1],dpp[3];
       stk->exact.solution(&stk->exactctx,x[i],uu,duu,pp,dpp);
+      pp[0] -= pressureshift;
       err = dNormsUpdate(errorNorms,gerrorNorms,jw[i],3,uu,u[i],duu,du[i]);dCHK(err);
       err = dNormsUpdate(perrorNorms,NULL,jw[i],1,pp,p[i],NULL,NULL);dCHK(err);
     }
