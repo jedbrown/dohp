@@ -79,7 +79,7 @@ struct _n_Stokes {
   VecScatter             extractVelocity,extractPressure;
   dInt                   constBDeg,pressureCodim;
   dBool                  cardinalMass;
-  char                   mattype_A[256],mattype_D[256];
+  char                   mattype_Ap[256],mattype_Dp[256];
   dQuadratureMethod      function_qmethod,jacobian_qmethod;
   dRulesetIterator       regioniter[EVAL_UB];
   dInt                   dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
@@ -155,8 +155,8 @@ static dErr StokesSetFromOptions(Stokes stk)
 
   dFunctionBegin;
   exact = 0; exc->a = exc->b = exc->c = 1; exc->scale = 1;
-  err = dStrcpyS(stk->mattype_A,sizeof(stk->mattype_A),MATBAIJ);dCHK(err);
-  err = dStrcpyS(stk->mattype_D,sizeof(stk->mattype_D),MATAIJ);dCHK(err);
+  err = dStrcpyS(stk->mattype_Ap,sizeof(stk->mattype_Ap),MATBAIJ);dCHK(err);
+  err = dStrcpyS(stk->mattype_Dp,sizeof(stk->mattype_Dp),MATAIJ);dCHK(err);
   err = PetscOptionsBegin(stk->comm,NULL,"Stokesicity options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-const_bdeg","Use constant isotropic degree on all elements","",stk->constBDeg,&stk->constBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-pressure_codim","Reduce pressure space by this factor","",stk->pressureCodim,&stk->pressureCodim,NULL);dCHK(err);
@@ -172,8 +172,8 @@ static dErr StokesSetFromOptions(Stokes stk)
       err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
       err = PetscOptionsReal("-exact_scale","Overall scale parameter","",exc->scale,&exc->scale,NULL);dCHK(err);
     }
-    err = PetscOptionsList("-Ap_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_A,stk->mattype_A,sizeof(stk->mattype_A),NULL);dCHK(err);
-    err = PetscOptionsList("-Dp_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_D,stk->mattype_D,sizeof(stk->mattype_D),NULL);dCHK(err);
+    err = PetscOptionsList("-stokes_Ap_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_Ap,stk->mattype_Ap,sizeof(stk->mattype_Ap),NULL);dCHK(err);
+    err = PetscOptionsList("-stokes_Dp_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_Dp,stk->mattype_Dp,sizeof(stk->mattype_Dp),NULL);dCHK(err);
     err = PetscOptionsEnum("-stokes_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)stk->function_qmethod,(PetscEnum*)&stk->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-stokes_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)stk->jacobian_qmethod,(PetscEnum*)&stk->jacobian_qmethod,NULL);dCHK(err);
     {
@@ -383,7 +383,7 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
 {
   dErr err;
   dInt m,nu,np;
-  Mat A,B,Bt,D;
+  Mat A,B,Bt,Ap,Dp;
   IS splitis[2];
 
   dFunctionBegin;
@@ -427,41 +427,41 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   err = MatDestroy(&B);dCHK(err);
 
   /* Create real matrix to be used for preconditioning */
-  err = dFSGetMatrix(stk->fsu,stk->mattype_A,&A);dCHK(err);
-  err = dFSGetMatrix(stk->fsp,stk->mattype_D,&D);dCHK(err);
-  err = MatSetOptionsPrefix(A,"Ap_");dCHK(err);
-  err = MatSetOptionsPrefix(D,"Dp_");dCHK(err);
-  err = MatSetOption(A,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
-  err = MatSetOption(D,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
-  err = MatSetFromOptions(A);dCHK(err);
-  err = MatSetFromOptions(D);dCHK(err);
+  err = dFSGetMatrix(stk->fsu,stk->mattype_Ap,&Ap);dCHK(err);
+  err = dFSGetMatrix(stk->fsp,stk->mattype_Dp,&Dp);dCHK(err);
+  err = MatSetOptionsPrefix(Ap,"Ap_");dCHK(err);
+  err = MatSetOptionsPrefix(Dp,"Dp_");dCHK(err);
+  err = MatSetOption(Ap,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
+  err = MatSetOption(Dp,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
+  err = MatSetFromOptions(Ap);dCHK(err);
+  err = MatSetFromOptions(Dp);dCHK(err);
   {
     dBool seqsbaij;
-    err = PetscTypeCompare((PetscObject)A,MATSEQSBAIJ,&seqsbaij);dCHK(err);
-    if (seqsbaij) {err = MatSetOption(A,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
-    err = PetscTypeCompare((PetscObject)D,MATSEQSBAIJ,&seqsbaij);dCHK(err);
-    if (seqsbaij) {err = MatSetOption(D,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
+    err = PetscTypeCompare((PetscObject)Ap,MATSEQSBAIJ,&seqsbaij);dCHK(err);
+    if (seqsbaij) {err = MatSetOption(Ap,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
+    err = PetscTypeCompare((PetscObject)Dp,MATSEQSBAIJ,&seqsbaij);dCHK(err);
+    if (seqsbaij) {err = MatSetOption(Dp,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
   }
-  err = MatCreateNest(stk->comm,2,splitis,2,splitis,((Mat[]){A,NULL,NULL,D}),Jp);dCHK(err);
+  err = MatCreateNest(stk->comm,2,splitis,2,splitis,((Mat[]){Ap,NULL,NULL,Dp}),Jp);dCHK(err);
   err = MatSetOptionsPrefix(*Jp,"Jp_");dCHK(err);
   err = MatSetFromOptions(*Jp);dCHK(err);
 
   {                             /* Allocate for the pressure Poisson, used by PCLSC */
     Mat L;
     Vec Mdiag;
-    err = dFSGetMatrix(stk->fsp,stk->mattype_D,&L);dCHK(err);
+    err = dFSGetMatrix(stk->fsp,stk->mattype_Dp,&L);dCHK(err);
     err = MatSetOptionsPrefix(L,"stokes_L_");dCHK(err);
     err = MatSetFromOptions(L);dCHK(err);
-    err = PetscObjectCompose((dObject)D,"LSC_L",(dObject)L);dCHK(err);
-    err = PetscObjectCompose((dObject)D,"LSC_Lp",(dObject)L);dCHK(err);
+    err = PetscObjectCompose((dObject)Dp,"LSC_L",(dObject)L);dCHK(err);
+    err = PetscObjectCompose((dObject)Dp,"LSC_Lp",(dObject)L);dCHK(err);
     err = MatDestroy(&L);dCHK(err); /* don't keep a reference */
     err = VecDuplicate(stk->gvelocity,&Mdiag);dCHK(err);
-    err = PetscObjectCompose((dObject)D,"LSC_M_diag",(dObject)Mdiag);
+    err = PetscObjectCompose((dObject)Dp,"LSC_M_diag",(dObject)Mdiag);
     err = VecDestroy(&Mdiag);dCHK(err); /* don't keep a reference */
   }
 
-  err = MatDestroy(&A);dCHK(err); /* release reference to Jp */
-  err = MatDestroy(&D);dCHK(err); /* release reference to Jp */
+  err = MatDestroy(&Ap);dCHK(err); /* release reference to Jp */
+  err = MatDestroy(&Dp);dCHK(err); /* release reference to Jp */
   dFunctionReturn(0);
 }
 
