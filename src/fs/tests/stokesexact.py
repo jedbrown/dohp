@@ -95,7 +95,7 @@ if __name__ == "__main__":
     solutions = [StokesExact_0(), StokesExact_1(), StokesExact_2(), StokesExact_3()]
     with open('stokesexact.h', 'w') as fheader, open('stokesexact.c', 'w') as fimpl:
         fheader.write('#include <dohptype.h>\n\n')
-        fheader.write('struct StokesRheology {dReal A,eps,p;};\n')
+        fheader.write('struct StokesRheology {dReal A,eps,p,gravity;};\n') # Gravity is not actually used by exact solutions
         fheader.write('struct StokesExactCtx {dReal a,b,c,scale;};\n')
         fimpl.write('\n'.join(['#include "stokesexact.h"', '#include <math.h>', '#ifndef M_PI', '#  define M_PI 3.14159265358979323846', '#endif', '\n']))
         for sol in solutions:
