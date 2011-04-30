@@ -163,6 +163,7 @@ extern dErr dMeshGetAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,cons
 extern dErr dMeshRestoreAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,const dReal**);
 extern dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
 extern dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
+extern dErr dMeshSetClosure(dMesh,dMeshESH);
 
 dEXTERN_C_END
 

@@ -1482,3 +1482,32 @@ dErr dMeshMorph(dMesh mesh,void (*morph)(void*,double*),void *ctx)
   free(coords);
   dFunctionReturn(0);
 }
+
+// Mutates a set so that it is its own closure
+dErr dMeshSetClosure(dMesh mesh,dMeshESH set)
+{
+  dErr err;
+  dIInt ierr,ents_a,ents_s,adj_a,adj_s,*off,off_s,off_a;
+  dMeshEH *ents,*adj;
+  iMesh_Instance mi;
+  dMeshSetOrdering ordering;
+
+  dFunctionBegin;
+  err = dMeshSetGetOrdering(mesh,set,&ordering);dCHK(err);
+  if (ordering != dMESHSET_UNORDERED) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"This function only works for unordered sets");
+  err = dMeshGetInstance(mesh,&mi);dCHK(err);
+
+  ents_a = adj_a = off_a = 0;
+  iMesh_getEntitiesRec(mi,set,dTYPE_FACE,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr); // Recursive closure because this method is sort of specialized for boundary sets :-(
+  iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_EDGE,&adj,&adj_a,&adj_s,&off,&off_a,&off_s,&ierr);dICHK(mi,ierr);
+  err = dMeshSetAddEnts(mesh,set,adj,adj_s);dCHK(err);
+  free(adj); free(off); free(ents);
+
+  ents_a = adj_a = off_a = 0;
+  iMesh_getEntitiesRec(mi,set,dTYPE_EDGE,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
+  iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_VERTEX,&adj,&adj_a,&adj_s,&off,&off_a,&off_s,&ierr);dICHK(mi,ierr);
+  err = dMeshSetAddEnts(mesh,set,adj,adj_s);dCHK(err);
+  free(adj); free(off); free(ents);
+  ents_a = adj_a = off_a = 0;
+  dFunctionReturn(0);
+}
