@@ -139,6 +139,38 @@ dErr dFSSetFieldName(dFS fs,dInt fn,const char *fname)
   dFunctionReturn(0);
 }
 
+static dErr dFSBoundarySetClosure_Private(dFS fs,dMeshESH bset)
+{
+  dErr err;
+  dMesh mesh;
+  iMesh_Instance mi;
+  dInt nboundaries;
+  dMeshESH *boundaries;
+
+  dFunctionBegin;
+  err = dFSGetMesh(fs,&mesh);dCHK(err);
+  err = dMeshGetInstance(mesh,&mi);dCHK(err);
+  err = dMeshSetClosure(mesh,bset);dCHK(err);
+  err = dMeshGetNumSubsets(mesh,fs->set.boundaries,0,&nboundaries);dCHK(err);
+  err = dMallocA(nboundaries,&boundaries);dCHK(err);
+  err = dMeshGetSubsets(mesh,fs->set.boundaries,0,boundaries,nboundaries,NULL);dCHK(err);
+  for (dInt i=0; i<nboundaries; i++) {
+    dMeshESH tmpset;
+    dMeshEH *ents;
+    dInt nents;
+    dIInt ierr;
+    iMesh_intersect(mi,boundaries[i],bset,&tmpset,&ierr);dICHK(mi,ierr);
+    err = dMeshGetNumEnts(mesh,tmpset,dTYPE_ALL,dTOPO_ALL,&nents);dCHK(err);
+    err = dMallocA(nents,&ents);dCHK(err);
+    err = dMeshGetEnts(mesh,tmpset,dTYPE_ALL,dTOPO_ALL,ents,nents,NULL);dCHK(err);
+    iMesh_rmvEntArrFromSet(mi,ents,nents,bset,&ierr);dICHK(mi,ierr);
+    err = dMeshSetDestroy(mesh,tmpset);dCHK(err);
+    err = dFree(ents);dCHK(err);
+  }
+  err = dFree(boundaries);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /** Register a boundary condition with the function space.
 * After all boundary conditions are registered, dFSBuildSpace (called by dFSSetFromOptions) can be used.
 *
@@ -181,6 +213,7 @@ dErr dFSRegisterBoundarySet(dFS fs,dMeshESH bset,dFSBStatus bstat,dFSConstraintF
   err = dFSGetBlockSize(fs,&bs);dCHK(err);
   if (!dFSBStatusValid(bstat)) dERROR(PETSC_COMM_SELF,1,"Boundary status %x invalid",bstat);
   if (dFSBStatusStrongCount(bstat) > bs) dERROR(PETSC_COMM_SELF,1,"Cannot impose strong conditions on more dofs than the block size");
+  err = dFSBoundarySetClosure_Private(fs,bset);dCHK(err);
   err = dMeshTagSSetData(fs->mesh,fs->tag.bstatus,&bset,1,&bstat,sizeof(bstat),dDATA_BYTE);dCHK(err);
   if (cfunc) {
     struct dFSConstraintCtx ctx;
