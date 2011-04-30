@@ -628,7 +628,17 @@ dErr dMeshGetEnts(dMesh mesh,dMeshESH set,dEntType type,dEntTopology topo,dMeshE
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
-  dValidPointer(ents,5);
+  if (esize) dValidPointer(ents,5);
+  else {
+#if defined dUSE_DEBUG // Count the number of entities to confirm that zero really was the right number to expect
+    dErr err;
+    dInt mycount;
+    err = dMeshGetNumEnts(mesh,set,type,topo,&mycount);dCHK(err);
+    if (mycount) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"The set has %D qualifying entities, but caller expected none");
+#endif
+    if (nents) *nents = 0;
+    dFunctionReturn(0);
+  }
   e = ents; ea = esize;
   iMesh_getEntities(mesh->mi,set,type,topo,&e,&ea,&es,&ierr);dICHK(mesh->mi,ierr);
   if (e != ents || ea != esize) dERROR(PETSC_COMM_SELF,1,"should not happen");
