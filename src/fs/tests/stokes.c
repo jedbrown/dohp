@@ -412,6 +412,8 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   err = MatSetOptionsPrefix(D,"Dp_");dCHK(err);
   err = MatSetOption(A,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
   err = MatSetOption(D,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
+  err = MatSetFromOptions(A);dCHK(err);
+  err = MatSetFromOptions(D);dCHK(err);
   {
     dBool seqsbaij;
     err = PetscTypeCompare((PetscObject)A,MATSEQSBAIJ,&seqsbaij);dCHK(err);
