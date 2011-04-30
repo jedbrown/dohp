@@ -611,6 +611,36 @@ dErr dFSRotateGlobal(dFS fs,Vec g,dFSRotateMode rmode,dFSHomogeneousMode hmode)
   dFunctionReturn(0);
 }
 
+// X can be either the global or closure vecs
+dErr dFSDirichletProject(dFS fs,Vec X,dFSHomogeneousMode hmode)
+{
+  dErr err;
+  Vec Xc;
+  dBool isdohp;
+  dInt n,nc;
+  dScalar *x;
+
+  dFunctionBegin;
+  err = PetscTypeCompare((PetscObject)X,VECDOHP,&isdohp);dCHK(err);
+  if (isdohp) {err = VecDohpGetClosure(X,&Xc);dCHK(err);}
+  else Xc = X;
+  switch (hmode) {
+  case dFS_INHOMOGENEOUS:
+    err = VecScatterBegin(fs->dscat,fs->dcache,Xc,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    err = VecScatterEnd(fs->dscat,fs->dcache,Xc,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+    break;
+  case dFS_HOMOGENEOUS:
+    err = VecGetLocalSize(X,&n);dCHK(err);
+    err = VecGetLocalSize(Xc,&nc);dCHK(err);
+    err = VecGetArray(Xc,&x);dCHK(err);
+    err = dMemzero(&x[n],(nc-n)*sizeof(x[0]));dCHK(err);
+    err = VecRestoreArray(Xc,&x);dCHK(err);
+    break;
+  }
+  if (isdohp) {err = VecDohpRestoreClosure(X,&Xc);dCHK(err);}
+  dFunctionReturn(0);
+}
+
 static dErr dUNUSED dFSIntegrationFindLink(dFS fs,const char *name,struct _dFSIntegrationLink **found)
 {
   struct _dFSIntegrationLink *link;
