@@ -831,17 +831,17 @@ static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[3],dReal gerrorN
   err = StokesGetRegionIterator(stk,EVAL_FUNCTION,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(stk->fsu,&Coords);dCHK(err);
   if (stk->alldirichlet) { // Do a volume integral of the exact solution to that we can remove the constant pressure mode
-    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,NULL, NULL,NULL);dCHK(err);
+    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,NULL, gxp,dFS_INHOMOGENEOUS,NULL);dCHK(err);
     while (dRulesetIteratorHasPatch(iter)) {
       const dReal *jw;
-      const dScalar (*x)[3];
+      const dScalar (*x)[3],*p;
       dInt Q;
-      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,NULL,NULL,NULL, NULL,NULL,NULL,NULL, NULL,NULL,NULL,NULL);dCHK(err);
+      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,NULL,NULL,NULL, NULL,NULL,NULL,NULL, &p,NULL,NULL,NULL);dCHK(err);
       for (dInt i=0; i<Q; i++) {
         dScalar uu[3],duu[9],pp[1],dpp[3];
         stk->exact.solution(&stk->exactctx,x[i],uu,duu,pp,dpp);
         volume += jw[i];
-        pressureshift += pp[0] * jw[i];
+        pressureshift += (pp[0] - p[i]) * jw[i]; // The computed pressure sum is zero, but the continuous integral may not be
       }
       err = dRulesetIteratorNextPatch(iter);dCHK(err);
     }
