@@ -13,7 +13,7 @@ dohp_link_executable (ellip ellip.c)
 dohp_link_executable (bu bu.c)
 dohp_link_executable (cunit cunit.c)
 dohp_link_executable (elast elast.c elastexact.c)
-dohp_link_executable (stokes stokes.c stokesexact.c)
+dohp_link_executable (stokes stokes.c stokesjako.c stokesexact.c)
 
 dohp_add_test (fs-mf-projection-v1 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 5 -snes_monitor_short -ksp_converged_reason -dfs_ordering_type natural -proj_version 1)
 #dohp_add_test (fs-mf-projection-v2 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 5 -snes_monitor_short -ksp_converged_reason -dfs_ordering_type natural -proj_version 2)

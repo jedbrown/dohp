@@ -55,5 +55,6 @@ extern PetscFList StokesCaseList;
 dErr StokesCaseRegister(const char *name,StokesCaseCreateFunction screate);
 
 dErr StokesCaseRegisterAll_Exact(void); /* Defined in generated stokesexact.c */
+dErr StokesCaseRegisterAll_Jako(void);  /* Defined in stokesjako.c */
 
 #endif
