@@ -42,6 +42,8 @@ dErr dMeshSetFromOptions(dMesh mesh)
   if (flg) {err = dMeshSetInFile(mesh,str,NULL);dCHK(err);}
   err = PetscOptionsString("-dmesh_inopts","Options for reading file","dMeshSetInFile",mesh->inoptions,str,sizeof(str),&flg);dCHK(err);
   if (flg) {err = dMeshSetInFile(mesh,NULL,str);dCHK(err);}
+  err = PetscOptionsBool("-dmesh_intermediate_adjacencies","Infer face and edge adjacencies","dMeshInferIntermediateAdjacencies",flg=dFALSE,&flg,NULL);dCHK(err);
+  if (flg) {err = dMeshInferIntermediateAdjacencies(mesh);dCHK(err);}
   if (mesh->ops->setfromoptions) {
     err = (*mesh->ops->setfromoptions)(mesh);dCHK(err);
   }

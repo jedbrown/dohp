@@ -935,6 +935,19 @@ dErr dMeshLoad(dMesh mesh)
   dFunctionReturn(0);
 }
 
+dErr dMeshInferIntermediateAdjacencies(dMesh mesh)
+{
+  dIInt ierr,adjtable_arr[dTYPE_ALL*dTYPE_ALL],*table = adjtable_arr,table_a = dTYPE_ALL*dTYPE_ALL,table_s;
+
+  dFunctionBegin;
+  iMesh_getAdjTable(mesh->mi,&table,&table_a,&table_s,&ierr);dICHK(mesh->mi,ierr);
+  if (table_a != table_s) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"iMesh changed the size of the adjacency table");
+  table[dTYPE_EDGE*dTYPE_ALL + dTYPE_EDGE] = iBase_AVAILABLE;
+  table[dTYPE_FACE*dTYPE_ALL + dTYPE_FACE] = iBase_AVAILABLE;
+  iMesh_setAdjTable(mesh->mi,table,table_s,&ierr);dICHK(mesh->mi,ierr);
+  dFunctionReturn(0);
+}
+
 dErr dMeshView(dMesh m,PetscViewer viewer)
 {
   const char *type;

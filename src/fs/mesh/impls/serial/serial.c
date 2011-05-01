@@ -20,11 +20,10 @@ static dErr dMeshLoad_Serial(dMesh mesh)
 
 dErr dMeshCreate_Serial(dMesh mesh)
 {
-  dErr err;
+  dIInt ierr;
 
   dFunctionBegin;
-
-  iMesh_newMesh("",&mesh->mi,&err,0);dICHK(mesh->mi,err);
+  iMesh_newMesh("",&mesh->mi,&ierr,0);dICHK(mesh->mi,ierr);
 
   mesh->data = 0;
   mesh->ops->view = 0;

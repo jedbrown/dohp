@@ -109,6 +109,7 @@ extern dErr dMeshLoopBounds_Hex(const dInt *size, dInt face, DohpLoopBounds *l);
 extern dErr dMeshGetLocalNodeNumbering(dMesh,dInt,dInt*,dInt*);
 extern dErr dMeshGetTagName(dMesh m,dMeshTag tag,char **name);
 extern dErr dMeshLoad(dMesh m);
+extern dErr dMeshInferIntermediateAdjacencies(dMesh mesh);
 extern dErr dMeshSetInFile(dMesh,const char fname[],const char opt[]);
 extern dErr dMeshGetRoot(dMesh mesh,dMeshESH *inroot);
 extern dErr dMeshSetDuplicateEntsOnly(dMesh mesh,dMeshESH set,dMeshESH *copy);
