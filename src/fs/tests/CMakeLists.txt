@@ -2,9 +2,9 @@ add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/elastexact.h" "${CMAKE_C
   COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py")
 set_source_files_properties (elast.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}")
 
-add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/stokesexact.h" "${CMAKE_CURRENT_BINARY_DIR}/stokesexact.c"
+add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/stokesexact.c"
   COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py")
-set_source_files_properties (stokes.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}")
+set_source_files_properties (stokesexact.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}") # for stokesimpl.h
 
 dohp_link_executable (fs-ex1 ex1.c)
 dohp_link_executable (fs-ex4 fsex4.c)
@@ -39,10 +39,10 @@ dohp_add_test (ellip-morph 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -mor
 dohp_add_test (elast-e0-b3-g01 1 elast -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -ksp_monitor_short -pc_type ilu -exact_a 0.98 -exact_b 1.01 -exact_c 1.01 -exact 0 -const_bdeg 3 -dfs_ordering_type natural)
 dohp_add_test (stokes-q3q2-scr 1 stokes -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_max_it 1 -snes_monitor_short -ksp_type preonly
   -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_real_diagonal -fieldsplit_p_ksp_monitor_short -fieldsplit_p_ksp_type cg
-  -fieldsplit_u_ksp_converged_reason -stokes_Ap_mat_type sbaij -exact 1 -const_bdeg 3 -pressure_codim 1)
+  -fieldsplit_u_ksp_converged_reason -stokes_Ap_mat_type sbaij -stokes_case Exact1 -const_bdeg 3 -pressure_codim 1)
 dohp_add_test (stokes-q3q2-fgmres 1 stokes -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -snes_rtol 1e-7
   -ksp_monitor_short -ksp_type fgmres -ksp_rtol 1e-2
   -pc_type fieldsplit -pc_fieldsplit_real_diagonal -pc_fieldsplit_type schur -pc_fieldsplit_schur_factorization_type upper
   -fieldsplit_u_ksp_type cg -fieldsplit_u_ksp_converged_reason -fieldsplit_u_ksp_rtol 1e-2
   -fieldsplit_p_ksp_type preonly
-  -exact 1 -const_bdeg 3 -pressure_codim 1 -rheo_p 1.2)
+  -stokes_case Exact1 -const_bdeg 3 -pressure_codim 1 -rheo_p 1.2)

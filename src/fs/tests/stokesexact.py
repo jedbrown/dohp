@@ -22,11 +22,13 @@ class StokesExact(Exact):
         gamma = SecondInvariant(Du)
         eta = self.eta(gamma)
         return eta*Dv.dot(Du) - q*Du.trace() - p*Dv.trace()
-    def exact_prototype(self):
-        return 'void %(name)s_Solution(const struct StokesExactCtx *ctx,const dReal x[3],dScalar u[3],dScalar du[9],dScalar p[1],dScalar dp[3])' % dict(name=self.name)
+    def create_prototype(self, definition=False):
+        return 'dErr StokesCaseCreate_%(name)s(StokesCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))
+    def solution_prototype(self):
+        return 'static void StokesCaseSolution_%(name)s(StokesCase scase,const dReal x[3],dScalar u[3],dScalar du[9],dScalar p[1],dScalar dp[3])' % dict(name=self.name)
     def forcing_prototype(self):
-        return 'void %(name)s_Forcing(const struct StokesExactCtx *ctx,const struct StokesRheology *rheo,const dReal x[3],dScalar fu[3],dScalar fp[1])' % dict(name=self.name)
-    def exact_code(self):
+        return 'static void StokesCaseForcing_%(name)s(StokesCase scase,const dReal x[3],dScalar fu[3],dScalar fp[1])' % dict(name=self.name)
+    def solution_code(self):
         from sympy.abc import a,b,c
         x = Matrix(symbol3('x'))
         def body():
@@ -37,9 +39,10 @@ class StokesExact(Exact):
         return '''
 %(prototype)s
 {
+  const StokesCase_Exact *ctx = scase->data;
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,scale = ctx->scale;
   %(body)s
-}''' % dict(prototype=self.exact_prototype(), body='\n  '.join(body()))
+}''' % dict(prototype=self.solution_prototype(), body='\n  '.join(body()))
     def forcing_code(self):
         from sympy.abc import a,b,c
         x = Matrix(symbol3('x'))
@@ -52,13 +55,35 @@ class StokesExact(Exact):
         return '''
 %(prototype)s
 {
+  const StokesCase_Exact *ctx = scase->data;
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,scale = ctx->scale;
-  const dReal A = rheo->A,eps = rheo->eps,pe = rheo->p;
+  const dReal A = scase->rheo.A,eps = scase->rheo.eps,pe = scase->rheo.p;
   %(body)s
 }
 ''' % dict(prototype=self.forcing_prototype(), body='\n  '.join(body()))
+    def create_code(self):
+        return '''
+static dErr StokesCaseCreate_%(name)s(StokesCase scase)
+{
+  dErr err;
+  StokesCase_Exact *ctx;
 
-class StokesExact_0(StokesExact):
+  dFunctionBegin;
+  err = dCalloc(sizeof(*ctx),&ctx);dCHK(err);
+  ctx->a     = 1.0;
+  ctx->b     = 1.0;
+  ctx->c     = 1.0;
+  ctx->scale = 1.0;
+  scase->data = ctx;
+  scase->solution       = StokesCaseSolution_%(name)s;
+  scase->forcing        = StokesCaseForcing_%(name)s;
+  scase->setfromoptions = StokesCaseSetFromOptions_Exact;
+  scase->destroy        = StokesCaseDestroy_Exact;
+  dFunctionReturn(0);
+}
+''' % dict(name=self.name)
+
+class Exact0(StokesExact):
     'Classical 2D converging flow'
     def solution(self, x,y,z, a,b,c):
         from sympy import sin, cos, pi
@@ -66,7 +91,7 @@ class StokesExact_0(StokesExact):
                        -b * cos(pi*x/2) * sin(pi*y/2),
                         1 * (c-1) * z,
                         0.25*(cos(pi*x) + cos(pi*y)) + 10*(x+y)])
-class StokesExact_1(StokesExact):
+class Exact1(StokesExact):
     'From Larin & Reusken, 2009, with pressure shifted by a constant'
     def solution(self, x,y,z, a,b,c):
         from sympy import sin,cos,pi
@@ -75,13 +100,13 @@ class StokesExact_1(StokesExact):
                        -b/3 * cos(xx) * cos(yy) * sin(zz),
                        -c*2/3 * cos(xx) * sin(yy) * cos(zz),
                         1 + cos(xx) * sin(yy) * sin(zz)])
-class StokesExact_2(StokesExact):
+class Exact2(StokesExact):
     def solution(self, x,y,z, a,b,c):
         return Matrix([a*z**3,
                        b*x**3,
                        c*y**3,
                        (1-x**2)*(1-y**2)*(1-z**2)])
-class StokesExact_3(StokesExact):
+class Exact3(StokesExact):
     def solution(self, x,y,z, a,b,c):
         from sympy import sin,cos,pi
         xx, yy, zz = (pi*s/2 for s in [x,y,z])
@@ -90,17 +115,66 @@ class StokesExact_3(StokesExact):
                        c*cos(zz),
                        cos(xx)*cos(yy)*cos(zz)])
 
+def implementation():
+  return '''
+#include <stokesimpl.h>
+
+#ifndef M_PI
+#  define M_PI 3.14159265358979323846
+#endif
+
+typedef struct {
+  dReal a,b,c,scale;
+} StokesCase_Exact;
+
+static dErr StokesCaseSetFromOptions_Exact(StokesCase scase) {
+  StokesCase_Exact *exc = scase->data;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscOptionsHead("StokesCase_Exact options");dCHK(err); {
+    err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_scale","Overall scale parameter","",exc->scale,&exc->scale,NULL);dCHK(err);
+  } err = PetscOptionsTail();dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr StokesCaseDestroy_Exact(StokesCase scase) {
+  dErr err;
+
+  dFunctionBegin;
+  err = dFree(scase->data);dCHK(err);
+  dFunctionReturn(0);
+}
+'''
+
+def registerall(list):
+    def register(sol):
+        return 'err = StokesCaseRegister("%(name)s",StokesCaseCreate_%(name)s);dCHK(err);' % dict(name=sol.name)
+    return '''
+dErr StokesCaseRegisterAll_Exact(void)
+{
+  dErr err;
+  dFunctionBegin;
+  %s
+  dFunctionReturn(0);
+}
+''' % '\n  '.join((register(sol) for sol in list))
+
+def exact_body(name):
+    return '''
+
+'''
+
 if __name__ == "__main__":
     import pdb
-    solutions = [StokesExact_0(), StokesExact_1(), StokesExact_2(), StokesExact_3()]
-    with open('stokesexact.h', 'w') as fheader, open('stokesexact.c', 'w') as fimpl:
-        fheader.write('#include <dohptype.h>\n\n')
-        fheader.write('struct StokesRheology {dReal A,eps,p,gravity;};\n') # Gravity is not actually used by exact solutions
-        fheader.write('struct StokesExactCtx {dReal a,b,c,scale;};\n')
-        fimpl.write('\n'.join(['#include "stokesexact.h"', '#include <math.h>', '#ifndef M_PI', '#  define M_PI 3.14159265358979323846', '#endif', '\n']))
+    solutions = [Exact0(), Exact1(), Exact2(), Exact3()]
+    with open('stokesexact.c', 'w') as fimpl:
+        fimpl.write(implementation())
         for sol in solutions:
-            fheader.write(sol.exact_prototype() + ';\n')
-            fheader.write(sol.forcing_prototype() + ';\n')
-            fimpl.write(sol.exact_code())
+            fimpl.write(sol.solution_code())
             fimpl.write(sol.forcing_code())
-    print('Wrote stokesexact.h and stokesexact.c')
+            fimpl.write(sol.create_code())
+        fimpl.write(registerall(solutions))
+    print('Wrote stokesexact.c')
