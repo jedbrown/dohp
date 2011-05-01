@@ -63,6 +63,23 @@ static dErr dViewerDHMGetUnitsType(PetscViewer viewer,hid_t *unitstype)
   dFunctionReturn(0);
 }
 
+static dErr dViewerDHMGetBoundingBoxType(PetscViewer viewer,hid_t *bbtype)
+{
+  dViewer_DHM *dhm = viewer->data;
+  dErr         err;
+
+  dFunctionBegin;
+  if (dhm->h5t_bbox < 0) {
+    hid_t  type;
+    const hsize_t dims[2] = {3,2};
+    type = H5Tarray_create(dH5T_REAL,2,dims);dH5CHK(type,H5Tarray_create);
+    err = dViewerDHM_H5Tcommit(viewer,"BoundingBox_type",type);dCHK(err);
+    dhm->h5t_bbox = type;
+  }
+  *bbtype = dhm->h5t_bbox;
+  dFunctionReturn(0);
+}
+
 static dErr dViewerDHMGetTimeType(PetscViewer viewer,hid_t *timetype)
 {
   dViewer_DHM *dhm = viewer->data;
@@ -90,11 +107,12 @@ dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *intype)
 
   dFunctionBegin;
   if (dhm->h5t_fs < 0) {
-    hid_t strtype,fstype,unittype,fieldtype,fieldstype;
+    hid_t strtype,fstype,unittype,bbtype,fieldtype,fieldstype;
     herr_t herr;
 
     err = dViewerDHMGetStringTypes(viewer,&strtype,NULL,NULL);dCHK(err);
     err = dViewerDHMGetUnitsType(viewer,&unittype);dCHK(err);
+    err = dViewerDHMGetBoundingBoxType(viewer,&bbtype);dCHK(err);
     fieldtype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Field));dH5CHK(fieldtype,H5Tcreate);
     herr = H5Tinsert(fieldtype,"name",offsetof(dht_Field,name),strtype);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fieldtype,"units",offsetof(dht_Field,units),unittype);dH5CHK(herr,H5Tinsert);
@@ -113,6 +131,7 @@ dErr dViewerDHMGetFSType(PetscViewer viewer,hid_t *intype)
     herr = H5Tinsert(fstype,"time",offsetof(dht_FS,time),dH5T_REAL);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"internal_state",offsetof(dht_FS,internal_state),dH5T_INT);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"number_of_subdomains",offsetof(dht_FS,number_of_subdomains),dH5T_INT);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(fstype,"boundingbox",offsetof(dht_FS,boundingbox),bbtype);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(fstype,"fields",offsetof(dht_FS,fields),fieldstype);dH5CHK(herr,H5Tinsert);
 
     err = dViewerDHM_H5Tcommit(viewer,"FS_type",fstype);dCHK(err);
@@ -255,6 +274,7 @@ static dErr PetscViewerDestroy_DHM(PetscViewer v)
   if (dhm->h5t_fs      >= 0) {herr = H5Tclose(dhm->h5t_fs);dH5CHK(herr,H5Tclose);}
   if (dhm->h5t_vec     >= 0) {herr = H5Tclose(dhm->h5t_vec);dH5CHK(herr,H5Tclose);}
   if (dhm->h5t_units   >= 0) {herr = H5Tclose(dhm->h5t_units);dH5CHK(herr,H5Tclose);}
+  if (dhm->h5t_bbox    >= 0) {herr = H5Tclose(dhm->h5t_bbox);dH5CHK(herr,H5Tclose);}
   if (dhm->h5t_time    >= 0) {herr = H5Tclose(dhm->h5t_time);dH5CHK(herr,H5Tclose);}
   if (dhm->h5s_scalar  >= 0) {herr = H5Sclose(dhm->h5s_scalar);dH5CHK(herr,H5Sclose);}
   if (dhm->curstep     >= 0) {herr = H5Gclose(dhm->curstep);dH5CHK(herr,H5Gclose);}
@@ -401,6 +421,7 @@ PetscErrorCode PetscViewerCreate_DHM(PetscViewer v)
   dhm->h5t_fs      = -1;
   dhm->h5t_vec     = -1;
   dhm->h5t_units   = -1;
+  dhm->h5t_bbox    = -1;
   dhm->h5t_time    = -1;
   dhm->h5s_scalar  = -1;
 
@@ -586,12 +607,7 @@ static herr_t field_traverse_func(hid_t base,const char *name,const H5L_info_t d
           dht_FS fs5;
           if (H5Dread(fs,ctx->fstype,memspace,fsspace,H5P_DEFAULT,&fs5) >= 0) {
             new_fs.nblocks = fs5.number_of_subdomains;
-            new_fs.boundingbox[0][0] = -1;
-            new_fs.boundingbox[0][1] =  1;
-            new_fs.boundingbox[1][0] = -1;
-            new_fs.boundingbox[1][1] =  1;
-            new_fs.boundingbox[2][0] = -1;
-            new_fs.boundingbox[2][1] =  1;
+            for (dInt i=0; i<3; i++) for (dInt j=0; j<2; j++) new_fs.boundingbox[i][j] = fs5.boundingbox[i][j];
           }
           H5Sclose(memspace);
         }

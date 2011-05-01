@@ -125,6 +125,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);
     err = MPI_Comm_size(((dObject)fs)->comm,&size);dCHK(err);
     fs5.number_of_subdomains = size;
+    err = dFSGetBoundingBox(fs,fs5.boundingbox);dCHK(err);
     fs5.fields.len = bs;
     err = dMallocA(fs5.fields.len,&field5);dCHK(err);
     for (i=0; i<bs; i++) {

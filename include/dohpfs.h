@@ -151,7 +151,7 @@ extern dErr dFSGetRotation(dFS,dFSRotation*);
 
 extern dErr dFSGetCoordinateFS(dFS,dFS*);
 extern dErr dFSGetGeometryVectorExpanded(dFS,Vec*);
-extern dErr dFSGetGeometryVectorGlobal(dFS,Vec*);
+extern dErr dFSGetBoundingBox(dFS fs,dReal bbox[3][2]);
 
 extern dErr dFSGetNodalCoordinateFS(dFS,dFS*);
 extern dErr dFSGetNodalCoordinatesExpanded(dFS,Vec*);

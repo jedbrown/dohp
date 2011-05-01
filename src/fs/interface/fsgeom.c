@@ -226,6 +226,30 @@ dErr dFSGetGeometryVectorExpanded(dFS fs,Vec *ingeom)
   dFunctionReturn(0);
 }
 
+dErr dFSGetBoundingBox(dFS fs,dReal bbox[3][2])
+{
+  dErr err;
+  Vec X;
+  const dScalar *x;
+  dInt n;
+
+  dFunctionBegin;
+  for (dInt i=0; i<3; i++) {
+    bbox[i][0] = PETSC_MAX_REAL;
+    bbox[i][1] = PETSC_MIN_REAL;
+  }
+  err = dFSGetGeometryVectorExpanded(fs,&X);dCHK(err);
+  err = VecGetLocalSize(X,&n);dCHK(err);
+  err = VecGetArrayRead(X,&x);dCHK(err);
+  for (dInt i=0; i<n; i++) {
+    dInt j = i%3;
+    bbox[j][0] = dMin(bbox[j][0],x[i]);
+    bbox[j][1] = dMax(bbox[j][1],x[i]);
+  }
+  err = VecRestoreArrayRead(X,&x);dCHK(err);
+  dFunctionReturn(0);
+}
+
 /** Get the number of subelements and number of vertices of subelements.
 *
 * @note the number of vertices is the same as the number of local nodes in closure vertor.

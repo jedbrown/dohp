@@ -49,7 +49,7 @@ typedef struct {
   char          *timeunits;
   dReal          timescale;
   dInt           stepnumber;
-  hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec,h5t_units,h5t_time;
+  hid_t          h5t_mstring,h5t_fstring,h5s_scalar,h5t_fs,h5t_vec,h5t_units,h5t_bbox,h5t_time;
 
   /* For reading */
   dInt totalsteps;
@@ -88,6 +88,7 @@ typedef struct {
   dReal      time;
   dInt       internal_state;
   dInt       number_of_subdomains;
+  dReal      boundingbox[3][2]; // @todo bounding box should be associated with the coordinate vector, @todo should be separate for each subdomain
   hvl_t      fields;
 } dht_FS;
 
