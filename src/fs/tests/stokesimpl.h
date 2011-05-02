@@ -19,6 +19,7 @@ struct _n_StokesCase {
   dErr (*destroy)(StokesCase);
   struct StokesRheology rheo;
   dReal gravity;
+  dReal bbox[3][2];
   dBool reality; // The "solution" is just a guess or boundary conditions
   void *data;
 };

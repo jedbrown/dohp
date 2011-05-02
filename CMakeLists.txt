@@ -6,6 +6,7 @@ list (APPEND CMAKE_MODULE_PATH "${Dohp_SOURCE_DIR}/CMake")
 # Normally PETSc is built with MPI, if not, use CC=mpicc, etc
 find_package (PETSc REQUIRED)
 find_package (ITAPS COMPONENTS MESH GEOM REL)
+find_package (GDAL)
 find_path (MEMCHECK_HEADER valgrind/memcheck.h)
 if (MEMCHECK_HEADER)
   set (dUSE_VALGRIND TRUE)

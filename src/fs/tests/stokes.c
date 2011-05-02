@@ -184,8 +184,6 @@ static dErr StokesSetFromOptions(Stokes stk)
     }
     err = PetscOptionsList("-stokes_case","Which sort of case to run","",StokesCaseList,scasename,scasename,sizeof(scasename),NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
-  err = StokesCaseSetType(stk->scase,scasename);dCHK(err);
-  err = StokesCaseSetFromOptions(stk->scase);dCHK(err);
 
   err = dMeshCreate(stk->comm,&mesh);dCHK(err);
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
@@ -264,6 +262,9 @@ static dErr StokesSetFromOptions(Stokes stk)
   }
   err = dJacobiDestroy(&jac);dCHK(err);
   err = dMeshDestroy(&mesh);dCHK(err);
+
+  err = StokesCaseSetType(stk->scase,scasename);dCHK(err);
+  err = StokesCaseSetFromOptions(stk->scase);dCHK(err);
   dFunctionReturn(0);
 }
 
