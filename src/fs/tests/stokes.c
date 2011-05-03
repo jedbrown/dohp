@@ -841,7 +841,7 @@ static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[3],dReal gerrorN
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,NULL,NULL,NULL, NULL,NULL,NULL,NULL, &p,NULL,NULL,NULL);dCHK(err);
       for (dInt i=0; i<Q; i++) {
         dScalar uu[3],duu[9],pp[1],dpp[3];
-        stk->scase->solution(stk->scase,x[i],uu,duu,pp,dpp);
+        err = stk->scase->solution(stk->scase,x[i],uu,duu,pp,dpp);dCHK(err);
         volume += jw[i];
         pressureshift += (pp[0] - p[i]) * jw[i]; // The computed pressure sum is zero, but the continuous integral may not be
       }
@@ -858,7 +858,7 @@ static dErr StokesErrorNorms(Stokes stk,Vec gx,dReal errorNorms[3],dReal gerrorN
     err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, (const dScalar**)&u,(const dScalar**)&du,NULL,NULL, (const dScalar**)&p,NULL,NULL,NULL);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       dScalar uu[3],duu[9],pp[1],dpp[3];
-      stk->scase->solution(stk->scase,x[i],uu,duu,pp,dpp);
+      err = stk->scase->solution(stk->scase,x[i],uu,duu,pp,dpp);dCHK(err);
       pp[0] -= pressureshift;
       err = dNormsUpdate(errorNorms,gerrorNorms,jw[i],3,uu,u[i],duu,du[i]);dCHK(err);
       err = dNormsUpdate(perrorNorms,NULL,jw[i],1,pp,p[i],NULL,NULL);dCHK(err);
@@ -897,7 +897,7 @@ static dErr StokesGetSolutionField_All(Stokes stk,dFS fs,dBool isvel,Vec *insoln
   for (dInt i=0; i<n/bs; i++) {
     dScalar u_unused[3],p_unused[1],du_unused[3*3],dp_unused[3];
     /* if \a isvel then \a x is the velocity field, otherwise it is the pressure field */
-    stk->scase->solution(stk->scase,&coords[3*i],isvel ? &x[i*bs] : u_unused,du_unused,isvel ? p_unused : &x[i*bs],dp_unused);
+    err = stk->scase->solution(stk->scase,&coords[3*i],isvel ? &x[i*bs] : u_unused,du_unused,isvel ? p_unused : &x[i*bs],dp_unused);dCHK(err);
     /* printf("Node %3d: coords %+8f %+8f %+8f   exact %+8f %+8f %+8f\n",i,coords[3*i],coords[3*i+1],coords[3*i+2],x[3*i],x[3*i+1],x[3*i+2]); */
   }
   err = VecRestoreArray(xc,&x);dCHK(err);

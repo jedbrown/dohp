@@ -26,19 +26,21 @@ typedef int GDALErr;
   } while (0)
 
 // Trivial gravity model
-static void StokesCaseSolution_Gravity(StokesCase dUNUSED scase,const dReal dUNUSED x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[])
+static dErr StokesCaseSolution_Gravity(StokesCase dUNUSED scase,const dReal dUNUSED x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[])
 {                               /* Defines inhomogeneous Dirichlet boundary conditions */
   u[0] = u[1] = u[2] = 0;
   for (dInt i=0; i<9; i++) du[i] = 0;
   *p = 0;
   for (dInt i=0; i<3; i++) dp[i] = 0;
+  return 0;
 }
-static void StokesCaseForcing_Gravity(StokesCase scase,const dReal dUNUSED x[3],dScalar fu[],dScalar *fp)
+static dErr StokesCaseForcing_Gravity(StokesCase scase,const dReal dUNUSED x[3],dScalar fu[],dScalar *fp)
 {
   fu[0] = 0;
   fu[1] = 0;
   fu[2] = scase->gravity;
   fp[0] = 0;
+  return 0;
 }
 static dErr StokesCaseCreate_Gravity(StokesCase scase)
 {
@@ -52,6 +54,8 @@ static dErr StokesCaseCreate_Gravity(StokesCase scase)
 // A real implementation
 struct JakoInput {
   char path[PETSC_MAX_PATH_LEN];
+  GDALDatasetH dataset;
+  double *memory;
 };
 typedef struct {
   OGRSpatialReferenceH utmref; // UTM zone 22N, the coordinates with Roman's surface elevation
@@ -65,33 +69,55 @@ typedef struct {
   struct JakoInput bed_elevation;
   struct JakoInput surface_velocity;
   double mygeo[6],myinvgeo[6];
+  double *h,*b;
   int nx,ny;
+  dBool verbose;
 } StokesCase_Jako;
-
-static dErr StokesCaseSolution_Jako(StokesCase scase,const dReal x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[])
-{                               /* Defines inhomogeneous Dirichlet boundary conditions */
-  dUNUSED StokesCase_Jako *jako = scase->data;
+static dErr JakoFindPixel(StokesCase scase,const dReal x[3],dInt *ix,dInt *iy)
+{
+  StokesCase_Jako *jako = scase->data;
+  double xpixel,ypixel;
+  dInt i,j;
 
   dFunctionBegin;
-  if (x[0] > 580000.) {
-    u[0] = -200;
-    u[1] = -100;
-    u[2] = 0;
-  } else {
-    u[0] = -400;
-    u[1] = -300;
-    u[2] = 0;
-  }
+  *ix = -1;
+  *iy = -1;
+  if (x[0] < scase->bbox[0][0] || scase->bbox[0][1] < x[0])
+    dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"x[0]=%f not in bounding box %f:%f",x[0],scase->bbox[0][0],scase->bbox[0][1]);
+  if (x[1] < scase->bbox[1][0] || scase->bbox[1][1] < x[1])
+    dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"x[1]=%f not in bounding box %f:%f",x[1],scase->bbox[1][0],scase->bbox[1][1]);
+  GDALApplyGeoTransform(jako->myinvgeo,x[0],x[1],&xpixel,&ypixel);
+  i = (dInt)xpixel;
+  j = (dInt)ypixel;
+  if (i < 0 || jako->nx <= i) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Computed xp=%D not in range %D:%D",i,0,jako->nx);
+  if (j < 0 || jako->ny <= j) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Computed yp=%D not in range %D:%D",j,0,jako->ny);
+  *ix = i;
+  *iy = j;
+  dFunctionReturn(0);
+}
+static dErr StokesCaseSolution_Jako(StokesCase scase,const dReal x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[])
+{                               /* Defines inhomogeneous Dirichlet boundary conditions */
+  StokesCase_Jako *jako = scase->data;
+  double h,b,scale;
+  dInt pixel,xp,yp;
+  dUNUSED dErr err;
+
+  dFunctionBegin;
+  err = JakoFindPixel(scase,x,&xp,&yp);dCHK(err);
+  pixel = yp*jako->nx + xp;
+  h = jako->h[pixel];
+  b = jako->b[pixel];
+  scale = (x[2] < b)
+    ? 0.0
+    : pow((x[2] - b) / (h-b),0.25);
+  u[0] = -8000 * scale;
+  u[1] = -5000 * scale;
+  u[2] = 0;
 
   for (dInt i=0; i<9; i++) du[i] = 0;
   *p = 0;
   for (dInt i=0; i<3; i++) dp[i] = 0;
   dFunctionReturn(0);
-}
-static void StokesCaseSolution_Jako_Void(StokesCase scase,const dReal x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[])
-{
-  dErr err;
-  err = StokesCaseSolution_Jako(scase,x,u,du,p,dp);CHKERRV(err);
 }
 static dErr JakoViewWKT(OGRSpatialReferenceH ref,const char *name,PetscViewer viewer)
 {
@@ -153,7 +179,7 @@ static dErr JakoFileDataView(GDALDatasetH filedata,const char *name,PetscViewer 
 
   dFunctionBegin;
   cplerr = GDALGetGeoTransform(filedata,geo);
-  err = dRealTableView(2,3,geo,PETSC_VIEWER_STDOUT_WORLD,name);dCHK(err);
+  err = dRealTableView(2,3,geo,PETSC_VIEWER_STDOUT_WORLD,"%s:geo",name);dCHK(err);
   snx = GDALGetRasterXSize(filedata);
   sny = GDALGetRasterYSize(filedata);
   err = PetscViewerASCIIPrintf(viewer,"%s: nx=%d ny=%d\n",name,snx,sny);dCHK(err);
@@ -207,20 +233,12 @@ static dErr StokesCaseSetUp_Jako(StokesCase scase)
   jako->fromll  = OCTNewCoordinateTransformation(jako->llref,jako->myref);
   jako->fromian = OCTNewCoordinateTransformation(jako->ianref,jako->myref);
 
-  err = StokesCaseView_Jako(scase,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+  if (jako->verbose) {err = StokesCaseView_Jako(scase,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
 
   if (1) {
-    double x[] = {-49.858421420039,-48.4344803043268}, y[] = {69.6629932261656,69.4707311345926}, z[] = {373.8359,155.0298};
-    int n = 2;
-    for (dInt i=0; i<n; i++) printf("lonlat[%d] = %f %f %f\n",i,x[i],y[i],z[i]);
-    oerr = !OCTTransform(jako->fromll,n,x,y,z);dOGRCHK(oerr); // This function has the opposite convention for error codes, but is in the OGR package
-    for (dInt i=0; i<n; i++) printf("utm22n[%d] = %f %f %f\n",i,x[i],y[i],z[i]);
-  }
-
-  if (1) {
-    double *hmem,*bmem,x0,y0,Lx,Ly,dx,dy;
-    dReal *data;
-    GDALDatasetH filedata,mysurf,mybed;
+    GDALProgressFunc gdalprogress = jako->verbose ? GDALTermProgress : GDALDummyProgress;
+    double x0,y0,Lx,Ly,dx,dy;
+    GDALDatasetH filedata;
     GDALErr gerr;
     GDALRasterBandH band;
     CPLErr cplerr;
@@ -239,43 +257,48 @@ static dErr StokesCaseSetUp_Jako(StokesCase scase)
     jako->mygeo[0] = x0 + dx/2;
     jako->mygeo[1] = dx;
     jako->mygeo[2] = 0;
-    jako->mygeo[3] = y0 + Lx - dy/2; // Physical coordinates are "y up", pixels are "y down"
+    jako->mygeo[3] = y0 + Ly - dy/2; // Physical coordinates are "y up", pixels are "y down"
     jako->mygeo[4] = 0;
     jako->mygeo[5] = -dy;
 
     // Convert a physical coordinate in the current projection to a pixel coordinate
     gerr = GDALInvGeoTransform(jako->mygeo,jako->myinvgeo);dGDALCHK(gerr);
-    err = dRealTableView(3,2,&scase->bbox[0][0],PETSC_VIEWER_STDOUT_WORLD,"bbox");dCHK(err);
-    err = dRealTableView(2,3,jako->mygeo,PETSC_VIEWER_STDOUT_WORLD,"mygeo");dCHK(err);
+    if (0) {
+      dInt i,j;
+      double a,b;
+      err = dRealTableView(3,2,&scase->bbox[0][0],PETSC_VIEWER_STDOUT_WORLD,"bbox");dCHK(err);
+      err = dRealTableView(2,3,jako->mygeo,PETSC_VIEWER_STDOUT_WORLD,"mygeo");dCHK(err);
+      GDALApplyGeoTransform(jako->mygeo,0,0,&a,&b); printf("geo[0,0] = %f,%f\n",a,b);
+      GDALApplyGeoTransform(jako->mygeo,1,1,&a,&b); printf("geo[1,1] = %f,%f\n",a,b);
+      GDALApplyGeoTransform(jako->mygeo,0.5,0.5,&a,&b); printf("geo[0.5,0.5] = %f,%f\n",a,b);
+      err = JakoFindPixel(scase,(dReal[]){scase->bbox[0][0],scase->bbox[1][0]},&i,&j);dCHK(err);
+      printf("xmin,ymin: (%d,%d)\n",i,j);
+      err = JakoFindPixel(scase,(dReal[]){scase->bbox[0][1],scase->bbox[1][1]},&i,&j);dCHK(err);
+      printf("xmax,ymax: (%d,%d)\n",i,j);
+    }
 
-    err = dMallocA(jako->nx*jako->ny,&data);dCHK(err);
+    err = dMallocA2(jako->nx*jako->ny,&jako->h,jako->nx*jako->ny,&jako->b);dCHK(err);
 
-    err = JakoGDALDatasetCreateMem(jako->myref,jako->mygeo,jako->nx,jako->ny,GDT_Float64,&mysurf,&hmem);dCHK(err);
-    err = JakoGDALDatasetCreateMem(jako->myref,jako->mygeo,jako->nx,jako->ny,GDT_Float64,&mybed,&bmem);dCHK(err);
+    err = JakoGDALDatasetCreateMem(jako->myref,jako->mygeo,jako->nx,jako->ny,GDT_Float64,&jako->surface_elevation.dataset,&jako->surface_elevation.memory);dCHK(err);
+    err = JakoGDALDatasetCreateMem(jako->myref,jako->mygeo,jako->nx,jako->ny,GDT_Float64,&jako->bed_elevation.dataset,&jako->bed_elevation.memory);dCHK(err);
 
     filedata = GDALOpen(jako->surface_elevation.path, GA_ReadOnly); if (!filedata) dERROR(PETSC_COMM_SELF,PETSC_ERR_FILE_OPEN,"GDALOpen(\"%s\")",jako->surface_elevation.path);
-    err = JakoFileDataView(filedata,"surface_elevation",PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-    cplerr = GDALReprojectImage(filedata,NULL,mysurf,NULL,GRA_Bilinear,0.0,0.0,GDALTermProgress,NULL,NULL);dCPLCHK(cplerr);
+    if (jako->verbose) {err = JakoFileDataView(filedata,"surface_elevation",PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
+    cplerr = GDALReprojectImage(filedata,NULL,jako->surface_elevation.dataset,NULL,GRA_Bilinear,0.0,0.0,gdalprogress,NULL,NULL);dCPLCHK(cplerr);
     GDALClose(filedata);
 
-    band = GDALGetRasterBand(mysurf,1); // 1-based indexing
-    cplerr = GDALRasterIO(band,GF_Read,0,0,jako->nx,jako->ny,data,jako->nx,jako->ny,GDT_Float64,0,0);dCPLCHK(cplerr);
-    err = dRealTableView(jako->ny,jako->nx,data,PETSC_VIEWER_STDOUT_WORLD,"mysurf");dCHK(err);
+    band = GDALGetRasterBand(jako->surface_elevation.dataset,1); // 1-based indexing
+    cplerr = GDALRasterIO(band,GF_Read,0,0,jako->nx,jako->ny,jako->h,jako->nx,jako->ny,GDT_Float64,0,0);dCPLCHK(cplerr);
+    if (jako->verbose) {err = dRealTableView(jako->ny,jako->nx,jako->h,PETSC_VIEWER_STDOUT_WORLD,"mysurf");dCHK(err);}
 
     filedata = GDALOpen(jako->bed_elevation.path, GA_ReadOnly); if (!filedata) dERROR(PETSC_COMM_SELF,PETSC_ERR_FILE_OPEN,"GDALOpen(\"%s\")",jako->bed_elevation.path);
-    err = JakoFileDataView(filedata,"bed_elevation",PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-    cplerr = GDALReprojectImage(filedata,NULL,mybed,NULL,GRA_Bilinear,0.0,0.0,GDALTermProgress,NULL,NULL);dCPLCHK(cplerr);
+    if (jako->verbose) {err = JakoFileDataView(filedata,"bed_elevation",PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
+    cplerr = GDALReprojectImage(filedata,NULL,jako->bed_elevation.dataset,NULL,GRA_Bilinear,0.0,0.0,gdalprogress,NULL,NULL);dCPLCHK(cplerr);
     GDALClose(filedata);
 
-    band = GDALGetRasterBand(mybed,1); // 1-based indexing
-    cplerr = GDALRasterIO(band,GF_Read,0,0,jako->nx,jako->ny,data,jako->nx,jako->ny,GDT_Float64,0,0);dCPLCHK(cplerr);
-    err = dRealTableView(jako->ny,jako->nx,data,PETSC_VIEWER_STDOUT_WORLD,"mysurf");dCHK(err);
-
-    GDALClose(mysurf);
-    GDALClose(mybed);
-    err = dFree(hmem);dCHK(err);
-    err = dFree(bmem);dCHK(err);
-    err = dFree(data);dCHK(err);
+    band = GDALGetRasterBand(jako->bed_elevation.dataset,1); // 1-based indexing
+    cplerr = GDALRasterIO(band,GF_Read,0,0,jako->nx,jako->ny,jako->b,jako->nx,jako->ny,GDT_Float64,0,0);dCPLCHK(cplerr);
+    if (jako->verbose) {err = dRealTableView(jako->ny,jako->nx,jako->b,PETSC_VIEWER_STDOUT_WORLD,"mybed");dCHK(err);}
   }
 
   dFunctionReturn(0);
@@ -299,6 +322,7 @@ static dErr StokesCaseSetFromOptions_Jako(StokesCase scase)
     err = PetscOptionsString("-jako_surface_velocity","File to read surface velocity from (assume same projection as model, e.g. UTM)","",
                              jako->surface_velocity.path,jako->surface_velocity.path,PETSC_MAX_PATH_LEN,&flg);dCHK(err);
     if (!flg) dERROR(scase->comm,PETSC_ERR_USER,"User must provide surface velocity file with -jako_surface_velocity FILENAME");
+    err = PetscOptionsBool("-jako_verbose","Turn on verbose output about projections","",jako->verbose,&jako->verbose,NULL);dCHK(err);
   } err = PetscOptionsTail();dCHK(err);
   err = StokesCaseSetUp_Jako(scase);dCHK(err);
   dFunctionReturn(0);
@@ -318,6 +342,11 @@ static dErr StokesCaseDestroy_Jako(StokesCase scase)
   OCTDestroyCoordinateTransformation(jako->fromll);  jako->fromll = NULL;
   OCTDestroyCoordinateTransformation(jako->fromian); jako->fromian = NULL;
 
+  GDALClose(jako->surface_elevation.dataset);
+  GDALClose(jako->bed_elevation.dataset);
+  err = dFree(jako->surface_elevation.memory);dCHK(err);
+  err = dFree(jako->bed_elevation.memory);dCHK(err);
+  err = dFree2(jako->h,jako->b);dCHK(err);
   err = dFree(scase->data);dCHK(err);
   dFunctionReturn(0);
 }
@@ -328,7 +357,7 @@ static dErr StokesCaseCreate_Jako(StokesCase scase)
 
   dFunctionBegin;
   scase->reality = dTRUE;
-  scase->solution = StokesCaseSolution_Jako_Void;
+  scase->solution = StokesCaseSolution_Jako;
   scase->forcing  = StokesCaseForcing_Gravity;
   scase->setfromoptions = StokesCaseSetFromOptions_Jako;
   scase->destroy = StokesCaseDestroy_Jako;

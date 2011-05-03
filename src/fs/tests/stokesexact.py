@@ -25,9 +25,9 @@ class StokesExact(Exact):
     def create_prototype(self, definition=False):
         return 'dErr StokesCaseCreate_%(name)s(StokesCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))
     def solution_prototype(self):
-        return 'static void StokesCaseSolution_%(name)s(StokesCase scase,const dReal x[3],dScalar u[3],dScalar du[9],dScalar p[1],dScalar dp[3])' % dict(name=self.name)
+        return 'static dErr StokesCaseSolution_%(name)s(StokesCase scase,const dReal x[3],dScalar u[3],dScalar du[9],dScalar p[1],dScalar dp[3])' % dict(name=self.name)
     def forcing_prototype(self):
-        return 'static void StokesCaseForcing_%(name)s(StokesCase scase,const dReal x[3],dScalar fu[3],dScalar fp[1])' % dict(name=self.name)
+        return 'static dErr StokesCaseForcing_%(name)s(StokesCase scase,const dReal x[3],dScalar fu[3],dScalar fp[1])' % dict(name=self.name)
     def solution_code(self):
         from sympy.abc import a,b,c
         x = Matrix(symbol3('x'))
@@ -42,6 +42,7 @@ class StokesExact(Exact):
   const StokesCase_Exact *ctx = scase->data;
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,scale = ctx->scale;
   %(body)s
+  return 0;
 }''' % dict(prototype=self.solution_prototype(), body='\n  '.join(body()))
     def forcing_code(self):
         from sympy.abc import a,b,c
@@ -59,6 +60,7 @@ class StokesExact(Exact):
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,scale = ctx->scale;
   const dReal A = scase->rheo.A,eps = scase->rheo.eps,pe = scase->rheo.p;
   %(body)s
+  return 0;
 }
 ''' % dict(prototype=self.forcing_prototype(), body='\n  '.join(body()))
     def create_code(self):

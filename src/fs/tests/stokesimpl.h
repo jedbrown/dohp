@@ -13,8 +13,8 @@ struct StokesRheology {
 typedef struct _n_StokesCase *StokesCase;
 struct _n_StokesCase {
   MPI_Comm comm;
-  void (*solution)(StokesCase,const dReal x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[]);
-  void (*forcing)(StokesCase,const dReal x[3],dScalar fu[],dScalar *fp);
+  dErr (*solution)(StokesCase,const dReal x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[]);
+  dErr (*forcing)(StokesCase,const dReal x[3],dScalar fu[],dScalar *fp);
   dErr (*setfromoptions)(StokesCase);
   dErr (*destroy)(StokesCase);
   struct StokesRheology rheo;
