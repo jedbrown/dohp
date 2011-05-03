@@ -110,8 +110,8 @@ static dErr StokesCaseSolution_Jako(StokesCase scase,const dReal x[3],dScalar u[
   scale = (x[2] < b)
     ? 0.0
     : pow((x[2] - b) / (h-b),0.25);
-  u[0] = -8000 * scale;
-  u[1] = -5000 * scale;
+  u[0] = -20000 * scale;
+  u[1] = -15000 * scale;
   u[2] = 0;
 
   for (dInt i=0; i<9; i++) du[i] = 0;
@@ -243,8 +243,6 @@ static dErr StokesCaseSetUp_Jako(StokesCase scase)
     GDALRasterBandH band;
     CPLErr cplerr;
 
-    jako->nx = 8;
-    jako->ny = 12;
     x0 = scase->bbox[0][0];
     y0 = scase->bbox[1][0];
     Lx = scase->bbox[0][1] - x0;
@@ -323,6 +321,8 @@ static dErr StokesCaseSetFromOptions_Jako(StokesCase scase)
                              jako->surface_velocity.path,jako->surface_velocity.path,PETSC_MAX_PATH_LEN,&flg);dCHK(err);
     if (!flg) dERROR(scase->comm,PETSC_ERR_USER,"User must provide surface velocity file with -jako_surface_velocity FILENAME");
     err = PetscOptionsBool("-jako_verbose","Turn on verbose output about projections","",jako->verbose,&jako->verbose,NULL);dCHK(err);
+    err = PetscOptionsInt("-jako_nx","Number of pixels in x-direction for raster of input fields","",jako->nx,&jako->nx,NULL);dCHK(err);
+    err = PetscOptionsInt("-jako_ny","Number of piyels in y-direction for raster of input fields","",jako->ny,&jako->ny,NULL);dCHK(err);
   } err = PetscOptionsTail();dCHK(err);
   err = StokesCaseSetUp_Jako(scase);dCHK(err);
   dFunctionReturn(0);
@@ -364,6 +364,9 @@ static dErr StokesCaseCreate_Jako(StokesCase scase)
 
   err = dNew(StokesCase_Jako,&jako);dCHK(err);
   scase->data = jako;
+
+  jako->nx = 8;
+  jako->ny = 7;
   dFunctionReturn(0);
 }
 
