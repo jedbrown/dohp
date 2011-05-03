@@ -264,6 +264,7 @@ static dErr StokesSetFromOptions(Stokes stk)
   err = dMeshDestroy(&mesh);dCHK(err);
 
   err = StokesCaseSetType(stk->scase,scasename);dCHK(err);
+  err = dFSGetBoundingBox(stk->fsu,stk->scase->bbox);dCHK(err);
   err = StokesCaseSetFromOptions(stk->scase);dCHK(err);
   dFunctionReturn(0);
 }
