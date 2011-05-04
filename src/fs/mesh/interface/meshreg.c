@@ -4,7 +4,8 @@
 dClassId dMESH_CLASSID;
 PetscBool dMeshRegisterAllCalled;
 PetscLogEvent dLOG_MeshLoad;
-static PetscFList MeshList;
+PetscFList dMeshList;
+static PetscBool dMeshPackageInitialized;
 
 dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
 {
@@ -34,7 +35,7 @@ dErr dMeshSetFromOptions(dMesh mesh)
   err = MPI_Comm_size(((dObject)mesh)->comm,&size);dCHK(err);
   err = PetscStrncpy(type,size>1 ? dMESHPACK : dMESHSERIAL,sizeof(type));dCHK(err);
   err = PetscOptionsBegin(((PetscObject)mesh)->comm,((PetscObject)mesh)->prefix,"Mesh (dMesh) options","dMesh");dCHK(err);
-  err = PetscOptionsList("-dmesh_type","Mesh type","dMeshSetType",MeshList,type,type,sizeof(type),&flg);dCHK(err);
+  err = PetscOptionsList("-dmesh_type","Mesh type","dMeshSetType",dMeshList,type,type,sizeof(type),&flg);dCHK(err);
   if (flg || !((dObject)mesh)->type_name) {
     err = dMeshSetType(mesh,type);dCHK(err);
   }
@@ -62,7 +63,7 @@ dErr dMeshSetType(dMesh mesh,const dMeshType type)
   err = PetscTypeCompare((PetscObject)mesh,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dMeshRegisterAllCalled) {err = dMeshRegisterAll(NULL);dCHK(err);}
-  err = PetscFListFind(MeshList,((PetscObject)mesh)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
+  err = PetscFListFind(dMeshList,((PetscObject)mesh)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dMesh type %s",type);
   if (mesh->ops->destroy) { err = (*mesh->ops->destroy)(mesh);dCHK(err); }
   err = (*r)(mesh);dCHK(err);
@@ -77,24 +78,32 @@ dErr dMeshRegister(const char name[],const char path[],const char cname[],dErr(*
 
   dFunctionBegin;
   err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&MeshList,name,fullname,(void (*)(void))create);dCHK(err);
+  err = PetscFListAdd(&dMeshList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 
 dErr dMeshInitializePackage(const char path[])
 {
-  static dBool initialized = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;
-  if (initialized) dFunctionReturn(0);
-  initialized = PETSC_TRUE;
+  if (dMeshPackageInitialized) dFunctionReturn(0);
+  dMeshPackageInitialized = PETSC_TRUE;
   err = PetscClassIdRegister("Mesh",&dMESH_CLASSID);dCHK(err);
   err = dMeshRegisterAll(path);dCHK(err);
   err = PetscLogEventRegister("dMeshLoad", dMESH_CLASSID,&dLOG_MeshLoad);dCHK(err);
+  err = PetscRegisterFinalize(dMeshFinalizePackage);dCHK(err);
   dFunctionReturn(0);
 }
 
+dErr dMeshFinalizePackage(void)
+{
+  dFunctionBegin;
+  dMeshPackageInitialized = dFALSE;
+  dMeshList = NULL;
+  dMeshRegisterAllCalled = dFALSE;
+  dFunctionReturn(0);
+}
 
 dEXTERN_C_BEGIN
 

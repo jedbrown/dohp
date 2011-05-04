@@ -1,7 +1,7 @@
 #include <dohpjacimpl.h>
 #include <dohp.h>
 
-static PetscFList dQuadratureList;
+PetscFList dQuadratureList;
 PetscBool dQuadratureRegisterAllCalled;
 
 const char *const dQuadratureMethods[] = {"FAST","SPARSE","SELF","dQuadratureMethod","dQUADRATURE_METHOD_",0};

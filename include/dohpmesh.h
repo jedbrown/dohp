@@ -15,6 +15,7 @@ typedef struct _p_dMesh *dMesh;
 extern dClassId dMESH_CLASSID;
 extern PetscBool dMeshRegisterAllCalled;
 extern PetscLogEvent dLOG_MeshLoad;
+extern PetscFList dMeshList;
 
 extern const char *const iBase_ErrorString[];
 extern const char *const iBase_TagValueTypeName[];
@@ -127,6 +128,7 @@ extern dErr dMeshRegisterAll(const char path[]);
 extern dErr dMeshRegister(const char[],const char[],const char[],dErr(*)(dMesh));
 extern dErr dMeshSetType(dMesh,const dMeshType);
 extern dErr dMeshInitializePackage(const char[]);
+extern dErr dMeshFinalizePackage(void);
 extern dErr dMeshCreateRuleTagIsotropic(dMesh,dMeshESH,const char*,dInt,dMeshTag*);
 extern dErr dMeshDestroyRuleTag(dMesh,dMeshTag);
 extern dErr dMeshGetInstance(dMesh,iMesh_Instance*);

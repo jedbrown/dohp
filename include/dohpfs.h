@@ -135,6 +135,7 @@ extern dErr dFSLoadIntoFS(dViewer,const char[],dFS);
 extern dErr dFSRegister(const char[],const char[],const char[],dErr(*)(dFS));
 extern dErr dFSRegisterAll(const char[]);
 extern dErr dFSInitializePackage(const char[]);
+extern dErr dFSFinalizePackage(void);
 
 /* These are purely for convenience */
 extern dErr dFSGlobalToExpanded(dFS,Vec,Vec,dFSHomogeneousMode,InsertMode);

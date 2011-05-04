@@ -18,7 +18,7 @@ static const char help[] = "Solve non-Newtonian Stokes problem using dual order 
 
 #include "stokesimpl.h"
 
-PetscFList StokesCaseList = 0;
+PetscFList StokesCaseList = NULL;
 
 #define StokesCaseType char*
 

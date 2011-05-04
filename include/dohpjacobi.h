@@ -27,6 +27,8 @@ dEXTERN_C_BEGIN
 extern PetscClassId dJACOBI_CLASSID,dQUADRATURE_CLASSID;
 extern PetscBool dJacobiRegisterAllCalled;
 extern PetscBool dQuadratureRegisterAllCalled;
+extern PetscFList dQuadratureList;
+extern PetscFList dJacobiList;
 
 /**
 * Handle for manipulating EFS objects.  The EFS are stored directly in arrays so other components (like dFS) will have
@@ -162,6 +164,7 @@ extern dErr dJacobiView(dJacobi,dViewer);
 extern dErr dJacobiRegister(const char[],const char[],const char[],dErr(*)(dJacobi));
 extern dErr dJacobiRegisterAll(const char[]);
 extern dErr dJacobiInitializePackage(const char[]);
+extern dErr dJacobiFinalizePackage(void);
 
 extern dErr dJacobiGetEFS(dJacobi,dInt,const dEntTopology[],const dPolynomialOrder[],const dRule[],dEFS**);
 extern dErr dJacobiGetQuadrature(dJacobi,dQuadratureMethod,dQuadrature*);

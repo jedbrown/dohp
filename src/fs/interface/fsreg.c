@@ -5,7 +5,8 @@
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 dClassId dFSROT_CLASSID;
 PetscBool dFSRegisterAllCalled;
-static PetscFList dFSList;
+PetscFList dFSList;
+static dBool dFSPackageInitialized;
 
 /**
 * These default operations are shared with the DM.  We are making a two-level inheritance since there may be different
@@ -45,7 +46,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 #endif
   {
     DM dm;
-    err = PetscHeaderCreate(dm,_p_dFS,struct _DMOps,DM_CLASSID,0,"DM",comm,DMDestroy,DMView);dCHK(err);
+    err = PetscHeaderCreate(dm,_p_dFS,struct _DMOps,DM_CLASSID,-1,"DM",comm,DMDestroy,DMView);dCHK(err);
     fs = (dFS)dm;
   }
 
@@ -149,12 +150,11 @@ dErr dFSRegister(const char name[],const char path[],const char cname[],dErr(*cr
 
 dErr dFSInitializePackage(const char path[])
 {
-  static dBool initialized = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;
-  if (initialized) dFunctionReturn(0);
-  initialized = PETSC_TRUE;
+  if (dFSPackageInitialized) dFunctionReturn(0);
+  dFSPackageInitialized = PETSC_TRUE;
   err = MatInitializePackage(path);dCHK(err);
   err = DMInitializePackage(path);dCHK(err);
   err = PetscClassIdRegister("dFS Rotation",&dFSROT_CLASSID);dCHK(err);
@@ -162,10 +162,18 @@ dErr dFSInitializePackage(const char path[])
   err = PetscLogEventRegister("dQ1HexComputQuad",DM_CLASSID,&dLOG_Q1HexComputeQuadrature);dCHK(err); /* only vaguely related */
   err = PetscLogEventRegister("dFSMatSetVExpand",DM_CLASSID,&dLOG_FSMatSetValuesExpanded);dCHK(err);
   err = dFSRegisterAll(path);dCHK(err);
+  err = PetscRegisterFinalize(dFSFinalizePackage);dCHK(err);
   dFunctionReturn(0);
 }
 
-
+dErr dFSFinalizePackage(void)
+{
+  dFunctionBegin;
+  dFSPackageInitialized = dFALSE;
+  dFSRegisterAllCalled = dFALSE;
+  dFSList = NULL;
+  dFunctionReturn(0);
+}
 
 dEXTERN_C_BEGIN
 

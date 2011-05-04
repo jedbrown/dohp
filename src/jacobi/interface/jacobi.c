@@ -8,7 +8,8 @@ PetscBool dJacobiRegisterAllCalled;
 
 const char *dGaussFamilies[] = {"gauss","lobatto","radau","dGaussFamily","dGAUSS_",0};
 
-static PetscFList dJacobiList;
+static dBool dJacobiPackageInitialized;
+PetscFList dJacobiList = NULL;
 
 static const struct _dJacobiOps _defaultOps = {
   .View = 0,
@@ -192,18 +193,29 @@ dErr dJacobiRegisterAll(const char path[])
 
 dErr dJacobiInitializePackage(const char path[])
 {
-  static dBool  initialized = PETSC_FALSE;
   dErr err;
 
   dFunctionBegin;
-  if (initialized) dFunctionReturn(0);
+  if (dJacobiPackageInitialized) dFunctionReturn(0);
+  dJacobiPackageInitialized = dTRUE;
   err = PetscClassIdRegister("Jacobi context",&dJACOBI_CLASSID);dCHK(err);
   err = PetscClassIdRegister("Quadrature context",&dQUADRATURE_CLASSID);dCHK(err);
   err = PetscLogEventRegister("dEFSApply",       dJACOBI_CLASSID,&dLOG_EFSApply);dCHK(err);
   err = PetscLogEventRegister("dRuleComputeGeom",dJACOBI_CLASSID,&dLOG_RuleComputeGeometry);dCHK(err);
   err = dJacobiRegisterAll(path);dCHK(err);
   err = dQuadratureRegisterAll(path);dCHK(err);
-  initialized = PETSC_TRUE;
+  err = PetscRegisterFinalize(dJacobiFinalizePackage);dCHK(err);
+  dFunctionReturn(0);
+}
+
+dErr dJacobiFinalizePackage(void)
+{
+  dFunctionBegin;
+  dJacobiPackageInitialized = dFALSE;
+  dJacobiList = NULL;
+  dQuadratureList = NULL;
+  dJacobiRegisterAllCalled = dFALSE;
+  dQuadratureRegisterAllCalled = dFALSE;
   dFunctionReturn(0);
 }
 
