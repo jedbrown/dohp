@@ -9,11 +9,11 @@ def SecondInvariant(Du):
     return 0.5*Du.dot(Du)
 
 class StokesExact(Exact):
-    def __init__(self, name=None, model='A eps pe', param='a b c'):
+    def __init__(self, name=None, model='B eps pe', param='a b c'):
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('u',3), ('p',1)])
     def eta(self, gamma):       # Power law
-        A, eps, pe = self.model_get('A eps pe')
-        return A * (0.5*eps**2 + gamma)**((pe-2)/2)
+        B, eps, pe = self.model_get('B eps pe')
+        return B * (0.5*eps**2 + gamma)**((pe-2)/2)
     def weak_homogeneous(self, x, U, dU, V, dV):
         u, p = U[:3], U[3]
         Du = sym(dU[:3,:])
@@ -58,7 +58,7 @@ class StokesExact(Exact):
 {
   const StokesCase_Exact *ctx = scase->data;
   const dReal a = ctx->a,b = ctx->b,c = ctx->c,scale = ctx->scale;
-  const dReal A = scase->rheo.A,eps = scase->rheo.eps,pe = scase->rheo.p;
+  const dReal B = scase->rheo.B,eps = scase->rheo.eps,pe = scase->rheo.p;
   %(body)s
   return 0;
 }

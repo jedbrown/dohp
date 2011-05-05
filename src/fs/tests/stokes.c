@@ -55,7 +55,7 @@ static dErr StokesCaseSetFromOptions(StokesCase scase)
 
   dFunctionBegin;
   err = PetscOptionsBegin(scase->comm,NULL,"StokesCase_Exact options",__FILE__);dCHK(err); {
-    err = PetscOptionsReal("-rheo_A","Rate factor (rheology)","",rheo->A,&rheo->A,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_B","Rate factor (rheology)","",rheo->B,&rheo->B,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_eps","Regularization (rheology)","",rheo->eps,&rheo->eps,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_p","Power p=1+1/n where n is Glen exponent","",rheo->p,&rheo->p,NULL);dCHK(err);
     err = PetscOptionsReal("-gravity","Nondimensional gravitational force","",scase->gravity,&scase->gravity,NULL);dCHK(err);
@@ -116,7 +116,7 @@ static dErr StokesCreate(MPI_Comm comm,Stokes *stokes)
   stk->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
   err = dCalloc(sizeof(*stk->scase),&stk->scase);dCHK(err);
-  stk->scase->rheo.A   = 1;
+  stk->scase->rheo.B   = 1;
   stk->scase->rheo.eps = 1;
   stk->scase->rheo.p   = 2;
 
@@ -449,7 +449,7 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
 static inline void StokesPointwiseComputeStore(struct StokesRheology *rheo,const dReal dUNUSED x[3],const dScalar Du[],struct StokesStore *st)
 {
   dScalar gamma_reg = 0.5*dSqr(rheo->eps) + 0.5*dColonSymScalar3(Du,Du);
-  st->eta = rheo->A * pow(gamma_reg,0.5*(rheo->p-2));
+  st->eta = rheo->B * pow(gamma_reg,0.5*(rheo->p-2));
   st->deta = 0.5*(rheo->p-2) * st->eta / gamma_reg;
   for (dInt i=0; i<6; i++) st->Du[i] = Du[i];
 }

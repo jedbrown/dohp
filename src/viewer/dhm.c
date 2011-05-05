@@ -69,6 +69,7 @@ static dErr dViewerDHMGetBoundingBoxType(PetscViewer viewer,hid_t *bbtype)
   dErr         err;
 
   dFunctionBegin;
+  *bbtype = -1;
   if (dhm->h5t_bbox < 0) {
     hid_t  type;
     const hsize_t dims[2] = {3,2};

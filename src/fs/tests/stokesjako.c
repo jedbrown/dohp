@@ -95,24 +95,51 @@ static dErr JakoFindPixel(StokesCase scase,const dReal x[3],dInt *ix,dInt *iy)
   *iy = j;
   dFunctionReturn(0);
 }
+static dErr JakoGradient2(StokesCase scase,const dReal field[],dInt i,dInt j,dReal grad[2])
+{
+  StokesCase_Jako *jako = scase->data;
+  const dReal dx = jako->mygeo[1],dy = jako->mygeo[5];
+  const dInt nx = jako->nx,ny = jako->ny;
+  dFunctionBegin;
+  if (i+1 >= nx) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"X slope would evaluate point (%D,%D) outside of valid range %Dx%D",i+1,j,nx,ny);
+  if (j-1 < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Y slope would evaluate point (%D,%D) outside of valid range %Dx%D",i,j-1,nx,ny);
+  grad[0] = (field[j*nx + i + 1] - field[j*nx + i]) / dx;
+  grad[1] = (field[(j-1)*nx + i] - field[j*nx + i]) / dy; // The raster has y axis flipped
+  dFunctionReturn(0);
+}
+static dErr JakoSIAVelocity(StokesCase scase,dReal b,dReal h,dReal dh[2],dReal z,dScalar u[3])
+{
+  struct StokesRheology *rheo = &scase->rheo;
+  const dReal
+    B = rheo->B,
+    p = rheo->p,
+    n = 1./(p-1),
+    A = pow(B,-n);
+  const dScalar
+    slope = dSqrt(dSqr(dh[0]) + dSqr(dh[1])),
+    sliding = 0,
+    hmz = z > h ? 0 : (z < b ? h-b : h-z),
+    speed = sliding + A / (n+1) * pow(slope,n) * (pow(h-b,n+1) - pow(hmz,n+1)); // Integrate stress from the bottom
+  u[0] = -speed / slope * dh[0];
+  u[1] = -speed / slope * dh[1];
+  u[2] = 0; // Would need another derivative to evaluate this and it should not be a big deal for this stationary computation
+  return 0;
+}
 static dErr StokesCaseSolution_Jako(StokesCase scase,const dReal x[3],dScalar u[],dScalar du[],dScalar *p,dScalar dp[])
 {                               /* Defines inhomogeneous Dirichlet boundary conditions */
   StokesCase_Jako *jako = scase->data;
-  double h,b,scale;
+  double h,b;
   dInt pixel,xp,yp;
-  dUNUSED dErr err;
+  dReal dh[2] = {0,0};
+  dErr err;
 
   dFunctionBegin;
   err = JakoFindPixel(scase,x,&xp,&yp);dCHK(err);
   pixel = yp*jako->nx + xp;
   h = jako->h[pixel];
   b = jako->b[pixel];
-  scale = (x[2] < b)
-    ? 0.0
-    : pow((x[2] - b) / (h-b),0.25);
-  u[0] = -20000 * scale;
-  u[1] = -15000 * scale;
-  u[2] = 0;
+  err = JakoGradient2(scase,jako->h,xp,yp,dh);dCHK(err);
+  err = JakoSIAVelocity(scase,b,h,dh,x[2],u);dCHK(err);
 
   for (dInt i=0; i<9; i++) du[i] = 0;
   *p = 0;
@@ -250,6 +277,12 @@ static dErr StokesCaseSetUp_Jako(StokesCase scase)
     // It appears from gdalwarp.cpp that pixels are cell centered
     dx = Lx / jako->nx;
     dy = Ly / jako->ny;
+
+    // Extend the domain in the positive direction for slope evaluation
+    jako->nx += 2;
+    jako->ny += 2;
+    Lx += 2*dx;
+    Ly += 2*dy;
 
     // Convert a pixel to a physical coordinate in the current projection
     jako->mygeo[0] = x0 + dx/2;
