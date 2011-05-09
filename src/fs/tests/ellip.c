@@ -1,6 +1,6 @@
 static const char help[] = "Solve a scalar elliptic problem, a regularized p-Bratu using dual order hp elements.\n"
   "The model problem is\n"
-  "  \\int_\\Omega (\\eta Dv \\cdot Du - \\lambda e^u - f v) - \\int_\\Gamma v (\\eta Du \\cdot n) = 0\n"
+  "  \\int_\\Omega (\\eta Dv \\cdot Du - v \\lambda e^u - f v) - \\int_\\Gamma v (\\eta Du \\cdot n) = 0\n"
   "where\n"
   "  \\eta(u) = (\\epsilon + 1/2 Du . Du)^((p-2)/2)\n"
   "  (\\eta Du \\cdot n) = known OR function of u OR self (\"No condition\" outflow)\n\n";
