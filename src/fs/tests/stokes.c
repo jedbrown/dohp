@@ -4,7 +4,7 @@ static const char help[] = "Solve non-Newtonian Stokes problem using dual order 
   "                  div(u) = g\n"
   "where\n"
   "  D is the symmetric gradient operator\n"
-  "  eta(gamma) = A (eps^2 + gamma)^{(p-2)/2}\n"
+  "  eta(gamma) = B (0.5*eps^2 + gamma)^{(p-2)/2}\n"
   "  gamma = Du : Du/2\n"
   "The weak form is\n"
   "  int_Omega eta Dv:Du - p div(v) - q div(u) - f_u.v - f_p.q = 0\n"
@@ -171,7 +171,7 @@ static dErr StokesSetFromOptions(Stokes stk)
     err = PetscOptionsInt("-pressure_codim","Reduce pressure space by this factor","",stk->pressureCodim,&stk->pressureCodim,NULL);dCHK(err);
     err = PetscOptionsBool("-cardinal_mass","Assemble diagonal mass matrix","",stk->cardinalMass,&stk->cardinalMass,NULL);dCHK(err);
     err = PetscOptionsList("-stokes_Ap_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_Ap,stk->mattype_Ap,sizeof(stk->mattype_Ap),NULL);dCHK(err);
-    err = PetscOptionsList("-stokes_Dp_mat_type","Matrix type for velocity operator","",MatList,stk->mattype_Dp,stk->mattype_Dp,sizeof(stk->mattype_Dp),NULL);dCHK(err);
+    err = PetscOptionsList("-stokes_Dp_mat_type","Matrix type for pressure operator","",MatList,stk->mattype_Dp,stk->mattype_Dp,sizeof(stk->mattype_Dp),NULL);dCHK(err);
     err = PetscOptionsEnum("-stokes_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)stk->function_qmethod,(PetscEnum*)&stk->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-stokes_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)stk->jacobian_qmethod,(PetscEnum*)&stk->jacobian_qmethod,NULL);dCHK(err);
     {
