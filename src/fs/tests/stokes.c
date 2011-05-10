@@ -416,13 +416,7 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   err = MatSetOption(Dp,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
   err = MatSetFromOptions(Ap);dCHK(err);
   err = MatSetFromOptions(Dp);dCHK(err);
-  {
-    dBool seqsbaij;
-    err = PetscTypeCompare((PetscObject)Ap,MATSEQSBAIJ,&seqsbaij);dCHK(err);
-    if (seqsbaij) {err = MatSetOption(Ap,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
-    err = PetscTypeCompare((PetscObject)Dp,MATSEQSBAIJ,&seqsbaij);dCHK(err);
-    if (seqsbaij) {err = MatSetOption(Dp,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE);dCHK(err);}
-  }
+
   err = MatCreateNest(stk->comm,2,splitis,2,splitis,((Mat[]){Ap,NULL,NULL,Dp}),Jp);dCHK(err);
   err = MatSetOptionsPrefix(*Jp,"Jp_");dCHK(err);
   err = MatSetFromOptions(*Jp);dCHK(err);
