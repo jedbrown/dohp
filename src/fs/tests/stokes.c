@@ -623,9 +623,9 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
     case STOKES_MULT_A:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,&dv, NULL,NULL,NULL,NULL);dCHK(err);
       for (dInt i=0; i<Q; i++) {
-        dScalar Du[6],Dv[6],qq_unused[1];
+        dScalar Du[6],Dv[6];
         dTensorSymCompress3(du[i],Du);
-        StokesPointwiseJacobian(&stash[i],jw[i],Du,0,Dv,qq_unused);
+        StokesPointwiseJacobian_A(&stash[i],jw[i],Du,Dv);
         dTensorSymUncompress3(Dv,dv[i]);
       }
       err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, NULL,NULL);dCHK(err);
