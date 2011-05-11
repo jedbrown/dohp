@@ -669,7 +669,7 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Ap,Vec Mdiag,Vec gx)
   err = StokesExtractGlobalSplit(stk,gx,&gxu,NULL);dCHK(err);
   err = dFSGetGeometryVectorExpanded(stk->fsu,&Coords);dCHK(err);
   err = StokesGetRegionIterator(stk,EVAL_JACOBIAN,&iter);dCHK(err);
-  err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gxu,dFS_HOMOGENEOUS,Mdiag,dFS_HOMOGENEOUS, NULL,NULL);dCHK(err);
+  err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, gxu,dFS_INHOMOGENEOUS,Mdiag,dFS_HOMOGENEOUS, NULL,NULL);dCHK(err);
   err = dRulesetIteratorGetMatrixSpaceSplit(iter, NULL,NULL,NULL, NULL,&Kflat,NULL, NULL,NULL,NULL);dCHK(err);
   while (dRulesetIteratorHasPatch(iter)) {
     const dReal *jw,*interp_flat,*deriv_flat;
@@ -757,7 +757,9 @@ static dErr StokesJacobianAssemble_Pressure(Stokes stk,Mat D,Mat Daux,Vec gx)
       err = PetscMemzero(Ka,P*P*sizeof(K[0][0]));dCHK(err);
       for (dInt q=0; q<Q; q++) {
         struct StokesStore store;
-        StokesPointwiseComputeStore(&stk->scase->rheo,x[q],du[q],&store);dCHK(err);
+        dScalar Dusym[6];
+        dTensorSymCompress3(du[q],Dusym);
+        StokesPointwiseComputeStore(&stk->scase->rheo,x[q],Dusym,&store);dCHK(err);
         for (dInt j=0; j<P; j++) { /* trial functions */
           for (dInt i=0; i<P; i++) {
             /* Scaled mass matrx */

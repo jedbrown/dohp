@@ -48,4 +48,4 @@ dohp_add_test (stokes-q3q2-fgmres 1 stokes -dmesh_in "${Dohp_DATA_DIR}/dblock4.h
   -pc_type fieldsplit -pc_fieldsplit_real_diagonal -pc_fieldsplit_type schur -pc_fieldsplit_schur_factorization_type upper
   -fieldsplit_u_ksp_type cg -fieldsplit_u_ksp_converged_reason -fieldsplit_u_ksp_rtol 1e-2
   -fieldsplit_p_ksp_type preonly
-  -stokes_case Exact1 -const_bdeg 3 -pressure_codim 1 -rheo_p 1.2)
+  -stokes_case Exact1 -const_bdeg 3 -pressure_codim 1 -rheo_p 1.2 -rheo_eps 0.1)
