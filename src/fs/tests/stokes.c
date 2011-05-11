@@ -644,7 +644,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
       for (dInt i=0; i<Q; i++) {
         dScalar Du[6];
         dTensorSymCompress3(du[i],Du);
-        StokesPointwiseJacobian_B(jw[i],Du,&q[i]); /* vv is pressure test function */
+        StokesPointwiseJacobian_B(jw[i],Du,&q[i]);
       }
       err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,NULL, q,NULL);dCHK(err);
       break;
@@ -685,15 +685,17 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Ap,Vec Mdiag,Vec gx)
       err = PetscMemzero(K,P*3*P*3*sizeof(K[0][0][0][0]));dCHK(err);
       for (dInt q=0; q<Q; q++) {
         struct StokesStore store;
-        StokesPointwiseComputeStore(&stk->scase->rheo,x[q],du[q],&store);
+        dScalar Dusym[6];
+        dTensorSymCompress3(du[q],Dusym);
+        StokesPointwiseComputeStore(&stk->scase->rheo,x[q],Dusym,&store);
         for (dInt j=0; j<P; j++) { /* trial functions */
           for (dInt fj=0; fj<3; fj++) {
-            dScalar duu[3][3] = {{0},{0},{0}},dv[3][3],Dusym[6],Dvsym[6],q_unused;
+            dScalar duu[3][3] = {{0},{0},{0}},dv[3][3],Duusym[6],Dvsym[6];
             duu[fj][0] = deriv[q][j][0];
             duu[fj][1] = deriv[q][j][1];
             duu[fj][2] = deriv[q][j][2];
-            dTensorSymCompress3(&duu[0][0],Dusym);
-            StokesPointwiseJacobian(&store,jw[q],Dusym,0,Dvsym,&q_unused);
+            dTensorSymCompress3(&duu[0][0],Duusym);
+            StokesPointwiseJacobian_A(&store,jw[q],Duusym,Dvsym);
             dTensorSymUncompress3(Dvsym,&dv[0][0]);
             for (dInt i=0; i<P; i++) {
               for (dInt fi=0; fi<3; fi++) {
