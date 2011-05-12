@@ -155,7 +155,7 @@ static dErr MatGetVecs_Stokes(Mat A,Vec *x,Vec *y)
 
 static dErr StokesSetFromOptions(Stokes stk)
 {
-  char scasename[256] = "StokesExact_0";
+  char scasename[256] = "Exact1";
   dMesh mesh;
   dFS fsu,fsp;
   dJacobi jac;
