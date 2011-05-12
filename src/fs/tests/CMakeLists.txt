@@ -6,6 +6,10 @@ add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/stokesexact.c"
   COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py")
 set_source_files_properties (stokesexact.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}") # for stokesimpl.h
 
+add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/vhtexact.c"
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/vhtexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/vhtexact.py")
+set_source_files_properties (vhtexact.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}") # for vhtimpl.h
+
 dohp_link_executable (fs-ex1 ex1.c)
 dohp_link_executable (fs-ex4 fsex4.c)
 dohp_link_executable (ellip ellip.c)
@@ -17,6 +21,9 @@ dohp_link_executable (elast elast.c elastexact.c)
 # Stokes needs to link GDAL too so dohp_link_executable does not work
 add_executable (stokes stokes.c stokesjako.c stokesexact.c)
 target_link_libraries (stokes dohp ${GDAL_LIBRARY})
+
+add_executable (vht vht.c vhtexact.c)
+target_link_libraries (vht dohp)
 
 dohp_add_test (fs-mf-projection-v1 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 5 -snes_monitor_short -ksp_converged_reason -dfs_ordering_type natural -proj_version 1)
 #dohp_add_test (fs-mf-projection-v2 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 5 -snes_monitor_short -ksp_converged_reason -dfs_ordering_type natural -proj_version 2)
@@ -39,7 +46,9 @@ dohp_add_test (ellip-e0-b3-p16 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" 
 dohp_add_test (ellip-e0-b3-p14-sse 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -ksp_monitor_short -pc_type lu -exact_a 1.6 -exact_b 1.7 -exact_c 1.8 -exact 0 -const_bdeg 3 -ellip_p 1.4)
 dohp_add_test (ellip-e0-b3-p17-lam1-sse 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -ksp_monitor_short -pc_type lu -exact 0 -const_bdeg 3 -ellip_p 1.7 -ellip_lam 1)
 dohp_add_test (ellip-morph 1 ellip -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -morph 1 -twist 0.4 -ksp_monitor_short -snes_max_it 1 -ksp_rtol 1e-8 -ksp_type cg -pc_type lu)
+
 dohp_add_test (elast-e0-b3-g01 1 elast -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -ksp_monitor_short -pc_type ilu -exact_a 0.98 -exact_b 1.01 -exact_c 1.01 -exact 0 -const_bdeg 3 -dfs_ordering_type natural)
+
 dohp_add_test (stokes-q3q2-scr 1 stokes -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_max_it 1 -snes_monitor_short -ksp_type preonly
   -pc_type fieldsplit -pc_fieldsplit_type schur -pc_fieldsplit_real_diagonal -fieldsplit_p_ksp_monitor_short -fieldsplit_p_ksp_type cg
   -fieldsplit_u_ksp_converged_reason -stokes_Ap_mat_type sbaij -stokes_case Exact1 -const_bdeg 3 -pressure_codim 1)
@@ -49,3 +58,7 @@ dohp_add_test (stokes-q3q2-fgmres 1 stokes -dmesh_in "${Dohp_DATA_DIR}/dblock4.h
   -fieldsplit_u_ksp_type cg -fieldsplit_u_ksp_converged_reason -fieldsplit_u_ksp_rtol 1e-2
   -fieldsplit_p_ksp_type preonly
   -stokes_case Exact1 -const_bdeg 3 -pressure_codim 1 -rheo_p 1.2 -rheo_eps 0.1)
+
+dohp_add_test (vht-e1-q3q2q3-fgmres 1 vht -dmesh_in "${Dohp_DATA_DIR}/dblock4.h5m" -snes_monitor_short -snes_converged_reason -ksp_converged_reason
+  -ksp_type fgmres -pc_type fieldsplit -pc_fieldsplit_type additive -fieldsplit_e_pc_type lu
+  -vht_case Exact1 -rheo_kappa0 1 -rheo_kappa1 0.1 -rheo_p 1.5 -rheo_eps 0.1 -rheo_T0 6 -rheo_Q 5 -rheo_R 0.33)

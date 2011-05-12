@@ -1,0 +1,28 @@
+Norm of discrete residual for exact solution 0.00682406
+Norm of discrete linear residual at exact solution 4.28945
+  0 SNES Function norm 7.12529 
+  Linear solve converged due to CONVERGED_RTOL iterations 113
+  1 SNES Function norm 5.18253 
+  Linear solve converged due to CONVERGED_RTOL iterations 130
+  2 SNES Function norm 1.10306 
+  Linear solve converged due to CONVERGED_RTOL iterations 89
+  3 SNES Function norm 0.174735 
+  Linear solve converged due to CONVERGED_RTOL iterations 84
+  4 SNES Function norm 0.018242 
+  Linear solve converged due to CONVERGED_RTOL iterations 84
+  5 SNES Function norm 0.00109378 
+  Linear solve converged due to CONVERGED_RTOL iterations 84
+  6 SNES Function norm 1.70094e-05 
+  Linear solve converged due to CONVERGED_RTOL iterations 88
+  7 SNES Function norm 2.39923e-07 
+  Linear solve converged due to CONVERGED_RTOL iterations 88
+  8 SNES Function norm 3.70382e-09 
+Nonlinear solve converged due to CONVERGED_FNORM_RELATIVE
+Algebraic residual        |x|_1 1.58e-11  |x|_2 4.76e-11  |x|_inf 7.56e-10
+Interpolation residual    |x|_1 2.32e-04  |x|_2 1.40e-03  |x|_inf 2.75e-02
+Integral velocity error 0 |x|_1 5.64e-04  |x|_2 1.80e-04  |x|_inf 3.47e-04
+Integral velocity error 1 |x|_1 1.36e-02  |x|_2 3.71e-03  |x|_inf 4.12e-03
+Integral pressure error 0 |x|_1 1.11e-02  |x|_2 5.32e-03  |x|_inf 1.59e-02
+Integral pressure error 1 |x|_1 1.77e-01  |x|_2 8.16e-02  |x|_inf 2.08e-01
+Integral enthalpy error 0 |x|_1 4.62e-04  |x|_2 2.35e-04  |x|_inf 3.71e-04
+Integral enthalpy error 1 |x|_1 1.16e-02  |x|_2 4.92e-03  |x|_inf 5.12e-03
