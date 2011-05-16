@@ -39,6 +39,7 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],dViewer viewer,const char *f
   dFunctionBegin;
   va_start(Argp,format);
   err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
+  va_end(Argp);
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   if (!mat) {
@@ -68,6 +69,7 @@ dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *for
   dFunctionBegin;
   va_start(Argp,format);
   err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
+  va_end(Argp);
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   if (!mat) {
