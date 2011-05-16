@@ -43,6 +43,7 @@ list (APPEND Dohp_SRCS
 
 list (APPEND Dohp_SRCS
   util/util.c
+  util/dunits.c
   util/dohpinit.c
   )
 
@@ -53,9 +54,10 @@ install (TARGETS dohp
   ARCHIVE DESTINATION lib)
 
 if (Dohp_BUILD_TESTS)
-  add_subdirectory (jacobi/tests)
-  add_subdirectory (vec/tests)
   add_subdirectory (fs/tests)
+  add_subdirectory (jacobi/tests)
+  add_subdirectory (util/tests)
+  add_subdirectory (vec/tests)
 endif (Dohp_BUILD_TESTS)
 
 if (Dohp_BUILD_TOOLS)

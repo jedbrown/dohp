@@ -1,0 +1,41 @@
+Units Manager: 1 MPI processes
+  type not yet set
+  LENGTH      : 1 internal unit = 1.0000e+02 metre (m) = 1.0000e+02 meter
+                1 m = 1.0000e+00 meter
+  MASS        : 1 internal unit = 1.0000e+03 petaton (Pt) = 1.0000e+21 kilogram
+                1 Pt = 1.0000e+18 kilogram
+  TIME        : 1 internal unit = 2.4000e+01 hour (hr) = 8.6400e+04 second
+                1 hr = 3.6000e+03 second
+  TEMPERATURE : 1 internal unit = 1.0000e+00 Kelvin (K) = 1.0000e+00 Kelvin
+                1 K = 1.0000e+00 Kelvin
+  DENSITY     : 1 internal unit = 1.0000e-03 metre^-3 petaton (m^-3 Pt) = 1.0000e+15 meter^-3 kilogram
+                1 m^-3 Pt = 1.0000e+18 meter^-3 kilogram
+  VELOCITY    : 1 internal unit = 4.1667e+00 metre hour^-1 (m hr^-1) = 1.1574e-03 meter second^-1
+                1 m hr^-1 = 2.7778e-04 meter second^-1
+  ACCELERATION: 1 internal unit = 1.7361e-01 metre hour^-2 (m hr^-2) = 1.3396e-08 meter second^-2
+                1 m hr^-2 = 7.7160e-08 meter second^-2
+  FORCEDENSITY: 1 internal unit = 1.7361e-04 metre^-2 petaton hour^-2 (m^-2 Pt hr^-2) = 1.3396e+07 meter^-2 kilogram second^-2
+                1 m^-2 Pt hr^-2 = 7.7160e+10 meter^-2 kilogram second^-2
+  FORCE       : 1 internal unit = 1.7361e+02 metre petaton hour^-2 (m Pt hr^-2) = 1.3396e+13 meter kilogram second^-2
+                1 m Pt hr^-2 = 7.7160e+10 meter kilogram second^-2
+  ENERGY      : 1 internal unit = 1.7361e+04 metre^2 petaton hour^-2 (m^2 Pt hr^-2) = 1.3396e+15 meter^2 kilogram second^-2
+                1 m^2 Pt hr^-2 = 7.7160e+10 meter^2 kilogram second^-2
+  POWER       : 1 internal unit = 4.1667e+05 metre^2 petaton hour^-1 (m^2 Pt hr^-1) = 1.1574e+20 meter^2 kilogram second^-1
+                1 m^2 Pt hr^-1 = 2.7778e+14 meter^2 kilogram second^-1
+  PRESSURE    : 1 internal unit = 1.7361e-02 metre^-1 petaton hour^-2 (m^-1 Pt hr^-2) = 1.3396e+09 meter^-1 kilogram second^-2
+                1 m^-1 Pt hr^-2 = 7.7160e+10 meter^-1 kilogram second^-2
+  VISCOSITY   : 1 internal unit = 4.1667e-01 metre^-1 petaton hour^-1 (m^-1 Pt hr^-1) = 1.1574e+14 meter^-1 kilogram second^-1
+                1 m^-1 Pt hr^-1 = 2.7778e+14 meter^-1 kilogram second^-1
+  STRAINRATE  : 1 internal unit = 4.1667e-02 hour^-1 (hr^-1) = 1.1574e-05 second^-1
+                1 hr^-1 = 2.7778e-04 second^-1
+rho         : 9.1000e-13 nondim    9.1000e-16 m^-3 Pt            9.1000e+02 meter^-3 kilogram
+rhog        : 6.6640e-04 nondim    1.1570e-07 m^-2 Pt hr^-2      8.9271e+03 meter^-2 kilogram second^-2
+rhogh3      : 5.3312e-03 nondim    9.2556e-01 m Pt hr^-2         7.1417e+10 meter kilogram second^-2
+eta0        : 2.5920e+01 nondim    1.0800e+01 m^-1 Pt hr^-1      3.0000e+15 meter^-1 kilogram second^-1
+eta1        : 8.6400e-02 nondim    3.6000e-02 m^-1 Pt hr^-1      1.0000e+13 meter^-1 kilogram second^-1
+sigma0      : 7.4650e-06 nondim    1.2960e-07 m^-1 Pt hr^-2      1.0000e+04 meter^-1 kilogram second^-2
+sigma1      : 1.4930e-04 nondim    2.5920e-06 m^-1 Pt hr^-2      2.0000e+05 meter^-1 kilogram second^-2
+strainrate0 : 2.8800e-07 nondim    1.2000e-08 hr^-1              3.3333e-12 second^-1      
+strainrate1 : 1.7280e-03 nondim    7.2000e-05 hr^-1              2.0000e-08 second^-1      
+vel0        : 4.3200e-06 nondim    1.8000e-05 m hr^-1            5.0000e-09 meter second^-1
+vel1        : 2.5920e-02 nondim    1.0800e-01 m hr^-1            3.0000e-05 meter second^-1
