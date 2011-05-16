@@ -147,6 +147,7 @@ static dErr dUnitsGetEmptyUnit_Private(dUnits un,dUnit *unit)
   dErr err;
 
   dFunctionBegin;
+  *unit = NULL;
   for (i=0; i<un->nalloc && un->list[i]; i++) ;
   if (i == un->nalloc) dERROR(((dObject)un)->comm,PETSC_ERR_SUP,"reallocation not implemented");
   err = dCallocA(1,&un->list[i]);dCHK(err);
