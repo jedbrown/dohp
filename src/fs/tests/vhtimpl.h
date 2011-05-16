@@ -44,6 +44,17 @@ struct VHTStash {
   dReal de[3];
 };
 
+struct VHTLogEpoch {
+  dReal eta[2];
+  dReal cPeclet[2];
+};
+struct VHTLog {
+  dInt epoch,alloc;
+  dBool monitor;
+  struct VHTLogEpoch *epochs;
+  struct VHTLogEpoch global;
+};
+
 typedef enum {EVAL_FUNCTION,EVAL_JACOBIAN, EVAL_UB} VHTEvaluation;
 typedef enum {VHT_MULT_UU,VHT_MULT_UP,VHT_MULT_PU} VHTMultMode;
 
@@ -73,6 +84,7 @@ struct _n_VHT {
   dRulesetIterator  regioniter[EVAL_UB];
   dInt              dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
   dBool             alldirichlet;
+  struct VHTLog     log;
 };
 
 extern PetscFList VHTCaseList;

@@ -87,6 +87,94 @@ static dErr VHTCaseRegisterAll(void)
   err = VHTCaseRegisterAll_Exact();dCHK(err);
   dFunctionReturn(0);
 }
+static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char *fmt,...)
+{
+  va_list Argp;
+  char name[4096];
+  size_t fullLen;
+  dErr err;
+
+  dFunctionBegin;
+  va_start(Argp,fmt);
+  err = PetscVSNPrintf(name,sizeof name,fmt,&fullLen,Argp);dCHK(err);
+  va_end(Argp);
+  err = PetscViewerASCIIPrintf(viewer,"%s: eta [%8.2e,%8.2e]  cPeclet [%8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1]);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscViewerASCIIPrintf(viewer,"Logged %d epochs\n",vlog->epoch+1);dCHK(err);
+  err = VHTLogEpochView(&vlog->global,viewer,"Global");dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr VHTLogEpochReset(struct VHTLogEpoch *ep)
+{
+  dFunctionBegin;
+  ep->eta[0] = PETSC_MAX_REAL;
+  ep->eta[1] = PETSC_MIN_REAL;
+  ep->cPeclet[0] = PETSC_MAX_REAL;
+  ep->cPeclet[1] = PETSC_MIN_REAL;
+  dFunctionReturn(0);
+}
+static dErr VHTLogEpochStart(struct VHTLog *vlog)
+{
+  dErr err;
+
+  dFunctionBegin;
+  vlog->epoch++;
+  if (vlog->epoch >= vlog->alloc) {
+    dInt newalloc = vlog->alloc * 2 + 16;
+    struct VHTLogEpoch *tmp = vlog->epochs;
+    err = dCallocA(newalloc,&vlog->epochs);dCHK(err);
+    err = dMemcpy(vlog->epochs,tmp,vlog->alloc*sizeof(tmp[0]));dCHK(err);
+    err = dFree(tmp);dCHK(err);dCHK(err);
+    vlog->alloc = newalloc;
+  }
+  err = VHTLogEpochReset(&vlog->epochs[vlog->epoch]);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr VHTLogEpochEnd(struct VHTLog *vlog)
+{
+  struct VHTLogEpoch *g = &vlog->global,*e = &vlog->epochs[vlog->epoch];
+  dErr err;
+
+  dFunctionBegin;
+  g->cPeclet[0] = dMin(g->cPeclet[0],e->cPeclet[0]);
+  g->cPeclet[1] = dMax(g->cPeclet[1],e->cPeclet[1]);
+  g->eta[0]     = dMin(g->eta[0],e->eta[0]);
+  g->eta[1]     = dMax(g->eta[1],e->eta[1]);
+  if (vlog->monitor) {err = VHTLogEpochView(e,PETSC_VIEWER_STDOUT_WORLD,"Epoch[%d]",vlog->epoch);dCHK(err);}
+  dFunctionReturn(0);
+}
+static void VHTLogStash(struct VHTLog *vlog,const dReal dx[9],const struct VHTStash *stash)
+{
+  struct VHTLogEpoch *ep = &vlog->epochs[vlog->epoch];
+  const dReal *u = stash->u;
+  dReal cPeclet,uh2 = 0;
+  for (dInt i=0; i<3; i++) uh2 += dSqr(dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2]);
+  cPeclet = dSqrt(uh2) / stash->kappa;
+  ep->cPeclet[0] = dMin(ep->cPeclet[0],cPeclet);
+  ep->cPeclet[1] = dMax(ep->cPeclet[1],cPeclet);
+  ep->eta[0]     = dMin(ep->eta[0],stash->eta);
+  ep->eta[1]     = dMax(ep->eta[1],stash->eta);
+}
+static dErr VHTLogSetFromOptions(struct VHTLog *vlog)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscOptionsBool("-vht_log_monitor","View each epoch",NULL,vlog->monitor,&vlog->monitor,NULL);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr VHTLogReset(struct VHTLog *vlog)
+{
+  dFunctionBegin;
+  vlog->epoch = 0;
+  dFunctionReturn(0);
+}
 
 #define ALEN(a) ((dInt)(sizeof(a)/sizeof(a)[0]))
 static PetscLogEvent LOG_VHTShellMult;
@@ -134,6 +222,9 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
   vht->scase->rheo.kappa0 = 10;
   vht->scase->rheo.kappa1 = 5;
   vht->scase->rheo.T0     = 10;
+
+  vht->log.epoch = -1;
+  err = VHTLogEpochReset(&vht->log.global);dCHK(err);
 
   *invht = vht;
   dFunctionReturn(0);
@@ -213,6 +304,7 @@ static dErr VHTSetFromOptions(VHT vht)
       }
     }
     err = PetscOptionsList("-vht_case","Which sort of case to run","",VHTCaseList,scasename,scasename,sizeof(scasename),NULL);dCHK(err);
+    err = VHTLogSetFromOptions(&vht->log);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
 
   err = dMeshCreate(vht->comm,&mesh);dCHK(err);
@@ -465,11 +557,13 @@ static dErr VHTDestroy(VHT *invht)
     err = VecScatterDestroy(&vht->all.extractEnthalpy);dCHK(err);
     err = VecScatterDestroy(&vht->all.extractStokes);dCHK(err);
   }
+  err = dFree(vht->log.epochs);dCHK(err);
   for (dInt i=0; i<EVAL_UB; i++) {err = dRulesetIteratorDestroy(&vht->regioniter[i]);dCHK(err);}
   err = VHTCaseDestroy(&vht->scase);dCHK(err);
   err = dFree(*invht);dCHK(err);
   dFunctionReturn(0);
 }
+
 
 static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
 {
@@ -678,6 +772,7 @@ static dErr VHTFunction(SNES dUNUSED snes,Vec X,Vec Y,void *ctx)
   dRulesetIterator iter;
 
   dFunctionBegin;
+  err = VHTLogEpochStart(&vht->log);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
   err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
@@ -695,12 +790,14 @@ static dErr VHTFunction(SNES dUNUSED snes,Vec X,Vec Y,void *ctx)
       dTensorSymCompress3(du[i],Du);
       VHTPointwiseFunction(vht->scase,x[i],jw[i], u[i],Du,p[i],e[i],de[i], &stash[i], u_[i],Dv,p_[i],e_[i],de_[i]);
       dTensorSymUncompress3(Dv,du_[i]);
+      VHTLogStash(&vht->log,dx[i],&stash[i]);
     }
     err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, u_,du_, p_,NULL, e_,de_);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
   err = VHTCommitGlobalSplit(vht,&Xu,&Xp,&Xe,Y,INSERT_VALUES);dCHK(err);
+  err = VHTLogEpochEnd(&vht->log);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -1363,6 +1460,7 @@ int main(int argc,char *argv[])
     err = VecZeroEntries(X);dCHK(err);
     err = SNESComputeFunction(snes,X,b);dCHK(err); /* -f */
     err = SNESComputeFunction(snes,Xsoln,R);dCHK(err);
+    err = VHTLogReset(&vht->log);dCHK(err); // Exclude the evaluations above from the log
     err = VecNorm(R,NORM_2,&nrm);dCHK(err);
     err = dPrintf(comm,"Norm of discrete residual for exact solution %g\n",nrm);dCHK(err);
     err = SNESComputeJacobian(snes,Xsoln,&J,&B,&mstruct);dCHK(err);
@@ -1388,6 +1486,7 @@ int main(int argc,char *argv[])
   err = VecZeroEntries(R);dCHK(err);
   err = VecZeroEntries(X);dCHK(err);
   err = SNESSolve(snes,NULL,X);dCHK(err); /* ###  SOLVE  ### */
+  err = VHTLogView(&vht->log,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
   if (vht->alldirichlet) {
     MatNullSpace matnull;
     KSP ksp;
