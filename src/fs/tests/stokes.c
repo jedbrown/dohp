@@ -58,6 +58,7 @@ static dErr StokesCaseSetFromOptions(StokesCase scase)
     err = PetscOptionsReal("-rheo_B","Rate factor (rheology)","",rheo->B,&rheo->B,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_eps","Regularization (rheology)","",rheo->eps,&rheo->eps,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_p","Power p=1+1/n where n is Glen exponent","",rheo->p,&rheo->p,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_nu","Poisson ratio to use in Jacobian","",rheo->nu,&rheo->nu,NULL);dCHK(err);
     err = PetscOptionsReal("-gravity","Nondimensional gravitational force","",scase->gravity,&scase->gravity,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
@@ -119,6 +120,7 @@ static dErr StokesCreate(MPI_Comm comm,Stokes *stokes)
   stk->scase->rheo.B   = 1;
   stk->scase->rheo.eps = 1;
   stk->scase->rheo.p   = 2;
+  stk->scase->rheo.nu  = 0;
 
   *stokes = stk;
   dFunctionReturn(0);
@@ -440,7 +442,7 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   dFunctionReturn(0);
 }
 
-static inline void StokesPointwiseComputeStore(struct StokesRheology *rheo,const dReal dUNUSED x[3],const dScalar Du[],struct StokesStore *st)
+static inline void StokesPointwiseComputeStore(const struct StokesRheology *rheo,const dReal dUNUSED x[3],const dScalar Du[],struct StokesStore *st)
 {
   dScalar gamma_reg = 0.5*dSqr(rheo->eps) + 0.5*dColonSymScalar3(Du,Du);
   st->eta = rheo->B * pow(gamma_reg,0.5*(rheo->p-2));
@@ -448,34 +450,45 @@ static inline void StokesPointwiseComputeStore(struct StokesRheology *rheo,const
   for (dInt i=0; i<6; i++) st->Du[i] = Du[i];
 }
 
+static inline dReal StokesLambda(const struct StokesRheology *rheo,const struct StokesStore *st)
+{
+  return ((1 + 0*st->eta) * rheo->nu) / (1 - 2*rheo->nu);
+}
+
 static inline void StokesPointwiseFunction(StokesCase scase,
                                            const dReal x[3],dReal weight,const dScalar Du[6],dScalar p,
                                            struct StokesStore *st,dScalar v[3],dScalar Dv[6],dScalar *q)
 {
-  dScalar fu[3],fp;
-  StokesPointwiseComputeStore(&scase->rheo,x,Du,st);
+  const struct StokesRheology *rheo = &scase->rheo;
+  dScalar fu[3],fp,trDu = Du[0]+Du[1]+Du[2];
+  dReal lambda;
+  StokesPointwiseComputeStore(rheo,x,Du,st);
+  lambda = 0*StokesLambda(rheo,st);
   scase->forcing(scase,x,fu,&fp);
   for (dInt i=0; i<3; i++) v[i] = -weight * fu[i]; /* Coefficient of \a v in weak form, only appears in forcing term */
   *q   = -weight * (Du[0]+Du[1]+Du[2] + fp);       /* -q tr(Du) - forcing, note tr(Du) = div(u) */
-  for (dInt i=0; i<3; i++) Dv[i] = weight * (st->eta * Du[i] - p); /* eta Dv:Du - p tr(Dv) */
+  for (dInt i=0; i<3; i++) Dv[i] = weight * (st->eta * Du[i] + lambda*trDu - p); /* eta Dv:Du - p tr(Dv) */
   for (dInt i=3; i<6; i++) Dv[i] = weight * st->eta * Du[i];       /* eta Dv:Du */
 }
 
-static inline void StokesPointwiseJacobian(const struct StokesStore *restrict st,dReal weight,
+static inline void StokesPointwiseJacobian(const struct StokesRheology *rheo,const struct StokesStore *restrict st,dReal weight,
                                            const dScalar Du[restrict static 6],dScalar p,
                                            dScalar Dv[restrict static 6],dScalar *restrict q)
 {
+  const dReal lambda = 0*StokesLambda(rheo,st);
                                 /* Coefficients in weak form of Jacobian */
-  const dScalar deta_colon = st->deta*dColonSymScalar3(st->Du,Du);                          /* eta' Dw:Du */
-  for (dInt i=0; i<3; i++) Dv[i] = weight * (st->eta * Du[i] + deta_colon * st->Du[i] - p); /* eta Dv:Du + eta' (Dv:Dw)(Dw:Du) - p tr(Dv) */
-  for (dInt i=3; i<6; i++) Dv[i] = weight * (st->eta * Du[i] + deta_colon * st->Du[i]);     /* eta Dv:Du + eta' (Dv:Dw)(Dw:Du) */
-  *q = -weight*(Du[0]+Du[1]+Du[2]);                                                         /* -q tr(Du) */
+  const dScalar deta_colon = st->deta*dColonSymScalar3(st->Du,Du);                      // eta' Dw:Du
+  for (dInt i=0; i<6; i++) Dv[i] = weight * (st->eta * Du[i] + deta_colon * st->Du[i]   // eta Dv:Du + eta' (Dv:Dw)(Dw:Du)
+                                             + lambda * (i<3) * (Du[0] + Du[1] + Du[2]) // Penalty: lambda div(v) div(u)
+                                             - p*(i<3));                                // - p tr(Dv)
+  *q = -weight*(Du[0]+Du[1]+Du[2]);                                                     // -q tr(Du)
 }
 
-static inline void StokesPointwiseJacobian_A(const struct StokesStore *restrict st,dReal weight,const dScalar Du[restrict static 6],dScalar Dv[restrict static 6])
+static inline void StokesPointwiseJacobian_A(const struct StokesRheology *rheo,const struct StokesStore *restrict st,dReal weight,const dScalar Du[restrict static 6],dScalar Dv[restrict static 6])
 {
   const dScalar deta_colon = st->deta*dColonSymScalar3(st->Du,Du);
-  for (dInt i=0; i<6; i++) Dv[i] = weight * (st->eta*Du[i] + deta_colon*st->Du[i]);
+  const dReal lambda = StokesLambda(rheo,st);
+  for (dInt i=0; i<6; i++) Dv[i] = weight * (st->eta*Du[i] + deta_colon*st->Du[i] + lambda*(i<3)*(Du[0]+Du[1]+Du[2]));
 }
 
 static inline void StokesPointwiseJacobian_B(dReal weight,const dScalar Du[restrict static 6],dScalar *restrict q)
@@ -549,7 +562,7 @@ static dErr MatMult_Nest_StokesCoupled(Mat J,Vec gx,Vec gy)
     for (dInt i=0; i<Q; i++) {
       dScalar Du[6],Dv[6];
       dTensorSymCompress3(du[i],Du);
-      StokesPointwiseJacobian(&stash[i],jw[i],Du,p[i],Dv,&q[i]);
+      StokesPointwiseJacobian(&stk->scase->rheo,&stash[i],jw[i],Du,p[i],Dv,&q[i]);
       dTensorSymUncompress3(Dv,dv[i]);
     }
     err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, q,NULL);dCHK(err);
@@ -625,7 +638,7 @@ static dErr StokesShellMatMult_All_IorA(Mat A,Vec gx,Vec gy,Vec gz,InsertMode im
       for (dInt i=0; i<Q; i++) {
         dScalar Du[6],Dv[6];
         dTensorSymCompress3(du[i],Du);
-        StokesPointwiseJacobian_A(&stash[i],jw[i],Du,Dv);
+        StokesPointwiseJacobian_A(&stk->scase->rheo,&stash[i],jw[i],Du,Dv);
         dTensorSymUncompress3(Dv,dv[i]);
       }
       err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,dv, NULL,NULL);dCHK(err);
@@ -695,7 +708,7 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Ap,Vec Mdiag,Vec gx)
             duu[fj][1] = deriv[q][j][1];
             duu[fj][2] = deriv[q][j][2];
             dTensorSymCompress3(&duu[0][0],Duusym);
-            StokesPointwiseJacobian_A(&store,jw[q],Duusym,Dvsym);
+            StokesPointwiseJacobian_A(&stk->scase->rheo,&store,jw[q],Duusym,Dvsym);
             dTensorSymUncompress3(Dvsym,&dv[0][0]);
             for (dInt i=0; i<P; i++) {
               for (dInt fi=0; fi<3; fi++) {

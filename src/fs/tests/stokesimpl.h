@@ -7,7 +7,7 @@
 #include <dohp.h>
 
 struct StokesRheology {
-  dReal B,eps,p;
+  dReal B,eps,p,nu;
 };
 
 typedef struct _n_StokesCase *StokesCase;
