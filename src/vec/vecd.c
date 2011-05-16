@@ -97,9 +97,7 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
   * I will be sufficiently involved to notice changes here. Famous last words. */
   err = VecCreate(((dObject)x)->comm,&y);dCHK(err);
 
-  err = PetscLayoutDestroy(&y->map);dCHK(err);
-  y->map = x->map;
-  y->map->refcnt++;
+  err = PetscLayoutReference(x->map,&y->map);dCHK(err);
 
   err = VecGetArray(yc,&a);dCHK(err);
   err = VecCreate_MPI_Private(y,PETSC_FALSE,0,a);dCHK(err);
@@ -114,14 +112,6 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
 
   err = PetscOListDuplicate(((dObject)x)->olist,&((dObject)y)->olist);dCHK(err);
   err = PetscFListDuplicate(((dObject)x)->qlist,&((dObject)y)->qlist);dCHK(err);
-  if (x->mapping) {
-    err = PetscObjectReference((dObject)x->mapping);dCHK(err);
-    y->mapping = x->mapping;
-  }
-  if (x->bmapping) {
-    err = PetscObjectReference((dObject)x->bmapping);dCHK(err);
-    y->bmapping = x->bmapping;
-  }
   y->map->bs   = x->map->bs;
   y->bstash.bs = x->bstash.bs;
 
