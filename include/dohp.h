@@ -130,8 +130,6 @@ typedef PetscBool dBool;
 #define dNAME_LEN     256
 #define dSTR_LEN      256
 
-#define dUNUSED PETSC_UNUSED
-
 #define dDEFAULT_ALIGN PETSC_MEMALIGN
 
 #define dNextAligned(p)      dNextAlignedAddr(dDEFAULT_ALIGN,(p))

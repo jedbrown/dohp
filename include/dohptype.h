@@ -89,6 +89,8 @@ extern dEntType dMeshEntTypeFromTopology(dEntTopology);
 
 typedef unsigned char dEntStatus;
 
+#define dUNUSED PETSC_UNUSED
+
 dEXTERN_C_END
 
 #endif  /* _DOHPTYPE_H */
