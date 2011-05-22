@@ -2,7 +2,17 @@ from __future__ import division
 
 import sympy
 from sympy import Matrix, ccode
+import itertools
+from IPython.Debugger import Tracer; itrace = Tracer()
 
+def concat(llist):
+    return itertools.chain(*llist)
+def symdiff(f):
+    "Differentiate a function of one variable, return a new function"
+    X = sympy.Symbol('Xprivate')
+    fX = f(X)                    # Symbolic expression for the function
+    dfX = sympy.diff(fX,X)       # Symbolic expression for the derivative
+    return sympy.lambdify(X,dfX) # Function that evaluates df
 def rows(A):
     return [A[i,:] for i in range(A.rows)]
 def grad(U, X):
@@ -14,10 +24,21 @@ def sym(A):
 def divergence(F, X):
     assert(F.cols == X.rows)
     return sum(sympy.diff(F[i],X[i]) for i in range(X.rows))
+def asvector(A):
+    m,n = A.shape
+    return A.reshape(m*n,1)
+def chaindiv(F, U, dUdX):
+    assert(F.cols == dUdX.cols)
+    assert(U.rows == dUdX.rows)
+    assert(U.cols == 1)
+    div = sympy.zeros((F.rows,1))
+    for col in range(F.cols):
+        div += grad(F[:,col], U) * dUdX[:,col]
+    return div
 def testgrad(A, v):
     return Matrix([[sympy.diff(A,v[i,j]) for j in range(v.shape[1])] for i in range(v.shape[0])])
 def symbols(vars):
-    sym = sympy.symbols(vars)
+    sym = sympy.symbols(list(vars))
     try:                        # make sure that result is a list even if it only contains one entry
         sym[0]
         return sym
@@ -44,16 +65,32 @@ class Exact:
             if i < count: return name, i
             i -= count
         raise KeyError
-    def fieldname(self,i):
-        return '%s[%d]' % self.fieldseek(i)
-    def dfieldname(self,i):
+    def joinname(self, prefix, array, pair):
+        return (prefix+('%s[%d]' if array else '%s_%d')) % pair
+    def joinname2(self, prefix, array, trio):
+        name, i, j = trio
+        if array:
+            return (prefix+'%s[%d]') % (name, i*3+j)
+        else:
+            return (prefix+'%s_%d_%d') % (name, i, j)
+    def fieldname(self,i,prefix='',array=True):
+        return self.joinname(prefix,array,self.fieldseek(i))
+    def dfieldname(self,i,prefix='',array=True):
         name, j = self.fieldseek(i//3)
-        return 'd%s[%d]' % (name, j*3+i%3) # Index by flattened index
-    def ffieldname(self,i):
-        return 'f%s[%d]' % self.fieldseek(i)
+        return self.joinname2(prefix+'d',array,(name,j,i%3)) # Index by flattened index
+    def ffieldname(self,i,prefix='',array=True):
+        return self.joinname(prefix+'f',array,self.fieldseek(i))
+    def fieldmatrices(self,prefix='',array=False):
+        U = Matrix([self.fieldname(i,prefix,array) for i in range(self.nfields)])
+        dU = Matrix([self.dfieldname(i*3+j,prefix,array) for i in range(self.nfields) for j in range(3)]).reshape(self.nfields,3)
+        def d2name(dsym,k):
+            'convert prefix_dsymname_i_j to prefix_d2symname_i_j_k'
+            return prefix + 'd2' + dsym.name[len(prefix)+1:] + '_%d' % k
+        d2U = Matrix([d2name(dsym,j) for dsym in asvector(dU) for j in range(3)]).reshape(self.nfields*3,3)
+        return U, dU, d2U
     def _meta_add(self,attr,symnames):
         if isinstance(symnames,str): symnames = symnames.split()
-        getattr(self,'_'+attr).update([(name,sympy.symbols([name])) for name in symnames])
+        getattr(self,'_'+attr).update([(name,sympy.Symbol(name)) for name in symnames])
     def _meta_get(self,attr,symnames):
         if isinstance(symnames,str): symnames = symnames.split()
         return [getattr(self,'_'+attr)[name] for name in symnames]
@@ -79,3 +116,49 @@ class Exact:
         dv = Matrix([symbols('v%d_%d'%(i,j) for j in range(3)) for i in range(self.nfields)])
         L = self.weak_homogeneous(x,u,du,v,dv)
         return testgrad(L,v), testgrad(L,dv)
+    def residual_eval(self, x, u, du):
+        "returns a list of C statements to evaluate the strong form of the residual"
+        U, dU, d2U = self.fieldmatrices(prefix='X_',array=False)
+        decls = map(vardeclaration,(U,dU,d2U))
+        v, dv = self.residual(x,U,dU)
+        preamble = zip(U,u) + zip(dU,du) + zip(d2U,grad(asvector(du),x))
+        resid = v - chaindiv(dv,U,dU) - chaindiv(dv,asvector(dU),d2U)
+        return decls, preamble, resid
+    def residual_code(self, x, u, du):
+        decls, preamble, resid = self.residual_eval(x, u, du)
+        fnames = map(self.ffieldname,range(self.nfields))
+        def mkstatement(pair):
+            return ccode(pair[1], assign_to=pair[0])
+        return decls, map(mkstatement,preamble) + map(mkstatement,zip(fnames,resid))
+
+def vardeclaration(vars):
+    lastname = ''
+    def varname(v):
+        head, sep, tail = v.name.partition('[')
+        return head, bool(sep)
+    def declname((key, iter)):
+        head, sep = key
+        n = len(list(iter))
+        return '%s[%d]' % (head, sep) if sep else head
+    gvars = itertools.groupby(vars, varname)
+    decllist = map(declname,gvars)
+    return 'dScalar dUNUSED ' + ','.join(decllist) + ';' # Set dUNUSED because we don't know if other expressions will use it
+
+def utime(call,args=(),kwargs=dict()):
+    import time
+    start = time.time()
+    result = call(*args,**kwargs)
+    print call.__name__, time.time() - start
+    return result
+def uprofile(calls):
+    import hotshot,hotshot.stats,tempfile
+    logfile = tempfile.mktemp('.stats')
+    try:
+        prof = hotshot.Profile(logfile)
+        for call,args,kwargs in calls:
+            prof.runcall(call,args,kwargs)
+        prof.close()
+        stats = hotshot.stats.load(logfile)
+        stats.print_stats(20)
+    finally:
+        os.remove(logfile)

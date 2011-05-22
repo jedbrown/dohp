@@ -47,9 +47,13 @@ class ElastExact(Exact):
         def body():
             u = self.solution_scaled(x,a,b,c)
             du = self.solution_gradient(x,a,b,c)
-            v,dv = self.residual(x,u,du)
-            for i,row in enumerate(rows(dv)):
-                yield ccode(v[i] - divergence(row,x), assign_to=self.ffieldname(i))
+            def chain():
+                return self.residual_code(x,u,du)
+            def nochain():
+                v, dv = self.residual(x,u,du)
+                return [ccode(v[i] - divergence(row,x), assign_to=self.ffieldname(i)) for i,row in enumerate(rows(dv))]
+            decl,statements = chain()
+            return decl + statements
         return '''
 %(prototype)s
 {

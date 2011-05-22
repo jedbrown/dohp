@@ -50,9 +50,8 @@ class StokesExact(Exact):
         def body():
             U = self.solution_scaled(x,a,b,c)
             dU = self.solution_gradient(x,a,b,c)
-            V,dV = self.residual(x,U,dU)
-            for i,row in enumerate(rows(dV)):
-                yield ccode(V[i] - divergence(row,x), assign_to=self.ffieldname(i))
+            decl, statements = self.residual_code(x,U,dU)
+            return decl + statements
         return '''
 %(prototype)s
 {
