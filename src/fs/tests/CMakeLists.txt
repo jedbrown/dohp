@@ -1,13 +1,13 @@
 add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/elastexact.h" "${CMAKE_CURRENT_BINARY_DIR}/elastexact.c"
-  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py")
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/elastexact.py" "${CMAKE_CURRENT_SOURCE_DIR}/dohpexact.py")
 set_source_files_properties (elast.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}")
 
 add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/stokesexact.c"
-  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py")
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/stokesexact.py" "${CMAKE_CURRENT_SOURCE_DIR}/dohpexact.py")
 set_source_files_properties (stokesexact.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}") # for stokesimpl.h
 
 add_custom_command (OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/vhtexact.c"
-  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/vhtexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/vhtexact.py")
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/vhtexact.py" DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/vhtexact.py" "${CMAKE_CURRENT_SOURCE_DIR}/dohpexact.py")
 set_source_files_properties (vhtexact.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}") # for vhtimpl.h
 
 dohp_link_executable (fs-ex1 ex1.c)
