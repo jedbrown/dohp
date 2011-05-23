@@ -476,8 +476,8 @@ int main(int argc, char *argv[])
     iRel_PairHandle pair;
     iBase_EntityHandle brick;
     iGeom_newGeom(geom_options,&geom,&err,sizeof geom_options);dIGCHK(geom,err);
-    iRel_newRel(0,&assoc,&err,0);dIRCHK(assoc,err);
-    iRel_createPair(assoc,geom,0,iRel_IGEOM_IFACE,mesh,1,iRel_IMESH_IFACE,&pair,&err);dIGCHK(assoc,err);
+    iRel_create(0,&assoc,&err,0);dIRCHK(assoc,err);
+    iRel_createPair(assoc,geom,0,iRel_IGEOM_IFACE,iRel_ACTIVE,mesh,1,iRel_IMESH_IFACE,iRel_ACTIVE,&pair,&err);dIGCHK(assoc,err);
     iGeom_createBrick(geom,box.x1-box.x0,box.y1-box.y0,box.z1-box.z0,&brick,&err);dIGCHK(geom,err);
     iGeom_moveEnt(geom,brick,0.5*(box.x0+box.x1),0.5*(box.y0+box.y1),0.5*(box.z0+box.z1),&err);dIGCHK(geom,err);
     err = PrintBoundingBox(geom,brick,"brick");dCHK(err);
@@ -525,7 +525,7 @@ int main(int argc, char *argv[])
     }
     iGeom_save(geom,outgeom,geom_save_options,&err,sizeof outgeom,sizeof geom_save_options);dIGCHK(geom,err);
     iGeom_dtor(geom,&err);dIGCHK(geom,err);
-    iRel_dtor(assoc,&err);dIRCHK(assoc,err);
+    iRel_destroy(assoc,&err);dIRCHK(assoc,err);
   }
 
   iMesh_save(mesh,0,outfile,outopts,&err,(int)sizeof(outfile),(int)strlen(outopts));dICHK(mesh,err);

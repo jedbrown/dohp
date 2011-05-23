@@ -25,7 +25,7 @@ extern const char *const iBase_TagValueTypeName[];
     if (PetscUnlikely(err)) {                                           \
       dErr _l_ret = err;                                                \
       char _l_desc[512] = "Description not available";                  \
-      iMesh_getDescription(mesh,_l_desc,&err,sizeof(_l_desc));          \
+      iMesh_getDescription(mesh,_l_desc,sizeof(_l_desc));               \
       dERROR(PETSC_COMM_SELF,1,"iMesh(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
@@ -33,7 +33,7 @@ extern const char *const iBase_TagValueTypeName[];
     if (PetscUnlikely(err)) {                                           \
       dErr _l_ret = err;                                                \
       char _l_desc[512] = "Description not available";                  \
-      iGeom_getDescription(geom,_l_desc,&err,sizeof(_l_desc));          \
+      iGeom_getDescription(geom,_l_desc,sizeof(_l_desc));               \
       dERROR(PETSC_COMM_SELF,1,"iGeom(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
@@ -41,7 +41,7 @@ extern const char *const iBase_TagValueTypeName[];
     if (PetscUnlikely(err)) {                                           \
       dErr _l_ret = err;                                                \
       char _l_desc[512] = "Description not available";                  \
-      iRel_getDescription(rel,_l_desc,&err,sizeof(_l_desc));          \
+      iRel_getDescription(rel,_l_desc,sizeof(_l_desc));                 \
       dERROR(PETSC_COMM_SELF,1,"iRel(%d) %s: %s",_l_ret,iBase_ErrorString[_l_ret],_l_desc); \
     }                                                                   \
   } while (0)
