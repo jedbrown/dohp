@@ -7,47 +7,82 @@ from dohpexact import *
 
 def SecondInvariant(Du):
     return 0.5*Du.dot(Du)
-def transition(a, b, width, x): # Smooth function transitioning from a to b near 0 with characteristic width
+def const(x):
+    def f(y): return x
+    return f
+def splice(a, b, x0, width, x, dx):
     from sympy import tanh
-    return a + (b-a)*((1+tanh(x/width))/2)
+    ax = a(x)
+    bx = b(x)
+    dax = symdiff(a)(x)
+    dbx = symdiff(b)(x)
+    f = ax + (bx-ax) * (1+tanh((x-x0)/width)) / 2
+    df = (dax
+          + (dbx-dax) * (1+tanh((x-x0)/width)) / 2
+          + (bx - ax) * (1-tanh((x-x0)/width)**2) / (2*width)) * dx
+    return f, df
 
 class VHTExact(Exact):
-    def __init__(self, name=None, model='B0 R Q eps pe kappa0 kappa1 T0', param='a b c'):
-        Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('u',3), ('p',1), ('e',1)])
-    def eta(self, gamma, e):       # Power law with Arrhenius relation
+    def __init__(self, name=None, model=None, param='a b c'):
+        if model is None:
+            model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i L splice_delta k_T kappa_w'
+        Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
+    def unpack(self, U, dU):
+        rhou, p, E = U[:3,:], U[3], U[4]
+        drhou, dp, dE = dU[:3,:], dU[3,:].T, dU[4,:].T
+        return (rhou, p, E), (drhou, dp, dE)
+    def solve_eqstate(self, rhou, p, E, drhou, dp, dE):
+        "Uses the equation of state to solve for observable quantities and their derivatives"
+        spdel, rhoi, rhow, T3, T0, c_i, beta_CC, L = self.model_get('splice_delta rhoi rhow T3 T0 c_i beta_CC L')
+        T_m = T3 - beta_CC * p # melting temperature at current pressure
+        e_m = c_i * (T_m - T0) # melting energy at current pressure
+        # At this point, we should solve an implicit system for (e,rho,omega).  Unfortunately, doing so would require
+        # solving an inhomogeneous system involving splice(), which I don't know how to do symbolically. Putting a
+        # numeric rootfinder into this symbolic description would make manufactured solutions much more complex.
+        # Therefore, we cheat by simply using ice density to remove kinetic energy and convert energy/volume to
+        # energy/mass.
+        rhotmp = rhoi          # Cheat
+        e = (E - 1/(2*rhotmp) * rhou.dot(rhou)) / rhotmp
+        de = (dE - 1/(rhotmp) * (rhou.T * drhou).T) / rhotmp
+        def temp(e): return T0 + e/c_i # temperature in cold regime
+        T, dT = splice(temp,const(T_m),e_m,spdel,e,de)
+        def melt(e): return (e-e_m)/L # temperature in warm regime
+        omega,domega  = splice(const(0),melt,e_m,spdel,e,de)
+        rho = (1-omega)*rhoi + omega*rhow
+        drho = (rhow-rhoi) * domega
+        return (e,T,omega,rho), (de,dT,domega,drho)
+    def eta(self, p, T, omega, gamma):       # Power law with Arrhenius relation
         from sympy import exp
-        B0, R, Q, eps, pe = self.model_get('B0 R Q eps pe')
+        B0, Bomega, R, Q, V, T0, eps, gamma0, pe, beta_CC = self.model_get('B0 Bomega R Q V T0 eps gamma0 pe beta_CC')
         n = 1/(pe - 1)
-        T = self.temperature(e)
-        B = B0 * exp(Q / (n*R*T))
-        return B * (0.5*eps**2 + gamma)**((pe-2)/2)
-    def temperature(self, e):
-        T0, = self.model_get('T0')
-        return T0 + e
-    def kappa(self, e):
-        kappa0,kappa1 = self.model_get('kappa0 kappa1')
-        return transition(kappa0, kappa1, 1, e)
+        Tstar = T - beta_CC * p
+        B = B0 * exp((Q*(T0 - Tstar) - p*V*T0) / (n*R*T0*Tstar)) * (1 + Bomega * omega)**(-1/n)
+        return B0
+        #return B * (eps**2 + gamma/gamma0)**((pe-2)/2)
     def weak_homogeneous(self, x, U, dU, V, dV):
-        u, p, e = U[:3,:], U[3], U[4]
-        Du = sym(dU[:3,:])
-        de = dU[4,:].T
-        u_, p_, e_ = V[:3,:], V[3], V[4]
-        Du_ = sym(dV[:3,:])
-        de_ = dV[4,:].T
-        gamma = SecondInvariant(Du)
-        eta = self.eta(gamma, e)
-        kappa = self.kappa(e)
-        heatflux = -kappa * de + e * u
-        Sigma = Du.dot(eta*Du)
-        stokes = Du_.dot(eta * Du) - p_*Du.trace() - p*Du_.trace()
-        enthalpy = e_ * (-Sigma) - de_.dot(heatflux)
-        return stokes + enthalpy
+        (rhou,p,E), (drhou,dp,dE) = self.unpack(U,dU)
+        (e,T,omega,rho), (de,dT,domega,drho) = self.solve_eqstate(rhou,p,E,drhou,dp,dE)
+        k_T, kappa_w, L = self.model_get('k_T kappa_w L')
+        u = rhou / rho                    # total velocity
+        du = (1/rho) * drhou - u * drho.T # total velocity gradient
+        wmom = -kappa_w * domega          # momentum of water part in reference frame of ice, equal to mass flux
+        ui = u - wmom/rho                 # ice velocity
+        dui = du                          # We cheat again here. The second term should also be differentiated, but that would require second derivatives
+        Dui = sym(dui)
+        gamma = SecondInvariant(Dui)
+        eta = self.eta(p, T, omega, gamma)
+        heatflux = -k_T * dT + L * wmom
+        (rhou_,p_,E_), (drhou_,dp_,dE_) = self.unpack(V,dV)
+        conserve_momentum = -drhou_.dot(rhou*u.T - eta*Dui + p*I)
+        conserve_mass     = -p_ * drhou.trace()
+        conserve_energy   = -dE_.dot(E*ui + heatflux) - Dui.dot(eta*Dui)
+        return conserve_momentum + conserve_mass + conserve_energy
     def create_prototype(self, definition=False):
         return 'dErr VHTCaseCreate_%(name)s(VHTCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))
     def solution_prototype(self):
-        return 'static dErr VHTCaseSolution_%(name)s(VHTCase scase,const dReal x[3],dScalar u[3],dScalar du[9],dScalar p[1],dScalar dp[3],dScalar e[1],dScalar de[1])' % dict(name=self.name)
+        return 'static dErr VHTCaseSolution_%(name)s(VHTCase scase,const dReal x[3],dScalar rhou[3],dScalar drhou[9],dScalar p[1],dScalar dp[3],dScalar E[1],dScalar dE[3])' % dict(name=self.name)
     def forcing_prototype(self):
-        return 'static dErr VHTCaseForcing_%(name)s(VHTCase scase,const dReal x[3],dScalar fu[3],dScalar fp[1],dScalar fe[1])' % dict(name=self.name)
+        return 'static dErr VHTCaseForcing_%(name)s(VHTCase scase,const dReal x[3],dScalar frhou[3],dScalar fp[1],dScalar fE[1])' % dict(name=self.name)
     def solution_code(self):
         from sympy.abc import a,b,c
         x = Matrix(symbol3('x'))
