@@ -1525,12 +1525,14 @@ dErr dMeshSetClosure(dMesh mesh,dMeshESH set)
   iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_EDGE,&adj,&adj_a,&adj_s,&off,&off_a,&off_s,&ierr);dICHK(mi,ierr);
   err = dMeshSetAddEnts(mesh,set,adj,adj_s);dCHK(err);
   free(adj); free(off); free(ents);
+  adj = NULL; off = NULL; ents = NULL;
 
   ents_a = adj_a = off_a = 0;
   iMesh_getEntitiesRec(mi,set,dTYPE_EDGE,dTOPO_ALL,1,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
   iMesh_getEntArrAdj(mi,ents,ents_s,dTYPE_VERTEX,&adj,&adj_a,&adj_s,&off,&off_a,&off_s,&ierr);dICHK(mi,ierr);
   err = dMeshSetAddEnts(mesh,set,adj,adj_s);dCHK(err);
   free(adj); free(off); free(ents);
+  adj = NULL; off = NULL; ents = NULL;
   ents_a = adj_a = off_a = 0;
   dFunctionReturn(0);
 }
