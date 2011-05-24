@@ -6,10 +6,15 @@
 #include <stdint.h>
 #include <petscsys.h>
 
-#if defined dUSE_VALGRIND && 0
+#define dPragmaQuote(a) _Pragma(#a)
+#define dPragmaGCC(a) dPragmaQuote(GCC a)
+
+#if defined dUSE_VALGRIND
 #  include <valgrind/memcheck.h>
 #  define dMakeMemUndefined(mem,bytes) do {                     \
-    if (VALGRIND_MAKE_MEM_UNDEFINED((mem),(bytes))) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Valgrind returned an error"); \
+    memset(mem,0xff,bytes);                                     \
+    dPragmaGCC(diagnostic ignored "-Wconversion")               \
+    VALGRIND_MAKE_MEM_UNDEFINED((mem),(bytes));                 \
   } while (0)
 #else
 #  define dMakeMemUndefined(mem,bytes) do {     \
