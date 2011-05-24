@@ -69,7 +69,6 @@ struct _n_dRulesetIterator {
   dInt nelems;                  /**< Total number of elements */
   dInt curpatch_in_elem;        /**< Index of current patch in this element */
   dInt npatches_in_elem;        /**< Number of patches in current element */
-  dInt patchsize;               /**< Number of nodes on each patch in current element */
   const dInt *patchind;         /**< Indices in evaluated element for each patch in current element */
   const dReal *patchweight;     /**< Patch weights for each patch in current element */
   dInt elempatch;               /**< Index of the first patch on current element with respect to expanded space */
@@ -337,7 +336,6 @@ static dErr dRulesetIteratorClearElement(dRulesetIterator it)
   dFunctionBegin;
   it->curpatch_in_elem = 0;
   it->npatches_in_elem = 0;
-  it->patchsize = 0;
   it->patchind = NULL;
   it->patchweight = NULL;
 
@@ -358,14 +356,16 @@ dErr dRulesetIteratorSetupElement(dRulesetIterator it)
 {
   dErr  err;
   dRule rule;
+  dInt patchsize;
 
   dFunctionBegin;
   if (dRulesetIteratorElementIsSetUp(it)) dFunctionReturn(0);
   err = dEFSGetRule(it->link->efs[it->curelem],&rule);dCHK(err);
-  err = dRuleGetPatches(rule,&it->npatches_in_elem,&it->patchsize,&it->patchind,&it->patchweight);dCHK(err);
+  err = dRuleGetPatches(rule,&it->npatches_in_elem,&patchsize,&it->patchind,&it->patchweight);dCHK(err);
   err = dRuleGetSize(rule,NULL,&it->Q);dCHK(err);
   if (it->Q % it->npatches_in_elem) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Number of quadrature points %D is not divisible by number of patches %D");
   it->Q /= it->npatches_in_elem;
+  if (it->Q != patchsize) dERROR(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Computed patch size not equal to given");
   dFunctionReturn(0);
 }
 
@@ -520,7 +520,7 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
   va_start(ap,dv);
   if (it->curpatch_in_elem == 0) { /* We just got to this element */
     err = dRulesetIteratorSetupElement(it);dCHK(err);
-    *Q = it->patchsize;
+    *Q = it->Q;
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
       const dBool identity = (dBool)(it->npatches_in_elem == 1); /* Element ordering is patch ordering. Should use a better heuristic. */
       const bool has_coords = (i == 0);
@@ -560,9 +560,9 @@ dErr dRulesetIteratorGetPatchApplied(dRulesetIterator it,dInt *Q,const dReal **j
       if (dv) *dv = p->vc_patch.dv;
     }
   } else {                      /* Everything has already been mapped into patch-oriented storage */
-    *jw = it->phys.jw + it->patchsize*it->curpatch_in_elem;
+    *jw = it->phys.jw + it->Q*it->curpatch_in_elem;
     for (i=0,p=it->link; i<it->nlinks; i++,p=p->next) {
-      const dInt offbs = it->patchsize*it->curpatch_in_elem*p->bs;
+      const dInt offbs = it->Q*it->curpatch_in_elem*p->bs;
       if (i) {
         u = va_arg(ap,dScalar**);
         du = va_arg(ap,dScalar**);
@@ -605,6 +605,15 @@ dErr dRulesetIteratorCommitPatchApplied(dRulesetIterator it,InsertMode imode,con
         v = va_arg(ap,const dScalar*);
         dv = va_arg(ap,const dScalar*);
       }
+#if defined dUSE_DEBUG
+      if (v)  dCheckMemIsDefined(p->vc_patch.v, it->Q*it->npatches_in_elem*p->bs*sizeof(dScalar));
+      if (dv) dCheckMemIsDefined(p->vc_patch.dv,it->Q*it->npatches_in_elem*p->bs*3*sizeof(dScalar));
+      {
+        const dInt offbs = it->Q*it->curpatch_in_elem*p->bs;
+        if (v && v != p->vc_patch.v + offbs) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Cannot modify the address of the test function interpolants to commit");
+        if (dv && dv != p->vc_patch.dv + offbs*3) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Cannot modify the address of the test function derivatives to commit");
+      }
+#endif
       if (v || dv) {
         /* We don't actually reference v or dv because that memory is owned by us and sitting in vc_patch.v and
          * vc_patch.dv. Instead, we just map everything in vc_patch to vc_elem where it can be tested. */
@@ -846,10 +855,10 @@ static dErr ValueCacheReset(struct ValueCache *vc,dBool self)
     vc->v  = NULL;
     vc->dv = NULL;
   }
-  dMakeMemUndefined(vc->u_alloc,nbs*sizeof(dScalar));
-  dMakeMemUndefined(vc->du_alloc,3*nbs*sizeof(dScalar));
-  dMakeMemUndefined(vc->v_alloc,nbs*sizeof(dScalar));
-  dMakeMemUndefined(vc->dv_alloc,3*nbs*sizeof(dScalar));
+  dMemzero(vc->u_alloc,nbs*sizeof(dScalar));
+  dMemzero(vc->du_alloc,3*nbs*sizeof(dScalar));
+  dMemzero(vc->v_alloc,nbs*sizeof(dScalar));
+  dMemzero(vc->dv_alloc,3*nbs*sizeof(dScalar));
   dFunctionReturn(0);
 }
 
@@ -882,7 +891,7 @@ static dErr ValueCacheExtract(struct ValueCache *vc,dInt n,const dInt *ind,dBool
   dFunctionReturn(0);
 }
 
-static dErr dUNUSED ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[])
+static dErr ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt *ind,dBool identity,dScalar su[],dScalar sdu[],dScalar sv[],dScalar sdv[])
 {
 
   dFunctionBegin;
@@ -903,6 +912,12 @@ static dErr dUNUSED ValueCacheDistribute(struct ValueCache *vc,dInt n,const dInt
     for (dInt i=0; i<n; i++) {
       for (dInt j=0; j<bs; j++) {
         const dInt ibs = i*bs+j,sibs = ind[i]*bs+j;
+#if defined dUSE_DEBUG
+        if (PetscIsInfOrNanReal(vc->v[ibs])
+            || PetscIsInfOrNanReal(vc->dv[ibs*3+0])
+            || PetscIsInfOrNanReal(vc->dv[ibs*3+1])
+            || PetscIsInfOrNanReal(vc->dv[ibs*3+2])) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_FP,"User returned invalid floating point value");
+#endif
         sv[sibs] += vc->v[ibs];
         sdv[sibs*3+0] += vc->dv[ibs*3+0];
         sdv[sibs*3+1] += vc->dv[ibs*3+1];
