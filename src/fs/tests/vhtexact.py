@@ -25,7 +25,7 @@ def splice(a, b, x0, width, x, dx):
 class VHTExact(Exact):
     def __init__(self, name=None, model=None, param='a b c'):
         if model is None:
-            model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i L splice_delta k_T kappa_w'
+            model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w'
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
     def unpack(self, U, dU):
         rhou, p, E = U[:3,:], U[3], U[4]
@@ -33,7 +33,7 @@ class VHTExact(Exact):
         return (rhou, p, E), (drhou, dp, dE)
     def solve_eqstate(self, rhou, p, E, drhou, dp, dE):
         "Uses the equation of state to solve for observable quantities and their derivatives"
-        spdel, rhoi, rhow, T3, T0, c_i, beta_CC, L = self.model_get('splice_delta rhoi rhow T3 T0 c_i beta_CC L')
+        spdel, rhoi, rhow, T3, T0, c_i, beta_CC, L = self.model_get('splice_delta rhoi rhow T3 T0 c_i beta_CC Latent')
         T_m = T3 - beta_CC * p # melting temperature at current pressure
         e_m = c_i * (T_m - T0) # melting energy at current pressure
         # At this point, we should solve an implicit system for (e,rho,omega).  Unfortunately, doing so would require
@@ -62,7 +62,7 @@ class VHTExact(Exact):
     def weak_homogeneous(self, x, U, dU, V, dV):
         (rhou,p,E), (drhou,dp,dE) = self.unpack(U,dU)
         (e,T,omega,rho), (de,dT,domega,drho) = self.solve_eqstate(rhou,p,E,drhou,dp,dE)
-        k_T, kappa_w, L = self.model_get('k_T kappa_w L')
+        k_T, kappa_w, L = self.model_get('k_T kappa_w Latent')
         u = rhou / rho                    # total velocity
         du = (1/rho) * drhou - u * drho.T # total velocity gradient
         wmom = -kappa_w * domega          # momentum of water part in reference frame of ice, equal to mass flux
@@ -105,6 +105,8 @@ class VHTExact(Exact):
         def body():
             U = self.solution_scaled(x,a,b,c)
             dU = self.solution_gradient(x,a,b,c)
+            # decl, statements = self.residual_code(x,U,dU)
+            # return decl + statements
             V,dV = self.residual(x,U,dU)
             for i,row in enumerate(rows(dV)):
                 yield ccode(V[i] - divergence(row,x), assign_to=self.ffieldname(i))
@@ -229,7 +231,7 @@ def exact_body(name):
 
 if __name__ == "__main__":
     import pdb
-    solutions = [Exact0(), Exact1()]
+    solutions = [Exact0()]
     with open('vhtexact.c', 'w') as fimpl:
         fimpl.write(implementation())
         for sol in solutions:

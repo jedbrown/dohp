@@ -4,17 +4,42 @@
 #include <dohpfs.h>
 #include <dohpvec.h>
 #include <dohpsys.h>
+#include <dohpunits.h>
 #include <dohp.h>
 
 struct VHTRheology {
-  dReal B0;                     /* Leading factor term in hardness parameter */
+  dReal B0;                     /* Viscosity at reference strain rate and temperature */
+  dReal Bomega;                 /* Softening due to water content */
   dReal R;                      /* Ideal gas constant, for Arrhenius relation */
   dReal Q;                      /* "Activation energy" for creep */
-  dReal eps;                    /* Strain rate for which to regularize */
+  dReal V;                      /* "Activation volume" for creep */
+  dReal du0;                    /* Reference strain rate */
+  dReal gamma0;                 /* Second invariant of reference strain rate */
+  dReal eps;                    /* Fraction of reference strain rate at which to regularize */
   dReal pe;                     /* Rheological exponent */
-  dReal kappa0;                 /* Thermal conductivity in the cold part */
-  dReal kappa1;                 /* Thermal conductivity in the warm part */
-  dReal T0;                     /* Reference temperature corresponding to enthalpy=0, melting temperature for ice */
+  dReal k_T;                    /* Thermal conductivity in the cold part */
+  dReal kappa_w;                /* Hydraulic conductivity in the warm part */
+  dReal c_i;                    /* Specific heat capacity of cold part */
+  dReal Latent;                 /* Latent heat of fusion */
+  dReal rhoi;                   /* Density of cold part */
+  dReal rhow;                   /* Density of melt */
+  dReal beta_CC;                /* Clausius-Capeyron gradient */
+  dReal T0;                     /* Reference temperature for definition of enthalpy and viscosity */
+  dReal T3;                     /* Triple point temperature */
+  dReal splice_delta;           /* Characteristic width of splice */
+};
+struct VHTUnitTable {
+  dUnit Length;
+  dUnit Mass;
+  dUnit Time;
+  dUnit Temperature;
+  dUnit Density;
+  dUnit Energy;
+  dUnit Pressure;
+  dUnit StrainRate;
+  dUnit Velocity;
+  dUnit Viscosity;
+  dUnit Volume;
 };
 
 typedef struct _n_VHTCase *VHTCase;
@@ -28,20 +53,28 @@ struct _n_VHTCase {
   dReal gravity;
   dReal bbox[3][2];
   dBool reality; // The "solution" is just a guess or boundary conditions
+  dUnits units;
+  struct VHTUnitTable utable;
   void *data;
 };
 typedef dErr (*VHTCaseCreateFunction)(VHTCase);
 
+struct VHTPack {
+  dScalar rhou[3],p,E;
+  dScalar drhou[9],dp[3],dE[3];
+};
 struct VHTStash {
   dReal eta;                    /* Viscosity */
-  dReal eta_gamma;              /* Derivative of eta with respect to gamma=Du:Du/2 */
-  dReal eta_e;                  /* Derivative of eta with respect to enthalpy */
-  dReal Du[6];                  /* Symmetrized velocity gradient */
-  dReal u[3];                   /* Velocity */
-  dReal kappa;                  /* Thermal conductivity at the current enthalpy */
-  dReal kappa_e;                /* Derivative of thermal conductivity with respect to enthalpy */
-  dReal e;                      /* Enthalpy */
-  dReal de[3];
+  dReal eta1gamma;              /* Derivative of eta with respect to gamma=Du:Du/2 */
+  dReal eta1E;                  /* Derivative of eta with respect to energy */
+  dReal Dui[6];                 /* Symmetrized velocity gradient */
+  dReal u[3];                   /* Total Velocity */
+  dReal T1E;                    /* Derivative of temperature with respect to total energy */
+  dReal omega1E;                /* Derivative of melt fraction with respect to total energy */
+  dReal rho;                    /* Density */
+  dReal E;                      /* Energy */
+  dReal dT[3];
+  dReal wmom[3];                /* Momentum of the water fraction in reference frame of ice */
 };
 
 struct VHTLogEpoch {
