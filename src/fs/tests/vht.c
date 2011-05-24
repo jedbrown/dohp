@@ -1204,7 +1204,7 @@ static dErr VHTJacobianAssemble_Velocity(VHT vht,Mat Buu,Vec Mdiag,Vec X)
         v[i][2] += Mentry;
       }
     }
-    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, (dScalar**)&v,NULL, NULL,NULL, NULL,NULL);dCHK(err);
+    err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, v,NULL, NULL,NULL, NULL,NULL);dCHK(err);
     err = dRulesetIteratorRestorePatchAssembly(iter, NULL,NULL,NULL,NULL, &P,&rowcol,&interp_flat,&deriv_flat, NULL,NULL,NULL,NULL, NULL,NULL,NULL,NULL);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
