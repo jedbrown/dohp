@@ -11,15 +11,20 @@
 
 #if defined dUSE_VALGRIND
 #  include <valgrind/memcheck.h>
-#  define dMakeMemUndefined(mem,bytes) do {                     \
-    memset(mem,0xff,bytes);                                     \
-    dPragmaGCC(diagnostic ignored "-Wconversion")               \
-    VALGRIND_MAKE_MEM_UNDEFINED((mem),(bytes));                 \
+#  define dMakeMemUndefined(mem,bytes) do {             \
+    memset(mem,0xff,bytes);                             \
+    dPragmaGCC(diagnostic ignored "-Wconversion")       \
+      VALGRIND_MAKE_MEM_UNDEFINED((mem),(bytes));       \
+  } while (0)
+#  define dCheckMemIsDefined(mem,bytes) do {            \
+    dPragmaGCC(diagnostic ignored "-Wconversion")       \
+      VALGRIND_CHECK_MEM_IS_DEFINED((mem),(bytes));     \
   } while (0)
 #else
 #  define dMakeMemUndefined(mem,bytes) do {     \
     if (dMemzero((mem),(bytes))) dERROR(PETSC_COMM_SELF,PETSC_ERR_MEMC,"Memory " #mem " is corrupt"); \
   } while (0)
+#  define dCheckMemIsDefined(mem,bytes) do { } while (0)
 #endif
 
 #define dSTATUS_UNOWNED   (dEntStatus)0x1

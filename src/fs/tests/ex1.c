@@ -425,7 +425,6 @@ static dErr ProjResidual3(dUNUSED SNES snes,Vec gx,Vec gy,void *ctx)
     err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES,NULL,NULL,v,dv);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
-
   err = dRulesetIteratorFinish(iter);dCHK(err);
   dFunctionReturn(0);
 }
