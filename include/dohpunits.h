@@ -27,6 +27,6 @@ dScalar dUnitDimensionalize(dUnit,dScalar);
 dScalar dUnitNonDimensionalize(dUnit,dScalar);
 dScalar dUnitDimensionalizeSI(dUnit,dScalar);
 dScalar dUnitNonDimensionalizeSI(dUnit,dScalar);
-
+dErr dOptionsRealUnits(const char opt[],const char text[],const char man[],dUnit unit,PetscReal defaultv,PetscReal *value,PetscBool *set);
 dEXTERN_C_END
 #endif

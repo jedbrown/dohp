@@ -277,3 +277,23 @@ dErr dUnitsDestroy(dUnits *unp)
   err = PetscHeaderDestroy(unp);dCHK(err);
   dFunctionReturn(0);
 }
+dErr dOptionsRealUnits(const char opt[],const char text[],const char man[],dUnit unit,PetscReal defaultv,PetscReal *value,PetscBool *set)
+{
+  char text2[512];
+  PetscReal default2,value2;
+  dBool set2;
+  dErr err;
+
+  dFunctionBegin;
+  if (unit) {
+    default2 = dUnitDimensionalize(unit,defaultv);
+    err = PetscSNPrintf(text2,sizeof text2,"%s (%s)",text,dUnitName(unit));dCHK(err);
+    err = PetscOptionsReal(opt,text2,man,default2,&value2,&set2);dCHK(err);
+    if (set2) *value = dUnitNonDimensionalize(unit,value2);
+    if (set) *set = set2;
+  } else {
+    err = PetscSNPrintf(text2,sizeof text2,"%s (nondimensional)",text);dCHK(err);
+    err = PetscOptionsReal(opt,text2,man,defaultv,value,set);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
