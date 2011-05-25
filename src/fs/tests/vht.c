@@ -462,7 +462,7 @@ static dErr VHTSetFromOptions(VHT vht)
   err = dFSCreateExpandedVector(fsp,&vht->xp);dCHK(err);
   err = VecDuplicate(vht->xp,&vht->yp);dCHK(err);
 
-  err = dFSCreateExpandedVector(fsu,&vht->xe);dCHK(err);
+  err = dFSCreateExpandedVector(fse,&vht->xe);dCHK(err);
   err = VecDuplicate(vht->xe,&vht->ye);dCHK(err);
 
   {
