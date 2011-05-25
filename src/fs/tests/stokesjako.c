@@ -119,7 +119,8 @@ static dErr JakoSIAVelocity(StokesCase scase,dReal b,dReal h,dReal dh[2],dReal z
     slope = dSqrt(dSqr(dh[0]) + dSqr(dh[1])),
     sliding = 0,
     hmz = z > h ? 0 : (z < b ? h-b : h-z),
-    speed = sliding + A / (n+1) * pow(slope,n) * (pow(h-b,n+1) - pow(hmz,n+1)); // Integrate stress from the bottom
+    siaspeed = sliding + A / (n+1) * pow(slope,n) * (pow(h-b,n+1) - pow(hmz,n+1)),
+    speed = 0 + (siaspeed - 0) * (1 + tanh((z-b)/100))/2; // Integrate stress from the bottom
   u[0] = -speed / slope * dh[0];
   u[1] = -speed / slope * dh[1];
   u[2] = 0; // Would need another derivative to evaluate this and it should not be a big deal for this stationary computation
