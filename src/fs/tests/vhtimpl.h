@@ -38,8 +38,16 @@ struct VHTUnitTable {
   dUnit Pressure;
   dUnit StrainRate;
   dUnit Velocity;
+  dUnit Acceleration;
   dUnit Viscosity;
   dUnit Volume;
+  dUnit EnergyPerTemperature;
+  dUnit ThermalConductivity;
+  dUnit HydroConductivity;
+  dUnit Diffusivity;
+  dUnit SpecificHeat;
+  dUnit EnergyPerMass;
+  dUnit CCGradient;
 };
 
 typedef struct _n_VHTCase *VHTCase;

@@ -60,6 +60,7 @@ static dErr VHTCaseUpdateUnitsTable(VHTCase scase)
   struct VHTUnitTable *u = &scase->utable;
   dUnits units = scase->units;
   dErr err;
+  dBool flg;
 
   dFunctionBegin;
   err = dUnitsCreateUnit(units,"DENSITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-3.0,[dUNITS_MASS]=1.0},&u->Density);dCHK(err);
@@ -67,8 +68,22 @@ static dErr VHTCaseUpdateUnitsTable(VHTCase scase)
   err = dUnitsCreateUnit(units,"PRESSURE",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-1.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0},&u->Pressure);dCHK(err);
   err = dUnitsCreateUnit(units,"STRAINRATE",NULL,NULL,4,(dReal[4]){[dUNITS_TIME]=-1.0},&u->StrainRate);dCHK(err);
   err = dUnitsCreateUnit(units,"VELOCITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=1.0,[dUNITS_TIME]=-1.0},&u->Velocity);dCHK(err);
+  err = dUnitsCreateUnit(units,"ACCELERATION",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=1.0,[dUNITS_TIME]=-2.0},&u->Acceleration);dCHK(err);
   err = dUnitsCreateUnit(units,"VISCOSITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-1.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-1.0},&u->Viscosity);dCHK(err);
   err = dUnitsCreateUnit(units,"VOLUME",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=3.0},&u->Volume);dCHK(err);
+  err = dUnitsCreateUnit(units,"ENERGY/TEMPERATURE",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0,[dUNITS_TEMPERATURE]=-1.0},&u->EnergyPerTemperature);dCHK(err);
+  err = dUnitsCreateUnit(units,"THERMALCONDUCTIVITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=1.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-3.0,[dUNITS_TEMPERATURE]=-1.0},&u->ThermalConductivity);dCHK(err);
+  err = dUnitsCreateUnit(units,"HYDROCONDUCTIVITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-1.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-1.0,[dUNITS_TEMPERATURE]=0},&u->HydroConductivity);dCHK(err);
+  err = dUnitsCreateUnit(units,"SPECIFICHEAT",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_MASS]=0.0,[dUNITS_TIME]=-2.0,[dUNITS_TEMPERATURE]=-1.0},&u->SpecificHeat);dCHK(err);
+  err = dUnitsCreateUnit(units,"DIFFUSIVITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_TIME]=-1.0},&u->Diffusivity);dCHK(err);
+  err = dUnitsCreateUnit(units,"ENERGY/MASS",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_MASS]=0.0,[dUNITS_TIME]=-2.0},&u->EnergyPerMass);dCHK(err);
+  err = dUnitsCreateUnit(units,"CCGRADIENT",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=1.0,[dUNITS_MASS]=-1.0,[dUNITS_TIME]=2.0,[dUNITS_TEMPERATURE]=1.0},&u->CCGradient);dCHK(err);
+  err = PetscOptionsGetBool(NULL,"-units_view",&flg,NULL);dCHK(err);
+  if (flg) {
+    PetscViewer viewer;
+    err = PetscViewerASCIIGetStdout(((PetscObject)units)->comm,&viewer);dCHK(err);
+    err = dUnitsView(units,viewer);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 static dErr VHTCaseProfile_Default(VHTCase scase)
@@ -130,6 +145,7 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
 static dErr VHTCaseSetFromOptions(VHTCase scase)
 {
   struct VHTRheology *rheo = &scase->rheo;
+  struct VHTUnitTable *u = &scase->utable;
   PetscFList profiles = NULL;
   char prof[256] = "default";
   dErr (*rprof)(VHTCase);
@@ -141,30 +157,30 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
   err = PetscFListAdd(&profiles,"default",NULL,(void(*)(void))VHTCaseProfile_Default);dCHK(err);
   err = PetscFListAdd(&profiles,"ice",NULL,(void(*)(void))VHTCaseProfile_Ice);dCHK(err);
   err = PetscOptionsBegin(scase->comm,NULL,"VHTCase options",__FILE__);dCHK(err); {
-    err = PetscOptionsList("-rheo_profile","Rheological profile",NULL,profiles,prof,prof,sizeof prof,NULL);dCHK(err);
+    err = PetscOptionsList("-rheo_profile","Rheological profile","",profiles,prof,prof,sizeof prof,NULL);dCHK(err);
     err = PetscFListFind(profiles,scase->comm,prof,PETSC_FALSE,(void(**)(void))&rprof);dCHK(err);
     err = (*rprof)(scase);dCHK(err);
     err = PetscFListDestroy(&profiles);dCHK(err);
-    err = PetscOptionsReal("-rheo_B0","Viscosity at reference strain rate and temperature","",rheo->B0,&rheo->B0,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_Bomega","Softening due to water content","",rheo->Bomega,&rheo->Bomega,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_R","Ideal gas constant","",rheo->R,&rheo->R,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_Q","Activation Energy","",rheo->Q,&rheo->Q,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_V","Activation Volume","",rheo->V,&rheo->V,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_du0","Regularization (rheology)","",rheo->du0,&rheo->du0,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_B0","Viscosity at reference strain rate and temperature","",u->Viscosity,rheo->B0,&rheo->B0,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_Bomega","Softening due to water content","",NULL,rheo->Bomega,&rheo->Bomega,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_R","Ideal gas constant","",u->EnergyPerTemperature,rheo->R,&rheo->R,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_Q","Activation Energy","",u->Energy,rheo->Q,&rheo->Q,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_V","Activation Volume","",u->Volume,rheo->V,&rheo->V,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_du0","Reference strain rate","",u->StrainRate,rheo->du0,&rheo->du0,NULL);dCHK(err);
     rheo->gamma0 = 0.5*dSqr(rheo->du0);
-    err = PetscOptionsReal("-rheo_eps","Nondimensional regularization (rheology)","",rheo->eps,&rheo->eps,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_p","Power p=1+1/n where n is Glen exponent","",rheo->pe,&rheo->pe,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_k_T","Thermal conductivity in the cold part","",rheo->k_T,&rheo->k_T,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_kappa_w","Hydraulic conductivity in the warm part","",rheo->kappa_w,&rheo->kappa_w,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_c_i","Specific heat capacity of cold part","",rheo->c_i,&rheo->c_i,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_Latent","Latent heat of fusion","",rheo->Latent,&rheo->Latent,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_rhoi","Density of cold part","",rheo->rhoi,&rheo->rhoi,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_rhow","Density of melted part","",rheo->rhow,&rheo->rhow,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_beta_CC","Clausius-Clapeyron gradient","",rheo->beta_CC,&rheo->beta_CC,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_T0","Reference temperature (corresponds to enthalpy=0)","",rheo->T0,&rheo->T0,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_T3","Triple point temperature","",rheo->T3,&rheo->T3,NULL);dCHK(err);
-    err = PetscOptionsReal("-rheo_splice_delta","Characteristic width of split","",rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
-    err = PetscOptionsReal("-gravity","Nondimensional gravitational force","",scase->gravity,&scase->gravity,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_eps","Strain rate regularization (fraction of reference du0)","",NULL,rheo->eps,&rheo->eps,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_p","Power p=1+1/n where n is Glen exponent","",NULL,rheo->pe,&rheo->pe,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_k_T","Thermal conductivity in the cold part","",u->ThermalConductivity,rheo->k_T,&rheo->k_T,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_kappa_w","Hydraulic conductivity in the warm part","",u->HydroConductivity,rheo->kappa_w,&rheo->kappa_w,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_c_i","Specific heat capacity of cold part","",u->SpecificHeat,rheo->c_i,&rheo->c_i,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_Latent","Latent heat of fusion","",u->EnergyPerMass,rheo->Latent,&rheo->Latent,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_rhoi","Density of cold part","",u->Density,rheo->rhoi,&rheo->rhoi,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_rhow","Density of melted part","",u->Density,rheo->rhow,&rheo->rhow,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_beta_CC","Clausius-Clapeyron gradient","",u->CCGradient,rheo->beta_CC,&rheo->beta_CC,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_T0","Reference temperature (corresponds to enthalpy=0)","",u->Temperature,rheo->T0,&rheo->T0,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_T3","Triple point temperature","",u->Temperature,rheo->T3,&rheo->T3,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_splice_delta","Characteristic width of split","",u->Energy,rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
+    err = dOptionsRealUnits("-gravity","Gravity","",u->Acceleration,scase->gravity,&scase->gravity,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -313,19 +329,26 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
   vht->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
   err = dCalloc(sizeof(*vht->scase),&vht->scase);dCHK(err);
+  vht->scase->comm = comm;
 
   vht->log.epoch = -1;
   err = VHTLogEpochReset(&vht->log.global);dCHK(err);
 
   err = dUnitsCreate(vht->comm,&vht->scase->units);dCHK(err);
   {
-    
     dUnits units = vht->scase->units;
     struct VHTUnitTable *u = &vht->scase->utable;
-    err = dUnitsSetBase(units,dUNITS_LENGTH,"metre","m",1,100,&u->Length);dCHK(err);
-    err = dUnitsSetBase(units,dUNITS_TIME,"year","a",31556926,1,&u->Time);dCHK(err);
-    err = dUnitsSetBase(units,dUNITS_MASS,"exaton","Et",1e21,1000,&u->Mass);dCHK(err);
-    err = dUnitsSetBase(units,dUNITS_TEMPERATURE,"Kelvin","K",1,1,&u->Temperature);dCHK(err);
+    if (0) {
+      err = dUnitsSetBase(units,dUNITS_LENGTH,"metre","m",1,100,&u->Length);dCHK(err);
+      err = dUnitsSetBase(units,dUNITS_TIME,"year","a",31556926,1,&u->Time);dCHK(err);
+      err = dUnitsSetBase(units,dUNITS_MASS,"exaton","Et",1e21,1000,&u->Mass);dCHK(err);
+      err = dUnitsSetBase(units,dUNITS_TEMPERATURE,"Kelvin","K",1,1,&u->Temperature);dCHK(err);
+    } else {
+      err = dUnitsGetBase(units,dUNITS_LENGTH,&u->Length);dCHK(err);
+      err = dUnitsGetBase(units,dUNITS_TIME,&u->Time);dCHK(err);
+      err = dUnitsGetBase(units,dUNITS_MASS,&u->Mass);dCHK(err);
+      err = dUnitsGetBase(units,dUNITS_TEMPERATURE,&u->Temperature);dCHK(err);
+    }
   }
 
   *invht = vht;
@@ -373,6 +396,39 @@ static dErr MatGetVecs_VHT_ee(Mat A,Vec *x,Vec *y)
   dFunctionReturn(0);
 }
 
+static dErr VHTView(VHT vht,PetscViewer viewer)
+{
+  dErr err;
+  dInt nu,np,ne;
+
+  dFunctionBegin;
+  err = PetscViewerASCIIGetStdout(vht->comm,&viewer);dCHK(err);
+  err = VecGetSize(vht->xu,&nu);dCHK(err);
+  err = VecGetSize(vht->xp,&np);dCHK(err);
+  err = VecGetSize(vht->xe,&ne);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"VHT: basis degree: u %D  p %D  E %D\n",vht->velocityBDeg,vht->velocityBDeg-vht->pressureCodim,vht->enthalpyBDeg);dCHK(err);
+  err = PetscViewerASCIIPushTab(viewer);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"nodes: u %D  p %D  E %D\n",nu/3,np,ne);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"Quadrature methods: F=%s  B=%s\n",dQuadratureMethods[vht->function_qmethod],dQuadratureMethods[vht->jacobian_qmethod]);dCHK(err);
+  {
+    char buf[256] = "",*p = buf;
+    for (dInt i=0; i<ALEN(vht->dirichlet) && vht->dirichlet[i]; i++) {
+      p += snprintf(p,ALEN(buf)-(p-buf),"%s%d",i?", ":"",vht->dirichlet[i]);
+    }
+    err = PetscViewerASCIIPrintf(viewer,"Dirichlet conditions applied at: %s\n",buf);dCHK(err);
+  }
+  {
+    struct VHTRheology *rheo = &vht->scase->rheo;
+    struct VHTUnitTable *u = &vht->scase->utable;
+    err = PetscViewerASCIIPrintf(viewer,"Reference strain rate: %G %s\n",dUnitDimensionalize(u->StrainRate,rheo->du0),dUnitName(u->StrainRate));dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"Reference temperature: %G %s\n",dUnitDimensionalize(u->Temperature,rheo->T0),dUnitName(u->Temperature));dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"Reference viscosity  : %G %s\n",dUnitDimensionalize(u->Viscosity,rheo->B0),  dUnitName(u->Viscosity));dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"Thermal diffusivity  : %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->k_T/(rheo->rhoi*rheo->c_i)),dUnitName(u->Diffusivity));dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"Hydraulic diffusivity: %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->kappa_w/rheo->rhoi),dUnitName(u->Diffusivity));dCHK(err);
+  }
+  err = PetscViewerASCIIPopTab(viewer);dCHK(err);
+  dFunctionReturn(0);
+}
 static dErr VHTSetFromOptions(VHT vht)
 {
   char scasename[256] = "Exact0";
@@ -381,6 +437,7 @@ static dErr VHTSetFromOptions(VHT vht)
   dJacobi jac;
   dMeshESH domain;
   dMeshTag dutag,dptag,detag;
+  dBool doview = dFALSE;
   dErr err;
 
   dFunctionBegin;
@@ -406,6 +463,7 @@ static dErr VHTSetFromOptions(VHT vht)
       }
     }
     err = PetscOptionsList("-vht_case","Which sort of case to run","",VHTCaseList,scasename,scasename,sizeof(scasename),NULL);dCHK(err);
+    err = PetscOptionsBool("-vht_view","View VHT configuration","",doview,&doview,NULL);dCHK(err);
     err = VHTLogSetFromOptions(&vht->log);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
 
@@ -542,9 +600,9 @@ static dErr VHTSetFromOptions(VHT vht)
   err = VHTCaseSetType(vht->scase,scasename);dCHK(err);
   err = dFSGetBoundingBox(vht->fsu,vht->scase->bbox);dCHK(err);
   err = VHTCaseSetFromOptions(vht->scase);dCHK(err);
+  if (doview) {err = VHTView(vht,NULL);dCHK(err);}
   dFunctionReturn(0);
 }
-
 static dErr VHTGetRegionIterator(VHT vht,VHTEvaluation eval,dRulesetIterator *riter)
 {
   dErr err;
