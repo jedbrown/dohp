@@ -105,11 +105,12 @@ class VHTExact(Exact):
         def body():
             U = self.solution_scaled(x,a,b,c)
             dU = self.solution_gradient(x,a,b,c)
-            # decl, statements = self.residual_code(x,U,dU)
-            # return decl + statements
-            V,dV = self.residual(x,U,dU)
-            for i,row in enumerate(rows(dV)):
-                yield ccode(V[i] - divergence(row,x), assign_to=self.ffieldname(i))
+            if True:
+                decl, statements = self.residual_code(x,U,dU)
+                return decl + statements
+            else:
+                V,dV = self.residual(x,U,dU)
+                return [ccode(V[i] - divergence(row,x), assign_to=self.ffieldname(i)) for i,row in enumerate(rows(dV))]
         return '''
 %(prototype)s
 {
@@ -155,13 +156,14 @@ class Exact0(VHTExact):
 class Exact1(VHTExact):
     'From Larin & Reusken, 2009, with pressure shifted by a constant'
     def solution(self, x,y,z, a,b,c):
-        from sympy import sin,cos,pi
+        from sympy import sin,cos,pi,tanh,exp
         xx, yy, zz = (pi*s/2 for s in [x,y,z])
+        r2 = xx**2 + yy**2 + zz**2
         return Matrix([+a/3 * sin(xx) * sin(yy) * sin(zz),
                        -b/3 * cos(xx) * cos(yy) * sin(zz),
                        -c*2/3 * cos(xx) * sin(yy) * cos(zz),
                         1 + cos(xx) * sin(yy) * sin(zz),
-                        sin(pi*y/2) * cos(pi*z/2)])
+                        r2*exp(-4*r2)])
 class Exact2(VHTExact):
     def solution(self, x,y,z, a,b,c):
         return Matrix([a*z**3,
@@ -231,7 +233,7 @@ def exact_body(name):
 
 if __name__ == "__main__":
     import pdb
-    solutions = [Exact0()]
+    solutions = [Exact1()]
     with open('vhtexact.c', 'w') as fimpl:
         fimpl.write(implementation())
         for sol in solutions:
