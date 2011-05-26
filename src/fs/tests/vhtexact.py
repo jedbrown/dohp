@@ -5,6 +5,13 @@ import sympy
 from sympy import Matrix, ccode
 from dohpexact import *
 
+# Some coupling terms make the symbolic expressions explode in size, which takes too long and crashes the compiler. Such
+# terms are multiplied by MASK so that they can be easily activated by setting MASK=1. There are a couple other places,
+# marked by comments containing the word "cheat", where the fully consistent constitutive relation requires solving a
+# numerical rootfinding problem. Since we cannot symbolically differentiate an implicit solve, we are shorting it out in
+# a physically plausible way, but one that is inconsistent for large amplitude moisture.
+MASK = 0
+
 def SecondInvariant(Du):
     return 0.5*Du.dot(Du)
 def const(x):
@@ -25,7 +32,7 @@ def splice(a, b, x0, width, x, dx):
 class VHTExact(Exact):
     def __init__(self, name=None, model=None, param='a b c'):
         if model is None:
-            model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w'
+            model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity'
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
     def unpack(self, U, dU):
         rhou, p, E = U[:3,:], U[3], U[4]
@@ -42,8 +49,8 @@ class VHTExact(Exact):
         # Therefore, we cheat by simply using ice density to remove kinetic energy and convert energy/volume to
         # energy/mass.
         rhotmp = rhoi          # Cheat
-        e = (E - 1/(2*rhotmp) * rhou.dot(rhou)) / rhotmp
-        de = (dE - 1/(rhotmp) * (rhou.T * drhou).T) / rhotmp
+        e = (E - MASK*1/(2*rhotmp) * rhou.dot(rhou)) / rhotmp
+        de = (dE - MASK*1/(rhotmp) * (rhou.T * drhou).T) / rhotmp
         def temp(e): return T0 + e/c_i # temperature in cold regime
         T, dT = splice(temp,const(T_m),e_m,spdel,e,de)
         def melt(e): return (e-e_m)/L # temperature in warm regime
@@ -56,15 +63,15 @@ class VHTExact(Exact):
         B0, Bomega, R, Q, V, T0, eps, gamma0, pe, beta_CC = self.model_get('B0 Bomega R Q V T0 eps gamma0 pe beta_CC')
         n = 1/(pe - 1)
         Tstar = T - beta_CC * p
-        B = B0 * exp((Q*(T0 - Tstar) - p*V*T0) / (n*R*T0*Tstar)) * (1 + Bomega * omega)**(-1/n)
-        return B0
-        #return B * (eps**2 + gamma/gamma0)**((pe-2)/2)
+        B = B0 * exp((Q - p*V) / (n*R*Tstar) - Q/(n*R*T0)) * (1 + Bomega * omega)**(-1/n)
+        return B * (eps**2 + gamma/gamma0)**((pe-2)/2)
     def weak_homogeneous(self, x, U, dU, V, dV):
         (rhou,p,E), (drhou,dp,dE) = self.unpack(U,dU)
         (e,T,omega,rho), (de,dT,domega,drho) = self.solve_eqstate(rhou,p,E,drhou,dp,dE)
-        k_T, kappa_w, L = self.model_get('k_T kappa_w Latent')
+        k_T, kappa_w, L, grav = self.model_get('k_T kappa_w Latent gravity')
+        gravvec = grav*Matrix([0,0,1])
         u = rhou / rho                    # total velocity
-        du = (1/rho) * drhou - u * drho.T # total velocity gradient
+        du = (1/rho) * drhou - MASK*u * drho.T # total velocity gradient
         wmom = -kappa_w * domega          # momentum of water part in reference frame of ice, equal to mass flux
         ui = u - wmom/rho                 # ice velocity
         dui = du                          # We cheat again here. The second term should also be differentiated, but that would require second derivatives
@@ -73,9 +80,9 @@ class VHTExact(Exact):
         eta = self.eta(p, T, omega, gamma)
         heatflux = -k_T * dT + L * wmom
         (rhou_,p_,E_), (drhou_,dp_,dE_) = self.unpack(V,dV)
-        conserve_momentum = -drhou_.dot(rhou*u.T - eta*Dui + p*I)
+        conserve_momentum = -drhou_.dot(rhou*u.T - eta*Dui + p*I) - rhou_.dot(rho*gravvec)
         conserve_mass     = -p_ * drhou.trace()
-        conserve_energy   = -dE_.dot(E*ui + heatflux) - Dui.dot(eta*Dui)
+        conserve_energy   = -dE_.dot((E+p)*ui + heatflux) - Dui.dot(eta*Dui) - E_ * rhou.dot(gravvec)
         return conserve_momentum + conserve_mass + conserve_energy
     def create_prototype(self, definition=False):
         return 'dErr VHTCaseCreate_%(name)s(VHTCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))
