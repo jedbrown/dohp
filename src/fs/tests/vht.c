@@ -213,7 +213,7 @@ static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char
   va_start(Argp,fmt);
   err = PetscVSNPrintf(name,sizeof name,fmt,&fullLen,Argp);dCHK(err);
   va_end(Argp);
-  err = PetscViewerASCIIPrintf(viewer,"%s: eta [%8.2e,%8.2e]  cPeclet [%8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"%s: eta [%8.2e,%8.2e]  cPeclet [%8.2e,%8.2e]  cReynolds [%8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1],ep->cReynolds[0],ep->cReynolds[1]);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
@@ -232,6 +232,8 @@ static dErr VHTLogEpochReset(struct VHTLogEpoch *ep)
   ep->eta[1] = PETSC_MIN_REAL;
   ep->cPeclet[0] = PETSC_MAX_REAL;
   ep->cPeclet[1] = PETSC_MIN_REAL;
+  ep->cReynolds[0] = PETSC_MAX_REAL;
+  ep->cReynolds[1] = PETSC_MIN_REAL;
   dFunctionReturn(0);
 }
 static dErr VHTLogEpochStart(struct VHTLog *vlog)
@@ -257,10 +259,12 @@ static dErr VHTLogEpochEnd(struct VHTLog *vlog)
   dErr err;
 
   dFunctionBegin;
-  g->cPeclet[0] = dMin(g->cPeclet[0],e->cPeclet[0]);
-  g->cPeclet[1] = dMax(g->cPeclet[1],e->cPeclet[1]);
   g->eta[0]     = dMin(g->eta[0],e->eta[0]);
   g->eta[1]     = dMax(g->eta[1],e->eta[1]);
+  g->cPeclet[0] = dMin(g->cPeclet[0],e->cPeclet[0]);
+  g->cPeclet[1] = dMax(g->cPeclet[1],e->cPeclet[1]);
+  g->cReynolds[0] = dMin(g->cReynolds[0],e->cReynolds[0]);
+  g->cReynolds[1] = dMax(g->cReynolds[1],e->cReynolds[1]);
   if (vlog->monitor) {err = VHTLogEpochView(e,PETSC_VIEWER_STDOUT_WORLD,"Epoch[%d]",vlog->epoch);dCHK(err);}
   dFunctionReturn(0);
 }
@@ -268,14 +272,17 @@ static void VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
 {
   struct VHTLogEpoch *ep = &vlog->epochs[vlog->epoch];
   const dReal *u = stash->u;
-  dReal kappa,cPeclet,uh2 = 0;
+  dReal kappa,cPeclet,cReynolds,uh2 = 0;
   for (dInt i=0; i<3; i++) uh2 += dSqr(dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2]);
   kappa = rheo->k_T*stash->T1E + rheo->Latent*rheo->kappa_w*stash->omega1E;
   cPeclet = dSqrt(uh2) / kappa;
-  ep->cPeclet[0] = dMin(ep->cPeclet[0],cPeclet);
-  ep->cPeclet[1] = dMax(ep->cPeclet[1],cPeclet);
+  cReynolds = stash->rho * dSqrt(uh2) / stash->eta;
   ep->eta[0]     = dMin(ep->eta[0],stash->eta);
   ep->eta[1]     = dMax(ep->eta[1],stash->eta);
+  ep->cPeclet[0] = dMin(ep->cPeclet[0],cPeclet);
+  ep->cPeclet[1] = dMax(ep->cPeclet[1],cPeclet);
+  ep->cReynolds[0] = dMin(ep->cReynolds[0],cReynolds);
+  ep->cReynolds[1] = dMax(ep->cReynolds[1],cReynolds);
 }
 static dErr VHTLogSetFromOptions(struct VHTLog *vlog)
 {

@@ -88,6 +88,7 @@ struct VHTStash {
 struct VHTLogEpoch {
   dReal eta[2];
   dReal cPeclet[2];
+  dReal cReynolds[2];
 };
 struct VHTLog {
   dInt epoch,alloc;
