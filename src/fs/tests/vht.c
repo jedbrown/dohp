@@ -214,6 +214,7 @@ static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char
   err = PetscVSNPrintf(name,sizeof name,fmt,&fullLen,Argp);dCHK(err);
   va_end(Argp);
   err = PetscViewerASCIIPrintf(viewer,"%s: eta [%8.2e,%8.2e]  cPeclet [%8.2e,%8.2e]  cReynolds [%8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1],ep->cReynolds[0],ep->cReynolds[1]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"%s:  E  [%8.2e,%8.2e]\n",name,ep->E[0],ep->E[1]);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
@@ -225,15 +226,16 @@ static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
   err = VHTLogEpochView(&vlog->global,viewer,"Global");dCHK(err);
   dFunctionReturn(0);
 }
+static void VHTLogEpochRangeReset(dReal a[2]) {a[0] = PETSC_MAX_REAL; a[1] = PETSC_MIN_REAL;}
+static void VHTLogEpochRangeUpdate(dReal a[2],dReal b) {a[0] = dMin(a[0],b); a[1] = dMax(a[1],b);}
+static void VHTLogEpochRangeUpdate2(dReal a[2],const dReal b[2]) {a[0] = dMin(a[0],b[0]); a[1] = dMax(a[1],b[1]);}
 static dErr VHTLogEpochReset(struct VHTLogEpoch *ep)
 {
   dFunctionBegin;
-  ep->eta[0] = PETSC_MAX_REAL;
-  ep->eta[1] = PETSC_MIN_REAL;
-  ep->cPeclet[0] = PETSC_MAX_REAL;
-  ep->cPeclet[1] = PETSC_MIN_REAL;
-  ep->cReynolds[0] = PETSC_MAX_REAL;
-  ep->cReynolds[1] = PETSC_MIN_REAL;
+  VHTLogEpochRangeReset(ep->eta);
+  VHTLogEpochRangeReset(ep->cPeclet);
+  VHTLogEpochRangeReset(ep->cReynolds);
+  VHTLogEpochRangeReset(ep->E);
   dFunctionReturn(0);
 }
 static dErr VHTLogEpochStart(struct VHTLog *vlog)
@@ -259,12 +261,10 @@ static dErr VHTLogEpochEnd(struct VHTLog *vlog)
   dErr err;
 
   dFunctionBegin;
-  g->eta[0]     = dMin(g->eta[0],e->eta[0]);
-  g->eta[1]     = dMax(g->eta[1],e->eta[1]);
-  g->cPeclet[0] = dMin(g->cPeclet[0],e->cPeclet[0]);
-  g->cPeclet[1] = dMax(g->cPeclet[1],e->cPeclet[1]);
-  g->cReynolds[0] = dMin(g->cReynolds[0],e->cReynolds[0]);
-  g->cReynolds[1] = dMax(g->cReynolds[1],e->cReynolds[1]);
+  VHTLogEpochRangeUpdate2(g->eta,e->eta);
+  VHTLogEpochRangeUpdate2(g->cPeclet,e->cPeclet);
+  VHTLogEpochRangeUpdate2(g->cReynolds,e->cReynolds);
+  VHTLogEpochRangeUpdate2(g->E,e->E);
   if (vlog->monitor) {err = VHTLogEpochView(e,PETSC_VIEWER_STDOUT_WORLD,"Epoch[%d]",vlog->epoch);dCHK(err);}
   dFunctionReturn(0);
 }
@@ -277,12 +277,10 @@ static void VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
   kappa = rheo->k_T*stash->T1E + rheo->Latent*rheo->kappa_w*stash->omega1E;
   cPeclet = dSqrt(uh2) / kappa;
   cReynolds = stash->rho * dSqrt(uh2) / stash->eta;
-  ep->eta[0]     = dMin(ep->eta[0],stash->eta);
-  ep->eta[1]     = dMax(ep->eta[1],stash->eta);
-  ep->cPeclet[0] = dMin(ep->cPeclet[0],cPeclet);
-  ep->cPeclet[1] = dMax(ep->cPeclet[1],cPeclet);
-  ep->cReynolds[0] = dMin(ep->cReynolds[0],cReynolds);
-  ep->cReynolds[1] = dMax(ep->cReynolds[1],cReynolds);
+  VHTLogEpochRangeUpdate(ep->eta,stash->eta);
+  VHTLogEpochRangeUpdate(ep->cPeclet,cPeclet);
+  VHTLogEpochRangeUpdate(ep->cReynolds,cReynolds);
+  VHTLogEpochRangeUpdate(ep->E,stash->E);
 }
 static dErr VHTLogSetFromOptions(struct VHTLog *vlog)
 {
@@ -416,7 +414,7 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
   err = PetscViewerASCIIPrintf(viewer,"VHT: basis degree: u %D  p %D  E %D\n",vht->velocityBDeg,vht->velocityBDeg-vht->pressureCodim,vht->enthalpyBDeg);dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"nodes: u %D  p %D  E %D\n",nu/3,np,ne);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"Quadrature methods: F=%s  B=%s\n",dQuadratureMethods[vht->function_qmethod],dQuadratureMethods[vht->jacobian_qmethod]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"Quadrature methods: F:%s  B:%s\n",dQuadratureMethods[vht->function_qmethod],dQuadratureMethods[vht->jacobian_qmethod]);dCHK(err);
   {
     char buf[256] = "",*p = buf;
     for (dInt i=0; i<ALEN(vht->dirichlet) && vht->dirichlet[i]; i++) {
