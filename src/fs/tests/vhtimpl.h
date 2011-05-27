@@ -91,6 +91,7 @@ struct VHTLogEpoch {
   dReal cPeclet[2];
   dReal cReynolds[2];
   dReal E[2];
+  dReal Prandtl[2];
 };
 struct VHTLog {
   dInt epoch,alloc;

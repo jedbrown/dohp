@@ -215,7 +215,7 @@ static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char
   err = PetscVSNPrintf(name,sizeof name,fmt,&fullLen,Argp);dCHK(err);
   va_end(Argp);
   err = PetscViewerASCIIPrintf(viewer,"%s: eta [%8.2e,%8.2e]  cPeclet [%8.2e,%8.2e]  cReynolds [%8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1],ep->cReynolds[0],ep->cReynolds[1]);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"%s:  E  [%8.2e,%8.2e]\n",name,ep->E[0],ep->E[1]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"%s:  E  [%8.2e,%8.2e]  Prandtl [%8.2e,%8.2e]\n",name,ep->E[0],ep->E[1],ep->Prandtl[0],ep->Prandtl[1]);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
@@ -237,6 +237,7 @@ static dErr VHTLogEpochReset(struct VHTLogEpoch *ep)
   VHTLogEpochRangeReset(ep->cPeclet);
   VHTLogEpochRangeReset(ep->cReynolds);
   VHTLogEpochRangeReset(ep->E);
+  VHTLogEpochRangeReset(ep->Prandtl);
   dFunctionReturn(0);
 }
 static dErr VHTLogEpochStart(struct VHTLog *vlog)
@@ -266,6 +267,7 @@ static dErr VHTLogEpochEnd(struct VHTLog *vlog)
   VHTLogEpochRangeUpdate2(g->cPeclet,e->cPeclet);
   VHTLogEpochRangeUpdate2(g->cReynolds,e->cReynolds);
   VHTLogEpochRangeUpdate2(g->E,e->E);
+  VHTLogEpochRangeUpdate2(g->Prandtl,e->Prandtl);
   if (vlog->monitor) {err = VHTLogEpochView(e,PETSC_VIEWER_STDOUT_WORLD,"Epoch[%d]",vlog->epoch);dCHK(err);}
   dFunctionReturn(0);
 }
@@ -273,15 +275,19 @@ static void VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
 {
   struct VHTLogEpoch *ep = &vlog->epochs[vlog->epoch];
   const dReal *u = stash->u;
-  dReal kappa,cPeclet,cReynolds,uh2 = 0;
+  dReal kappa,cPeclet,cReynolds,uh2 = 0,Prandtl;
+  VHTScalarD rho;
+  VHTStashGetRho(stash,rheo,&rho);
   for (dInt i=0; i<3; i++) uh2 += dSqr(dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2]);
-  kappa = rheo->k_T*stash->T1E + rheo->Latent*rheo->kappa_w*stash->omega1E;
+  kappa = rheo->k_T*stash->T.dE + rheo->Latent*rheo->kappa_w*stash->omega.dE;
   cPeclet = dSqrt(uh2) / kappa;
-  cReynolds = stash->rho * dSqrt(uh2) / stash->eta;
-  VHTLogEpochRangeUpdate(ep->eta,stash->eta);
+  cReynolds = rho.x * dSqrt(uh2) / stash->eta.x;
+  Prandtl = rheo->c_i * stash->eta.x / rheo->k_T;
+  VHTLogEpochRangeUpdate(ep->eta,stash->eta.x);
   VHTLogEpochRangeUpdate(ep->cPeclet,cPeclet);
   VHTLogEpochRangeUpdate(ep->cReynolds,cReynolds);
-  VHTLogEpochRangeUpdate(ep->E,stash->E);
+  VHTLogEpochRangeUpdate(ep->E,0); //stash->E.x);
+  VHTLogEpochRangeUpdate(ep->Prandtl,Prandtl);
 }
 static dErr VHTLogSetFromOptions(struct VHTLog *vlog)
 {
