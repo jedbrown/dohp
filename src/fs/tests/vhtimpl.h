@@ -28,6 +28,7 @@ struct VHTRheology {
   dReal T3;                     /* Triple point temperature */
   dReal splice_delta;           /* Characteristic width of splice */
   dReal gravity;                /* Strength of gravity in z direction (probably negative) */
+  dReal kinetic;                /* Parameter to turn on the use of kinetic energy when computing velocity */
 };
 struct VHTUnitTable {
   dUnit Length;
@@ -71,17 +72,22 @@ struct VHTPack {
   dScalar rhou[3],p,E;
   dScalar drhou[9],dp[3],dE[3];
 };
+typedef struct {
+  dReal x;
+  dReal dp,dE;
+} VHTScalarD;
 struct VHTStash {
-  dReal eta;                    /* Viscosity */
-  dReal eta1gamma;              /* Derivative of eta with respect to gamma=Du:Du/2 */
-  dReal eta1E;                  /* Derivative of eta with respect to energy */
   dReal Dui[6];                 /* Symmetrized velocity gradient */
   dReal u[3];                   /* Total Velocity */
-  dReal T1E;                    /* Derivative of temperature with respect to total energy */
-  dReal omega1E;                /* Derivative of melt fraction with respect to total energy */
-  dReal rho;                    /* Density */
-  dReal E;                      /* Energy */
-  dReal dT[3];
+  dReal K[2];                   /* Total pressure and energy diffusivities, -K[0]*dp - K[1]*dE */
+  dReal K1[2][2];               /* Derivatives */
+  VHTScalarD T;
+  VHTScalarD omega;
+  VHTScalarD eta;
+  dReal eta1gamma;
+  dReal E_plus_p;               /* Energy */
+  dReal dE[3];
+  dReal dp[3];
   dReal wmom[3];                /* Momentum of the water fraction in reference frame of ice */
 };
 
