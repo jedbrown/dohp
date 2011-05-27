@@ -181,7 +181,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_T0","Reference temperature (corresponds to enthalpy=0)","",u->Temperature,rheo->T0,&rheo->T0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_T3","Triple point temperature","",u->Temperature,rheo->T3,&rheo->T3,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_splice_delta","Characteristic width of split","",u->Energy,rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
-    err = dOptionsRealUnits("-gravity","Gravity","",u->Acceleration,scase->gravity,&scase->gravity,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_gravity","Gravity in z-direction (probably negative)","",u->Acceleration,rheo->gravity,&rheo->gravity,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);

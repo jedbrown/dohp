@@ -59,7 +59,6 @@ struct _n_VHTCase {
   dErr (*setfromoptions)(VHTCase);
   dErr (*destroy)(VHTCase);
   struct VHTRheology rheo;
-  dReal gravity;
   dReal bbox[3][2];
   dBool reality; // The "solution" is just a guess or boundary conditions
   dUnits units;
