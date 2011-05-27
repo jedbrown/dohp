@@ -190,6 +190,7 @@ static dErr TensorMult_Hex_P4_Q4_D1(dInt D_is_1,const dInt P[3],const dInt Q[3],
         aax01 = _mm_loaddup_pd(&Ax[l][i+1]),
         aax10 = _mm_loaddup_pd(&Ax[l+1][i]),
         aax11 = _mm_loaddup_pd(&Ax[l+1][i+1]);
+      dPragmaGCC(diagnostic ignored "-Wunsafe-loop-optimizations") // GCC-4.6 thinks the counter could overflow at -O1
       for (dInt j=0; j<JKD; j+=P2*D) {
         __m128d
           ff00 = _mm_load_pd(&ff0[j]),ff02 = _mm_load_pd(&ff0[j+2]),

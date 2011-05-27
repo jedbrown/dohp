@@ -1,8 +1,5 @@
-#include <stdlib.h>
-#include <sys/types.h>
-#include <stdio.h>
-#include <math.h>
 #include <float.h>
+#include <dohp.h>
 #include "polylib.h"
 #define STOP  30
 #define EPS   100*DBL_EPSILON
@@ -840,6 +837,7 @@ void jacobfd(int np, double *z, double *poly_in, double *polyd, int n,
       polyn1[i] = 0.5*(alpha - beta + (alpha + beta + two)*z[i]);
     }
 
+    dPragmaGCC(diagnostic ignored "-Wunsafe-loop-optimizations") // GCC cannot optimize possibly infinite loops
     for(k = 2; k <= n; ++k){
       a1 =  two*k*(k + apb)*(two*k + apb - two);
       a2 = (two*k + apb - one)*(alpha*alpha - beta*beta);
