@@ -207,6 +207,9 @@ static dErr VHTCaseRegisterAll(void)
   err = VHTCaseRegisterAll_Exact();dCHK(err);
   dFunctionReturn(0);
 }
+static dErr VHTLogEpochViewLine3_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2],const char *n3,const dReal v3[2])
+{return PetscViewerASCIIPrintf(viewer,"%s: %-10s [% 8.2e,% 8.2e]  %-10s [% 8.2e,% 8.2e]  %-10s [% 8.2e,% 8.2e]\n",linename,n1,v1[0],v1[1],n2,v2[0],v2[1],n3,v3[0],v3[1]);}
+#define VHTLogEpochViewLine3(viewer,linename,ep,f1,f2,f3) VHTLogEpochViewLine3_Private((viewer),linename,#f1,(ep)->f1,#f2,(ep)->f2,#f3,(ep)->f3)
 static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char *fmt,...)
 {
   va_list Argp;
@@ -218,9 +221,9 @@ static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char
   va_start(Argp,fmt);
   err = PetscVSNPrintf(name,sizeof name,fmt,&fullLen,Argp);dCHK(err);
   va_end(Argp);
-  err = PetscViewerASCIIPrintf(viewer,"%s: eta [%+8.2e,%8.2e]  cPeclet [%+8.2e,%8.2e]  cReynolds [%+8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1],ep->cReynolds[0],ep->cReynolds[1]);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"%s: p   [%+8.2e,%8.2e]  E       [%+8.2e,%8.2e]  Prandtl   [%+8.2e,%8.2e]\n",name,ep->p[0],ep->p[1],ep->E[0],ep->E[1],ep->Prandtl[0],ep->Prandtl[1]);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"%s: T   [%+8.2e,%8.2e]  omega   [%+8.2e,%8.2e]  K1        [%+8.2e,%8.2e]\n",name,ep->T[0],ep->T[1],ep->omega[0],ep->omega[1],ep->K1[0],ep->K1[1]);dCHK(err);
+  err = VHTLogEpochViewLine3(viewer,name,ep,eta,cPeclet,cReynolds);dCHK(err);
+  err = VHTLogEpochViewLine3(viewer,name,ep,p,E,Prandtl);dCHK(err);
+  err = VHTLogEpochViewLine3(viewer,name,ep,T,omega,K1);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
@@ -270,7 +273,7 @@ static dErr VHTLogEpochEnd(struct VHTLog *vlog)
 
   dFunctionBegin;
   for (dInt i=0; i<n; i++) VHTLogEpochRangeUpdate2(gpairs[i],epairs[i]);
-  if (vlog->monitor) {err = VHTLogEpochView(e,PETSC_VIEWER_STDOUT_WORLD,"Epoch[%d]",vlog->epoch);dCHK(err);}
+  if (vlog->monitor) {err = VHTLogEpochView(e,PETSC_VIEWER_STDOUT_WORLD,"Epoch[% 3d]",vlog->epoch);dCHK(err);}
   dFunctionReturn(0);
 }
 static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal dx[9],const struct VHTStash *stash)
