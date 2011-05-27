@@ -78,6 +78,7 @@ static dErr VHTCaseUpdateUnitsTable(VHTCase scase)
   err = dUnitsCreateUnit(units,"DIFFUSIVITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_TIME]=-1.0},&u->Diffusivity);dCHK(err);
   err = dUnitsCreateUnit(units,"ENERGY/MASS",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_MASS]=0.0,[dUNITS_TIME]=-2.0},&u->EnergyPerMass);dCHK(err);
   err = dUnitsCreateUnit(units,"CCGRADIENT",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=1.0,[dUNITS_MASS]=-1.0,[dUNITS_TIME]=2.0,[dUNITS_TEMPERATURE]=1.0},&u->CCGradient);dCHK(err);
+  flg = dFALSE;
   err = PetscOptionsGetBool(NULL,"-units_view",&flg,NULL);dCHK(err);
   if (flg) {
     PetscViewer viewer;
