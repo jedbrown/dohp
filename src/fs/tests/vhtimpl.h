@@ -119,7 +119,7 @@ struct _n_VHT {
   VHTCase  scase;
   dFS      fsu,fsp,fse;
   Vec      xu,xp,xe,yu,yp,ye;
-  Vec      gvelocity,gpressure,genthalpy;
+  Vec      gvelocity,gpressure,genergy;
   Vec      gpacked;
   struct {
     IS ublock,pblock;
@@ -130,9 +130,9 @@ struct _n_VHT {
   struct {
     IS         ublock,pblock,eblock; /* Global index sets for each block */
     IS         lublock,lpblock,leblock; /* Local index sets for each block */
-    VecScatter extractVelocity,extractPressure,extractEnthalpy,extractStokes;
+    VecScatter extractVelocity,extractPressure,extractEnergy,extractStokes;
   } all;
-  dInt              velocityBDeg,pressureCodim,enthalpyBDeg;
+  dInt              velocityBDeg,pressureCodim,energyBDeg;
   dBool             cardinalMass;
   char              mattype_Buu[256],mattype_Bpp[256],mattype_Bee[256];
   dQuadratureMethod function_qmethod,jacobian_qmethod;

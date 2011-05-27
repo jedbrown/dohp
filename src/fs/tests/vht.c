@@ -340,7 +340,7 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
 
   vht->velocityBDeg  = 3;
   vht->pressureCodim = 1;
-  vht->enthalpyBDeg  = 3;
+  vht->energyBDeg  = 3;
   vht->dirichlet[0]  = 100;
   vht->dirichlet[1]  = 200;
   vht->dirichlet[2]  = 300;
@@ -411,8 +411,8 @@ static dErr MatGetVecs_VHT_ee(Mat A,Vec *x,Vec *y)
 
   dFunctionBegin;
   err = MatShellGetContext(A,(void**)&vht);dCHK(err);
-  if (x) {err = VecDuplicate(vht->genthalpy,x);dCHK(err);}
-  if (y) {err = VecDuplicate(vht->genthalpy,y);dCHK(err);}
+  if (x) {err = VecDuplicate(vht->genergy,x);dCHK(err);}
+  if (y) {err = VecDuplicate(vht->genergy,y);dCHK(err);}
   dFunctionReturn(0);
 }
 
@@ -426,7 +426,7 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
   err = VecGetSize(vht->xu,&nu);dCHK(err);
   err = VecGetSize(vht->xp,&np);dCHK(err);
   err = VecGetSize(vht->xe,&ne);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"VHT: basis degree: u %D  p %D  E %D\n",vht->velocityBDeg,vht->velocityBDeg-vht->pressureCodim,vht->enthalpyBDeg);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"VHT: basis degree: u %D  p %D  E %D\n",vht->velocityBDeg,vht->velocityBDeg-vht->pressureCodim,vht->energyBDeg);dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"nodes: u %D  p %D  E %D\n",nu/3,np,ne);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Quadrature methods: F:%s  B:%s\n",dQuadratureMethods[vht->function_qmethod],dQuadratureMethods[vht->jacobian_qmethod]);dCHK(err);
@@ -467,11 +467,11 @@ static dErr VHTSetFromOptions(VHT vht)
   err = PetscOptionsBegin(vht->comm,NULL,"Viscous Heat Transport options",__FILE__);dCHK(err); {
     err = PetscOptionsInt("-vht_u_bdeg","Constant isotropic degree to use for velocity","",vht->velocityBDeg,&vht->velocityBDeg,NULL);dCHK(err);
     err = PetscOptionsInt("-vht_p_codim","Reduce pressure space by this factor","",vht->pressureCodim,&vht->pressureCodim,NULL);dCHK(err);
-    err = PetscOptionsInt("-vht_e_bdeg","Constant isotropic degree to use for enthalpy","",vht->enthalpyBDeg,&vht->enthalpyBDeg,NULL);dCHK(err);
+    err = PetscOptionsInt("-vht_e_bdeg","Constant isotropic degree to use for energy","",vht->energyBDeg,&vht->energyBDeg,NULL);dCHK(err);
     err = PetscOptionsBool("-vht_cardinal_mass","Assemble diagonal mass matrix","",vht->cardinalMass,&vht->cardinalMass,NULL);dCHK(err);
     err = PetscOptionsList("-vht_Buu_mat_type","Matrix type for velocity-velocity operator","",MatList,vht->mattype_Buu,vht->mattype_Buu,sizeof(vht->mattype_Buu),NULL);dCHK(err);
     err = PetscOptionsList("-vht_Bpp_mat_type","Matrix type for pressure-pressure operator","",MatList,vht->mattype_Bpp,vht->mattype_Bpp,sizeof(vht->mattype_Bpp),NULL);dCHK(err);
-    err = PetscOptionsList("-vht_Bee_mat_type","Matrix type for enthalpy-enthalpy operator","",MatList,vht->mattype_Bee,vht->mattype_Bee,sizeof(vht->mattype_Bee),NULL);dCHK(err);
+    err = PetscOptionsList("-vht_Bee_mat_type","Matrix type for energy-energy operator","",MatList,vht->mattype_Bee,vht->mattype_Bee,sizeof(vht->mattype_Bee),NULL);dCHK(err);
     err = PetscOptionsEnum("-vht_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)vht->function_qmethod,(PetscEnum*)&vht->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-vht_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)vht->jacobian_qmethod,(PetscEnum*)&vht->jacobian_qmethod,NULL);dCHK(err);
     {
@@ -500,7 +500,7 @@ static dErr VHTSetFromOptions(VHT vht)
 
   err = dMeshCreateRuleTagIsotropic(mesh,domain,"vht_efs_velocity_degree",vht->velocityBDeg,&dutag);dCHK(err);
   err = dMeshCreateRuleTagIsotropic(mesh,domain,"vht_efs_pressure_degree",vht->velocityBDeg-vht->pressureCodim,&dptag);dCHK(err);
-  err = dMeshCreateRuleTagIsotropic(mesh,domain,"vht_efs_enthalpy_degree",vht->enthalpyBDeg,&detag);dCHK(err);
+  err = dMeshCreateRuleTagIsotropic(mesh,domain,"vht_efs_energy_degree",vht->energyBDeg,&detag);dCHK(err);
 
   err = dFSCreate(vht->comm,&fsu);dCHK(err);
   err = dFSSetBlockSize(fsu,3);dCHK(err);
@@ -547,19 +547,19 @@ static dErr VHTSetFromOptions(VHT vht)
     dInt nu,np,ne,nul,npl,nel;
     err = dFSCreateGlobalVector(vht->fsu,&vht->gvelocity);dCHK(err);
     err = dFSCreateGlobalVector(vht->fsp,&vht->gpressure);dCHK(err);
-    err = dFSCreateGlobalVector(vht->fse,&vht->genthalpy);dCHK(err);
+    err = dFSCreateGlobalVector(vht->fse,&vht->genergy);dCHK(err);
     err = PetscObjectSetName((PetscObject)vht->gvelocity,"Velocity");dCHK(err);
     err = PetscObjectSetName((PetscObject)vht->gpressure,"Pressure");dCHK(err);
-    err = PetscObjectSetName((PetscObject)vht->genthalpy,"Enthalpy");dCHK(err);
+    err = PetscObjectSetName((PetscObject)vht->genergy,"Energy");dCHK(err);
     err = VecGetLocalSize(vht->gvelocity,&nu);dCHK(err);
     err = VecGetLocalSize(vht->gpressure,&np);dCHK(err);
-    err = VecGetLocalSize(vht->genthalpy,&ne);dCHK(err);
+    err = VecGetLocalSize(vht->genergy,&ne);dCHK(err);
 
     {                           /* Get local sizes of the closure */
       Vec  Vc,Vgh,Pc,Pgh,Ec,Egh;
       err = VecDohpGetClosure(vht->gvelocity,&Vc);dCHK(err);
       err = VecDohpGetClosure(vht->gpressure,&Pc);dCHK(err);
-      err = VecDohpGetClosure(vht->genthalpy,&Ec);dCHK(err);
+      err = VecDohpGetClosure(vht->genergy,&Ec);dCHK(err);
       err = VecGhostGetLocalForm(Vc,&Vgh);dCHK(err);
       err = VecGhostGetLocalForm(Pc,&Pgh);dCHK(err);
       err = VecGhostGetLocalForm(Ec,&Egh);dCHK(err);
@@ -571,7 +571,7 @@ static dErr VHTSetFromOptions(VHT vht)
       err = VecGhostRestoreLocalForm(Ec,&Egh);dCHK(err);
       err = VecDohpRestoreClosure(vht->gvelocity,&Vc);dCHK(err);
       err = VecDohpRestoreClosure(vht->gpressure,&Pc);dCHK(err);
-      err = VecDohpRestoreClosure(vht->genthalpy,&Ec);dCHK(err);
+      err = VecDohpRestoreClosure(vht->genergy,&Ec);dCHK(err);
     }
 
     {                           /* Set up the Stokes sub-problem */
@@ -603,7 +603,7 @@ static dErr VHTSetFromOptions(VHT vht)
       err = ISSetBlockSize(ublock,3);dCHK(err);
       err = VecScatterCreate(vht->gpacked,ublock,vht->gvelocity,NULL,&vht->all.extractVelocity);dCHK(err);
       err = VecScatterCreate(vht->gpacked,pblock,vht->gpressure,NULL,&vht->all.extractPressure);dCHK(err);
-      err = VecScatterCreate(vht->gpacked,eblock,vht->genthalpy,NULL,&vht->all.extractEnthalpy);dCHK(err);
+      err = VecScatterCreate(vht->gpacked,eblock,vht->genergy,NULL,&vht->all.extractEnergy);dCHK(err);
       vht->all.ublock = ublock;
       vht->all.pblock = pblock;
       vht->all.eblock = eblock;
@@ -670,9 +670,9 @@ static dErr VHTExtractGlobalSplit(VHT vht,Vec X,Vec *Xu,Vec *Xp,Vec *Xe)
     err = VecScatterEnd  (vht->all.extractPressure,X,*Xp,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   }
   if (Xe) {
-    *Xe = vht->genthalpy;
-    err = VecScatterBegin(vht->all.extractEnthalpy,X,*Xe,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
-    err = VecScatterEnd  (vht->all.extractEnthalpy,X,*Xe,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+    *Xe = vht->genergy;
+    err = VecScatterBegin(vht->all.extractEnergy,X,*Xe,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
+    err = VecScatterEnd  (vht->all.extractEnergy,X,*Xe,INSERT_VALUES,SCATTER_FORWARD);dCHK(err);
   }
   dFunctionReturn(0);
 }
@@ -684,13 +684,13 @@ static dErr VHTCommitGlobalSplit(VHT vht,Vec *gxu,Vec *gxp,Vec *gxe,Vec gy,Inser
   dFunctionBegin;
   dASSERT(*gxu == vht->gvelocity);
   dASSERT(*gxp == vht->gpressure);
-  dASSERT(*gxe == vht->genthalpy);
+  dASSERT(*gxe == vht->genergy);
   err = VecScatterBegin(vht->all.extractVelocity,*gxu,gy,imode,SCATTER_REVERSE);dCHK(err);
   err = VecScatterEnd  (vht->all.extractVelocity,*gxu,gy,imode,SCATTER_REVERSE);dCHK(err);
   err = VecScatterBegin(vht->all.extractPressure,*gxp,gy,imode,SCATTER_REVERSE);dCHK(err);
   err = VecScatterEnd  (vht->all.extractPressure,*gxp,gy,imode,SCATTER_REVERSE);dCHK(err);
-  err = VecScatterBegin(vht->all.extractEnthalpy,*gxe,gy,imode,SCATTER_REVERSE);dCHK(err);
-  err = VecScatterEnd  (vht->all.extractEnthalpy,*gxe,gy,imode,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterBegin(vht->all.extractEnergy,*gxe,gy,imode,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterEnd  (vht->all.extractEnergy,*gxe,gy,imode,SCATTER_REVERSE);dCHK(err);
   *gxu = NULL;
   *gxp = NULL;
   dFunctionReturn(0);
@@ -713,7 +713,7 @@ static dErr VHTDestroy(VHT *invht)
   err = VecDestroy(&vht->ye);dCHK(err);
   err = VecDestroy(&vht->gvelocity);dCHK(err);
   err = VecDestroy(&vht->gpressure);dCHK(err);
-  err = VecDestroy(&vht->genthalpy);dCHK(err);
+  err = VecDestroy(&vht->genergy);dCHK(err);
   err = VecDestroy(&vht->gpacked);dCHK(err);
   {
     err = ISDestroy(&vht->stokes.ublock);dCHK(err);
@@ -734,7 +734,7 @@ static dErr VHTDestroy(VHT *invht)
     err = ISDestroy(&vht->all.leblock);dCHK(err);
     err = VecScatterDestroy(&vht->all.extractVelocity);dCHK(err);
     err = VecScatterDestroy(&vht->all.extractPressure);dCHK(err);
-    err = VecScatterDestroy(&vht->all.extractEnthalpy);dCHK(err);
+    err = VecScatterDestroy(&vht->all.extractEnergy);dCHK(err);
     err = VecScatterDestroy(&vht->all.extractStokes);dCHK(err);
   }
   err = dFree(vht->log.epochs);dCHK(err);
@@ -756,7 +756,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
   err = VecGetLocalSize(vht->gpacked,&m);dCHK(err);
   err = VecGetLocalSize(vht->gvelocity,&nu);dCHK(err);
   err = VecGetLocalSize(vht->gpressure,&np);dCHK(err);
-  err = VecGetLocalSize(vht->genthalpy,&ne);dCHK(err);
+  err = VecGetLocalSize(vht->genergy,&ne);dCHK(err);
 
   /* Create high-order matrix for diagonal velocity block, with context \a vht */
   err = MatCreateShell(vht->comm,nu,nu,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Juu);dCHK(err);
@@ -787,7 +787,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
   Jue = NULL;
   Jeu = NULL;
 
-  /* Enthalpy-enthalpy coupling */
+  /* Energy-energy coupling */
   err = MatCreateShell(vht->comm,ne,ne,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Jee);dCHK(err);
   err = MatShellSetOperation(Jee,MATOP_GET_VECS,(void(*)(void))MatGetVecs_VHT_ee);dCHK(err);
   err = MatShellSetOperation(Jee,MATOP_MULT,(void(*)(void))MatMult_VHT_ee);dCHK(err);
@@ -1386,7 +1386,7 @@ static dErr VHTJacobianAssemble_Velocity(VHT vht,Mat Buu,Vec Mdiag,Vec X)
   dFunctionReturn(0);
 }
 
-static dErr VHTJacobianAssemble_PressureEnthalpy(VHT vht,Mat Bpp,Mat Daux,Mat Bee,Vec X)
+static dErr VHTJacobianAssemble_PressureEnergy(VHT vht,Mat Bpp,Mat Daux,Mat Bee,Vec X)
 {
   dRulesetIterator iter;
   Vec              Coords,Xu,Xe;
@@ -1395,8 +1395,8 @@ static dErr VHTJacobianAssemble_PressureEnthalpy(VHT vht,Mat Bpp,Mat Daux,Mat Be
   dErr             err;
 
   dFunctionBegin;
-  /* It might seem weird to be getting velocity and enthalpy in the pressure assembly.  The reason is that this preconditioner
-  * (indeed the entire problem) is always linear in pressure.  It \e might be nonlinear in velocity and enthalpy. */
+  /* It might seem weird to be getting velocity and energy in the pressure assembly.  The reason is that this preconditioner
+  * (indeed the entire problem) is always linear in pressure.  It \e might be nonlinear in velocity and energy. */
   err = VHTExtractGlobalSplit(vht,X,&Xu,NULL,&Xe);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   err = VHTGetRegionIterator(vht,EVAL_JACOBIAN,&iter);dCHK(err);
@@ -1435,7 +1435,7 @@ static dErr VHTJacobianAssemble_PressureEnthalpy(VHT vht,Mat Bpp,Mat Daux,Mat Be
                              + derivp[q][i][2] * jw[q] * derivp[q][j][2]);
           }
         }
-        /* Enthalpy-enthalpy Jacobian */
+        /* Energy-energy Jacobian */
         for (dInt j=0; j<Pe; j++) {
           const dScalar ez[1] = {interpe[q][j]},dez[3] = {derive[q][j][0],derive[q][j][1],derive[q][j][2]};
           dScalar e_[1],de_[3];
@@ -1477,7 +1477,7 @@ static dErr VHTJacobian(SNES dUNUSED snes,Vec X,Mat *J,Mat *B,MatStructure *stru
   err = MatZeroEntries(*B);dCHK(err);
   if (Daux) {err = MatZeroEntries(Daux);dCHK(err);}
   err = VHTJacobianAssemble_Velocity(vht,Buu,Mdiag,X);dCHK(err);
-  err = VHTJacobianAssemble_PressureEnthalpy(vht,Bpp,Daux,Bee,X);dCHK(err);
+  err = VHTJacobianAssemble_PressureEnergy(vht,Bpp,Daux,Bee,X);dCHK(err);
   if (Daux) {
     err = MatAssemblyBegin(Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
     err = MatAssemblyEnd  (Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
@@ -1631,8 +1631,8 @@ static dErr VHTGetSolutionVector(VHT vht,Vec *insoln)
   err = VecScatterEnd  (vht->all.extractVelocity,Xu,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecScatterBegin(vht->all.extractPressure,Xp,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecScatterEnd  (vht->all.extractPressure,Xp,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
-  err = VecScatterBegin(vht->all.extractEnthalpy,Xe,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
-  err = VecScatterEnd  (vht->all.extractEnthalpy,Xe,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterBegin(vht->all.extractEnergy,Xe,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
+  err = VecScatterEnd  (vht->all.extractEnergy,Xe,spacked,INSERT_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecDestroy(&Xu);dCHK(err);
   err = VecDestroy(&Xp);dCHK(err);
   err = VecDestroy(&Xe);dCHK(err);
@@ -1851,8 +1851,8 @@ int main(int argc,char *argv[])
     err = dPrintf(comm,"Integral velocity error 1 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N1u[0],N1u[1],N1u[2]);dCHK(err);
     err = dPrintf(comm,"Integral pressure error 0 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N0p[0],N0p[1],N0p[2]);dCHK(err);
     err = dPrintf(comm,"Integral pressure error 1 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N1p[0],N1p[1],N1p[2]);dCHK(err);
-    err = dPrintf(comm,"Integral enthalpy error 0 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N0e[0],N0e[1],N0e[2]);dCHK(err);
-    err = dPrintf(comm,"Integral enthalpy error 1 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N1e[0],N1e[1],N1e[2]);dCHK(err);
+    err = dPrintf(comm,"Integral energy error   0 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N0e[0],N0e[1],N0e[2]);dCHK(err);
+    err = dPrintf(comm,"Integral energy error   1 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N1e[0],N1e[1],N1e[2]);dCHK(err);
   }
   if (viewdhm) {
     Vec Xu,Xp,Xe;
