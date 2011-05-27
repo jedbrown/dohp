@@ -180,10 +180,12 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_rhoi","Density of cold part","",u->Density,rheo->rhoi,&rheo->rhoi,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_rhow","Density of melted part","",u->Density,rheo->rhow,&rheo->rhow,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_beta_CC","Clausius-Clapeyron gradient","",u->CCGradient,rheo->beta_CC,&rheo->beta_CC,NULL);dCHK(err);
-    err = dOptionsRealUnits("-rheo_T0","Reference temperature (corresponds to enthalpy=0)","",u->Temperature,rheo->T0,&rheo->T0,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_T0","Reference temperature (corresponds to Energy=0)","",u->Temperature,rheo->T0,&rheo->T0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_T3","Triple point temperature","",u->Temperature,rheo->T3,&rheo->T3,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_splice_delta","Characteristic width of split","",u->Energy,rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_gravity","Gravity in z-direction (probably negative)","",u->Acceleration,rheo->gravity,&rheo->gravity,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->kinetic,&rheo->kinetic,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_Kstab","Stabilization diffusivity, use to prevent negative diffusivity due to non-monotone splice","",NULL,rheo->Kstab,&rheo->Kstab,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -216,8 +218,9 @@ static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char
   va_start(Argp,fmt);
   err = PetscVSNPrintf(name,sizeof name,fmt,&fullLen,Argp);dCHK(err);
   va_end(Argp);
-  err = PetscViewerASCIIPrintf(viewer,"%s: eta [%8.2e,%8.2e]  cPeclet [%8.2e,%8.2e]  cReynolds [%8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1],ep->cReynolds[0],ep->cReynolds[1]);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"%s:  E  [%8.2e,%8.2e]  Prandtl [%8.2e,%8.2e]\n",name,ep->E[0],ep->E[1],ep->Prandtl[0],ep->Prandtl[1]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"%s: eta [%+8.2e,%8.2e]  cPeclet [%+8.2e,%8.2e]  cReynolds [%+8.2e,%8.2e]\n",name,ep->eta[0],ep->eta[1],ep->cPeclet[0],ep->cPeclet[1],ep->cReynolds[0],ep->cReynolds[1]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"%s: p   [%+8.2e,%8.2e]  E       [%+8.2e,%8.2e]  Prandtl   [%+8.2e,%8.2e]\n",name,ep->p[0],ep->p[1],ep->E[0],ep->E[1],ep->Prandtl[0],ep->Prandtl[1]);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"%s: T   [%+8.2e,%8.2e]  omega   [%+8.2e,%8.2e]  K1        [%+8.2e,%8.2e]\n",name,ep->T[0],ep->T[1],ep->omega[0],ep->omega[1],ep->K1[0],ep->K1[1]);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
@@ -234,12 +237,10 @@ static void VHTLogEpochRangeUpdate(dReal a[2],dReal b) {a[0] = dMin(a[0],b); a[1
 static void VHTLogEpochRangeUpdate2(dReal a[2],const dReal b[2]) {a[0] = dMin(a[0],b[0]); a[1] = dMax(a[1],b[1]);}
 static dErr VHTLogEpochReset(struct VHTLogEpoch *ep)
 {
+  dReal (*pairs)[2] = (dReal(*)[2])ep;
+  dInt n = (dInt)(sizeof(*ep)/sizeof(pairs[0]));
   dFunctionBegin;
-  VHTLogEpochRangeReset(ep->eta);
-  VHTLogEpochRangeReset(ep->cPeclet);
-  VHTLogEpochRangeReset(ep->cReynolds);
-  VHTLogEpochRangeReset(ep->E);
-  VHTLogEpochRangeReset(ep->Prandtl);
+  for (dInt i=0; i<n; i++) VHTLogEpochRangeReset(pairs[i]);
   dFunctionReturn(0);
 }
 static dErr VHTLogEpochStart(struct VHTLog *vlog)
@@ -262,34 +263,39 @@ static dErr VHTLogEpochStart(struct VHTLog *vlog)
 static dErr VHTLogEpochEnd(struct VHTLog *vlog)
 {
   struct VHTLogEpoch *g = &vlog->global,*e = &vlog->epochs[vlog->epoch];
+  dReal (*gpairs)[2] = (dReal(*)[2])g,
+    (*epairs)[2] = (dReal(*)[2])e;
+  dInt n = (dInt)(sizeof(*g)/sizeof(gpairs[0]));
   dErr err;
 
   dFunctionBegin;
-  VHTLogEpochRangeUpdate2(g->eta,e->eta);
-  VHTLogEpochRangeUpdate2(g->cPeclet,e->cPeclet);
-  VHTLogEpochRangeUpdate2(g->cReynolds,e->cReynolds);
-  VHTLogEpochRangeUpdate2(g->E,e->E);
-  VHTLogEpochRangeUpdate2(g->Prandtl,e->Prandtl);
+  for (dInt i=0; i<n; i++) VHTLogEpochRangeUpdate2(gpairs[i],epairs[i]);
   if (vlog->monitor) {err = VHTLogEpochView(e,PETSC_VIEWER_STDOUT_WORLD,"Epoch[%d]",vlog->epoch);dCHK(err);}
   dFunctionReturn(0);
 }
-static void VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal dx[9],const struct VHTStash *stash)
+static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal dx[9],const struct VHTStash *stash)
 {
   struct VHTLogEpoch *ep = &vlog->epochs[vlog->epoch];
   const dReal *u = stash->u;
-  dReal kappa,cPeclet,cReynolds,uh2 = 0,Prandtl;
+  dReal cPeclet,cReynolds,uh2 = 0,Prandtl;
   VHTScalarD rho;
+
+  dFunctionBegin;
   VHTStashGetRho(stash,rheo,&rho);
   for (dInt i=0; i<3; i++) uh2 += dSqr(dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2]);
-  kappa = rheo->k_T*stash->T.dE + rheo->Latent*rheo->kappa_w*stash->omega.dE;
-  cPeclet = dSqrt(uh2) / kappa;
+  cPeclet = dSqrt(uh2) / stash->K[1];
   cReynolds = rho.x * dSqrt(uh2) / stash->eta.x;
   Prandtl = rheo->c_i * stash->eta.x / rheo->k_T;
   VHTLogEpochRangeUpdate(ep->eta,stash->eta.x);
   VHTLogEpochRangeUpdate(ep->cPeclet,cPeclet);
   VHTLogEpochRangeUpdate(ep->cReynolds,cReynolds);
-  VHTLogEpochRangeUpdate(ep->E,0); //stash->E.x);
+  VHTLogEpochRangeUpdate(ep->p,stash->p);
+  VHTLogEpochRangeUpdate(ep->E,stash->E);
+  VHTLogEpochRangeUpdate(ep->T,stash->T.x);
+  VHTLogEpochRangeUpdate(ep->omega,stash->omega.x);
   VHTLogEpochRangeUpdate(ep->Prandtl,Prandtl);
+  VHTLogEpochRangeUpdate(ep->K1,stash->K[1]);
+  dFunctionReturn(0);
 }
 static dErr VHTLogSetFromOptions(struct VHTLog *vlog)
 {
@@ -919,6 +925,8 @@ static dErr VHTRheoSolveEqStateAdjoint(struct VHTRheology *rheo,const dScalar rh
   K1[0][1] = rheo->k_T * T2pE + rheo->Latent * rheo->kappa_w * o2pE;
   K1[1][0] = rheo->k_T * T2pE + rheo->Latent * rheo->kappa_w * o2pE;
   K1[1][1] = rheo->k_T * T2EE + rheo->Latent * rheo->kappa_w * o2EE;
+  K[1] += rheo->Kstab; // Stabilization because non-monotone splice functions can create negative diffusivity
+  if (K[1] < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Computed negative diffusivity %G, perhaps -rheo_Kstab is needed",K[1]);
   dFunctionReturn(0);
 }
 static dErr VHTRheoArrhenius(struct VHTRheology *rheo,dScalar p,const VHTScalarD *T,const VHTScalarD *omega,VHTScalarD *B)
@@ -1007,7 +1015,8 @@ static dErr VHTPointwiseComputeStash(struct VHTRheology *rheo,const dScalar rhou
   for (dInt i=0; i<3; i++) st->dp[i] = dp[i];
   for (dInt i=0; i<3; i++) st->dE[i] = dE[i];
   VHTStashGetDui(st,rheo,drhou,st->Dui);
-  st->E_plus_p = E[0] + p[0];
+  st->p = p[0];
+  st->E = E[0];
   err = VHTRheoViscosity(rheo,p[0],&st->T,&st->omega,st->Dui,&st->eta,&st->eta1gamma);dCHK(err);
   //err = dRealTableView(sizeof(*st)/sizeof(dReal),1,(dReal*)st,PETSC_VIEWER_STDOUT_WORLD,"stash");dCHK(err);
   dFunctionReturn(0);
@@ -1061,7 +1070,7 @@ static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *r
   for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) drhou_[i*3+j] = -weight * (rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j] - Stress1[i*3+j]);
   p_[0] = -weight*(drhou1[0]+drhou1[4]+drhou1[8]);                 // -q tr(Du)
   E_[0] = -weight*(Sigma1 - rhou1[2]*rheo->gravity);
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * (E1[0]+p1[0]) + ui1[i] * (st->E_plus_p)
+  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * (E1[0]+p1[0]) + ui1[i] * (st->E + st->p)
                                                - st->K[0]*dp1[i] - st->K[1]*dE1[i]
                                                - (st->K1[0][0]*p1[0] + st->K1[0][1]*E1[0])*st->dp[i]
                                                - (st->K1[1][0]*p1[0] + st->K1[1][1]*E1[0])*st->dE[i]);
@@ -1106,7 +1115,7 @@ static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct 
   for (dInt i=0; i<3; i++) domega1[i] = st->omega.dE*dE1[i];
   for (dInt i=0; i<3; i++) ui1[i] = u1[i] - rheo->kappa_w*domega1[i] + st->wmom[i]/dSqr(rho.x)*rho1;
   E_[0] = -weight * Sigma1;
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * E1[0] + ui1[i]*st->E_plus_p
+  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * E1[0] + ui1[i]*(st->E + st->p)
                                                - st->K[1]*dE1[i]
                                                - st->K1[0][1]*E1[0]*st->dp[i]
                                                - st->K1[1][1]*E1[0]*st->dE[i]);
@@ -1135,7 +1144,7 @@ static dErr VHTFunction(SNES dUNUSED snes,Vec X,Vec Y,void *ctx)
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
     for (dInt i=0; i<Q; i++) {
       err = VHTPointwiseFunction(vht->scase,x[i],jw[i], u[i],du[i],p[i],dp[i],e[i],de[i], &stash[i], u_[i],du_[i],p_[i],e_[i],de_[i]);dCHK(err);
-      VHTLogStash(&vht->log,&vht->scase->rheo,dx[i],&stash[i]);
+      err = VHTLogStash(&vht->log,&vht->scase->rheo,dx[i],&stash[i]);dCHK(err);
     }
     err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, u_,du_, p_,NULL, e_,de_);dCHK(err);
     err = dRulesetIteratorNextPatch(iter);dCHK(err);

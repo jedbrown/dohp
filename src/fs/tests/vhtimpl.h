@@ -29,6 +29,7 @@ struct VHTRheology {
   dReal splice_delta;           /* Characteristic width of splice */
   dReal gravity;                /* Strength of gravity in z direction (probably negative) */
   dReal kinetic;                /* Parameter to turn on the use of kinetic energy when computing velocity */
+  dReal Kstab;                  /* Stabilization for energy diffusion */
 };
 struct VHTUnitTable {
   dUnit Length;
@@ -85,7 +86,7 @@ struct VHTStash {
   VHTScalarD omega;
   VHTScalarD eta;
   dReal eta1gamma;
-  dReal E_plus_p;               /* Energy */
+  dReal p,E;
   dReal dE[3];
   dReal dp[3];
   dReal wmom[3];                /* Momentum of the water fraction in reference frame of ice */
@@ -95,7 +96,11 @@ struct VHTLogEpoch {
   dReal eta[2];
   dReal cPeclet[2];
   dReal cReynolds[2];
+  dReal p[2];
   dReal E[2];
+  dReal T[2];
+  dReal K1[2];
+  dReal omega[2];
   dReal Prandtl[2];
 };
 struct VHTLog {
