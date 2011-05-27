@@ -986,12 +986,24 @@ static void VHTStashGetDui(const struct VHTStash *st,const struct VHTRheology *r
   dScalar du[9];
   VHTScalarD rho;
   VHTStashGetRho(st,rheo,&rho);
-  for (dInt i=0; i<9; i++) du[i] = drhou[i] / rho.x;
+  for (dInt i=0; i<9; i++) du[i] = drhou[i] / rho.x; // cheat: should include rhou . grad(1/rho)
   dTensorSymCompress3(du,Dui);
+}
+static void VHTStashGetDui1(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar drhou1[9],dScalar p1,dScalar E1,dScalar Dui1[6])
+{
+  dScalar dui[9],du1[9];
+  VHTScalarD rho;
+  VHTStashGetRho(st,rheo,&rho);
+  dTensorSymUncompress3(st->Dui,dui); // Have Dui, want drhou[] =~ rho*dui[]
+  for (dInt i=0; i<3; i++)
+    for (dInt j=0; j<3; j++)
+      du1[i*3+j] = (drhou1[i*3+j] / rho.x
+                    - (rho.x*dui[i*3+j]) / dSqr(rho.x) * (rho.dp*p1 + rho.dE*E1));
+  dTensorSymCompress3(du1,Dui1);
 }
 static void VHTStashGetStress1(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar drhou1[9],dScalar p1,dScalar E1,dScalar Stress1[6],dScalar *Sigma1) {
   dScalar SymStress1[6],deta1,Dui1[6];
-  VHTStashGetDui(st,rheo,drhou1,Dui1); // @bug Need to perturb Dui based on density perturbation
+  VHTStashGetDui1(st,rheo,drhou1,p1,E1,Dui1);
   deta1 = st->eta1gamma * dColonSymScalar3(st->Dui,Dui1) + st->eta.dp*p1 + st->eta.dE*E1; // Perturbation of eta in current direction
   for (dInt i=0; i<6; i++) SymStress1[i] = st->eta.x * Dui1[i] + deta1*st->Dui[i] - p1*(i<3);
   dTensorSymUncompress3(SymStress1,Stress1);
