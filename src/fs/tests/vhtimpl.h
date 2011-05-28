@@ -28,10 +28,11 @@ struct VHTRheology {
   dReal T3;                     /* Triple point temperature */
   dReal splice_delta;           /* Characteristic width of splice */
   dReal gravity;                /* Strength of gravity in z direction (probably negative) */
-  dReal kinetic;                /* Parameter to turn on the use of kinetic energy when computing velocity */
   dReal Kstab;                  /* Stabilization for energy diffusion */
+  dReal mask_kinetic;           /* Parameter to turn on the use of kinetic energy when computing velocity */
   dReal mask_momtrans;          /* Multiplier for the transport term in momentum balance */
   dReal mask_rho;               /* Multiplier for the true rho */
+  dReal mask_wmom;              /* Multiplier for the momentum attributable to moisture transport */
 };
 struct VHTUnitTable {
   dUnit Length;

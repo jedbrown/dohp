@@ -124,25 +124,25 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
 
   dFunctionBegin;
   // Viscosity at reference strain rate before dimensionless Arrhenius term
-  rheo->B0           = dUnitNonDimensionalizeSI(u->Viscosity,pow(Asoftness_si,-1/n) * pow(0.5*dSqr(refstrainrate_si),(1-n)/(2*n)));
-  rheo->Bomega       = 181.25;  // nondimensional
-  rheo->R            = dUnitNonDimensionalizeSI(u->Energy,8.314) / dUnitNonDimensionalizeSI(u->Temperature,1.0); // 8.314 J mol^-1 K^-1
-  rheo->Q            = dUnitNonDimensionalizeSI(u->Energy,6.0e4); // 6.0 J mol^-1
-  rheo->V            = dUnitNonDimensionalizeSI(u->Volume,-13.0e-6); // m^3 / mol; it always bothered my that the "volume" was negative
-  rheo->du0          = dUnitNonDimensionalizeSI(u->StrainRate,refstrainrate_si); // Reference strain rate
-  rheo->gamma0       = 0.5*dSqr(rheo->du0); // second invariant of reference strain rate
-  rheo->eps          = 1e-3;    // Dimensionless fraction of du0
-  rheo->pe           = 1 + 1./n;
-  rheo->k_T          = dUnitNonDimensionalizeSI(u->Energy,2.1) / (dUnitNonDimensionalizeSI(u->Time,1)*dUnitNonDimensionalizeSI(u->Temperature,1)*dUnitNonDimensionalizeSI(u->Length,1)); // thermal conductivity (W/(m K))
-  rheo->kappa_w      = dUnitNonDimensionalizeSI(u->Mass,1.045e-4) / (dUnitDimensionalizeSI(u->Length,1)*dUnitNonDimensionalizeSI(u->Time,1));
-  rheo->c_i          = dUnitNonDimensionalizeSI(u->Energy,2009) / (dUnitDimensionalizeSI(u->Mass,1)*dUnitNonDimensionalizeSI(u->Temperature,1));
-  rheo->Latent       = dUnitNonDimensionalizeSI(u->Energy,3.34e5) / dUnitDimensionalizeSI(u->Mass,1);
-  rheo->rhoi         = dUnitNonDimensionalizeSI(u->Density,910); // Density of ice
-  rheo->rhow         = dUnitNonDimensionalizeSI(u->Density,999.8395); // Density of water at 0 degrees C, STP
-  rheo->beta_CC      = dUnitNonDimensionalizeSI(u->Temperature,7.9e-8) / dUnitNonDimensionalizeSI(u->Pressure,1.0);
-  rheo->T0           = dUnitNonDimensionalizeSI(u->Temperature,260.);
-  rheo->T3           = dUnitNonDimensionalizeSI(u->Temperature,273.15);
-  rheo->splice_delta = 1e-3 * rheo->Latent;
+  rheo->B0            = dUnitNonDimensionalizeSI(u->Viscosity,pow(Asoftness_si,-1/n) * pow(0.5*dSqr(refstrainrate_si),(1-n)/(2*n)));
+  rheo->Bomega        = 181.25; // nondimensional
+  rheo->R             = dUnitNonDimensionalizeSI(u->Energy,8.314) / dUnitNonDimensionalizeSI(u->Temperature,1.0); // 8.314 J mol^-1 K^-1
+  rheo->Q             = dUnitNonDimensionalizeSI(u->Energy,6.0e4); // 6.0 J mol^-1
+  rheo->V             = dUnitNonDimensionalizeSI(u->Volume,-13.0e-6); // m^3 / mol; it always bothered my that the "volume" was negative
+  rheo->du0           = dUnitNonDimensionalizeSI(u->StrainRate,refstrainrate_si); // Reference strain rate
+  rheo->gamma0        = 0.5*dSqr(rheo->du0); // second invariant of reference strain rate
+  rheo->eps           = 1e-3;   // Dimensionless fraction of du0
+  rheo->pe            = 1 + 1./n;
+  rheo->k_T           = dUnitNonDimensionalizeSI(u->Energy,2.1) / (dUnitNonDimensionalizeSI(u->Time,1)*dUnitNonDimensionalizeSI(u->Temperature,1)*dUnitNonDimensionalizeSI(u->Length,1)); // thermal conductivity (W/(m K))
+  rheo->kappa_w       = dUnitNonDimensionalizeSI(u->Mass,1.045e-4) / (dUnitDimensionalizeSI(u->Length,1)*dUnitNonDimensionalizeSI(u->Time,1));
+  rheo->c_i           = dUnitNonDimensionalizeSI(u->Energy,2009) / (dUnitDimensionalizeSI(u->Mass,1)*dUnitNonDimensionalizeSI(u->Temperature,1));
+  rheo->Latent        = dUnitNonDimensionalizeSI(u->Energy,3.34e5) / dUnitDimensionalizeSI(u->Mass,1);
+  rheo->rhoi          = dUnitNonDimensionalizeSI(u->Density,910); // Density of ice
+  rheo->rhow          = dUnitNonDimensionalizeSI(u->Density,999.8395); // Density of water at 0 degrees C, STP
+  rheo->beta_CC       = dUnitNonDimensionalizeSI(u->Temperature,7.9e-8) / dUnitNonDimensionalizeSI(u->Pressure,1.0);
+  rheo->T0            = dUnitNonDimensionalizeSI(u->Temperature,260.);
+  rheo->T3            = dUnitNonDimensionalizeSI(u->Temperature,273.15);
+  rheo->splice_delta  = 1e-3 * rheo->Latent;
   dFunctionReturn(0);
 }
 static dErr VHTCaseSetFromOptions(VHTCase scase)
@@ -163,6 +163,10 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = PetscOptionsList("-rheo_profile","Rheological profile","",profiles,prof,prof,sizeof prof,NULL);dCHK(err);
     err = PetscFListFind(profiles,scase->comm,prof,PETSC_FALSE,(void(**)(void))&rprof);dCHK(err);
     err = (*rprof)(scase);dCHK(err);
+    rheo->mask_kinetic  = 0;
+    rheo->mask_momtrans = 1;
+    rheo->mask_rho      = 0;
+    rheo->mask_wmom     = 1;
     err = PetscFListDestroy(&profiles);dCHK(err);
     err = dOptionsRealUnits("-rheo_B0","Viscosity at reference strain rate and temperature","",u->Viscosity,rheo->B0,&rheo->B0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_Bomega","Softening due to water content","",NULL,rheo->Bomega,&rheo->Bomega,NULL);dCHK(err);
@@ -184,10 +188,11 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_T3","Triple point temperature","",u->Temperature,rheo->T3,&rheo->T3,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_splice_delta","Characteristic width of split","",u->Energy,rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_gravity","Gravity in z-direction (probably negative)","",u->Acceleration,rheo->gravity,&rheo->gravity,NULL);dCHK(err);
-    err = dOptionsRealUnits("-rheo_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->kinetic,&rheo->kinetic,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_Kstab","Stabilization diffusivity, use to prevent negative diffusivity due to non-monotone splice","",NULL,rheo->Kstab,&rheo->Kstab,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_mask_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->mask_kinetic,&rheo->mask_kinetic,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_momtrans","Multiplier for the transport term in momentum balance","",NULL,rheo->mask_momtrans,&rheo->mask_momtrans,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_rho","Multiplier for density variation due to omega","",NULL,rheo->mask_rho,&rheo->mask_rho,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_mask_wmom","Multiplier for ice velocity contribution from momentum of water","",NULL,rheo->mask_wmom,&rheo->mask_wmom,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -880,16 +885,32 @@ static inline void VHTRheoSplice0(dScalar a,dScalar b,dReal width,dScalar x,dSca
 static dErr VHTRheoSeparate(dScalar x,dScalar w,dScalar y[2],dScalar y1x[2],dScalar y2xx[2])
 { // Separate the function f(x)=x into a smooth negative part and a positive part.
   // The characteristic width of the transition is w
-  const dScalar w2 = w*w,wm2 = 1/w2;
+  const dScalar
+    w2 = w*w,
+    x2 = x*x,
+    theerf = erf(x/(sqrt(2*w2))),
+    arg = x2/(2*w2),
+    theexp = arg < 50 ? exp(-arg) : 0; // To avoid underflow
   // The function values satisfy: xneg+xpos = x
-  y[0] = 0.5*x + (x*erf(x*sqrt(2)*sqrt(wm2)/2) + sqrt(2)*w2*sqrt(wm2)*exp(-pow(x, 2)/(2*w2))/sqrt(PETSC_PI))/(2*sqrt(wm2)*sqrt(w2));
-  y[1] = 0.5*x - (x*erf(x*sqrt(2)*sqrt(wm2)/2) + sqrt(2)*w2*sqrt(wm2)*exp(-pow(x, 2)/(2*w2))/sqrt(PETSC_PI))/(2*sqrt(wm2)*sqrt(w2));
+  y[0] = 0.5*x*(1 - theerf) - w*theexp/sqrt(2*PETSC_PI);
+  y[1] = 0.5*x*(1 + theerf) + w*theexp/sqrt(2*PETSC_PI);
   // The first derivatives satisfy: xneg1+xpos1 = 1
-  y1x[0] = 0.5 + erf(x*sqrt(2)*sqrt(wm2)/2)/(2*sqrt(wm2)*sqrt(w2));
-  y1x[1] = 0.5 - erf(x*sqrt(2)*sqrt(wm2)/2)/(2*sqrt(wm2)*sqrt(w2));
+  y1x[0] = 0.5*(1 - theerf);
+  y1x[1] = 0.5*(1 + theerf);
   // The second derivatives satisy: xneg2+xpos2 = 0
-  y2xx[0] = sqrt(2)*exp(-pow(x, 2)/(2*w2))/(2*sqrt(PETSC_PI)*sqrt(w2));
-  y2xx[1] = -sqrt(2)*exp(-pow(x, 2)/(2*w2))/(2*sqrt(PETSC_PI)*sqrt(w2));
+  y2xx[0] = -theexp/sqrt(2*PETSC_PI*w2);
+  y2xx[1] = theexp/sqrt(2*PETSC_PI*w2);
+  return 0;
+}
+dUNUSED
+static dErr VHTRheoSeparate2(dScalar x,dScalar dUNUSED w,dScalar y[2],dScalar y1x[2],dScalar y2xx[2])
+{  // Non-positive, creates melt fraction only
+  y[0] = 0;
+  y[1] = x;
+  y1x[0] = 0;
+  y1x[1] = 1;
+  y2xx[0] = 0;
+  y2xx[1] = 0;
   return 0;
 }
 dUNUSED
@@ -906,7 +927,7 @@ static dErr VHTRheoSolveEqStateAdjoint_splice(struct VHTRheology *rheo,const dSc
   dScalar a,a1p,a1E,b,b1p,b1E,x,x1E,x1p;
 
   dFunctionBegin;
-  e = (E - rheo->kinetic*1/(2*rhotmp) * dDotScalar3(rhou,rhou)) / rhotmp; // Derivatives are not propagated through kinetic energy
+  e = (E - rheo->mask_kinetic*1/(2*rhotmp) * dDotScalar3(rhou,rhou)) / rhotmp; // Derivatives are not propagated through kinetic energy
   e1E = 1/rhotmp;
   a = rheo->T0+e/rheo->c_i;
   a1p = 0;
@@ -964,7 +985,7 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   dErr err;
 
   dFunctionBegin;
-  e = (E - rheo->kinetic*1/(2*rhotmp) * dDotScalar3(rhou,rhou)) / rhotmp; // Derivatives are not propagated through kinetic energy
+  e = (E - rheo->mask_kinetic*1/(2*rhotmp) * dDotScalar3(rhou,rhou)) / rhotmp; // Derivatives are not propagated through kinetic energy
   G = e - em;
   G1p = rheo->c_i * rheo->beta_CC;
   G1E = 1/rhotmp;
@@ -979,7 +1000,7 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   T2EE = Ygg[0]*G1E*G1E/rheo->c_i;
   VHTAssertRange(T->x,rheo->T0-40,rheo->T3+1);
 
-  MeltFractionFromY = rheo->rhoi / (rheo->rhow * rheo->Latent); // kg/Joule
+  MeltFractionFromY = rheo->rhoi / (rheo->rhow * rheo->Latent); // kg/Joule, should be: rhoi*Y[1]/(rhow*L + (rhow-rhoi)*Y[1])
   omega->x = MeltFractionFromY * Y[1];
   omega->dp = MeltFractionFromY * Yg[1]*G1p;
   omega->dE = MeltFractionFromY * Yg[1]*G1E;
@@ -1119,7 +1140,7 @@ static dErr VHTPointwiseFunction(VHTCase scase,const dReal x[3],dReal weight,
   err = VHTPointwiseComputeStash(rheo,rhou,drhou,p,dp,E,dE,st);dCHK(err);
   VHTStashGetRho(st,rheo,&rho);
   scase->forcing(scase,x,frhou,fp,fE);
-  for (dInt i=0; i<3; i++) ui[i] = st->u[i] - st->wmom[i]/rho.x;
+  for (dInt i=0; i<3; i++) ui[i] = st->u[i] - rheo->mask_wmom*st->wmom[i]/rho.x;
   for (dInt i=0; i<3; i++) heatflux[i] = -st->K[0]*dp[i] - st->K[1]*dE[i];
   for (dInt i=0; i<6; i++) symstress[i] = st->eta.x * st->Dui[i] - (i<3)*p[0]; // eta Du - p I
   dTensorSymUncompress3(symstress,stress);
@@ -1148,8 +1169,8 @@ static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *r
   rho1 = rho.dp*p1[0] + rho.dE*E1[0];
   for (dInt i=0; i<3; i++) u1[i] = rhou1[i] / rho.x - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
   for (dInt i=0; i<3; i++) domega1[i] = st->omega.dp*dp1[i] + st->omega.dE*dE1[i];
-  for (dInt i=0; i<3; i++) ui[i] = st->u[i] - st->wmom[i] / rho.x; // wmom = -kappa_w domega
-  for (dInt i=0; i<3; i++) ui1[i] = u1[i] - rheo->kappa_w*domega1[i] + st->wmom[i]/dSqr(rho.x)*rho1;
+  for (dInt i=0; i<3; i++) ui[i] = st->u[i] - rheo->mask_wmom*st->wmom[i] / rho.x; // wmom = -kappa_w domega
+  for (dInt i=0; i<3; i++) ui1[i] = u1[i] + rheo->mask_wmom*(rheo->kappa_w*domega1[i]/rho.x + st->wmom[i]/dSqr(rho.x)*rho1);
 
   for (dInt i=0; i<3; i++) rhou_[i] = -weight * rho1 * (i==2) * rheo->gravity;
   for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) drhou_[i*3+j] = -weight * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
@@ -1196,9 +1217,9 @@ static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct 
   rho1 = rho.dE*E1[0];
   VHTStashGetStress1(st,rheo,drhou1,p1,E1[0],Stress1,&Sigma1);
   for (dInt i=0; i<3; i++) u1[i] = - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
-  for (dInt i=0; i<3; i++) ui[i] = st->u[i] - st->wmom[i] / rho.x;
   for (dInt i=0; i<3; i++) domega1[i] = st->omega.dE*dE1[i];
-  for (dInt i=0; i<3; i++) ui1[i] = u1[i] - rheo->kappa_w*domega1[i] + st->wmom[i]/dSqr(rho.x)*rho1;
+  for (dInt i=0; i<3; i++) ui[i] = st->u[i] - rheo->mask_wmom*st->wmom[i] / rho.x;
+  for (dInt i=0; i<3; i++) ui1[i] = u1[i] + rheo->mask_wmom*(rheo->kappa_w*domega1[i]/rho.x + st->wmom[i]/dSqr(rho.x)*rho1);
   E_[0] = -weight * Sigma1;
   for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * E1[0] + ui1[i]*(st->E + st->p)
                                                - st->K[1]*dE1[i]
