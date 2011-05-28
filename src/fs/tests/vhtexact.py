@@ -2,7 +2,7 @@
 from __future__ import division
 
 import sympy
-from sympy import Matrix, Symbol, ccode
+from sympy import Matrix, Symbol, ccode, S
 from dohpexact import *
 
 # Some coupling terms make the symbolic expressions explode in size, which takes too long and crashes the compiler. Such
@@ -11,6 +11,7 @@ from dohpexact import *
 # numerical rootfinding problem. Since we cannot symbolically differentiate an implicit solve, we are shorting it out in
 # a physically plausible way, but one that is inconsistent for large amplitude moisture.
 MASK = 0
+MASK2 = 0
 
 def SecondInvariant(Du):
     return 0.5*Du.dot(Du)
@@ -37,21 +38,20 @@ def separate(x,w):
     neg = integrate(0.5+integrate(normal(x,a),x),x)
     pos = integrate(0.5-integrate(normal(x,a),x),x)
     """
-    from sympy import erf,exp,pi
+    from sympy import erf,exp,pi,sqrt
     # This explicit CSE does not seem to make a performance difference with sympy, but it probably would if we use AD
-    theerf = erf(x*2**(1/2)*(w**(-2))**(1/2)/2)
-    xtheerf = x*theerf
+    theerf = erf(x/sqrt(2*w**2))
     theexp = exp(-x**2/(2*w**2))
-    neg = 0.5*x + (xtheerf + 2**(1/2)*w**2*(w**(-2))**(1/2)*theexp/pi**(1/2))/(2*(w**(-2))**(1/2)*(w**2)**(1/2))
-    pos = 0.5*x - (xtheerf + 2**(1/2)*w**2*(w**(-2))**(1/2)*theexp/pi**(1/2))/(2*(w**(-2))**(1/2)*(w**2)**(1/2))
-    neg1 = 0.5 + theerf/(2*(w**(-2))**(1/2)*(w**2)**(1/2)) # first derivwtives
-    pos1 = 0.5 - theerf/(2*(w**(-2))**(1/2)*(w**2)**(1/2))
+    neg = 0.5*x*(1 - theerf) - w*theexp/sqrt(2*pi)
+    pos = 0.5*x*(1 + theerf) + w*theexp/sqrt(2*pi)
+    neg1 = 0.5*(1 - theerf) # first derivwtives
+    pos1 = 0.5*(1 + theerf)
     return neg,pos,neg1,pos1
 
 class VHTExact(Exact):
     def __init__(self, name=None, model=None, param='a b c'):
         if model is None:
-            model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity Kstab momentum_transport'
+            model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity Kstab mask_momtrans'
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
     def unpack(self, U, dU):
         rhou, p, E = U[:3,:], U[3], U[4]
@@ -63,10 +63,10 @@ class VHTExact(Exact):
         T_m = T3 - beta_CC * p # melting temperature at current pressure
         e_m = c_i * (T_m - T0) # melting energy at current pressure
         # At this point, we should solve an implicit system for (e,rho,omega).  Unfortunately, doing so would require
-        # solving an inhomogeneous system involving splice(), which I don't know how to do symbolically. Putting a
+        # solving an inhomogeneous system involving separate(), is problematic to do symbolically. Putting a
         # numeric rootfinder into this symbolic description would make manufactured solutions much more complex.
         # Therefore, we cheat by simply using ice density to remove kinetic energy and convert energy/volume to
-        # energy/mass.
+        # energy/mass. Note that with algorithmic differentiation, the implicit solve would not be a problem.
         rhotmp = rhoi          # Cheat
         e  = (E - MASK*1/(2*rhotmp) * rhou.dot(rhou)) / rhotmp
         de = (dE - MASK*1/(rhotmp) * (rhou.T * drhou).T) / rhotmp
@@ -85,8 +85,12 @@ class VHTExact(Exact):
             return omega.subs(x,e), omega1.subs(x,e)
         omega, omega1 = meltfraction(e4omega1)
         domega = omega1 * e4omega1 * (G1p*dp + G1E*dE)
-        rho = (1-omega)*rhoi + omega*rhow
-        drho = (rhow-rhoi) * domega
+        if MASK2 == 0: # Shameful, but SymPy chokes
+            rho = rhoi
+            drho = 0*domega
+        else:
+            rho = (1-omega)*rhoi + omega*rhow
+            drho = (rhow-rhoi) * domega
         return (e,T,omega,rho), (de,dT,domega,drho)
     def eta(self, p, T, omega, gamma):       # Power law with Arrhenius relation
         from sympy import exp
@@ -98,7 +102,7 @@ class VHTExact(Exact):
     def weak_homogeneous(self, x, U, dU, V, dV):
         (rhou,p,E), (drhou,dp,dE) = self.unpack(U,dU)
         (e,T,omega,rho), (de,dT,domega,drho) = self.solve_eqstate(rhou,p,E,drhou,dp,dE)
-        k_T, kappa_w, Kstab, L, grav, momtrans = self.model_get('k_T kappa_w Kstab Latent gravity momentum_transport')
+        k_T, kappa_w, Kstab, L, grav, momtrans = self.model_get('k_T kappa_w Kstab Latent gravity mask_momtrans')
         gravvec = grav*Matrix([0,0,1])
         u = rhou / rho                    # total velocity
         du = (1/rho) * drhou - MASK*u * drho.T # total velocity gradient
@@ -112,7 +116,7 @@ class VHTExact(Exact):
         (rhou_,p_,E_), (drhou_,dp_,dE_) = self.unpack(V,dV)
         conserve_momentum = -drhou_.dot(momtrans*rhou*u.T - eta*Dui + p*I) - rhou_.dot(rho*gravvec)
         conserve_mass     = -p_ * drhou.trace()
-        conserve_energy   = -dE_.dot((E+p)*ui + heatflux - Kstab*dE) - Dui.dot(eta*Dui) - E_ * rhou.dot(gravvec)
+        conserve_energy   = -dE_.dot((E+p)*ui + heatflux - Kstab*dE) -E_*(eta*Dui.dot(Dui) + rhou.dot(gravvec))
         return conserve_momentum + conserve_mass + conserve_energy
     def create_prototype(self, definition=False):
         return 'dErr VHTCaseCreate_%(name)s(VHTCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))

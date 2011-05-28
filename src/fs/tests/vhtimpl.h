@@ -30,7 +30,8 @@ struct VHTRheology {
   dReal gravity;                /* Strength of gravity in z direction (probably negative) */
   dReal kinetic;                /* Parameter to turn on the use of kinetic energy when computing velocity */
   dReal Kstab;                  /* Stabilization for energy diffusion */
-  dReal momentum_transport;     /* Multiplier for the transport term in momentum balance */
+  dReal mask_momtrans;          /* Multiplier for the transport term in momentum balance */
+  dReal mask_rho;               /* Multiplier for the true rho */
 };
 struct VHTUnitTable {
   dUnit Length;
