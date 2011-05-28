@@ -87,6 +87,7 @@ struct VHTStash {
   dReal K1[2][2];               /* Derivatives */
   VHTScalarD T;
   VHTScalarD omega;
+  dScalar omega2[3];            /* Second derivatives: o2pp, o2pE=o2Ep, o2EE */
   VHTScalarD eta;
   dReal eta1gamma;
   dReal p,E;

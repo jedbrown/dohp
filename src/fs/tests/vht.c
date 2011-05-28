@@ -972,7 +972,7 @@ static dErr VHTRheoSolveEqStateAdjoint_splice(struct VHTRheology *rheo,const dSc
   dFunctionReturn(0);
 }
 static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const dScalar rhou[3],dScalar p,dScalar E,
-                                       VHTScalarD *T,VHTScalarD *omega, dScalar K[2],dScalar K1[2][2])
+                                                VHTScalarD *T,VHTScalarD *omega,dScalar omega2[3], dScalar K[2],dScalar K1[2][2])
 { // This version provides adjoints. Note the scalar derivatives T1E and omega1E can be used to perturb the gradient
   const dScalar
     rhotmp = rheo->rhoi, // cheat
@@ -1008,6 +1008,9 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   o2pE = MeltFractionFromY * Ygg[1]*G1p*G1E;
   o2Ep = MeltFractionFromY * Ygg[1]*G1E*G1p;
   o2EE = MeltFractionFromY * Ygg[1]*G1E*G1E;
+  omega2[0] = o2pp;
+  omega2[1] = o2pE;
+  omega2[2] = o2EE;
   VHTAssertRange(omega->x,-0.1,1);
 
   // Diffusivity with respect to dp and dE, flux is: -Kp dp - KE dE
@@ -1112,7 +1115,7 @@ static dErr VHTPointwiseComputeStash(struct VHTRheology *rheo,const dScalar rhou
   dFunctionBegin;
   memset(st,0xff,sizeof(*st));
   dMakeMemUndefined(st,sizeof(*st));
-  err = VHTRheoSolveEqStateAdjoint_separate(rheo,rhou,p[0],E[0], &st->T,&st->omega,st->K,st->K1);dCHK(err);
+  err = VHTRheoSolveEqStateAdjoint_separate(rheo,rhou,p[0],E[0], &st->T,&st->omega,st->omega2,st->K,st->K1);dCHK(err);
   VHTStashGetRho(st,rheo,&rho);
   for (dInt i=0; i<3; i++) domega[i] = st->omega.dp * dp[i] + st->omega.dE * dE[i];
   for (dInt i=0; i<3; i++) st->wmom[i] = -rheo->kappa_w * domega[i];
@@ -1168,7 +1171,8 @@ static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *r
   VHTStashGetStress1(st,rheo,drhou1,p1[0],E1[0],Stress1,&Sigma1);
   rho1 = rho.dp*p1[0] + rho.dE*E1[0];
   for (dInt i=0; i<3; i++) u1[i] = rhou1[i] / rho.x - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
-  for (dInt i=0; i<3; i++) domega1[i] = st->omega.dp*dp1[i] + st->omega.dE*dE1[i];
+  for (dInt i=0; i<3; i++) domega1[i] = (+ st->omega.dp*dp1[i] + (st->omega2[0]*p1[0] + st->omega2[1]*E1[0])*st->dp[i]
+                                         + st->omega.dE*dE1[i] + (st->omega2[1]*p1[0] + st->omega2[2]*E1[0])*st->dE[i]);
   for (dInt i=0; i<3; i++) ui[i] = st->u[i] - rheo->mask_wmom*st->wmom[i] / rho.x; // wmom = -kappa_w domega
   for (dInt i=0; i<3; i++) ui1[i] = u1[i] + rheo->mask_wmom*(rheo->kappa_w*domega1[i]/rho.x + st->wmom[i]/dSqr(rho.x)*rho1);
 
@@ -1217,7 +1221,8 @@ static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct 
   rho1 = rho.dE*E1[0];
   VHTStashGetStress1(st,rheo,drhou1,p1,E1[0],Stress1,&Sigma1);
   for (dInt i=0; i<3; i++) u1[i] = - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
-  for (dInt i=0; i<3; i++) domega1[i] = st->omega.dE*dE1[i];
+  for (dInt i=0; i<3; i++) domega1[i] = (+ 0                   + (0                   + st->omega2[1]*E1[0])*st->dp[i]
+                                         + st->omega.dE*dE1[i] + (0                   + st->omega2[2]*E1[0])*st->dE[i]);
   for (dInt i=0; i<3; i++) ui[i] = st->u[i] - rheo->mask_wmom*st->wmom[i] / rho.x;
   for (dInt i=0; i<3; i++) ui1[i] = u1[i] + rheo->mask_wmom*(rheo->kappa_w*domega1[i]/rho.x + st->wmom[i]/dSqr(rho.x)*rho1);
   E_[0] = -weight * Sigma1;
