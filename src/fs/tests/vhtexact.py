@@ -49,7 +49,7 @@ def separate(x,w):
     return neg,pos,neg1,pos1
 
 class VHTExact(Exact):
-    def __init__(self, name=None, model=None, param='a b c'):
+    def __init__(self, name=None, model=None, param='a b c d e'):
         if model is None:
             model = 'B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity Kstab mask_momtrans'
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
@@ -125,27 +125,27 @@ class VHTExact(Exact):
     def forcing_prototype(self):
         return 'static dErr VHTCaseForcing_%(name)s(VHTCase scase,const dReal x[3],dScalar frhou[3],dScalar fp[1],dScalar fE[1])' % dict(name=self.name)
     def solution_code(self):
-        from sympy.abc import a,b,c
+        from sympy.abc import a,b,c,d,e
         x = Matrix(symbol3('x'))
         def body():
-            for (i,expr) in enumerate(self.solution_scaled(x,a,b,c)):
+            for (i,expr) in enumerate(self.solution_scaled(x,a,b,c,d,e)):
                 yield ccode(expr, assign_to=self.fieldname(i))
-            for (i,expr) in enumerate(self.solution_gradient(x,a,b,c)):
+            for (i,expr) in enumerate(self.solution_gradient(x,a,b,c,d,e)):
                 yield ccode(expr, assign_to=self.dfieldname(i))
         return '''
 %(prototype)s
 {
   const VHTCase_Exact *ctx = scase->data;
-  const dReal a = ctx->a,b = ctx->b,c = ctx->c,scale = ctx->scale;
+  %(param)s
   %(body)s
   return 0;
-}''' % dict(prototype=self.solution_prototype(), body='\n  '.join(body()))
+}''' % dict(prototype=self.solution_prototype(), param=self.param_decl(), body='\n  '.join(body()))
     def forcing_code(self):
-        from sympy.abc import a,b,c
+        from sympy.abc import a,b,c,d,e
         x = Matrix(symbol3('x'))
         def body():
-            U = self.solution_scaled(x,a,b,c)
-            dU = self.solution_gradient(x,a,b,c)
+            U = self.solution_scaled(x,a,b,c,d,e)
+            dU = self.solution_gradient(x,a,b,c,d,e)
             if True:
                 decl, statements = self.residual_code(x,U,dU)
                 return decl + statements
@@ -156,13 +156,13 @@ class VHTExact(Exact):
 %(prototype)s
 {
   const VHTCase_Exact *ctx = scase->data;
-  const dReal %(param)s;
+  %(param)s
   const dUNUSED dReal %(rheo)s;
   %(body)s
   return 0;
 }
 ''' % dict(prototype=self.forcing_prototype(),
-           param=','.join('%s = ctx->%s' % (v,v) for v in self._param.keys()),
+           param=self.param_decl(),
            rheo=','.join('%s = scase->rheo.%s' % (v,v) for v in self._model.keys()),
            body='\n  '.join(body()))
     def create_code(self):
@@ -187,24 +187,24 @@ static dErr VHTCaseCreate_%(name)s(VHTCase scase)
 
 class Exact0(VHTExact):
     'Classical 2D converging flow'
-    def solution(self, x,y,z, a,b,c):
+    def solution(self, x,y,z, a,b,c,d,e):
         from sympy import sin, cos, pi
         return Matrix([ a * sin(pi*x/2) * cos(pi*y/2),
                        -b * cos(pi*x/2) * sin(pi*y/2),
                         1 * (c-1) * z,
-                        0.25*(cos(pi*x) + cos(pi*y)) + 10*(x+y),
-                        sin(pi*y/2) * cos(pi*z/2)])
+                        d*0.25*(cos(pi*x) + cos(pi*y)) + 10*(x+y),
+                        e*sin(pi*y/2) * cos(pi*z/2)])
 class Exact1(VHTExact):
     'From Larin & Reusken, 2009, with pressure shifted by a constant'
-    def solution(self, x,y,z, a,b,c):
+    def solution(self, x,y,z, a,b,c,d,e):
         from sympy import sin,cos,pi,tanh,exp
         xx, yy, zz = (pi*s/2 for s in [x,y,z])
         r2 = xx**2 + yy**2 + zz**2
         return Matrix([+a/3 * sin(xx) * sin(yy) * sin(zz),
                        -b/3 * cos(xx) * cos(yy) * sin(zz),
                        -c*2/3 * cos(xx) * sin(yy) * cos(zz),
-                        1 + cos(xx) * sin(yy) * sin(zz),
-                        r2*exp(-4*r2)])
+                        1 + d * cos(xx) * sin(yy) * sin(zz),
+                        e * 10 * r2 * exp(-4*r2)])
 class Exact2(VHTExact):
     def solution(self, x,y,z, a,b,c):
         return Matrix([a*z**3,
@@ -229,7 +229,7 @@ def implementation():
 #endif
 
 typedef struct {
-  dReal a,b,c,scale;
+  dReal a,b,c,d,e,scale;
 } VHTCase_Exact;
 
 static dErr VHTCaseSetFromOptions_Exact(VHTCase scase) {
@@ -241,6 +241,8 @@ static dErr VHTCaseSetFromOptions_Exact(VHTCase scase) {
     err = PetscOptionsReal("-exact_a","First scale parameter","",exc->a,&exc->a,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_b","Second scale parameter","",exc->b,&exc->b,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_c","Third scale parameter","",exc->c,&exc->c,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_d","Pressure scale parameter","",exc->d,&exc->d,NULL);dCHK(err);
+    err = PetscOptionsReal("-exact_e","Energy scale parameter","",exc->e,&exc->e,NULL);dCHK(err);
     err = PetscOptionsReal("-exact_scale","Overall scale parameter","",exc->scale,&exc->scale,NULL);dCHK(err);
   } err = PetscOptionsTail();dCHK(err);
   dFunctionReturn(0);

@@ -98,6 +98,8 @@ class Exact:
     def model_get(self,symnames): return self._meta_get('model',symnames)
     def param_add(self,symnames): return self._meta_add('param',symnames)
     def param_get(self,symnames): return self._meta_get('param',symnames)
+    def param_decl(self):
+        return 'const dReal ' + ','.join('%s = ctx->%s' % (v,v) for v in self._param.keys()) + ';'
     def solution(self, x, *args):
         raise NotImplementedError
     def solution_scaled(self, x, *args):
