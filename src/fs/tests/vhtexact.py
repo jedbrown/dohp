@@ -2,7 +2,7 @@
 from __future__ import division
 
 import sympy
-from sympy import Matrix, ccode
+from sympy import Matrix, Symbol, ccode
 from dohpexact import *
 
 # Some coupling terms make the symbolic expressions explode in size, which takes too long and crashes the compiler. Such
@@ -28,6 +28,25 @@ def splice(a, b, x0, width, x, dx):
           + (dbx-dax) * (1+tanh((x-x0)/width)) / 2
           + (bx - ax) * (1-tanh((x-x0)/width)**2) / (2*width)) * dx
     return f, df
+def normal(x,w):
+    "normal distribution with standard deviation w"
+    return exp(-x**2/(2*w**2))/sqrt(2*pi*w**2)
+def separate(x,w):
+    """Splits the function f(x)=x into a negative and positive part. The derivatives on each side are the error function
+    and a Gaussian, so unlike most expressions, these get nicer when they are differentiated.
+    neg = integrate(0.5+integrate(normal(x,a),x),x)
+    pos = integrate(0.5-integrate(normal(x,a),x),x)
+    """
+    from sympy import erf,exp,pi
+    # This explicit CSE does not seem to make a performance difference with sympy, but it probably would if we use AD
+    theerf = erf(x*2**(1/2)*(w**(-2))**(1/2)/2)
+    xtheerf = x*theerf
+    theexp = exp(-x**2/(2*w**2))
+    neg = 0.5*x + (xtheerf + 2**(1/2)*w**2*(w**(-2))**(1/2)*theexp/pi**(1/2))/(2*(w**(-2))**(1/2)*(w**2)**(1/2))
+    pos = 0.5*x - (xtheerf + 2**(1/2)*w**2*(w**(-2))**(1/2)*theexp/pi**(1/2))/(2*(w**(-2))**(1/2)*(w**2)**(1/2))
+    neg1 = 0.5 + theerf/(2*(w**(-2))**(1/2)*(w**2)**(1/2)) # first derivwtives
+    pos1 = 0.5 - theerf/(2*(w**(-2))**(1/2)*(w**2)**(1/2))
+    return neg,pos,neg1,pos1
 
 class VHTExact(Exact):
     def __init__(self, name=None, model=None, param='a b c'):
@@ -49,12 +68,23 @@ class VHTExact(Exact):
         # Therefore, we cheat by simply using ice density to remove kinetic energy and convert energy/volume to
         # energy/mass.
         rhotmp = rhoi          # Cheat
-        e = (E - MASK*1/(2*rhotmp) * rhou.dot(rhou)) / rhotmp
+        e  = (E - MASK*1/(2*rhotmp) * rhou.dot(rhou)) / rhotmp
         de = (dE - MASK*1/(rhotmp) * (rhou.T * drhou).T) / rhotmp
-        def temp(e): return T0 + e/c_i # temperature in cold regime
-        T, dT = splice(temp,const(T_m),e_m,spdel,e,de)
-        def melt(e): return (e-e_m)/L # temperature in warm regime
-        omega,domega  = splice(const(0),melt,e_m,spdel,e,de)
+        G   = e - e_m
+        G1p = c_i * beta_CC
+        G1E = 1/rhotmp;
+        e4T, e4omega, e4T1, e4omega1 = separate(G, spdel) # Decompose the energy G into a thermal and moisture part, with derivatives
+        T      = T0 + (e_m+e4T)/c_i
+        dT     = -beta_CC*dp + e4T1*(G1p*dp + G1E*dE)/c_i
+        def meltfraction(e):
+            'Convert energy/mass to melt fraction'
+            x = Symbol('x')
+            #omega = rhoi*x / (rhow*L - (rhow-rhoi)*x)
+            omega = rhoi/(rhow*L)*x # Cheat: should use expression above
+            omega1 = sympy.diff(omega,x)
+            return omega.subs(x,e), omega1.subs(x,e)
+        omega, omega1 = meltfraction(e4omega1)
+        domega = omega1 * e4omega1 * (G1p*dp + G1E*dE)
         rho = (1-omega)*rhoi + omega*rhow
         drho = (rhow-rhoi) * domega
         return (e,T,omega,rho), (de,dT,domega,drho)

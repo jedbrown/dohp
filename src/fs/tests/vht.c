@@ -876,7 +876,23 @@ static inline void VHTRheoSplice0(dScalar a,dScalar b,dReal width,dScalar x,dSca
   *y2bx = 0.5*f_x;
   *y2xx = (b-a)*0.5*f_xx;
 }
-static dErr VHTRheoSolveEqStateAdjoint(struct VHTRheology *rheo,const dScalar rhou[3],dScalar p,dScalar E,
+static dErr VHTRheoSeparate(dScalar x,dScalar w,dScalar y[2],dScalar y1x[2],dScalar y2xx[2])
+{ // Separate the function f(x)=x into a smooth negative part and a positive part.
+  // The characteristic width of the transition is w
+  const dScalar w2 = w*w,wm2 = 1/w2;
+  // The function values satisfy: xneg+xpos = x
+  y[0] = 0.5*x + (x*erf(x*sqrt(2)*sqrt(wm2)/2) + sqrt(2)*w2*sqrt(wm2)*exp(-pow(x, 2)/(2*w2))/sqrt(PETSC_PI))/(2*sqrt(wm2)*sqrt(w2));
+  y[1] = 0.5*x - (x*erf(x*sqrt(2)*sqrt(wm2)/2) + sqrt(2)*w2*sqrt(wm2)*exp(-pow(x, 2)/(2*w2))/sqrt(PETSC_PI))/(2*sqrt(wm2)*sqrt(w2));
+  // The first derivatives satisfy: xneg1+xpos1 = 1
+  y1x[0] = 0.5 + erf(x*sqrt(2)*sqrt(wm2)/2)/(2*sqrt(wm2)*sqrt(w2));
+  y1x[1] = 0.5 - erf(x*sqrt(2)*sqrt(wm2)/2)/(2*sqrt(wm2)*sqrt(w2));
+  // The second derivatives satisy: xneg2+xpos2 = 0
+  y2xx[0] = sqrt(2)*exp(-pow(x, 2)/(2*w2))/(2*sqrt(PETSC_PI)*sqrt(w2));
+  y2xx[1] = -sqrt(2)*exp(-pow(x, 2)/(2*w2))/(2*sqrt(PETSC_PI)*sqrt(w2));
+  return 0;
+}
+dUNUSED
+static dErr VHTRheoSolveEqStateAdjoint_splice(struct VHTRheology *rheo,const dScalar rhou[3],dScalar p,dScalar E,
                                        VHTScalarD *T,VHTScalarD *omega, dScalar K[2],dScalar K1[2][2])
 { // This version provides adjoints. Note the scalar derivatives T1E and omega1E can be used to perturb the gradient
   const dScalar
@@ -900,7 +916,7 @@ static dErr VHTRheoSolveEqStateAdjoint(struct VHTRheology *rheo,const dScalar rh
   x = e-em;
   x1E = e1E;
   x1p = -em1p;
-  VHTRheoSplice0(a, x, rheo->splice_delta, x, &T->x,&T1a,&T1b,&T1x,&T2ax,&T2bx,&T2xx);
+  VHTRheoSplice0(a, b, rheo->splice_delta, x, &T->x,&T1a,&T1b,&T1x,&T2ax,&T2bx,&T2xx);
   T->dp = T1a*a1p + T1b*b1p + T1x*x1p; // Adjoint back to p
   T->dE = T1a*a1E + T1b*b1E + T1x*x1E; // Adjoint back to E
   T2pp = T2ax*x1p*a1p + T2bx*x1p*b1p + T2xx*x1p*x1p;
@@ -928,6 +944,56 @@ static dErr VHTRheoSolveEqStateAdjoint(struct VHTRheology *rheo,const dScalar rh
   K1[0][0] = rheo->k_T * T2pp + rheo->Latent * rheo->kappa_w * o2pp;
   K1[0][1] = rheo->k_T * T2pE + rheo->Latent * rheo->kappa_w * o2pE;
   K1[1][0] = rheo->k_T * T2pE + rheo->Latent * rheo->kappa_w * o2pE;
+  K1[1][1] = rheo->k_T * T2EE + rheo->Latent * rheo->kappa_w * o2EE;
+  K[1] += rheo->Kstab; // Stabilization because non-monotone splice functions can create negative diffusivity
+  if (K[1] < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Computed negative diffusivity %G, perhaps -rheo_Kstab is needed",K[1]);
+  dFunctionReturn(0);
+}
+static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const dScalar rhou[3],dScalar p,dScalar E,
+                                       VHTScalarD *T,VHTScalarD *omega, dScalar K[2],dScalar K1[2][2])
+{ // This version provides adjoints. Note the scalar derivatives T1E and omega1E can be used to perturb the gradient
+  const dScalar
+    rhotmp = rheo->rhoi, // cheat
+    Tm = rheo->T3 - rheo->beta_CC * p,
+    Tm1p = -rheo->beta_CC,
+    em = rheo->c_i * (Tm - rheo->T0),
+    em1p = rheo->c_i * Tm1p;
+  dScalar e,T2pp,T2pE,T2Ep,T2EE,o2pp,o2pE,o2Ep,o2EE;
+  dScalar G,G1p,G1E,Y[2],Yg[2],Ygg[2],MeltFractionFromY;
+  dErr err;
+
+  dFunctionBegin;
+  e = (E - rheo->kinetic*1/(2*rhotmp) * dDotScalar3(rhou,rhou)) / rhotmp; // Derivatives are not propagated through kinetic energy
+  G = e - em;
+  G1p = rheo->c_i * rheo->beta_CC;
+  G1E = 1/rhotmp;
+  err = VHTRheoSeparate(G,rheo->splice_delta,Y,Yg,Ygg);dCHK(err); // Separate the energy into the thermal and moisture parts
+
+  T->x = rheo->T0 + (em+Y[0])/rheo->c_i;
+  T->dp = (em1p + Yg[0]*G1p)/rheo->c_i;
+  T->dE = Yg[0]*G1E/rheo->c_i;
+  T2pp = Ygg[0]*G1p*G1p/rheo->c_i;
+  T2pE = Ygg[0]*G1E*G1p/rheo->c_i;
+  T2Ep = Ygg[0]*G1p*G1E/rheo->c_i;
+  T2EE = Ygg[0]*G1E*G1E/rheo->c_i;
+  VHTAssertRange(T->x,rheo->T0-40,rheo->T3+1);
+
+  MeltFractionFromY = rheo->rhoi / (rheo->rhow * rheo->Latent); // kg/Joule
+  omega->x = MeltFractionFromY * Y[1];
+  omega->dp = MeltFractionFromY * Yg[1]*G1p;
+  omega->dE = MeltFractionFromY * Yg[1]*G1E;
+  o2pp = MeltFractionFromY * Ygg[1]*G1p*G1p;
+  o2pE = MeltFractionFromY * Ygg[1]*G1p*G1E;
+  o2Ep = MeltFractionFromY * Ygg[1]*G1E*G1p;
+  o2EE = MeltFractionFromY * Ygg[1]*G1E*G1E;
+  VHTAssertRange(omega->x,-0.1,1);
+
+  // Diffusivity with respect to dp and dE, flux is: -Kp dp - KE dE
+  K[0] = rheo->k_T * T->dp + rheo->Latent * rheo->kappa_w * omega->dp;
+  K[1] = rheo->k_T * T->dE + rheo->Latent * rheo->kappa_w * omega->dE;
+  K1[0][0] = rheo->k_T * T2pp + rheo->Latent * rheo->kappa_w * o2pp;
+  K1[0][1] = rheo->k_T * T2pE + rheo->Latent * rheo->kappa_w * o2pE;
+  K1[1][0] = rheo->k_T * T2Ep + rheo->Latent * rheo->kappa_w * o2Ep;
   K1[1][1] = rheo->k_T * T2EE + rheo->Latent * rheo->kappa_w * o2EE;
   K[1] += rheo->Kstab; // Stabilization because non-monotone splice functions can create negative diffusivity
   if (K[1] < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Computed negative diffusivity %G, perhaps -rheo_Kstab is needed",K[1]);
@@ -1023,7 +1089,7 @@ static dErr VHTPointwiseComputeStash(struct VHTRheology *rheo,const dScalar rhou
   dFunctionBegin;
   memset(st,0xff,sizeof(*st));
   dMakeMemUndefined(st,sizeof(*st));
-  err = VHTRheoSolveEqStateAdjoint(rheo,rhou,p[0],E[0], &st->T,&st->omega,st->K,st->K1);dCHK(err);
+  err = VHTRheoSolveEqStateAdjoint_separate(rheo,rhou,p[0],E[0], &st->T,&st->omega,st->K,st->K1);dCHK(err);
   VHTStashGetRho(st,rheo,&rho);
   for (dInt i=0; i<3; i++) domega[i] = st->omega.dp * dp[i] + st->omega.dE * dE[i];
   for (dInt i=0; i<3; i++) st->wmom[i] = -rheo->kappa_w * domega[i];
