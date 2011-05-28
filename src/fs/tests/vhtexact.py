@@ -196,8 +196,8 @@ class Exact0(VHTExact):
         return Matrix([ a * sin(pi*x/2) * cos(pi*y/2),
                        -b * cos(pi*x/2) * sin(pi*y/2),
                         1 * (c-1) * z,
-                        d*0.25*(cos(pi*x) + cos(pi*y)) + 10*(x+y),
-                        e*sin(pi*y/2) * cos(pi*z/2)])
+                        d*0.25*(cos(pi*x) + cos(pi*y)) + 2*(x+y),
+                        e*sin(pi*(x+y+z*z)/2) * cos(pi*(x*x+y+z)/2)])
 class Exact1(VHTExact):
     'From Larin & Reusken, 2009, with pressure shifted by a constant'
     def solution(self, x,y,z, a,b,c,d,e):
@@ -208,21 +208,18 @@ class Exact1(VHTExact):
                        -b/3 * cos(xx) * cos(yy) * sin(zz),
                        -c*2/3 * cos(xx) * sin(yy) * cos(zz),
                         1 + d * cos(xx) * sin(yy) * sin(zz),
-                        e * 10 * r2 * exp(-4*r2)])
+                        e*sin(pi*(x+y+z*z)/2) * cos(pi*(x*x+y+z)/2)])
 class Exact2(VHTExact):
-    def solution(self, x,y,z, a,b,c):
-        return Matrix([a*z**3,
-                       b*x**3,
-                       c*y**3,
-                       (1-x**2)*(1-y**2)*(1-z**2)])
-class Exact3(VHTExact):
-    def solution(self, x,y,z, a,b,c):
-        from sympy import sin,cos,pi
+    'From Larin & Reusken, 2009, pressure shifted by a constant, spherical energy contours with cold spot in the center'
+    def solution(self, x,y,z, a,b,c,d,e):
+        from sympy import sin,cos,pi,tanh,exp
         xx, yy, zz = (pi*s/2 for s in [x,y,z])
-        return Matrix([a*sin(2*xx),
-                       b*cos(yy),
-                       c*cos(zz),
-                       cos(xx)*cos(yy)*cos(zz)])
+        r2 = xx**2 + yy**2 + zz**2
+        return Matrix([+a/3 * sin(xx) * sin(yy) * sin(zz),
+                       -b/3 * cos(xx) * cos(yy) * sin(zz),
+                       -c*2/3 * cos(xx) * sin(yy) * cos(zz),
+                        1 + d * cos(xx) * sin(yy) * sin(zz),
+                        e * 10 * r2 * exp(-4*r2)])
 
 def implementation():
   return '''
@@ -280,7 +277,7 @@ def exact_body(name):
 
 if __name__ == "__main__":
     import pdb
-    solutions = [Exact1()]
+    solutions = [Exact0(), Exact1()]
     with open('vhtexact.c', 'w') as fimpl:
         fimpl.write(implementation())
         for sol in solutions:
