@@ -1062,8 +1062,8 @@ static dErr VHTRheoViscosity(struct VHTRheology *rheo,dScalar p,VHTScalarD *T,VH
   err = VHTRheoArrhenius(rheo,p,T,omega,&B);dCHK(err);
   VHTAssertRange(gamma_reg,dSqr(rheo->eps),1e20);
   eta->x = B.x * power;
-  eta->dp = B.dE * power;
-  eta->dE = B.dp * power;
+  eta->dp = B.dp * power;
+  eta->dE = B.dE * power;
   *eta1gamma = B.x * power1gamma / rheo->gamma0;
   dFunctionReturn(0);
 }
