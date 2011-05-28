@@ -292,7 +292,9 @@ static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
 
   dFunctionBegin;
   VHTStashGetRho(stash,rheo,&rho);
-  for (dInt i=0; i<3; i++) uh2 += dSqr(dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2]);
+  // Estimate the cell size in the streamline direction, multiplied by the velocity.
+  // The factor of 2^2=4 is due to the reference element having size 2
+  for (dInt i=0; i<3; i++) uh2 += 4*dSqr(dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2]);
   cPeclet = dSqrt(uh2) / stash->K[1];
   cReynolds = rho.x * dSqrt(uh2) / stash->eta.x;
   Prandtl = rheo->c_i * stash->eta.x / rheo->k_T;
