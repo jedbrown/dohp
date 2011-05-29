@@ -5,6 +5,7 @@
 #include <petscconf.h>
 #include <iMesh.h>
 #include <mpi.h>
+#include <stddef.h>
 
 #if defined __cplusplus
 #  define dEXTERN_C_BEGIN extern "C" {
