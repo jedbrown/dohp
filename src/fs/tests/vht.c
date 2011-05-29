@@ -835,7 +835,6 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
   err = MatSetOptionsPrefix(Buu,"Buu_");dCHK(err);
   err = MatSetOptionsPrefix(Bpp,"Bpp_");dCHK(err);
   err = MatSetOptionsPrefix(Bee,"Bee_");dCHK(err);
-  err = MatSetOption(Buu,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
   err = MatSetOption(Bpp,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
   err = MatSetFromOptions(Buu);dCHK(err);
   err = MatSetFromOptions(Bpp);dCHK(err);
