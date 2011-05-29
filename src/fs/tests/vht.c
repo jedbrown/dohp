@@ -1886,7 +1886,7 @@ int main(int argc,char *argv[])
   Vec R,X,Xsoln = NULL;
   SNES snes;
   dBool check_error,check_null,compute_explicit,use_jblock,viewdhm,snes_monitor_vht;
-  char monfilename[PETSC_MAX_PATH_LEN];
+  char monfilename[PETSC_MAX_PATH_LEN],dhmfilename[PETSC_MAX_PATH_LEN];
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -1904,7 +1904,8 @@ int main(int argc,char *argv[])
     check_error = vht->scase->reality ? dFALSE : dTRUE;
     err = PetscOptionsBool("-check_error","Compute errors","",check_error,&check_error,NULL);dCHK(err);
     err = PetscOptionsBool("-use_jblock","Use blocks to apply Jacobian instead of unified (more efficient) version","",use_jblock=dFALSE,&use_jblock,NULL);dCHK(err);
-    err = PetscOptionsBool("-viewdhm","View the solution","",viewdhm=dFALSE,&viewdhm,NULL);dCHK(err);
+    err = PetscOptionsString("-viewdhm","View the solution (filename optional)","","vht.dhm",dhmfilename,sizeof dhmfilename,&viewdhm);dCHK(err);
+    if (viewdhm && !dhmfilename[0]) {err = PetscStrcpy(dhmfilename,"vht.dhm");dCHK(err);}
     err = PetscOptionsBool("-check_null","Check that constant pressure really is in the null space","",check_null=dFALSE,&check_null,NULL);dCHK(err);
     if (check_null) {
       err = PetscOptionsBool("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",compute_explicit=dFALSE,&compute_explicit,NULL);dCHK(err);
@@ -1994,7 +1995,7 @@ int main(int argc,char *argv[])
     dViewer view;
     err = PetscViewerCreate(comm,&view);dCHK(err);
     err = PetscViewerSetType(view,PETSCVIEWERDHM);dCHK(err);
-    err = PetscViewerFileSetName(view,"vht.dhm");dCHK(err);
+    err = PetscViewerFileSetName(view,dhmfilename);dCHK(err);
     err = PetscViewerFileSetMode(view,FILE_MODE_WRITE);dCHK(err);
     err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
     err = dFSDirichletProject(vht->fsu,Xu,dFS_INHOMOGENEOUS);dCHK(err);
