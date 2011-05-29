@@ -90,3 +90,16 @@ add_subdirectory (src)
 if (Dohp_BUILD_SANDBOX)
   add_subdirectory (${Dohp_SOURCE_DIR}/sandbox)
 endif (Dohp_BUILD_SANDBOX)
+
+include (CheckCSourceCompiles) # The name is misleading, this also tries to link
+check_c_source_compiles ("
+#define PragmaQuote(a) _Pragma(#a)
+#define PragmaGCC(a) PragmaQuote(GCC a)
+int main(int argc,char *argv[]) {
+  PragmaGCC(diagnostic ignored \"-Wconversion\")
+  char c = (int)argv[0][0] + argv[argc-1][0];
+  return c;
+}" dHAVE_PRAGMA_GCC)
+if (dHAVE_PRAGMA_GCC)
+  set (dHAVE_PRAGMA_GCC TRUE)
+endif ()

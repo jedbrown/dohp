@@ -7,7 +7,11 @@
 #include <petscsys.h>
 
 #define dPragmaQuote(a) _Pragma(#a)
-#define dPragmaGCC(a) dPragmaQuote(GCC a)
+#if defined dHAVE_PRAGMA_GCC
+#  define dPragmaGCC(a) dPragmaQuote(GCC a)
+#else
+#  define dPragmaGCC(a)
+#endif
 
 #if defined dUSE_VALGRIND
 #  include <valgrind/memcheck.h>
