@@ -85,9 +85,15 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
   hflg = 0;                     /* Why can't I just check if the dataset exists? */
 #endif
   if (!hflg) {                  /* Save mesh to external file and create link to it */
-    char imeshpath[dNAME_LEN],*imeshpath_ptr = imeshpath;
+    const char *dhmpath;
+    char dhmpathbuf[dMAX_PATH_LEN],imeshpath[dMAX_PATH_LEN],*imeshpath_ptr = imeshpath;
     iMesh_Instance mi;
-    err = PetscSNPrintf(imeshpath,sizeof imeshpath,"imesh-%s-%03d.h5m",meshname,meshstate);dCHK(err);
+    dInt slash,dot;
+    err = PetscViewerFileGetName(viewer,&dhmpath);dCHK(err);
+    err = dStrcpyS(dhmpathbuf,sizeof dhmpathbuf,dhmpath);dCHK(err);
+    err = dFilePathSplit(dhmpathbuf,&slash,&dot);dCHK(err);
+    dhmpathbuf[dot] = 0; // gets everything but the final '.'
+    err = PetscSNPrintf(imeshpath,sizeof imeshpath,"%s-imesh-%s-%03d.h5m",dhmpathbuf,meshname,meshstate);dCHK(err);
     err = dMeshGetInstance(fs->mesh,&mi);dCHK(err);
     iMesh_save(mi,0,imeshpath,"",&ierr,(int)strlen(imeshpath),0);dICHK(mi,ierr);
 #if defined dH5_USE_EXTERNAL_LINK
