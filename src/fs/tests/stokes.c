@@ -79,7 +79,9 @@ static dErr StokesCaseRegisterAll(void)
 
   dFunctionBegin;
   err = StokesCaseRegisterAll_Exact();dCHK(err);
+#if defined dHAVE_GDAL
   err = StokesCaseRegisterAll_Jako();dCHK(err);
+#endif
   dFunctionReturn(0);
 }
 

@@ -18,12 +18,18 @@ dohp_link_executable (bu bu.c)
 dohp_link_executable (cunit cunit.c)
 dohp_link_executable (elast elast.c elastexact.c)
 
-# Stokes needs to link GDAL too so dohp_link_executable does not work
-add_executable (stokes stokes.c stokesjako.c stokesexact.c)
-target_link_libraries (stokes dohp ${GDAL_LIBRARY})
+set (STOKES_SOURCES stokes.c stokesexact.c)
+set (VHT_SOURCES vht.c vhtexact.c)
+if (dHAVE_GDAL) # GDAL is required in these cases
+  set_source_files_properties (stokesjako.c PROPERTIES COMPILE_FLAGS "-I${GDAL_INCLUDE_DIR}")
+  list (APPEND STOKES_SOURCES stokesjako.c)
+endif ()
 
-add_executable (vht vht.c vhtexact.c)
-target_link_libraries (vht dohp)
+# dohp_link_executable does not currently work to link GDAL
+add_executable (stokes ${STOKES_SOURCES})
+target_link_libraries (stokes dohp ${GDAL_LIBRARY})
+add_executable (vht ${VHT_SOURCES})
+target_link_libraries (vht dohp ${GDAL_LIBRARY})
 
 dohp_add_test (fs-mf-projection-v1 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 5 -snes_monitor_short -ksp_converged_reason -dfs_ordering_type natural -proj_version 1)
 #dohp_add_test (fs-mf-projection-v2 1 fs-ex1 -snes_mf -ksp_type minres -const_BDeg 5 -snes_monitor_short -ksp_converged_reason -dfs_ordering_type natural -proj_version 2)

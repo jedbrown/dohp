@@ -6,5 +6,6 @@
 #cmakedefine dUSE_LOG_FINEGRAIN
 #cmakedefine dUSE_VALGRIND
 #cmakedefine dHAVE_PRAGMA_GCC
+#cmakedefine dHAVE_GDAL
 
 #endif
