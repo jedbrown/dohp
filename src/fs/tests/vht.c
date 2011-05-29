@@ -203,6 +203,7 @@ static dErr VHTCaseDestroy(VHTCase *scase)
 
   dFunctionBegin;
   if ((*scase)->destroy) {err = ((*scase)->destroy)(*scase);dCHK(err);}
+  err = dUnitsDestroy(&(*scase)->units);dCHK(err);
   err = dFree(*scase);dCHK(err);
   dFunctionReturn(0);
 }
