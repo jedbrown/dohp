@@ -1669,6 +1669,32 @@ static dErr VHTErrorNorms(VHT vht,Vec X,dReal N0u[3],dReal N1u[3],dReal N0p[3],d
   dFunctionReturn(0);
 }
 
+static dErr VHTVecNormsSplit(VHT vht,Vec X,NormType ntype,dReal norms[3])
+{
+  dErr err;
+  Vec Xu,Xp,Xe;
+
+  dFunctionBegin;
+  err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
+  err = VecNorm(Xu,ntype,&norms[0]);dCHK(err);
+  err = VecNorm(Xp,ntype,&norms[1]);dCHK(err);
+  err = VecNorm(Xe,ntype,&norms[2]);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr SNESMonitorVHTSplit(SNES snes,PetscInt its,PetscReal norm2,void *ctx)
+{
+  PetscViewerASCIIMonitor viewer = ctx;
+  VHT vht;
+  dErr err;
+  Vec F;
+  dReal norms[3];
+
+  dFunctionBegin;
+  err = SNESGetFunction(snes,&F,NULL,(void**)&vht);dCHK(err);
+  err = VHTVecNormsSplit(vht,F,NORM_2,norms);dCHK(err);
+  err = PetscViewerASCIIMonitorPrintf(viewer,"%3D SNES Function norm %12.6e  VHT norms % 12.6e % 12.6e % 12.6e\n",its,(double)norm2,norms[0],norms[1],norms[2]);dCHK(err);
+  dFunctionReturn(0);
+}
 // This function cannot runs separately for each field because the nodal basis may be different for each field
 static dErr VHTGetSolutionField_All(VHT vht,dFS fs,dInt fieldnumber,Vec *insoln)
 {
@@ -1859,7 +1885,8 @@ int main(int argc,char *argv[])
   Mat J,B;
   Vec R,X,Xsoln = NULL;
   SNES snes;
-  dBool check_error,check_null,compute_explicit,use_jblock,viewdhm;
+  dBool check_error,check_null,compute_explicit,use_jblock,viewdhm,snes_monitor_vht;
+  char monfilename[PETSC_MAX_PATH_LEN];
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -1882,12 +1909,18 @@ int main(int argc,char *argv[])
     if (check_null) {
       err = PetscOptionsBool("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",compute_explicit=dFALSE,&compute_explicit,NULL);dCHK(err);
     }
+    err = PetscOptionsString("-snes_monitor_vht","Monitor norm of function split into components","SNESMonitorSet","stdout",monfilename,sizeof monfilename,&snes_monitor_vht);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   err = VHTGetMatrices(vht,use_jblock,&J,&B);dCHK(err);
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,R,VHTFunction,vht);dCHK(err);
   err = SNESSetJacobian(snes,J,B,VHTJacobian,vht);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
+  if (snes_monitor_vht) {
+    PetscViewerASCIIMonitor monviewer;
+    err = PetscViewerASCIIMonitorCreate(((PetscObject)snes)->comm,monfilename,((PetscObject)snes)->tablevel,&monviewer);dCHK(err);
+    err = SNESMonitorSet(snes,SNESMonitorVHTSplit,monviewer,(PetscErrorCode (*)(void**))PetscViewerASCIIMonitorDestroy);dCHK(err);
+  }
   {
     KSP    ksp;
     PC     pc;
