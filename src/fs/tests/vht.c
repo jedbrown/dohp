@@ -213,6 +213,9 @@ static dErr VHTCaseRegisterAll(void)
 
   dFunctionBegin;
   err = VHTCaseRegisterAll_Exact();dCHK(err);
+#if defined dHAVE_GDAL
+  err = VHTCaseRegisterAll_Jako();dCHK(err);
+#endif
   dFunctionReturn(0);
 }
 static dErr VHTLogEpochViewLine3_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2],const char *n3,const dReal v3[2])

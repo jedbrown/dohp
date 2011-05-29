@@ -150,5 +150,6 @@ extern PetscFList VHTCaseList;
 dErr VHTCaseRegister(const char *name,VHTCaseCreateFunction screate);
 
 dErr VHTCaseRegisterAll_Exact(void); /* Defined in generated vhtexact.c */
+dErr VHTCaseRegisterAll_Jako(void);
 
 #endif

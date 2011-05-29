@@ -23,6 +23,8 @@ set (VHT_SOURCES vht.c vhtexact.c)
 if (dHAVE_GDAL) # GDAL is required in these cases
   set_source_files_properties (stokesjako.c PROPERTIES COMPILE_FLAGS "-I${GDAL_INCLUDE_DIR}")
   list (APPEND STOKES_SOURCES stokesjako.c)
+  set_source_files_properties (vhtjako.c PROPERTIES COMPILE_FLAGS "-I${GDAL_INCLUDE_DIR}")
+  list (APPEND VHT_SOURCES vhtjako.c)
 endif ()
 
 # dohp_link_executable does not currently work to link GDAL
