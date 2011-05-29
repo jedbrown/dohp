@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import division
+from __future__ import division, with_statement
 
 import sympy
 from sympy import Matrix, ccode
@@ -88,7 +88,8 @@ class ElastExact_2(ElastExact):
 
 if __name__ == "__main__":
     solutions = [ElastExact_0(), ElastExact_1(), ElastExact_2()]
-    with open('elastexact.h', 'w') as fheader, open('elastexact.c', 'w') as fimpl:
+    with open('elastexact.h', 'w') as fheader:
+      with open('elastexact.c', 'w') as fimpl:
         fheader.write('#include <dohptype.h>\n\n')
         fheader.write('struct ElastParam {dReal lambda,mu;};\n')
         fheader.write('struct ElastExactCtx {dReal a,b,c,scale;};\n')

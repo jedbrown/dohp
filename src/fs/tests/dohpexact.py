@@ -1,9 +1,9 @@
-from __future__ import division
+from __future__ import division, with_statement
 
 import sympy
 from sympy import Matrix, ccode
 import itertools
-from IPython.Debugger import Tracer; itrace = Tracer()
+#from IPython.Debugger import Tracer; itrace = Tracer()
 
 def concat(llist):
     return itertools.chain(*llist)

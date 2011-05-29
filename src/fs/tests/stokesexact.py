@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import division
+from __future__ import division, with_statement
 
 import sympy
 from sympy import Matrix, ccode
