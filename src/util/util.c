@@ -24,6 +24,25 @@ dErr dStrcpyS(char dest[restrict],size_t n,const char src[restrict])
   err = dMemzero(d,n);dCHK(err);
   dFunctionReturn(0);
 }
+dErr dFilePathSplit(const char *path,dInt *slash,dInt *dot)
+{
+  size_t ns;
+  dInt i;
+  dErr err;
+
+  dFunctionBegin;
+  err = dStrlen(path,&ns);dCHK(err);
+  *dot = 0;
+  for (i=(dInt)ns-1; ; i--) {
+    if (path[i] == '.') {*dot = i; break;}
+    if (path[i] == '/' || i == 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Path '%s' does not contain valid suffix",path);
+  }
+  *slash = -1;
+  for ( ; i>=0; i++) {
+    if (path[i] == '/') {*slash = i; break;}
+  }
+  dFunctionReturn(0);
+}
 
 dErr dObjectGetComm(dObject obj,MPI_Comm *comm)
 { return PetscObjectGetComm(obj,comm); }
