@@ -241,6 +241,7 @@ static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
   dFunctionBegin;
   err = PetscViewerASCIIPrintf(viewer,"Logged %d epochs\n",vlog->epoch+1);dCHK(err);
   err = VHTLogEpochView(&vlog->global,viewer,"Global");dCHK(err);
+  err = VHTLogEpochView(&vlog->epochs[vlog->epoch],viewer,"Latest");dCHK(err);
   dFunctionReturn(0);
 }
 static void VHTLogEpochRangeReset(dReal a[2]) {a[0] = PETSC_MAX_REAL; a[1] = PETSC_MIN_REAL;}
