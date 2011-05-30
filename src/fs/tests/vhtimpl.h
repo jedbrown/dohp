@@ -25,6 +25,7 @@ struct VHTRheology {
   dReal rhow;                   /* Density of melt */
   dReal beta_CC;                /* Clausius-Capeyron gradient */
   dReal T0;                     /* Reference temperature for definition of enthalpy and viscosity */
+  dReal p0;                     /* Reference pressure, model pressure is the deviation from reference pressure */
   dReal T3;                     /* Triple point temperature */
   dReal splice_delta;           /* Characteristic width of splice */
   dReal gravity;                /* Strength of gravity in z direction (probably negative) */

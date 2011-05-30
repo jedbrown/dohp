@@ -51,7 +51,7 @@ def separate(x,w):
 class VHTExact(Exact):
     def __init__(self, name=None, model=None, param='a b c d e'):
         if model is None:
-            model = ' '.join(['B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity',
+            model = ' '.join(['B0 Bomega R Q V T0 p0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity',
                               'Kstab mask_momtrans mask_rho mask_Ep',
                               ])
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
@@ -61,8 +61,8 @@ class VHTExact(Exact):
         return (rhou, p, E), (drhou, dp, dE)
     def solve_eqstate(self, rhou, p, E, drhou, dp, dE):
         "Uses the equation of state to solve for observable quantities and their derivatives"
-        spdel, rhoi, rhow, T3, T0, c_i, beta_CC, L = self.model_get('splice_delta rhoi rhow T3 T0 c_i beta_CC Latent')
-        T_m = T3 - beta_CC * p # melting temperature at current pressure
+        spdel, rhoi, rhow, T3, T0, p0, c_i, beta_CC, L = self.model_get('splice_delta rhoi rhow T3 T0 p0 c_i beta_CC Latent')
+        T_m = T3 - beta_CC * (p+p0) # melting temperature at current pressure
         e_m = c_i * (T_m - T0) # melting energy at current pressure
         # At this point, we should solve an implicit system for (e,rho,omega).  Unfortunately, doing so would require
         # solving an inhomogeneous system involving separate(), is problematic to do symbolically. Putting a
@@ -97,15 +97,15 @@ class VHTExact(Exact):
         return (e,T,omega,rho), (de,dT,domega,drho)
     def eta(self, p, T, omega, gamma):       # Power law with Arrhenius relation
         from sympy import exp
-        B0, Bomega, R, Q, V, T0, eps, gamma0, pe, beta_CC = self.model_get('B0 Bomega R Q V T0 eps gamma0 pe beta_CC')
+        B0, Bomega, R, Q, V, T0, p0, eps, gamma0, pe, beta_CC = self.model_get('B0 Bomega R Q V T0 p0 eps gamma0 pe beta_CC')
         n = 1/(pe - 1)
-        Tstar = T - beta_CC * p
-        B = B0 * exp((Q - p*V) / (n*R*Tstar) - Q/(n*R*T0)) * (1 + Bomega * omega)**(-1/n)
+        Tstar = T - beta_CC * (p+p0)
+        B = B0 * exp((Q - (p+p0)*V) / (n*R*Tstar) - Q/(n*R*T0)) * (1 + Bomega * omega)**(-1/n)
         return B * (eps**2 + gamma/gamma0)**((pe-2)/2)
     def weak_homogeneous(self, x, U, dU, V, dV):
         (rhou,p,E), (drhou,dp,dE) = self.unpack(U,dU)
         (e,T,omega,rho), (de,dT,domega,drho) = self.solve_eqstate(rhou,p,E,drhou,dp,dE)
-        k_T, kappa_w, Kstab, L, grav, rhoi = self.model_get('k_T kappa_w Kstab Latent gravity rhoi')
+        k_T, kappa_w, Kstab, L, grav, rhoi, p0 = self.model_get('k_T kappa_w Kstab Latent gravity rhoi p0')
         mask_momtrans, mask_Ep = self.model_get('mask_momtrans mask_Ep')
         gravvec = grav*Matrix([0,0,1])
         u = rhou / rho                    # total velocity
@@ -118,7 +118,7 @@ class VHTExact(Exact):
         (rhou_,p_,E_), (drhou_,dp_,dE_) = self.unpack(V,dV)
         conserve_momentum = -drhou_.dot(mask_momtrans*rhou*u.T - eta*Dui + p*I) - rhou_.dot(rho*gravvec)
         conserve_mass     = -p_ * drhou.trace()
-        conserve_energy   = -dE_.dot((E+mask_Ep*p)*u + heatflux - Kstab*dE) -E_*(eta*Dui.dot(Dui) + rhou.dot(gravvec))
+        conserve_energy   = -dE_.dot((E+mask_Ep*(p+p0))*u + heatflux - Kstab*dE) -E_*(eta*Dui.dot(Dui) + rhou.dot(gravvec))
         return conserve_momentum + conserve_mass + conserve_energy
     def create_prototype(self, definition=False):
         return 'dErr VHTCaseCreate_%(name)s(VHTCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))
