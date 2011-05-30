@@ -501,6 +501,7 @@ static dErr VHTSetFromOptions(VHT vht)
         if (n < 3) vht->alldirichlet = dFALSE;                             /* @bug More work to determine independent of the mesh whether all the boundaries are Dirichlet */
       }
     }
+    err = PetscOptionsBool("-vht_alldirichlet","Remove the pressure null space (all Dirichlet momentum boundary conditions)","",vht->alldirichlet,&vht->alldirichlet,NULL);dCHK(err);
     err = PetscOptionsList("-vht_case","Which sort of case to run","",VHTCaseList,scasename,scasename,sizeof(scasename),NULL);dCHK(err);
     err = PetscOptionsBool("-vht_view","View VHT configuration","",doview,&doview,NULL);dCHK(err);
     err = VHTLogSetFromOptions(&vht->log);dCHK(err);
