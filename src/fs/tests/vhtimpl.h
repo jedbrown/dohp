@@ -70,6 +70,7 @@ struct _n_VHTCase {
   dBool reality; // The "solution" is just a guess or boundary conditions
   dUnits units;
   struct VHTUnitTable utable;
+  char name[dNAME_LEN];
   void *data;
 };
 typedef dErr (*VHTCaseCreateFunction)(VHTCase);

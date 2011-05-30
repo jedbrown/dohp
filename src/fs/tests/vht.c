@@ -54,6 +54,7 @@ static dErr VHTCaseSetType(VHTCase scase,const VHTCaseType type)
 
   dFunctionBegin;
   err = VHTCaseFind(type,&f);dCHK(err);
+  err = dStrcpyS(scase->name,sizeof scase->name,type);dCHK(err);
   err = (*f)(scase);dCHK(err);
   dFunctionReturn(0);
 }
@@ -1937,7 +1938,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsBool("-check_error","Compute errors","",check_error,&check_error,NULL);dCHK(err);
     err = PetscOptionsBool("-use_jblock","Use blocks to apply Jacobian instead of unified (more efficient) version","",use_jblock=dFALSE,&use_jblock,NULL);dCHK(err);
     err = PetscOptionsString("-viewdhm","View the solution (filename optional)","","vht.dhm",dhmfilename,sizeof dhmfilename,&viewdhm);dCHK(err);
-    if (viewdhm && !dhmfilename[0]) {err = PetscStrcpy(dhmfilename,"vht.dhm");dCHK(err);}
+    if (viewdhm && !dhmfilename[0]) {err = PetscSNPrintf(dhmfilename,sizeof dhmfilename,"vht-%s.dhm",vht->scase->name);dCHK(err);}
     err = PetscOptionsBool("-check_null","Check that constant pressure really is in the null space","",check_null=dFALSE,&check_null,NULL);dCHK(err);
     if (check_null) {
       err = PetscOptionsBool("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",compute_explicit=dFALSE,&compute_explicit,NULL);dCHK(err);
