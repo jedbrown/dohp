@@ -167,6 +167,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     rheo->mask_momtrans = 1;
     rheo->mask_rho      = 0;
     rheo->mask_wmom     = 1;
+    rheo->mask_Ep       = 1;
     err = PetscFListDestroy(&profiles);dCHK(err);
     err = dOptionsRealUnits("-rheo_B0","Viscosity at reference strain rate and temperature","",u->Viscosity,rheo->B0,&rheo->B0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_Bomega","Softening due to water content","",NULL,rheo->Bomega,&rheo->Bomega,NULL);dCHK(err);
@@ -193,6 +194,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_mask_momtrans","Multiplier for the transport term in momentum balance","",NULL,rheo->mask_momtrans,&rheo->mask_momtrans,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_rho","Multiplier for density variation due to omega","",NULL,rheo->mask_rho,&rheo->mask_rho,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_wmom","Multiplier for ice velocity contribution from momentum of water","",NULL,rheo->mask_wmom,&rheo->mask_wmom,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_mask_Ep","Multiplier for pressure in (E+p) term of energy equation","",NULL,rheo->mask_Ep,&rheo->mask_Ep,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -1162,7 +1164,7 @@ static dErr VHTPointwiseFunction(VHTCase scase,const dReal x[3],dReal weight,
   p_[0] = -weight * (drhou[0]+drhou[4]+drhou[8] + fp[0]);                        // -q tr(drhou) - forcing, note tr(drhou) = div(rhou)
   E_[0] = -weight * (Sigma + fE[0]);                                             // Strain heating and thermal forcing
   E_[0] -= weight * rhou[2] * rheo->gravity;                                     // Gravitational source term for energy
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i]*(E[0]+p[0]) + heatflux[i]);        // Transport and diffusion
+  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i]*(E[0]+rheo->mask_Ep*p[0]) + heatflux[i]);        // Transport and diffusion
   dFunctionReturn(0);
 }
 static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *rheo,dReal weight,
@@ -1186,7 +1188,7 @@ static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *r
   for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) drhou_[i*3+j] = -weight * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
   p_[0] = -weight*(drhou1[0]+drhou1[4]+drhou1[8]);                 // -q tr(Du)
   E_[0] = -weight*(Sigma1 - rhou1[2]*rheo->gravity);
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * (E1[0]+p1[0]) + ui1[i] * (st->E + st->p)
+  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * (E1[0]+rheo->mask_Ep*p1[0]) + ui1[i] * (st->E + rheo->mask_Ep*st->p)
                                                - st->K[0]*dp1[i] - st->K[1]*dE1[i]
                                                - (st->K1[0][0]*p1[0] + st->K1[0][1]*E1[0])*st->dp[i]
                                                - (st->K1[1][0]*p1[0] + st->K1[1][1]*E1[0])*st->dE[i]);
@@ -1232,7 +1234,7 @@ static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct 
   for (dInt i=0; i<3; i++) ui[i] = st->u[i] - rheo->mask_wmom*st->wmom[i] / rho.x;
   for (dInt i=0; i<3; i++) ui1[i] = u1[i] + rheo->mask_wmom*(rheo->kappa_w*domega1[i]/rho.x + st->wmom[i]/dSqr(rho.x)*rho1);
   E_[0] = -weight * Sigma1;
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * E1[0] + ui1[i]*(st->E + st->p)
+  for (dInt i=0; i<3; i++) dE_[i] = -weight * (ui[i] * E1[0] + ui1[i]*(st->E + rheo->mask_Ep*st->p)
                                                - st->K[1]*dE1[i]
                                                - st->K1[0][1]*E1[0]*st->dp[i]
                                                - st->K1[1][1]*E1[0]*st->dE[i]);
