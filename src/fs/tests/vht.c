@@ -1020,7 +1020,7 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   omega2[0] = o2pp;
   omega2[1] = o2pE;
   omega2[2] = o2EE;
-  VHTAssertRange(omega->x,-0.1,1);
+  VHTAssertRange(omega->x,0,1);
 
   // Diffusivity with respect to dp and dE, flux is: -Kp dp - KE dE
   K[0] = rheo->k_T * T->dp + rheo->Latent * rheo->kappa_w * omega->dp;
