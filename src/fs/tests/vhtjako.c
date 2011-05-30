@@ -25,30 +25,32 @@ typedef int GDALErr;
       dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"GDAL/CPL library routine failed with error code %d",(err)); \
   } while (0)
 
-// Trivial gravity model
-static dErr VHTCaseSolution_Zero(VHTCase dUNUSED scase,const dReal dUNUSED x[3],dScalar rhou[],dScalar drhou[],dScalar *p,dScalar dp[],dScalar *E,dScalar dE[])
+// Advection model
+static dErr VHTCaseSolution_Wind(VHTCase dUNUSED scase,const dReal x[3],dScalar rhou[],dScalar drhou[],dScalar *p,dScalar dp[],dScalar *E,dScalar dE[])
 {                               /* Defines inhomogeneous Dirichlet boundary conditions */
-  for (dInt i=0; i<3; i++) rhou[i] = 0;
+  rhou[0] = (1 - dSqr(x[1])) * (1 + x[2]);
+  rhou[1] = 0;
+  rhou[2] = 0;
   for (dInt i=0; i<9; i++) drhou[i] = 0;
   *p = 0;
   for (dInt i=0; i<3; i++) dp[i] = 0;
-  *E = 0;
+  *E = -x[0] * (1 - dSqr(x[1]));
   for (dInt i=0; i<3; i++) dE[i] = 0;
   return 0;
 }
-static dErr VHTCaseForcing_Zero(VHTCase dUNUSED scase,const dReal dUNUSED x[3],dScalar frhou[],dScalar *fp,dScalar *fE)
+static dErr VHTCaseForcing_Wind(VHTCase dUNUSED scase,const dReal dUNUSED x[3],dScalar frhou[],dScalar *fp,dScalar *fE)
 {
-  for (dInt i=0; i<3; i++) frhou[0] = 0;
+  for (dInt i=0; i<3; i++) frhou[i] = 0;
   fp[0] = 0;
   fE[0] = 0;
   return 0;
 }
-static dErr VHTCaseCreate_Zero(VHTCase scase)
+static dErr VHTCaseCreate_Wind(VHTCase scase)
 {
   dFunctionBegin;
   scase->reality = dTRUE;
-  scase->solution = VHTCaseSolution_Zero;
-  scase->forcing  = VHTCaseForcing_Zero;
+  scase->solution = VHTCaseSolution_Wind;
+  scase->forcing  = VHTCaseForcing_Wind;
   dFunctionReturn(0);
 }
 
@@ -406,6 +408,13 @@ static dErr VHTCaseDestroy_Jako(VHTCase scase)
   err = dFree(scase->data);dCHK(err);
   dFunctionReturn(0);
 }
+static dErr VHTCaseForcing_Jako(VHTCase dUNUSED scase,const dReal dUNUSED x[3],dScalar frhou[],dScalar *fp,dScalar *fE)
+{
+  for (dInt i=0; i<3; i++) frhou[0] = 0;
+  fp[0] = 0;
+  fE[0] = 0;
+  return 0;
+}
 static dErr VHTCaseCreate_Jako(VHTCase scase)
 {
   VHTCase_Jako *jako;
@@ -414,7 +423,7 @@ static dErr VHTCaseCreate_Jako(VHTCase scase)
   dFunctionBegin;
   scase->reality = dTRUE;
   scase->solution = VHTCaseSolution_Jako;
-  scase->forcing  = VHTCaseForcing_Zero;
+  scase->forcing  = VHTCaseForcing_Jako;
   scase->setfromoptions = VHTCaseSetFromOptions_Jako;
   scase->destroy = VHTCaseDestroy_Jako;
 
@@ -432,7 +441,7 @@ dErr VHTCaseRegisterAll_Jako(void)
 
   dFunctionBegin;
   GDALAllRegister();
-  err = VHTCaseRegister("zero",VHTCaseCreate_Zero);dCHK(err);
+  err = VHTCaseRegister("wind",VHTCaseCreate_Wind);dCHK(err);
   err = VHTCaseRegister("jako",VHTCaseCreate_Jako);dCHK(err);
   dFunctionReturn(0);
 }
