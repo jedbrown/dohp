@@ -367,6 +367,7 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
   vht->dirichlet[1]  = 200;
   vht->dirichlet[2]  = 300;
   vht->alldirichlet  = dTRUE;
+  vht->domain_error  = 1;
   vht->function_qmethod = dQUADRATURE_METHOD_FAST;
   vht->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
@@ -505,6 +506,7 @@ static dErr VHTSetFromOptions(VHT vht)
       }
     }
     err = PetscOptionsBool("-vht_alldirichlet","Remove the pressure null space (all Dirichlet momentum boundary conditions)","",vht->alldirichlet,&vht->alldirichlet,NULL);dCHK(err);
+    err = PetscOptionsInt("-vht_domain_error","Throw an error on domain error instead of just calling SNESFunctionDomainError()","",vht->domain_error,&vht->domain_error,NULL);dCHK(err);
     err = PetscOptionsList("-vht_case","Which sort of case to run","",VHTCaseList,scasename,scasename,sizeof(scasename),NULL);dCHK(err);
     err = PetscOptionsBool("-vht_view","View VHT configuration","",doview,&doview,NULL);dCHK(err);
     err = VHTLogSetFromOptions(&vht->log);dCHK(err);
@@ -1238,7 +1240,33 @@ static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct 
                                                - st->K1[1][1]*E1[0]*st->dE[i]);
 }
 
-static dErr VHTFunction(SNES dUNUSED snes,Vec X,Vec Y,void *ctx)
+static dErr VHTCheckDomain_Private(VHT vht,SNES snes,Vec Xp,dBool *in) {
+  dErr err;
+  dInt minloc;
+  dReal pmin;
+
+  PetscFunctionBegin;
+  *in = dTRUE;
+  err = VecMin(Xp,&minloc,&pmin);dCHK(err);
+  pmin += vht->scase->rheo.p0; // Convert from perturbation to absolute
+  if (pmin < 0) {
+    err = PetscInfo2(snes,"Negative pressure at %D value %G\n",minloc,pmin);dCHK(err);
+    if (vht->domain_error >= 1) {
+      *in = PETSC_FALSE;
+      err = SNESSetFunctionDomainError(snes);dCHK(err);
+    }
+    if (vht->domain_error == 2) dERROR(vht->comm,PETSC_ERR_ARG_OUTOFRANGE,"Negative pressure at %D value %G",minloc,pmin);
+  }
+  dFunctionReturn(0);
+}
+#define VHTCheckDomain(vht,snes,Xp) do {        \
+    dErr  _err;                                 \
+    dBool _in;                                  \
+    _err = VHTCheckDomain_Private(vht,snes,Xp,&_in);dCHK(_err); \
+    if (!_in) dFunctionReturn(0);               \
+  } while (0)
+
+static dErr VHTFunction(SNES snes,Vec X,Vec Y,void *ctx)
 {
   VHT              vht = ctx;
   dErr             err;
@@ -1248,6 +1276,7 @@ static dErr VHTFunction(SNES dUNUSED snes,Vec X,Vec Y,void *ctx)
   dFunctionBegin;
   err = VHTLogEpochStart(&vht->log);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
+  VHTCheckDomain(vht,snes,Xp);
   err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, Xu,dFS_INHOMOGENEOUS,Xu,dFS_INHOMOGENEOUS, Xp,dFS_INHOMOGENEOUS,Xp,dFS_INHOMOGENEOUS, Xe,dFS_INHOMOGENEOUS,Xe,dFS_INHOMOGENEOUS);dCHK(err);

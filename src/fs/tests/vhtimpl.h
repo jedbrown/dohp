@@ -145,6 +145,7 @@ struct _n_VHT {
   dRulesetIterator  regioniter[EVAL_UB];
   dInt              dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
   dBool             alldirichlet;
+  dInt              domain_error;
   struct VHTLog     log;
 };
 
