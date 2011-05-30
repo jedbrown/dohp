@@ -33,6 +33,7 @@ struct VHTRheology {
   dReal mask_momtrans;          /* Multiplier for the transport term in momentum balance */
   dReal mask_rho;               /* Multiplier for the true rho */
   dReal mask_Ep;                /* Multiplier for p in (E+p) term in energy equation */
+  dReal eta_min,eta_max;
 };
 struct VHTUnitTable {
   dUnit Length;

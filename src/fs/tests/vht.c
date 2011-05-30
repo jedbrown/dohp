@@ -20,7 +20,7 @@ static const char help[] = "Solve viscous flow coupled to a heat transport probl
 
 #include "vhtimpl.h"
 
-#if 0
+#if 1
 #  define VHTAssertRange(val,low,high) dASSERT((low) <= (val) && (val) <= (high))
 #else
 #  define VHTAssertRange(val,low,high) do {} while (0)
@@ -111,6 +111,8 @@ static dErr VHTCaseProfile_Default(VHTCase scase)
   rheo->T0           = 10;
   rheo->T3           = 10;
   rheo->splice_delta = 1;
+  rheo->eta_min      = 1e-10;
+  rheo->eta_max      = 1e30;
   dFunctionReturn(0);
 }
 static dErr VHTCaseProfile_Ice(VHTCase scase)
@@ -193,6 +195,8 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_mask_momtrans","Multiplier for the transport term in momentum balance","",NULL,rheo->mask_momtrans,&rheo->mask_momtrans,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_rho","Multiplier for density variation due to omega","",NULL,rheo->mask_rho,&rheo->mask_rho,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_Ep","Multiplier for pressure in (E+p) term of energy equation","",NULL,rheo->mask_Ep,&rheo->mask_Ep,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_eta_min","Lower bound for effective viscosity","",u->Viscosity,rheo->eta_min,&rheo->eta_min,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_eta_max","Upper bound for effective viscosity","",u->Viscosity,rheo->eta_max,&rheo->eta_max,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -951,7 +955,7 @@ static dErr VHTRheoSolveEqStateAdjoint_splice(struct VHTRheology *rheo,const dSc
   T2pp = T2ax*x1p*a1p + T2bx*x1p*b1p + T2xx*x1p*x1p;
   T2pE = T2ax*x1E*a1p + T2bx*x1E*b1p + T2xx*x1E*x1p;
   T2EE = T2ax*x1E*a1E + T2bx*x1E*b1E + T2xx*x1E*x1E;
-  VHTAssertRange(T[0],rheo->T0-40,rheo->T3+1);
+  VHTAssertRange(T->x,dMax(0,rheo->T0-40),rheo->T3);
 
   a = 0;
   a1p = 0;
@@ -965,7 +969,7 @@ static dErr VHTRheoSolveEqStateAdjoint_splice(struct VHTRheology *rheo,const dSc
   o2pp = o2ax*x1p*a1p + o2bx*x1p*b1p + o2xx*x1p*x1p;
   o2pE = o2ax*x1E*a1p + o2bx*x1E*b1p + o2xx*x1E*x1p;
   o2EE = o2ax*x1E*a1E + o2bx*x1E*b1E + o2xx*x1E*x1E;
-  VHTAssertRange(omega[0],-0.1,1);
+  VHTAssertRange(omega->x,0,1);
 
   // Diffusivity with respect to dp and dE, flux is: -Kp dp - KE dE
   K[0] = rheo->k_T * T->dp + rheo->Latent * rheo->kappa_w * omega->dp;
@@ -1080,6 +1084,7 @@ static dErr VHTRheoViscosity(struct VHTRheology *rheo,dScalar p,VHTScalarD *T,VH
   err = VHTRheoArrhenius(rheo,p,T,omega,&B);dCHK(err);
   VHTAssertRange(gamma_reg,dSqr(rheo->eps),1e20);
   eta->x = B.x * power;
+  VHTAssertRange(eta->x,rheo->eta_min,rheo->eta_max);
   eta->dp = B.dp * power;
   eta->dE = B.dE * power;
   *eta1gamma = B.x * power1gamma / rheo->gamma0;
