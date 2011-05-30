@@ -32,7 +32,6 @@ struct VHTRheology {
   dReal mask_kinetic;           /* Parameter to turn on the use of kinetic energy when computing velocity */
   dReal mask_momtrans;          /* Multiplier for the transport term in momentum balance */
   dReal mask_rho;               /* Multiplier for the true rho */
-  dReal mask_wmom;              /* Multiplier for the momentum attributable to moisture transport */
   dReal mask_Ep;                /* Multiplier for p in (E+p) term in energy equation */
 };
 struct VHTUnitTable {
@@ -91,10 +90,10 @@ struct VHTStash {
   dScalar omega2[3];            /* Second derivatives: o2pp, o2pE=o2Ep, o2EE */
   VHTScalarD eta;
   dReal eta1gamma;
+  VHTScalarD rho;
   dReal p,E;
   dReal dE[3];
   dReal dp[3];
-  dReal wmom[3];                /* Momentum of the water fraction in reference frame of ice */
 };
 
 struct VHTLogEpoch {

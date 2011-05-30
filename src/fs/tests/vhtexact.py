@@ -52,7 +52,7 @@ class VHTExact(Exact):
     def __init__(self, name=None, model=None, param='a b c d e'):
         if model is None:
             model = ' '.join(['B0 Bomega R Q V T0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity',
-                              'Kstab mask_momtrans mask_rho mask_wmom mask_Ep',
+                              'Kstab mask_momtrans mask_rho mask_Ep',
                               ])
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
     def unpack(self, U, dU):
@@ -105,22 +105,20 @@ class VHTExact(Exact):
     def weak_homogeneous(self, x, U, dU, V, dV):
         (rhou,p,E), (drhou,dp,dE) = self.unpack(U,dU)
         (e,T,omega,rho), (de,dT,domega,drho) = self.solve_eqstate(rhou,p,E,drhou,dp,dE)
-        k_T, kappa_w, Kstab, L, grav = self.model_get('k_T kappa_w Kstab Latent gravity')
-        mask_momtrans, mask_wmom, mask_Ep = self.model_get('mask_momtrans mask_wmom mask_Ep')
+        k_T, kappa_w, Kstab, L, grav, rhoi = self.model_get('k_T kappa_w Kstab Latent gravity rhoi')
+        mask_momtrans, mask_Ep = self.model_get('mask_momtrans mask_Ep')
         gravvec = grav*Matrix([0,0,1])
         u = rhou / rho                    # total velocity
         du = (1/rho) * drhou - MASK*u * drho.T # total velocity gradient
-        wmom = -kappa_w * domega          # momentum of water part in reference frame of ice, equal to mass flux
-        ui = u - mask_wmom*wmom/rho       # ice velocity
         dui = du                          # We cheat again here. The second term should also be differentiated, but that would require second derivatives
         Dui = sym(dui)
         gamma = SecondInvariant(Dui)
         eta = self.eta(p, T, omega, gamma)
-        heatflux = -k_T * dT + L * wmom
+        heatflux = -k_T * dT - L * (1-omega)*rhoi / rho * kappa_w * domega;
         (rhou_,p_,E_), (drhou_,dp_,dE_) = self.unpack(V,dV)
         conserve_momentum = -drhou_.dot(mask_momtrans*rhou*u.T - eta*Dui + p*I) - rhou_.dot(rho*gravvec)
         conserve_mass     = -p_ * drhou.trace()
-        conserve_energy   = -dE_.dot((E+mask_Ep*p)*ui + heatflux - Kstab*dE) -E_*(eta*Dui.dot(Dui) + rhou.dot(gravvec))
+        conserve_energy   = -dE_.dot((E+mask_Ep*p)*u + heatflux - Kstab*dE) -E_*(eta*Dui.dot(Dui) + rhou.dot(gravvec))
         return conserve_momentum + conserve_mass + conserve_energy
     def create_prototype(self, definition=False):
         return 'dErr VHTCaseCreate_%(name)s(VHTCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))
