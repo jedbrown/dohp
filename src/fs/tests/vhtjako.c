@@ -163,8 +163,8 @@ static dErr VHTCaseSolution_Jako(VHTCase scase,const dReal x[3],dScalar rhou[],d
 
   for (dInt i=0; i<3; i++) rhou[i] = rheo->rhoi * u[i]; // Just assume constant density
   for (dInt i=0; i<9; i++) drhou[i] = 0;
-  *p = rheo->rhoi * rheo->gravity * (h - x[2]);
-  for (dInt i=0; i<3; i++) dp[i] = -rheo->rhoi * rheo->gravity * (i==2);
+  *p = rheo->rhoi * rheo->gravity[2] * (h - x[2]);
+  for (dInt i=0; i<3; i++) dp[i] = -rheo->rhoi * rheo->gravity[i];
   *E = rheo->rhoi * e;
   for (dInt i=0; i<3; i++) dE[i] = 0;
   dFunctionReturn(0);

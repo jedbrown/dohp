@@ -51,7 +51,7 @@ def separate(x,w):
 class VHTExact(Exact):
     def __init__(self, name=None, model=None, param='a b c d e'):
         if model is None:
-            model = ' '.join(['B0 Bomega R Q V T0 p0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w gravity',
+            model = ' '.join(['B0 Bomega R Q V T0 p0 eps gamma0 pe beta_CC rhoi rhow T3 c_i Latent splice_delta k_T kappa_w',
                               'Kstab mask_momtrans mask_rho mask_Ep',
                               ])
         Exact.__init__(self, name=name, model=model, param=param, fieldspec=[('rhou',3), ('p',1), ('E',1)])
@@ -105,9 +105,9 @@ class VHTExact(Exact):
     def weak_homogeneous(self, x, U, dU, V, dV):
         (rhou,p,E), (drhou,dp,dE) = self.unpack(U,dU)
         (e,T,omega,rho), (de,dT,domega,drho) = self.solve_eqstate(rhou,p,E,drhou,dp,dE)
-        k_T, kappa_w, Kstab, L, grav, rhoi, p0 = self.model_get('k_T kappa_w Kstab Latent gravity rhoi p0')
+        k_T, kappa_w, Kstab, L, rhoi, p0 = self.model_get('k_T kappa_w Kstab Latent rhoi p0')
         mask_momtrans, mask_Ep = self.model_get('mask_momtrans mask_Ep')
-        gravvec = grav*Matrix([0,0,1])
+        gravvec = Matrix([0,0,0])
         u = rhou / rho                    # total velocity
         du = (1/rho) * drhou - MASK*u * drho.T # total velocity gradient
         dui = du                          # We cheat again here. The second term should also be differentiated, but that would require second derivatives

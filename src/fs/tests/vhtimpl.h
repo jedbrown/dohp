@@ -28,7 +28,7 @@ struct VHTRheology {
   dReal p0;                     /* Reference pressure, model pressure is the deviation from reference pressure */
   dReal T3;                     /* Triple point temperature */
   dReal splice_delta;           /* Characteristic width of splice */
-  dReal gravity;                /* Strength of gravity in z direction (probably negative) */
+  dReal gravity[3];             /* Gravity vector */
   dReal Kstab;                  /* Stabilization for energy diffusion */
   dReal supg;                   /* Multiplier for SU/PG stabilization */
   dReal mask_kinetic;           /* Parameter to turn on the use of kinetic energy when computing velocity */

@@ -192,7 +192,9 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_p0","Reference pressure (corresponds to solution pressure=0)","",u->Pressure,rheo->p0,&rheo->p0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_T3","Triple point temperature","",u->Temperature,rheo->T3,&rheo->T3,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_splice_delta","Characteristic width of split","",u->Energy,rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
-    err = dOptionsRealUnits("-rheo_gravity","Gravity in z-direction (probably negative)","",u->Acceleration,rheo->gravity,&rheo->gravity,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_gravity_x","Gravity in x-direction","",u->Acceleration,rheo->gravity[0],&rheo->gravity[0],NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_gravity_y","Gravity in y-direction","",u->Acceleration,rheo->gravity[1],&rheo->gravity[1],NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_gravity_z","Gravity in z-direction","",u->Acceleration,rheo->gravity[2],&rheo->gravity[2],NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_Kstab","Stabilization diffusivity, use to prevent negative diffusivity due to non-monotone splice","",NULL,rheo->Kstab,&rheo->Kstab,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_supg","Multiplier for SU/PG stabilization","",NULL,rheo->supg,&rheo->supg,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->mask_kinetic,&rheo->mask_kinetic,NULL);dCHK(err);
@@ -1224,14 +1226,13 @@ static dErr VHTPointwiseFunction(VHTCase scase,const dReal x[3],const dScalar dx
   for (dInt i=0; i<6; i++) symstress[i] = st->eta.x * st->Dui[i] - (i<3)*(p[0]+rheo->p0); // eta Du - p I
   dTensorSymUncompress3(symstress,stress);
   Sigma = st->eta.x*dColonSymScalar3(st->Dui,st->Dui);                         // Strain heating
-  for (dInt i=0; i<3; i++) rhou_[i] = -weight * frhou[i];                      // Momentum forcing term
-  rhou_[2] -= weight * rho.x * rheo->gravity;                                  // Gravitational source term
+  for (dInt i=0; i<3; i++) rhou_[i] = -weight * (rho.x * rheo->gravity[i] + frhou[i]); // Momentum source terms
   for (dInt i=0; i<3; i++)
     for (dInt j=0; j<3; j++)
       drhou_[i*3+j] = -weight * (rheo->mask_momtrans*rhou[i]*st->u[j] - stress[i*3+j]);
   p_[0] = -weight * (drhou[0]+drhou[4]+drhou[8] + fp[0]);                        // -q tr(drhou) - forcing, note tr(drhou) = div(rhou)
   E_[0] = -weight * (Sigma + fE[0]);                                             // Strain heating and thermal forcing
-  E_[0] -= weight * rhou[2] * rheo->gravity;                                     // Gravitational source term for energy
+  E_[0] -= weight * dDotScalar3(rhou,rheo->gravity);                             // Gravitational source term for energy
   for (dInt i=0; i<3; i++) dE_[i] = -weight * (st->u[i]*(E[0]+rheo->mask_Ep*(p[0]+rheo->p0)) + heatflux[i]);        // Transport and diffusion
   dFunctionReturn(0);
 }
@@ -1249,10 +1250,10 @@ static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *r
   for (dInt i=0; i<3; i++) u1[i] = rhou1[i] / rho.x - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
   VHTStashGetStreamlineFlux1(st,rheo,dx,u1,dE1,supgflux1);
 
-  for (dInt i=0; i<3; i++) rhou_[i] = -weight * rho1 * (i==2) * rheo->gravity;
+  for (dInt i=0; i<3; i++) rhou_[i] = -weight * rho1 * rheo->gravity[i];
   for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) drhou_[i*3+j] = -weight * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
   p_[0] = -weight*(drhou1[0]+drhou1[4]+drhou1[8]);                 // -q tr(Du)
-  E_[0] = -weight*(Sigma1 - rhou1[2]*rheo->gravity);
+  E_[0] = -weight*(Sigma1 - dDotScalar3(rhou1,rheo->gravity));
   for (dInt i=0; i<3; i++) dE_[i] = -weight * (st->u[i] * (E1[0]+rheo->mask_Ep*p1[0]) + u1[i] * (st->E + rheo->mask_Ep*(st->p+rheo->p0))
                                                - st->K[0]*dp1[i] - st->K[1]*dE1[i]
                                                - (st->K1[0][0]*p1[0] + st->K1[0][1]*E1[0])*st->dp[i]
@@ -1283,7 +1284,7 @@ static void VHTPointwiseJacobian_up(const struct VHTStash *st,const struct VHTRh
   VHTStashGetStress1(st,rheo,drhou1,p1,E1,Stress1,NULL);
   VHTStashGetRho(st,rheo,&rho);
   rho1 = rho.dp*p1 + rho.dE*E1;
-  for (dInt i=0; i<3; i++) rhou_[i] = -weight * rho1 * (i==2) * rheo->gravity;
+  for (dInt i=0; i<3; i++) rhou_[i] = -weight * rho1 * rheo->gravity[i];
   for (dInt i=0; i<9; i++) drhou_[i] = weight * Stress1[i];
 }
 static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct VHTStash *st,const dScalar dx[9],dReal weight,const dScalar E1[1],const dScalar dE1[3],dScalar E_[1],dScalar dE_[3])
