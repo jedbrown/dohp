@@ -28,7 +28,9 @@ typedef int GDALErr;
 // Advection model
 static dErr VHTCaseSolution_Wind(VHTCase dUNUSED scase,const dReal x[3],dScalar rhou[],dScalar drhou[],dScalar *p,dScalar dp[],dScalar *E,dScalar dE[])
 {                               /* Defines inhomogeneous Dirichlet boundary conditions */
-  rhou[0] = (1 - dSqr(x[1])) * (1 + x[2]);
+  dReal z = (1 + x[2])/2; // in range [0,1]
+  dReal depth = 1-z;
+  rhou[0] = (1 - dSqr(x[1])) * (1 - pow(depth,2));
   rhou[1] = 0;
   rhou[2] = 0;
   for (dInt i=0; i<9; i++) drhou[i] = 0;
