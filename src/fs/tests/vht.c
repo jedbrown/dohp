@@ -117,8 +117,6 @@ static dErr VHTCaseProfile_Default(VHTCase scase)
   rheo->T0           = 10;
   rheo->T3           = 10;
   rheo->splice_delta = 1;
-  rheo->eta_min      = 1e-10;
-  rheo->eta_max      = 1e30;
   dFunctionReturn(0);
 }
 static dErr VHTCaseProfile_Ice(VHTCase scase)
@@ -175,6 +173,8 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     rheo->mask_momtrans = 1;
     rheo->mask_rho      = 0;
     rheo->mask_Ep       = 1;
+    rheo->eta_min       = 1e-10 * rheo->B0;
+    rheo->eta_max       = 1e5 * rheo->B0;
     err = PetscFListDestroy(&profiles);dCHK(err);
     err = dOptionsRealUnits("-rheo_B0","Viscosity at reference strain rate and temperature","",u->Viscosity,rheo->B0,&rheo->B0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_Bomega","Softening due to water content","",NULL,rheo->Bomega,&rheo->Bomega,NULL);dCHK(err);
