@@ -21,7 +21,10 @@ static const char help[] = "Solve viscous flow coupled to a heat transport probl
 #include "vhtimpl.h"
 
 #if 1
-#  define VHTAssertRange(val,low,high) dASSERT((low)-1e-10 < (val) && (val) < (high)+1e-10)
+#  define VHTAssertRange(val,low,high) do {                             \
+    if ((val) < (low)-1e-10 || (high)+1e-10 < (val))                    \
+      dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Value %s=%G not in range [%G,%G]",#val,(dReal)(val),(dReal)(low),(dReal)(high)); \
+  } while (0)
 #else
 #  define VHTAssertRange(val,low,high) do {} while (0)
 #endif
