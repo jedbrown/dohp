@@ -412,7 +412,7 @@ static dErr VHTCaseDestroy_Jako(VHTCase scase)
 }
 static dErr VHTCaseForcing_Jako(VHTCase dUNUSED scase,const dReal dUNUSED x[3],dScalar frhou[],dScalar *fp,dScalar *fE)
 {
-  for (dInt i=0; i<3; i++) frhou[0] = 0;
+  for (dInt i=0; i<3; i++) frhou[i] = 0;
   fp[0] = 0;
   fE[0] = 0;
   return 0;
