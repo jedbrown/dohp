@@ -21,7 +21,7 @@ static const char help[] = "Solve viscous flow coupled to a heat transport probl
 #include "vhtimpl.h"
 
 #if 1
-#  define VHTAssertRange(val,low,high) dASSERT((low) <= (val) && (val) <= (high))
+#  define VHTAssertRange(val,low,high) dASSERT((low)-1e-10 < (val) && (val) < (high)+1e-10)
 #else
 #  define VHTAssertRange(val,low,high) do {} while (0)
 #endif
