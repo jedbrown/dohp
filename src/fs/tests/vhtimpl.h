@@ -30,6 +30,7 @@ struct VHTRheology {
   dReal splice_delta;           /* Characteristic width of splice */
   dReal gravity;                /* Strength of gravity in z direction (probably negative) */
   dReal Kstab;                  /* Stabilization for energy diffusion */
+  dReal supg;                   /* Multiplier for SU/PG stabilization */
   dReal mask_kinetic;           /* Parameter to turn on the use of kinetic energy when computing velocity */
   dReal mask_momtrans;          /* Multiplier for the transport term in momentum balance */
   dReal mask_rho;               /* Multiplier for the true rho */
