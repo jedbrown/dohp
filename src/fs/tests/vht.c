@@ -34,6 +34,7 @@ PetscFList VHTCaseList = NULL;
 
 static void VHTStashGetRho(const struct VHTStash *st,const struct VHTRheology *rheo,VHTScalarD *rho);
 static void VHTStashGetUH(const struct VHTStash *stash,const dReal dx[9],const dScalar u1[3],dReal *uh,dReal *uh1);
+static dErr VHTStashGetStreamlineStabilization(const struct VHTStash *st,const struct VHTRheology *rheo,const dReal dx[9],const dScalar u1[3],dScalar *stab,dScalar *stab1);
 
 dErr VHTCaseRegister(const char *name,VHTCaseCreateFunction screate)
 {
@@ -232,9 +233,15 @@ static dErr VHTCaseRegisterAll(void)
 #endif
   dFunctionReturn(0);
 }
-static dErr VHTLogEpochViewLine3_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2],const char *n3,const dReal v3[2])
-{return PetscViewerASCIIPrintf(viewer,"%s: %-10s [% 8.2e,% 8.2e]  %-10s [% 8.2e,% 8.2e]  %-10s [% 8.2e,% 8.2e]\n",linename,n1,v1[0],v1[1],n2,v2[0],v2[1],n3,v3[0],v3[1]);}
+static dErr VHTLogEpochViewLine2_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2])
+{return PetscViewerASCIIPrintf(viewer,"%s: %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]\n",linename,n1,v1[0],v1[1],n2,v2[0],v2[1]);}
+static dUNUSED dErr VHTLogEpochViewLine3_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2],const char *n3,const dReal v3[2])
+{return PetscViewerASCIIPrintf(viewer,"%s: %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]\n",linename,n1,v1[0],v1[1],n2,v2[0],v2[1],n3,v3[0],v3[1]);}
+static dErr VHTLogEpochViewLine4_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2],const char *n3,const dReal v3[2],const char *n4,const dReal v4[2])
+{return PetscViewerASCIIPrintf(viewer,"%s: %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]\n",linename,n1,v1[0],v1[1],n2,v2[0],v2[1],n3,v3[0],v3[1],n4,v4[0],v4[1]);}
+#define VHTLogEpochViewLine2(viewer,linename,ep,f1,f2) VHTLogEpochViewLine2_Private((viewer),linename,#f1,(ep)->f1,#f2,(ep)->f2)
 #define VHTLogEpochViewLine3(viewer,linename,ep,f1,f2,f3) VHTLogEpochViewLine3_Private((viewer),linename,#f1,(ep)->f1,#f2,(ep)->f2,#f3,(ep)->f3)
+#define VHTLogEpochViewLine4(viewer,linename,ep,f1,f2,f3,f4) VHTLogEpochViewLine4_Private((viewer),linename,#f1,(ep)->f1,#f2,(ep)->f2,#f3,(ep)->f3,#f4,(ep)->f4)
 static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char *fmt,...)
 {
   va_list Argp;
@@ -246,9 +253,9 @@ static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char
   va_start(Argp,fmt);
   err = PetscVSNPrintf(name,sizeof name,fmt,&fullLen,Argp);dCHK(err);
   va_end(Argp);
-  err = VHTLogEpochViewLine3(viewer,name,ep,eta,cPeclet,cReynolds);dCHK(err);
-  err = VHTLogEpochViewLine3(viewer,name,ep,p,E,Prandtl);dCHK(err);
-  err = VHTLogEpochViewLine3(viewer,name,ep,T,omega,K1);dCHK(err);
+  err = VHTLogEpochViewLine4(viewer,name,ep,p,E,T,omega);dCHK(err);
+  err = VHTLogEpochViewLine4(viewer,name,ep,eta,cPeclet,cReynolds,Prandtl);dCHK(err);
+  err = VHTLogEpochViewLine2(viewer,name,ep,upwind,K1);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
@@ -306,12 +313,15 @@ static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
 {
   struct VHTLogEpoch *ep = &vlog->epochs[vlog->epoch];
   dScalar u1[3] = {0,0,0};
-  dReal cPeclet,cReynolds,uh,uh1,Prandtl;
+  dReal cPeclet,cReynolds,uh,uh1,Prandtl,upwind,upwind1;
   VHTScalarD rho;
+  dErr err;
 
   dFunctionBegin;
   VHTStashGetRho(stash,rheo,&rho);
   VHTStashGetUH(stash,dx,u1,&uh,&uh1);
+  err = VHTStashGetStreamlineStabilization(stash,rheo,dx,u1,&upwind,&upwind1);dCHK(err);
+  upwind *= dDotScalar3(stash->u,stash->u);
   cPeclet = uh / stash->K[1];
   cReynolds = rho.x * uh / stash->eta.x;
   Prandtl = rheo->c_i * stash->eta.x / rheo->k_T;
@@ -324,6 +334,7 @@ static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
   VHTLogEpochRangeUpdate(ep->omega,stash->omega.x);
   VHTLogEpochRangeUpdate(ep->Prandtl,Prandtl);
   VHTLogEpochRangeUpdate(ep->K1,stash->K[1]);
+  VHTLogEpochRangeUpdate(ep->upwind,upwind);
   dFunctionReturn(0);
 }
 static dErr VHTLogSetFromOptions(struct VHTLog *vlog)
