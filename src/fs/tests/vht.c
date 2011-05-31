@@ -200,6 +200,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_gravity_z","Gravity in z-direction","",u->Acceleration,rheo->gravity[2],&rheo->gravity[2],NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_Kstab","Stabilization diffusivity, use to prevent negative diffusivity due to non-monotone splice","",NULL,rheo->Kstab,&rheo->Kstab,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_supg","Multiplier for SU/PG stabilization","",NULL,rheo->supg,&rheo->supg,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_supg_crosswind","Fraction of streamline diffusion to apply in crosswind direction","",NULL,rheo->supg_crosswind,&rheo->supg_crosswind,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->mask_kinetic,&rheo->mask_kinetic,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_momtrans","Multiplier for the transport term in momentum balance","",NULL,rheo->mask_momtrans,&rheo->mask_momtrans,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_rho","Multiplier for density variation due to omega","",NULL,rheo->mask_rho,&rheo->mask_rho,NULL);dCHK(err);
@@ -1160,33 +1161,39 @@ static dErr VHTStashGetStreamlineStabilization(const struct VHTStash *st,const s
 static dErr VHTStashGetStreamlineFlux(const struct VHTStash *st,const struct VHTRheology *rheo,const dReal dx[9],dScalar flux[3])
 {
   const dScalar *u = st->u,*dE = st->dE,u1[3] = {0,0,0};
-  dScalar stab,stab1;
+  dReal stab,stab1,cross;
   dErr err;
 
   dFunctionBegin;
   err = VHTStashGetStreamlineStabilization(st,rheo,dx,u1,&stab,&stab1);dCHK(err);
+  cross = rheo->supg_crosswind * stab * dDotScalar3(u,u);
   for (dInt i=0; i<3; i++) {
     flux[i] = 0;
     for (dInt j=0; j<3; j++)
-      flux[i] -= stab * u[i] * u[j] * dE[j];
+      flux[i] -= (cross + stab * u[i] * u[j]) * dE[j];
   }
   dFunctionReturn(0);
 }
 static dErr VHTStashGetStreamlineFlux1(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],const dScalar u1[3],const dScalar dE1[3],dScalar flux1[3])
 {
   const dScalar *u = st->u,*dE = st->dE;
-  dScalar stab,stab1;
+  dReal cross,cross1,stab,stab1;
   dErr err;
 
   dFunctionBegin;
   err = VHTStashGetStreamlineStabilization(st,rheo,dx,u1,&stab,&stab1);dCHK(err);
+  cross = rheo->supg_crosswind * stab * dDotScalar3(u,u);
+  cross1 = rheo->supg_crosswind * (stab1 * dDotScalar3(u,u)
+                                   + stab * 2 * dDotScalar3(u,u1));
   for (dInt i=0; i<3; i++) {
     flux1[i] = 0;
     for (dInt j=0; j<3; j++)
       flux1[i] -= (stab1 * u[i] * u[j] * dE[j]
                    + stab * u1[i] * u[j] * dE[j]
                    + stab * u[i] * u1[j] * dE[j]
-                   + stab * u[i] * u[j] * dE1[j]);
+                   + stab * u[i] * u[j] * dE1[j]
+                   + cross1 * dE[j]
+                   + cross * dE1[j]);
   }
   dFunctionReturn(0);
 }
