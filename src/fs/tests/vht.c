@@ -63,14 +63,38 @@ static dErr VHTCaseSetType(VHTCase scase,const VHTCaseType type)
   err = (*f)(scase);dCHK(err);
   dFunctionReturn(0);
 }
-static dErr VHTCaseUpdateUnitsTable(VHTCase scase)
+static dErr VHTCaseUnitsSetFromOptions(VHTCase scase)
 {
   struct VHTUnitTable *u = &scase->utable;
   dUnits units = scase->units;
   dErr err;
+  dInt bprof;
   dBool flg;
 
   dFunctionBegin;
+  err = PetscOptionsInt("-vht_units_profile","Set base units by profile 0=SI, 1=annual, 2=gravitational","",bprof=0,&bprof,NULL);dCHK(err);
+  switch (bprof) {
+  case 0:
+    err = dUnitsGetBase(units,dUNITS_LENGTH,&u->Length);dCHK(err);
+    err = dUnitsGetBase(units,dUNITS_TIME,&u->Time);dCHK(err);
+    err = dUnitsGetBase(units,dUNITS_MASS,&u->Mass);dCHK(err);
+    err = dUnitsGetBase(units,dUNITS_TEMPERATURE,&u->Temperature);dCHK(err);
+    break;
+  case 1:
+    err = dUnitsSetBase(units,dUNITS_LENGTH,"metre","m",1,100,&u->Length);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_TIME,"year","a",31556926,1,&u->Time);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_MASS,"exaton","Et",1e21,1000,&u->Mass);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_TEMPERATURE,"Kelvin","K",1,1,&u->Temperature);dCHK(err);
+    break;
+  case 2:
+    err = dUnitsSetBase(units,dUNITS_LENGTH,"metre","m",1,1,&u->Length);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_TIME,"second","s",1,1e-8,&u->Time);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_MASS,"kilogram","kg",1,1e-9,&u->Mass);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_TEMPERATURE,"Kelvin","K",1,1,&u->Temperature);dCHK(err);
+    break;
+  default: dERROR(scase->comm,PETSC_ERR_ARG_OUTOFRANGE,"Unknown base units profile '%D'",bprof);
+  }
+err = dUnitsSetFromOptions(units);dCHK(err);
   err = dUnitsCreateUnit(units,"DENSITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-3.0,[dUNITS_MASS]=1.0},&u->Density);dCHK(err);
   err = dUnitsCreateUnit(units,"ENERGY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0},&u->Energy);dCHK(err);
   err = dUnitsCreateUnit(units,"PRESSURE",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-1.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0},&u->Pressure);dCHK(err);
