@@ -719,7 +719,7 @@ static dErr MatGetVecs_DohpFS(Mat A,Vec *x,Vec *y)
 dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
 {
   Mat    J;
-  dInt   bs,n;
+  dInt   bs,n,perrow;
   dErr   err;
   ISLocalToGlobalMapping mapping,bmapping;
 
@@ -733,16 +733,18 @@ dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
   err = MatCreate(((dObject)fs)->comm,&J);dCHK(err);
   err = MatSetSizes(J,bs*n,bs*n,PETSC_DETERMINE,PETSC_DETERMINE);dCHK(err);
   err = MatSetType(J,mtype);dCHK(err);
-  err = MatSeqBAIJSetPreallocation(J,bs,27,NULL);dCHK(err);         /* \bug incorrect for unstructured meshes */
-  err = MatMPIBAIJSetPreallocation(J,bs,27,NULL,25,NULL);dCHK(err); /* \todo this wastes a lot of space in parallel */
-  err = MatSeqSBAIJSetPreallocation(J,bs,27,NULL);dCHK(err);
-  err = MatMPISBAIJSetPreallocation(J,bs,27,NULL,27,NULL);dCHK(err);
+  perrow = 27;
+  err = PetscOptionsGetInt(((dObject)fs)->prefix,"-mat_prealloc",&perrow,NULL);dCHK(err);
+  err = MatSeqBAIJSetPreallocation(J,bs,perrow,NULL);dCHK(err);         /* \bug incorrect for unstructured meshes */
+  err = MatMPIBAIJSetPreallocation(J,bs,perrow,NULL,25,NULL);dCHK(err); /* \todo this wastes a lot of space in parallel */
+  err = MatSeqSBAIJSetPreallocation(J,bs,perrow,NULL);dCHK(err);
+  err = MatMPISBAIJSetPreallocation(J,bs,perrow,NULL,27,NULL);dCHK(err);
   if (fs->assemblereduced) {
-    err = MatSeqAIJSetPreallocation(J,27,NULL);dCHK(err);
-    err = MatMPIAIJSetPreallocation(J,27,NULL,25,NULL);dCHK(err);
+    err = MatSeqAIJSetPreallocation(J,perrow,NULL);dCHK(err);
+    err = MatMPIAIJSetPreallocation(J,perrow,NULL,25,NULL);dCHK(err);
   } else {
-    err = MatSeqAIJSetPreallocation(J,bs*27,NULL);dCHK(err);
-    err = MatMPIAIJSetPreallocation(J,bs*27,NULL,bs*25,NULL);dCHK(err);
+    err = MatSeqAIJSetPreallocation(J,bs*perrow,NULL);dCHK(err);
+    err = MatMPIAIJSetPreallocation(J,bs*perrow,NULL,bs*25,NULL);dCHK(err);
   }
   err = MatSetBlockSize(J,bs);dCHK(err);
   err = DMGetLocalToGlobalMapping((DM)fs,&mapping);dCHK(err);
