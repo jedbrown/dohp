@@ -125,27 +125,27 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
   struct VHTRheology *rheo = &scase->rheo;
   const dReal
     n = 3,
-    Asoftness_si = 3.61e-13, // Softness parameter
+    Asoftness_si = 3.61e-13 * exp(-6e4/(8.314*263.15)), // Softness parameter
     refstrainrate_si = 1e-10; // about 0.003 / year
 
   dFunctionBegin;
   // Viscosity at reference strain rate before dimensionless Arrhenius term
   rheo->B0            = dUnitNonDimensionalizeSI(u->Viscosity,pow(Asoftness_si,-1/n) * pow(0.5*dSqr(refstrainrate_si),(1-n)/(2*n)));
   rheo->Bomega        = 181.25; // nondimensional
-  rheo->R             = dUnitNonDimensionalizeSI(u->Energy,8.314) / dUnitNonDimensionalizeSI(u->Temperature,1.0); // 8.314 J mol^-1 K^-1
+  rheo->R             = dUnitNonDimensionalizeSI(u->EnergyPerTemperature,8.314); // 8.314 J mol^-1 K^-1
   rheo->Q             = dUnitNonDimensionalizeSI(u->Energy,6.0e4); // 6.0 J mol^-1
   rheo->V             = dUnitNonDimensionalizeSI(u->Volume,-13.0e-6); // m^3 / mol; it always bothered my that the "volume" was negative
   rheo->du0           = dUnitNonDimensionalizeSI(u->StrainRate,refstrainrate_si); // Reference strain rate
   rheo->gamma0        = 0.5*dSqr(rheo->du0); // second invariant of reference strain rate
   rheo->eps           = 1e-3;   // Dimensionless fraction of du0
   rheo->pe            = 1 + 1./n;
-  rheo->k_T           = dUnitNonDimensionalizeSI(u->Energy,2.1) / (dUnitNonDimensionalizeSI(u->Time,1)*dUnitNonDimensionalizeSI(u->Temperature,1)*dUnitNonDimensionalizeSI(u->Length,1)); // thermal conductivity (W/(m K))
-  rheo->kappa_w       = dUnitNonDimensionalizeSI(u->Mass,1.045e-4) / (dUnitDimensionalizeSI(u->Length,1)*dUnitNonDimensionalizeSI(u->Time,1));
-  rheo->c_i           = dUnitNonDimensionalizeSI(u->Energy,2009) / (dUnitDimensionalizeSI(u->Mass,1)*dUnitNonDimensionalizeSI(u->Temperature,1));
-  rheo->Latent        = dUnitNonDimensionalizeSI(u->Energy,3.34e5) / dUnitDimensionalizeSI(u->Mass,1);
+  rheo->k_T           = dUnitNonDimensionalizeSI(u->ThermalConductivity,2.1); // W/(m K)
+  rheo->kappa_w       = dUnitNonDimensionalizeSI(u->HydroConductivity,1.045e-4); // kg / (m s)
+  rheo->c_i           = dUnitNonDimensionalizeSI(u->SpecificHeat,2009);
+  rheo->Latent        = dUnitNonDimensionalizeSI(u->EnergyPerMass,3.34e5);
   rheo->rhoi          = dUnitNonDimensionalizeSI(u->Density,910); // Density of ice
   rheo->rhow          = dUnitNonDimensionalizeSI(u->Density,999.8395); // Density of water at 0 degrees C, STP
-  rheo->beta_CC       = dUnitNonDimensionalizeSI(u->Temperature,7.9e-8) / dUnitNonDimensionalizeSI(u->Pressure,1.0);
+  rheo->beta_CC       = dUnitNonDimensionalizeSI(u->CCGradient,7.9e-8);
   rheo->T0            = dUnitNonDimensionalizeSI(u->Temperature,260.);
   rheo->T3            = dUnitNonDimensionalizeSI(u->Temperature,273.15);
   rheo->splice_delta  = 1e-3 * rheo->Latent;
@@ -161,8 +161,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
   dErr err;
 
   dFunctionBegin;
-  err = dUnitsSetFromOptions(scase->units);dCHK(err);
-  err = VHTCaseUpdateUnitsTable(scase);dCHK(err);
+  err = VHTCaseUnitsSetFromOptions(scase);dCHK(err);
   err = PetscFListAdd(&profiles,"default",NULL,(void(*)(void))VHTCaseProfile_Default);dCHK(err);
   err = PetscFListAdd(&profiles,"ice",NULL,(void(*)(void))VHTCaseProfile_Ice);dCHK(err);
   err = PetscOptionsBegin(scase->comm,NULL,"VHTCase options",__FILE__);dCHK(err); {
@@ -396,21 +395,6 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
   err = VHTLogEpochReset(&vht->log.global);dCHK(err);
 
   err = dUnitsCreate(vht->comm,&vht->scase->units);dCHK(err);
-  {
-    dUnits units = vht->scase->units;
-    struct VHTUnitTable *u = &vht->scase->utable;
-    if (0) {
-      err = dUnitsSetBase(units,dUNITS_LENGTH,"metre","m",1,100,&u->Length);dCHK(err);
-      err = dUnitsSetBase(units,dUNITS_TIME,"year","a",31556926,1,&u->Time);dCHK(err);
-      err = dUnitsSetBase(units,dUNITS_MASS,"exaton","Et",1e21,1000,&u->Mass);dCHK(err);
-      err = dUnitsSetBase(units,dUNITS_TEMPERATURE,"Kelvin","K",1,1,&u->Temperature);dCHK(err);
-    } else {
-      err = dUnitsGetBase(units,dUNITS_LENGTH,&u->Length);dCHK(err);
-      err = dUnitsGetBase(units,dUNITS_TIME,&u->Time);dCHK(err);
-      err = dUnitsGetBase(units,dUNITS_MASS,&u->Mass);dCHK(err);
-      err = dUnitsGetBase(units,dUNITS_TEMPERATURE,&u->Temperature);dCHK(err);
-    }
-  }
 
   *invht = vht;
   dFunctionReturn(0);
