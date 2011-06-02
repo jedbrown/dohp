@@ -26,17 +26,21 @@ typedef int GDALErr;
   } while (0)
 
 // Advection model
-static dErr VHTCaseSolution_Wind(VHTCase dUNUSED scase,const dReal x[3],dScalar rhou[],dScalar drhou[],dScalar *p,dScalar dp[],dScalar *E,dScalar dE[])
+static dErr VHTCaseSolution_Wind(VHTCase scase,const dReal x[3],dScalar rhou[],dScalar drhou[],dScalar *p,dScalar dp[],dScalar *E,dScalar dE[])
 {                               /* Defines inhomogeneous Dirichlet boundary conditions */
-  dReal z = (1 + x[2])/2; // in range [0,1]
+  const dReal L[3] = {0.5*(scase->bbox[0][1] - scase->bbox[0][0]),
+                      0.5*(scase->bbox[1][1] - scase->bbox[1][0]),
+                      0.5*(scase->bbox[2][1] - scase->bbox[2][0])}; // Each var is in [-L,L]
+  const dReal X[3] = {x[0]/L[0],x[1]/L[1],x[2]/L[2]};
+  dReal z = (1 + X[2])/2; // in range [0,1]
   dReal depth = 1-z;
-  rhou[0] = (1 - dSqr(x[1])) * (1 - pow(depth,2));
+  rhou[0] = (1 - dSqr(X[1])) * (1 - pow(depth,2));
   rhou[1] = 0;
   rhou[2] = 0;
   for (dInt i=0; i<9; i++) drhou[i] = 0;
   *p = 0;
   for (dInt i=0; i<3; i++) dp[i] = 0;
-  *E = -x[0] * (1 - dSqr(x[1]));
+  *E = -X[0] * (1 - dSqr(X[1]));
   for (dInt i=0; i<3; i++) dE[i] = 0;
   return 0;
 }
