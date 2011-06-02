@@ -158,6 +158,7 @@ int main(int argc, char *argv[])
   const char outopts[]="",pTagName[]="OWNING_PART", pSetName[]="PARALLEL_PARTITION";
   PetscBool  do_geom=1,assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
   PetscBool  do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1;
+  dReal rotate_y = 0;
   char outfile[256] = "dblock.h5m";
   char outgeom[256] = "dblock.brep";
   dInt verbose = 1;
@@ -192,6 +193,7 @@ int main(int argc, char *argv[])
     err = PetscOptionsBool("-do_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
     err = PetscOptionsBool("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
     err = PetscOptionsBool("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
+    err = PetscOptionsReal("-rotate_y","rotate domain by given angle (degrees) around y axis)","none",rotate_y,&rotate_y,NULL);dCHK(err); rotate_y *= PETSC_PI/180.;
     err = PetscOptionsString("-box","box x0:x1,y0:y1,z0:z1","none",boxstr,boxstr,sizeof(boxstr),NULL);dCHK(err);
     err = PetscOptionsString("-mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
     err = PetscOptionsString("-procs_mnp","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
@@ -224,6 +226,7 @@ int main(int argc, char *argv[])
   for (i=0; i<m; i++) {
     for (j=0; j<n; j++) {
       for (k=0; k<p; k++) {
+        dReal X,Y,Z;
         I = (i*n+j)*p+k;
         if (i==0) AddToFace(face,facecount,3,I);
         else if (i==m-1) AddToFace(face,facecount,1,I);
@@ -231,9 +234,12 @@ int main(int argc, char *argv[])
         else if (j==n-1) AddToFace(face,facecount,2,I);
         else if (k==0) AddToFace(face,facecount,4,I);
         else if (k==p-1) AddToFace(face,facecount,5,I);
-        x.v[3*I+0] = box.x0 + (box.x1-box.x0)*(1.*i/(m-1));
-        x.v[3*I+1] = box.y0 + (box.y1-box.y0)*(1.*j/(n-1));
-        x.v[3*I+2] = box.z0 + (box.z1-box.z0)*(1.*k/(p-1));
+        X = box.x0 + (box.x1-box.x0)*(1.*i/(m-1));
+        Y = box.y0 + (box.y1-box.y0)*(1.*j/(n-1));
+        Z = box.z0 + (box.z1-box.z0)*(1.*k/(p-1));
+        x.v[3*I+0] = cos(rotate_y) * X - sin(rotate_y) * Z;
+        x.v[3*I+1] = Y;
+        x.v[3*I+2] = sin(rotate_y) * X + cos(rotate_y) * Z;
       }
     }
   }
