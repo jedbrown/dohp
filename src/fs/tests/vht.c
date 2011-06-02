@@ -92,9 +92,15 @@ static dErr VHTCaseUnitsSetFromOptions(VHTCase scase)
     err = dUnitsSetBase(units,dUNITS_MASS,"kilogram","kg",1,1e-9,&u->Mass);dCHK(err);
     err = dUnitsSetBase(units,dUNITS_TEMPERATURE,"Kelvin","K",1,1,&u->Temperature);dCHK(err);
     break;
+  case 3:
+    err = dUnitsSetBase(units,dUNITS_LENGTH,"metre","m",1,100,&u->Length);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_TIME,"second","s",1,1e-6,&u->Time);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_MASS,"kilogram","kg",1,1e-3,&u->Mass);dCHK(err);
+    err = dUnitsSetBase(units,dUNITS_TEMPERATURE,"Kelvin","K",1,1,&u->Temperature);dCHK(err);
+    break;
   default: dERROR(scase->comm,PETSC_ERR_ARG_OUTOFRANGE,"Unknown base units profile '%D'",bprof);
   }
-err = dUnitsSetFromOptions(units);dCHK(err);
+  err = dUnitsSetFromOptions(units);dCHK(err);
   err = dUnitsCreateUnit(units,"DENSITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-3.0,[dUNITS_MASS]=1.0},&u->Density);dCHK(err);
   err = dUnitsCreateUnit(units,"ENERGY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0},&u->Energy);dCHK(err);
   err = dUnitsCreateUnit(units,"PRESSURE",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-1.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0},&u->Pressure);dCHK(err);
@@ -191,7 +197,6 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
   dErr err;
 
   dFunctionBegin;
-  err = VHTCaseUnitsSetFromOptions(scase);dCHK(err);
   err = PetscFListAdd(&profiles,"default",NULL,(void(*)(void))VHTCaseProfile_Default);dCHK(err);
   err = PetscFListAdd(&profiles,"ice",NULL,(void(*)(void))VHTCaseProfile_Ice);dCHK(err);
   err = PetscOptionsBegin(scase->comm,NULL,"VHTCase options",__FILE__);dCHK(err); {
@@ -535,6 +540,7 @@ static dErr VHTSetFromOptions(VHT vht)
   dErr err;
 
   dFunctionBegin;
+  err = VHTCaseUnitsSetFromOptions(vht->scase);dCHK(err);
   err = dStrcpyS(vht->mattype_Buu,sizeof(vht->mattype_Buu),MATBAIJ);dCHK(err);
   err = dStrcpyS(vht->mattype_Bpp,sizeof(vht->mattype_Bpp),MATAIJ);dCHK(err);
   err = dStrcpyS(vht->mattype_Bee,sizeof(vht->mattype_Bee),MATAIJ);dCHK(err);
