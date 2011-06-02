@@ -265,7 +265,7 @@ static dErr VHTCaseRegisterAll(void)
 #endif
   dFunctionReturn(0);
 }
-static dErr VHTLogEpochViewLine2_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2])
+static dUNUSED dErr VHTLogEpochViewLine2_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2])
 {return PetscViewerASCIIPrintf(viewer,"%s: %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]\n",linename,n1,v1[0],v1[1],n2,v2[0],v2[1]);}
 static dUNUSED dErr VHTLogEpochViewLine3_Private(PetscViewer viewer,const char *linename,const char *n1,const dReal v1[2],const char *n2,const dReal v2[2],const char *n3,const dReal v3[2])
 {return PetscViewerASCIIPrintf(viewer,"%s: %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]  %-9s [% 8.2e,% 8.2e]\n",linename,n1,v1[0],v1[1],n2,v2[0],v2[1],n3,v3[0],v3[1]);}
@@ -287,7 +287,7 @@ static dErr VHTLogEpochView(struct VHTLogEpoch *ep,PetscViewer viewer,const char
   va_end(Argp);
   err = VHTLogEpochViewLine4(viewer,name,ep,p,E,T,omega);dCHK(err);
   err = VHTLogEpochViewLine4(viewer,name,ep,eta,cPeclet,cReynolds,Prandtl);dCHK(err);
-  err = VHTLogEpochViewLine2(viewer,name,ep,upwind,K1);dCHK(err);
+  err = VHTLogEpochViewLine3(viewer,name,ep,speed,upwind,K1);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTLogView(struct VHTLog *vlog,PetscViewer viewer)
@@ -345,13 +345,14 @@ static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
 {
   struct VHTLogEpoch *ep = &vlog->epochs[vlog->epoch];
   dScalar u1[3] = {0,0,0};
-  dReal cPeclet,cReynolds,uh,uh1,Prandtl,upwind,upwind1;
+  dReal speed,cPeclet,cReynolds,uh,uh1,Prandtl,upwind,upwind1;
   VHTScalarD rho;
   dErr err;
 
   dFunctionBegin;
   VHTStashGetRho(stash,rheo,&rho);
   VHTStashGetUH(stash,dx,u1,&uh,&uh1);
+  speed = dSqrt(dDotScalar3(stash->u,stash->u));
   err = VHTStashGetStreamlineStabilization(stash,rheo,dx,u1,&upwind,&upwind1);dCHK(err);
   upwind *= dDotScalar3(stash->u,stash->u);
   cPeclet = uh / stash->K[1];
@@ -367,6 +368,7 @@ static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
   VHTLogEpochRangeUpdate(ep->Prandtl,Prandtl);
   VHTLogEpochRangeUpdate(ep->K1,stash->K[1]);
   VHTLogEpochRangeUpdate(ep->upwind,upwind);
+  VHTLogEpochRangeUpdate(ep->speed,speed);
   dFunctionReturn(0);
 }
 static dErr VHTLogSetFromOptions(struct VHTLog *vlog)
