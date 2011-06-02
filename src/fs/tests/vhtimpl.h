@@ -151,7 +151,8 @@ struct _n_VHT {
   char              mattype_Buu[256],mattype_Bpp[256],mattype_Bee[256];
   dQuadratureMethod function_qmethod,jacobian_qmethod;
   dRulesetIterator  regioniter[EVAL_UB];
-  dInt              dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
+  dInt              u_dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
+  dInt              e_dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
   dBool             alldirichlet;
   dInt              domain_error;
   struct VHTLog     log;

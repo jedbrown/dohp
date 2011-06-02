@@ -415,9 +415,12 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
   vht->velocityBDeg  = 3;
   vht->pressureCodim = 1;
   vht->energyBDeg  = 3;
-  vht->dirichlet[0]  = 100;
-  vht->dirichlet[1]  = 200;
-  vht->dirichlet[2]  = 300;
+  vht->u_dirichlet[0]  = 100;
+  vht->u_dirichlet[1]  = 200;
+  vht->u_dirichlet[2]  = 300;
+  vht->e_dirichlet[0]  = 100;
+  vht->e_dirichlet[1]  = 200;
+  vht->e_dirichlet[2]  = 300;
   vht->alldirichlet  = dTRUE;
   vht->domain_error  = 1;
   vht->function_qmethod = dQUADRATURE_METHOD_FAST;
@@ -475,7 +478,17 @@ static dErr MatGetVecs_VHT_ee(Mat A,Vec *x,Vec *y)
   if (y) {err = VecDuplicate(vht->genergy,y);dCHK(err);}
   dFunctionReturn(0);
 }
+static dErr dIntArrayJoin(char buf[],size_t bufsize,const char join[],const dInt values[],dInt n)
+{ // Concatenates list of values until a zero value is found, up to a maximum of n
+  char *p = buf;
 
+  dFunctionBegin;
+  buf[0] = 0;
+  for (dInt i=0; i<n && values[i]; i++) {
+    p += snprintf(p,bufsize-(p-buf),"%s%d",i ? join : "",values[i]);
+  }
+  dFunctionReturn(0);
+}
 static dErr VHTView(VHT vht,PetscViewer viewer)
 {
   dErr err;
@@ -491,11 +504,11 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
   err = PetscViewerASCIIPrintf(viewer,"nodes: u %D  p %D  E %D\n",nu/3,np,ne);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Quadrature methods: F:%s  B:%s\n",dQuadratureMethods[vht->function_qmethod],dQuadratureMethods[vht->jacobian_qmethod]);dCHK(err);
   {
-    char buf[256] = "",*p = buf;
-    for (dInt i=0; i<ALEN(vht->dirichlet) && vht->dirichlet[i]; i++) {
-      p += snprintf(p,ALEN(buf)-(p-buf),"%s%d",i?", ":"",vht->dirichlet[i]);
-    }
-    err = PetscViewerASCIIPrintf(viewer,"Dirichlet conditions applied at: %s\n",buf);dCHK(err);
+    char buf[256];
+    err = dIntArrayJoin(buf,sizeof buf,", ",vht->u_dirichlet,ALEN(vht->u_dirichlet));dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"Dirichlet velocity at: %s\n",buf);dCHK(err);
+    err = dIntArrayJoin(buf,sizeof buf,", ",vht->e_dirichlet,ALEN(vht->e_dirichlet));dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"Dirichlet energy at  : %s\n",buf);dCHK(err);
   }
   {
     struct VHTRheology *rheo = &vht->scase->rheo;
@@ -535,12 +548,16 @@ static dErr VHTSetFromOptions(VHT vht)
     err = PetscOptionsEnum("-vht_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)vht->function_qmethod,(PetscEnum*)&vht->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-vht_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)vht->jacobian_qmethod,(PetscEnum*)&vht->jacobian_qmethod,NULL);dCHK(err);
     {
-      dBool flg; dInt n = ALEN(vht->dirichlet);
-      err = PetscOptionsIntArray("-dirichlet","List of boundary sets on which to impose Dirichlet conditions","",vht->dirichlet,&n,&flg);dCHK(err);
+      dBool flg; dInt n = ALEN(vht->u_dirichlet);
+      err = PetscOptionsIntArray("-vht_u_dirichlet","List of boundary sets on which to impose Dirichlet velocity conditions","",vht->u_dirichlet,&n,&flg);dCHK(err);
       if (flg) {
-        for (dInt i=n; i<ALEN(vht->dirichlet); i++) vht->dirichlet[i] = 0; /* Clear out any leftover values */
+        for (dInt i=n; i<ALEN(vht->u_dirichlet); i++) vht->u_dirichlet[i] = 0; /* Clear out any leftover values */
         if (n < 3) vht->alldirichlet = dFALSE;                             /* @bug More work to determine independent of the mesh whether all the boundaries are Dirichlet */
       }
+      n = ALEN(vht->e_dirichlet);
+      err = PetscOptionsIntArray("-vht_e_dirichlet","List of boundary sets on which to impose Dirichlet energy conditions","",vht->e_dirichlet,&n,&flg);dCHK(err);
+      if (flg) for (dInt i=n; i<ALEN(vht->e_dirichlet); i++) vht->e_dirichlet[i] = 0;
+
     }
     err = PetscOptionsBool("-vht_alldirichlet","Remove the pressure null space (all Dirichlet momentum boundary conditions)","",vht->alldirichlet,&vht->alldirichlet,NULL);dCHK(err);
     err = PetscOptionsInt("-vht_domain_error","Throw an error on domain error instead of just calling SNESFunctionDomainError()","",vht->domain_error,&vht->domain_error,NULL);dCHK(err);
@@ -568,8 +585,8 @@ static dErr VHTSetFromOptions(VHT vht)
   err = dFSSetBlockSize(fsu,3);dCHK(err);
   err = dFSSetMesh(fsu,mesh,domain);dCHK(err);
   err = dFSSetDegree(fsu,jac,dutag);dCHK(err);
-  for (dInt i=0; i<ALEN(vht->dirichlet) && vht->dirichlet[i]>0; i++) {
-    err = dFSRegisterBoundary(fsu,vht->dirichlet[i],dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  for (dInt i=0; i<ALEN(vht->u_dirichlet) && vht->u_dirichlet[i]>0; i++) {
+    err = dFSRegisterBoundary(fsu,vht->u_dirichlet[i],dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
   }
   err = PetscObjectSetOptionsPrefix((dObject)fsu,"u");dCHK(err);
   err = dFSSetFromOptions(fsu);dCHK(err);
@@ -588,9 +605,9 @@ static dErr VHTSetFromOptions(VHT vht)
   err = dFSCreate(vht->comm,&fse);dCHK(err);
   err = dFSSetMesh(fse,mesh,domain);dCHK(err);
   err = dFSSetDegree(fse,jac,detag);dCHK(err);
-  err = dFSRegisterBoundary(fse,100,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-  err = dFSRegisterBoundary(fse,200,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
-  err = dFSRegisterBoundary(fse,300,dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  for (dInt i=0; i<ALEN(vht->e_dirichlet) && vht->e_dirichlet[i]>0; i++) {
+    err = dFSRegisterBoundary(fse,vht->e_dirichlet[i],dFSBSTATUS_DIRICHLET,NULL,NULL);dCHK(err);
+  }
   err = PetscObjectSetOptionsPrefix((dObject)fse,"e");dCHK(err);
   err = dFSSetFromOptions(fse);dCHK(err);
   err = PetscObjectSetName((PetscObject)fse,"dFS_E_0");dCHK(err);
