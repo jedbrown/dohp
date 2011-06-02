@@ -141,6 +141,9 @@ static dErr VHTCaseProfile_Default(VHTCase scase)
   rheo->T0           = 10;
   rheo->T3           = 10;
   rheo->splice_delta = 1;
+  rheo->rscale.momentum = 1;
+  rheo->rscale.mass     = 1;
+  rheo->rscale.energy   = 1;
   dFunctionReturn(0);
 }
 static dErr VHTCaseProfile_Ice(VHTCase scase)
@@ -173,6 +176,9 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
   rheo->T0            = dUnitNonDimensionalizeSI(u->Temperature,260.);
   rheo->T3            = dUnitNonDimensionalizeSI(u->Temperature,273.15);
   rheo->splice_delta  = 1e-3 * rheo->Latent;
+  rheo->rscale.momentum = 1e-6;
+  rheo->rscale.mass     = 1e-6;
+  rheo->rscale.energy   = 1e6;
   dFunctionReturn(0);
 }
 static dErr VHTCaseSetFromOptions(VHTCase scase)
@@ -231,6 +237,9 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_mask_Ep","Multiplier for pressure in (E+p) term of energy equation","",NULL,rheo->mask_Ep,&rheo->mask_Ep,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_eta_min","Lower bound for effective viscosity","",u->Viscosity,rheo->eta_min,&rheo->eta_min,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_eta_max","Upper bound for effective viscosity","",u->Viscosity,rheo->eta_max,&rheo->eta_max,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_rscale_momentum","Scaling for momentum residual","",rheo->rscale.momentum,&rheo->rscale.momentum,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_rscale_mass","Scaling for mass residual","",rheo->rscale.mass,&rheo->rscale.mass,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_rscale_energy","Scaling for energy residual","",rheo->rscale.energy,&rheo->rscale.energy,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -1255,14 +1264,13 @@ static dErr VHTPointwiseFunction(VHTCase scase,const dReal x[3],const dScalar dx
   for (dInt i=0; i<6; i++) symstress[i] = st->eta.x * st->Dui[i] - (i<3)*(p[0]+rheo->p0); // eta Du - p I
   dTensorSymUncompress3(symstress,stress);
   Sigma = st->eta.x*dColonSymScalar3(st->Dui,st->Dui);                         // Strain heating
-  for (dInt i=0; i<3; i++) rhou_[i] = -weight * (rho.x * rheo->gravity[i] + frhou[i]); // Momentum source terms
-  for (dInt i=0; i<3; i++)
-    for (dInt j=0; j<3; j++)
-      drhou_[i*3+j] = -weight * (rheo->mask_momtrans*rhou[i]*st->u[j] - stress[i*3+j]);
-  p_[0] = -weight * (drhou[0]+drhou[4]+drhou[8] + fp[0]);                        // -q tr(drhou) - forcing, note tr(drhou) = div(rhou)
-  E_[0] = -weight * (Sigma + fE[0]);                                             // Strain heating and thermal forcing
-  E_[0] -= weight * dDotScalar3(rhou,rheo->gravity);                             // Gravitational source term for energy
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (st->u[i]*(E[0]+rheo->mask_Ep*(p[0]+rheo->p0)) + heatflux[i]);        // Transport and diffusion
+  for (dInt i=0; i<3; i++) rhou_[i] = -rheo->rscale.momentum*weight * (rho.x * rheo->gravity[i] + frhou[i]); // Momentum source terms
+  for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++)
+                             drhou_[i*3+j] = -rheo->rscale.momentum*weight * (rheo->mask_momtrans*rhou[i]*st->u[j] - stress[i*3+j]);
+  p_[0] = -rheo->rscale.mass*weight * (drhou[0]+drhou[4]+drhou[8] + fp[0]);                        // -q tr(drhou) - forcing, note tr(drhou) = div(rhou)
+  E_[0] = -rheo->rscale.energy*weight * (Sigma + fE[0]);                                             // Strain heating and thermal forcing
+  E_[0] -= rheo->rscale.energy*weight * dDotScalar3(rhou,rheo->gravity);                             // Gravitational source term for energy
+  for (dInt i=0; i<3; i++) dE_[i] = -rheo->rscale.energy*weight * (st->u[i]*(E[0]+rheo->mask_Ep*(p[0]+rheo->p0)) + heatflux[i]);        // Transport and diffusion
   dFunctionReturn(0);
 }
 static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *rheo,const dScalar dx[9],dReal weight,
@@ -1279,15 +1287,18 @@ static dErr VHTPointwiseJacobian(const struct VHTStash *st,struct VHTRheology *r
   for (dInt i=0; i<3; i++) u1[i] = rhou1[i] / rho.x - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
   VHTStashGetStreamlineFlux1(st,rheo,dx,u1,dE1,supgflux1);
 
-  for (dInt i=0; i<3; i++) rhou_[i] = -weight * rho1 * rheo->gravity[i];
-  for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) drhou_[i*3+j] = -weight * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
-  p_[0] = -weight*(drhou1[0]+drhou1[4]+drhou1[8]);                 // -q tr(Du)
-  E_[0] = -weight*(Sigma1 - dDotScalar3(rhou1,rheo->gravity));
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (st->u[i] * (E1[0]+rheo->mask_Ep*p1[0]) + u1[i] * (st->E + rheo->mask_Ep*(st->p+rheo->p0))
-                                               - st->K[0]*dp1[i] - st->K[1]*dE1[i]
-                                               - (st->K1[0][0]*p1[0] + st->K1[0][1]*E1[0])*st->dp[i]
-                                               - (st->K1[1][0]*p1[0] + st->K1[1][1]*E1[0])*st->dE[i]
-                                               + supgflux1[i]);
+  for (dInt i=0; i<3; i++) rhou_[i] = -rheo->rscale.momentum*weight * rho1 * rheo->gravity[i];
+  for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++)
+                             drhou_[i*3+j] = -rheo->rscale.momentum*weight
+                                                      * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
+  p_[0] = -rheo->rscale.mass*weight*(drhou1[0]+drhou1[4]+drhou1[8]);                 // -q tr(Du)
+  E_[0] = -rheo->rscale.energy*weight*(Sigma1 - dDotScalar3(rhou1,rheo->gravity));
+  for (dInt i=0; i<3; i++) dE_[i] = -rheo->rscale.energy*weight
+                             * (st->u[i] * (E1[0]+rheo->mask_Ep*p1[0]) + u1[i] * (st->E + rheo->mask_Ep*(st->p+rheo->p0))
+                                - st->K[0]*dp1[i] - st->K[1]*dE1[i]
+                                - (st->K1[0][0]*p1[0] + st->K1[0][1]*E1[0])*st->dp[i]
+                                - (st->K1[1][0]*p1[0] + st->K1[1][1]*E1[0])*st->dE[i]
+                                + supgflux1[i]);
   dFunctionReturn(0);
 }
 
@@ -1298,12 +1309,14 @@ static void VHTPointwiseJacobian_uu(const struct VHTStash *st,const struct VHTRh
   VHTStashGetRho(st,rheo,&rho);
   VHTStashGetStress1(st,rheo,drhou1,p1,E1,Stress1,NULL);
   for (dInt i=0; i<3; i++) u1[i] = rhou1[i] / rho.x; // perturb u = rhou/rho
-  for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++) drhou_[i*3+j] = -weight * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
+  for (dInt i=0; i<3; i++) for (dInt j=0; j<3; j++)
+                             drhou_[i*3+j] = -rheo->rscale.momentum*weight
+                               * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
 }
 
-static void VHTPointwiseJacobian_pu(dReal weight,const dScalar drhou1[9],dScalar p_[1])
+static void VHTPointwiseJacobian_pu(const struct VHTRheology *rheo,dReal weight,const dScalar drhou1[9],dScalar p_[1])
 {
-  p_[0] = -weight*(drhou1[0]+drhou1[4]+drhou1[8]);
+  p_[0] = -rheo->rscale.mass*weight*(drhou1[0]+drhou1[4]+drhou1[8]);
 }
 
 static void VHTPointwiseJacobian_up(const struct VHTStash *st,const struct VHTRheology *rheo,dReal weight,dScalar p1,dScalar rhou_[3],dScalar drhou_[9])
@@ -1313,8 +1326,8 @@ static void VHTPointwiseJacobian_up(const struct VHTStash *st,const struct VHTRh
   VHTStashGetStress1(st,rheo,drhou1,p1,E1,Stress1,NULL);
   VHTStashGetRho(st,rheo,&rho);
   rho1 = rho.dp*p1 + rho.dE*E1;
-  for (dInt i=0; i<3; i++) rhou_[i] = -weight * rho1 * rheo->gravity[i];
-  for (dInt i=0; i<9; i++) drhou_[i] = weight * Stress1[i];
+  for (dInt i=0; i<3; i++) rhou_[i] = -rheo->rscale.momentum*weight * rho1 * rheo->gravity[i];
+  for (dInt i=0; i<9; i++) drhou_[i] = rheo->rscale.momentum*weight * Stress1[i];
 }
 static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct VHTStash *st,const dScalar dx[9],dReal weight,const dScalar E1[1],const dScalar dE1[3],dScalar E_[1],dScalar dE_[3])
 {
@@ -1326,12 +1339,13 @@ static void VHTPointwiseJacobian_ee(const struct VHTRheology *rheo,const struct 
   for (dInt i=0; i<3; i++) u1[i] = - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
   VHTStashGetStreamlineFlux1(st,rheo,dx,u1,dE1,supgflux1);
 
-  E_[0] = -weight * Sigma1;
-  for (dInt i=0; i<3; i++) dE_[i] = -weight * (st->u[i]*(E1[0]+p1) + u1[i]*(st->E + rheo->mask_Ep*(st->p+rheo->p0))
-                                               - st->K[1]*dE1[i]
-                                               - st->K1[0][1]*E1[0]*st->dp[i]
-                                               - st->K1[1][1]*E1[0]*st->dE[i]
-                                               + supgflux1[i]);
+  E_[0] = -rheo->rscale.energy*weight * Sigma1;
+  for (dInt i=0; i<3; i++) dE_[i] = -rheo->rscale.energy*weight
+                             * (st->u[i]*(E1[0]+p1) + u1[i]*(st->E + rheo->mask_Ep*(st->p+rheo->p0))
+                                - st->K[1]*dE1[i]
+                                - st->K1[0][1]*E1[0]*st->dp[i]
+                                - st->K1[1][1]*E1[0]*st->dE[i]
+                                + supgflux1[i]);
 }
 
 static dErr VHTCheckDomain_Private(VHT vht,SNES snes,Vec Xp,dBool *in) {
@@ -1502,7 +1516,7 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
       break;
     case VHT_MULT_PU:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,&du,NULL,NULL, NULL,NULL,&p_,NULL, NULL,NULL,NULL,NULL);dCHK(err);
-      for (dInt i=0; i<Q; i++) {VHTPointwiseJacobian_pu(jw[i],du[i],&p_[i]);}
+      for (dInt i=0; i<Q; i++) {VHTPointwiseJacobian_pu(&vht->scase->rheo,jw[i],du[i],&p_[i]);}
       err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, NULL,NULL, p_,NULL, NULL,NULL);dCHK(err);
       break;
     default: dERROR(vht->comm,PETSC_ERR_ARG_OUTOFRANGE,"Invalid mmode");

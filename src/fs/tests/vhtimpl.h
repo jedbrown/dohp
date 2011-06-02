@@ -37,6 +37,9 @@ struct VHTRheology {
   dReal mask_rho;               /* Multiplier for the true rho */
   dReal mask_Ep;                /* Multiplier for p in (E+p) term in energy equation */
   dReal eta_min,eta_max;
+  struct {
+    dReal momentum,mass,energy;
+  } rscale;                     /* Residual scaling for momentum,mass,energy */
 };
 struct VHTUnitTable {
   dUnit Length;
