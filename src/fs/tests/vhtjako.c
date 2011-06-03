@@ -339,8 +339,10 @@ static dErr VHTCaseSetUp_Jako(VHTCase scase)
 
     err = dMallocA2(jako->nx*jako->ny,&jako->h,jako->nx*jako->ny,&jako->b);dCHK(err);
 
+    for (dInt i=0; i<6; i++) jako->mygeo[i] = dUnitDimensionalizeSI(scase->utable.Length,jako->mygeo[i]); // Convert to meters
     err = JakoGDALDatasetCreateMem(jako->myref,jako->mygeo,jako->nx,jako->ny,GDT_Float64,&jako->surface_elevation.dataset,&jako->surface_elevation.memory);dCHK(err);
     err = JakoGDALDatasetCreateMem(jako->myref,jako->mygeo,jako->nx,jako->ny,GDT_Float64,&jako->bed_elevation.dataset,&jako->bed_elevation.memory);dCHK(err);
+    for (dInt i=0; i<6; i++) jako->mygeo[i] = dUnitNonDimensionalizeSI(scase->utable.Length,jako->mygeo[i]); // Convert back to non-dimensional length
 
     filedata = GDALOpen(jako->surface_elevation.path, GA_ReadOnly); if (!filedata) dERROR(PETSC_COMM_SELF,PETSC_ERR_FILE_OPEN,"GDALOpen(\"%s\")",jako->surface_elevation.path);
     if (jako->verbose) {err = JakoFileDataView(filedata,"surface_elevation",PETSC_VIEWER_STDOUT_WORLD);dCHK(err);}
