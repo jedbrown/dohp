@@ -523,6 +523,7 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
     err = PetscViewerASCIIPrintf(viewer,"Reference strain rate: %G %s\n",dUnitDimensionalize(u->StrainRate,rheo->du0),dUnitName(u->StrainRate));dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"Reference temperature: %G %s\n",dUnitDimensionalize(u->Temperature,rheo->T0),dUnitName(u->Temperature));dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"Reference viscosity  : %G %s\n",dUnitDimensionalize(u->Viscosity,rheo->B0),  dUnitName(u->Viscosity));dCHK(err);
+    err = PetscViewerASCIIPrintf(viewer,"Momentum diffusivity : %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->B0/rheo->rhoi),  dUnitName(u->Diffusivity));dCHK(err); // kinematic viscosity
     err = PetscViewerASCIIPrintf(viewer,"Thermal diffusivity  : %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->k_T/(rheo->rhoi*rheo->c_i)),dUnitName(u->Diffusivity));dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"Hydraulic diffusivity: %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->kappa_w/rheo->rhoi),dUnitName(u->Diffusivity));dCHK(err);
     if (rheo->Kstab > 0) {err = PetscViewerASCIIPrintf(viewer,"Artificial diffusivity: %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->Kstab),dUnitName(u->Diffusivity));dCHK(err);}
