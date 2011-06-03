@@ -231,7 +231,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_T0","Reference temperature (corresponds to solution Energy=0)","",u->Temperature,rheo->T0,&rheo->T0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_p0","Reference pressure (corresponds to solution pressure=0)","",u->Pressure,rheo->p0,&rheo->p0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_T3","Triple point temperature","",u->Temperature,rheo->T3,&rheo->T3,NULL);dCHK(err);
-    err = dOptionsRealUnits("-rheo_splice_delta","Characteristic width of split","",u->Energy,rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_splice_delta","Characteristic width of split","",u->EnergyPerMass,rheo->splice_delta,&rheo->splice_delta,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_gravity_x","Gravity in x-direction","",u->Acceleration,rheo->gravity[0],&rheo->gravity[0],NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_gravity_y","Gravity in y-direction","",u->Acceleration,rheo->gravity[1],&rheo->gravity[1],NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_gravity_z","Gravity in z-direction","",u->Acceleration,rheo->gravity[2],&rheo->gravity[2],NULL);dCHK(err);
