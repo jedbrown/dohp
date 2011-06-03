@@ -508,7 +508,7 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
   err = VecGetSize(vht->xe,&ne);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"VHT: basis degree: u %D  p %D  E %D\n",vht->velocityBDeg,vht->velocityBDeg-vht->pressureCodim,vht->energyBDeg);dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
-  err = PetscViewerASCIIPrintf(viewer,"nodes: u %D  p %D  E %D\n",nu/3,np,ne);dCHK(err);
+  err = PetscViewerASCIIPrintf(viewer,"Number of nodes: u %D  p %D  E %D\n",nu/3,np,ne);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Quadrature methods: F:%s  B:%s\n",dQuadratureMethods[vht->function_qmethod],dQuadratureMethods[vht->jacobian_qmethod]);dCHK(err);
   {
     char buf[256];
@@ -527,6 +527,8 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
     err = PetscViewerASCIIPrintf(viewer,"Hydraulic diffusivity: %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->kappa_w/rheo->rhoi),dUnitName(u->Diffusivity));dCHK(err);
     if (rheo->Kstab > 0) {err = PetscViewerASCIIPrintf(viewer,"Artificial diffusivity: %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->Kstab),dUnitName(u->Diffusivity));dCHK(err);}
   }
+  err = dRealTableView(3,2,(const dReal*)vht->scase->bbox,PETSC_VIEWER_STDOUT_WORLD,"Mesh bounding box");dCHK(err);
+
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   dFunctionReturn(0);
 }
