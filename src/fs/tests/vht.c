@@ -528,6 +528,15 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   dFunctionReturn(0);
 }
+static void VHTMeshMorph(void *vctx,double *coords)
+{
+  VHT vht = vctx;
+  dReal scale = dUnitNonDimensionalizeSI(vht->scase->utable.Length,1.0); // nondimensionalize 1 meter
+  double x = coords[0],y = coords[1],z = coords[2];
+  coords[0] = scale * x;
+  coords[1] = scale * y;
+  coords[2] = scale * z;
+}
 static dErr VHTSetFromOptions(VHT vht)
 {
   char scasename[256] = "Exact0";
@@ -577,6 +586,7 @@ static dErr VHTSetFromOptions(VHT vht)
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);
+  err = dMeshMorph(mesh,VHTMeshMorph,vht);dCHK(err);
   err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
   err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
