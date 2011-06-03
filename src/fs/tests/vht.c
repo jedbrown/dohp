@@ -158,8 +158,10 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
   struct VHTRheology *rheo = &scase->rheo;
   const dReal
     n = 3,
-    Asoftness_si = 3.61e-13 * exp(-6e4/(8.314*263.15)), // Softness parameter
-    refstrainrate_si = 1e-10; // about 0.003 / year
+    refstress_si = 1e5, // 100 kPa
+    reftemperature_si = 263.15,
+    Asoftness_si = 3.61e-13 * exp(-6e4/(8.314*reftemperature_si)), // Softness parameter
+    refstrainrate_si = Asoftness_si * pow(refstress_si,3.0); // about 0.014 / year
 
   dFunctionBegin;
   // Viscosity at reference strain rate before dimensionless Arrhenius term
@@ -182,9 +184,9 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
   rheo->T0            = dUnitNonDimensionalizeSI(u->Temperature,260.);
   rheo->T3            = dUnitNonDimensionalizeSI(u->Temperature,273.15);
   rheo->splice_delta  = 1e-3 * rheo->Latent;
-  rheo->rscale.momentum = 1e-6;
-  rheo->rscale.mass     = 1e-6;
-  rheo->rscale.energy   = 1e6;
+  rheo->rscale.momentum = 1;
+  rheo->rscale.mass     = 1;
+  rheo->rscale.energy   = 1e10;
   dFunctionReturn(0);
 }
 static dErr VHTCaseSetFromOptions(VHTCase scase)
