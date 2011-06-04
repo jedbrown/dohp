@@ -510,9 +510,9 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
 
   dFunctionBegin;
   err = PetscViewerASCIIGetStdout(vht->comm,&viewer);dCHK(err);
-  err = VecGetSize(vht->xu,&nu);dCHK(err);
-  err = VecGetSize(vht->xp,&np);dCHK(err);
-  err = VecGetSize(vht->xe,&ne);dCHK(err);
+  err = VecGetSize(vht->gvelocity,&nu);dCHK(err);
+  err = VecGetSize(vht->gpressure,&np);dCHK(err);
+  err = VecGetSize(vht->genergy,&ne);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"VHT: basis degree: u %D  p %D  E %D\n",vht->velocityBDeg,vht->velocityBDeg-vht->pressureCodim,vht->energyBDeg);dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Number of nodes: u %D  p %D  E %D\n",nu/3,np,ne);dCHK(err);
