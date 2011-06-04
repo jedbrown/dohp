@@ -406,6 +406,7 @@ static dErr MatMultAdd_VHT_uu(Mat A,Vec gx,Vec gy,Vec gz) {return MatMultXIorA_V
 static dErr MatMultAdd_VHT_up(Mat A,Vec gx,Vec gy,Vec gz) {return MatMultXIorA_VHT_stokes(A,gx,gy,gz,ADD_VALUES,VHT_MULT_UP);}
 static dErr MatMultAdd_VHT_pu(Mat A,Vec gx,Vec gy,Vec gz) {return MatMultXIorA_VHT_stokes(A,gx,gy,gz,ADD_VALUES,VHT_MULT_PU);}
 static dErr MatMult_VHT_ee(Mat A,Vec gx,Vec gy);
+static dErr MatMultAdd_VHT_ee(Mat A,Vec gx,Vec gy,Vec gz);
 static dErr MatGetVecs_VHT_stokes(Mat,Vec*,Vec*);
 static dErr MatGetVecs_VHT_ee(Mat,Vec*,Vec*);
 
@@ -892,6 +893,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
   err = MatCreateShell(vht->comm,ne,ne,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Jee);dCHK(err);
   err = MatShellSetOperation(Jee,MATOP_GET_VECS,(void(*)(void))MatGetVecs_VHT_ee);dCHK(err);
   err = MatShellSetOperation(Jee,MATOP_MULT,(void(*)(void))MatMult_VHT_ee);dCHK(err);
+  err = MatShellSetOperation(Jee,MATOP_MULT_ADD,(void(*)(void))MatMultAdd_VHT_ee);dCHK(err);
   err = MatSetOptionsPrefix(Jee,"Jee_");dCHK(err);
 
   splitis[0] = vht->all.ublock;
@@ -1571,18 +1573,27 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
 
 static dErr MatMult_VHT_ee(Mat A,Vec X,Vec Y)
 {
+  dErr err;
+
+  dFunctionBegin;
+  err = VecZeroEntries(Y);dCHK(err);
+  err = MatMultAdd_VHT_ee(A,X,Y,Y);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr MatMultAdd_VHT_ee(Mat A,Vec X,Vec Y,Vec Z)
+{
   VHT              vht;
   dRulesetIterator iter;
   Vec              Coords;
   dErr             err;
 
   dFunctionBegin;
-  err = PetscLogEventBegin(LOG_VHTShellMult,A,X,Y,0);dCHK(err);
+  err = PetscLogEventBegin(LOG_VHTShellMult,A,X,Z,0);dCHK(err);
   err = MatShellGetContext(A,(void**)&vht);dCHK(err);
-  err = VecZeroEntries(Y);dCHK(err);
+  err = VecCopy(Y,Z);dCHK(err);
   err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
-  err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,NULL, NULL,NULL, X,Y);dCHK(err);
+  err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,NULL, NULL,NULL, X,dFS_HOMOGENEOUS,Z,dFS_HOMOGENEOUS);dCHK(err);
   while (dRulesetIteratorHasPatch(iter)) {
     const dScalar *jw;
     dScalar (*x)[3],(*dx)[9],(*e)[1],(*de)[3],(*e_)[1],(*de_)[3];
@@ -1597,7 +1608,7 @@ static dErr MatMult_VHT_ee(Mat A,Vec X,Vec Y)
     err = dRulesetIteratorNextPatch(iter);dCHK(err);
   }
   err = dRulesetIteratorFinish(iter);dCHK(err);
-  err = PetscLogEventEnd(LOG_VHTShellMult,A,X,Y,0);dCHK(err);
+  err = PetscLogEventEnd(LOG_VHTShellMult,A,X,Z,0);dCHK(err);
   dFunctionReturn(0);
 }
 
