@@ -125,7 +125,7 @@ struct VHTLog {
 };
 
 typedef enum {EVAL_FUNCTION,EVAL_JACOBIAN, EVAL_UB} VHTEvaluation;
-typedef enum {VHT_MULT_UU,VHT_MULT_UP,VHT_MULT_PU} VHTMultMode;
+typedef enum {VHT_MULT_UU,VHT_MULT_UP,VHT_MULT_UE,VHT_MULT_PU,VHT_MULT_EU,VHT_MULT_EP,VHT_MULT_EE} VHTMultMode;
 
 typedef struct _n_VHT *VHT;
 struct _n_VHT {
