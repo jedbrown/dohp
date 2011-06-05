@@ -401,9 +401,11 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec gx,Vec gy,Vec gz,InsertMode,VHTMul
 static dErr MatMult_Nest_VHT_all(Mat J,Vec gx,Vec gy);
 static dErr MatMult_VHT_uu(Mat A,Vec gx,Vec gy) {return MatMultXIorA_VHT_stokes(A,gx,gy,NULL,INSERT_VALUES,VHT_MULT_UU);}
 static dErr MatMult_VHT_up(Mat A,Vec gx,Vec gy) {return MatMultXIorA_VHT_stokes(A,gx,gy,NULL,INSERT_VALUES,VHT_MULT_UP);}
+static dErr MatMult_VHT_ue(Mat A,Vec gx,Vec gy) {return MatMultXIorA_VHT_stokes(A,gx,gy,NULL,INSERT_VALUES,VHT_MULT_UE);}
 static dErr MatMult_VHT_pu(Mat A,Vec gx,Vec gy) {return MatMultXIorA_VHT_stokes(A,gx,gy,NULL,INSERT_VALUES,VHT_MULT_PU);}
 static dErr MatMultAdd_VHT_uu(Mat A,Vec gx,Vec gy,Vec gz) {return MatMultXIorA_VHT_stokes(A,gx,gy,gz,ADD_VALUES,VHT_MULT_UU);}
 static dErr MatMultAdd_VHT_up(Mat A,Vec gx,Vec gy,Vec gz) {return MatMultXIorA_VHT_stokes(A,gx,gy,gz,ADD_VALUES,VHT_MULT_UP);}
+static dErr MatMultAdd_VHT_ue(Mat A,Vec gx,Vec gy,Vec gz) {return MatMultXIorA_VHT_stokes(A,gx,gy,gz,ADD_VALUES,VHT_MULT_UE);}
 static dErr MatMultAdd_VHT_pu(Mat A,Vec gx,Vec gy,Vec gz) {return MatMultXIorA_VHT_stokes(A,gx,gy,gz,ADD_VALUES,VHT_MULT_PU);}
 static dErr MatMult_VHT_eX(Mat A,Vec gx,Vec gy,VHTMultMode);
 static dErr MatMult_VHT_eu(Mat A,Vec gx,Vec gy) {return MatMult_VHT_eX(A,gx,gy,VHT_MULT_EU);}
@@ -895,8 +897,10 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   Jpp = NULL;
   Jpe = NULL;
 
-  /* @todo These off-diagonal blocks are not actually zero. Assume coupled application of the Jacobian and additive fieldsplit at this point */
-  Jue = NULL;
+  err = MatCreateShell(vht->comm,nu,ne,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Jue);dCHK(err);
+  err = MatShellSetOperation(Jue,MATOP_MULT,(void(*)(void))MatMult_VHT_ue);dCHK(err);
+  err = MatShellSetOperation(Jue,MATOP_MULT_ADD,(void(*)(void))MatMultAdd_VHT_ue);dCHK(err);
+  err = MatSetOptionsPrefix(Jue,"Jue_");dCHK(err);
 
   err = MatCreateShell(vht->comm,ne,nu,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Jeu);dCHK(err);
   err = MatShellSetOperation(Jeu,MATOP_MULT,(void(*)(void))MatMult_VHT_eu);dCHK(err);
@@ -933,7 +937,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   if (vht->split_recursive) { /* Do a nested split with the Stokes block inside the overall thing */
     Mat Jss,Jse,Jes,Bss;
     err = MatCreateNest(vht->comm,2,splitis,2,splitis,((Mat[]){Juu,Jup,Jpu,Jpp}),&Jss);dCHK(err);
-    err = MatCreateNest(vht->comm,2,NULL,1,NULL,((Mat[]){Jue,Jpe})&Jse);dCHK(err);
+    err = MatCreateNest(vht->comm,2,NULL,1,NULL,((Mat[]){Jue,Jpe}),&Jse);dCHK(err);
     err = MatCreateNest(vht->comm,1,((IS[]){vht->all.eblock}),2,((IS[]){vht->all.sblock,vht->all.eblock}),((Mat[]){Jeu,Jep}),&Jes);dCHK(err);
     err = MatCreateNest(vht->comm,2,NULL,2,NULL,((Mat[]){Jss,Jse,Jes,Jee}),J);dCHK(err);
     err = MatCreateNest(vht->comm,2,splitis,2,splitis,((Mat[]){Buu,NULL,NULL,Bpp}),&Bss);dCHK(err);
@@ -1404,6 +1408,12 @@ static void VHTPointwiseJacobian_up(const struct VHTStash *st,const struct VHTRh
   for (dInt i=0; i<3; i++) rhou_[i] = -rheo->rscale.momentum*weight * rho1 * rheo->gravity[i];
   for (dInt i=0; i<9; i++) drhou_[i] = rheo->rscale.momentum*weight * Stress1[i];
 }
+static void VHTPointwiseJacobian_ue(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar E1[1],const dScalar dE1[3],dScalar rhou_[1],dScalar drhou_[3])
+{
+  const dScalar rhou1[3] = {0,0,0},drhou1[9] = {0,0,0,0,0,0,0,0,0},p1[1] = {0},dp1[3] = {0,0,0};
+  dScalar E_[3],dE_[9],p_[1];
+  VHTPointwiseJacobian(st,rheo,dx,weight,rhou1,drhou1,p1,dp1,E1,dE1,rhou_,drhou_,p_,E_,dE_);
+}
 static void VHTPointwiseJacobian_eu(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar rhou1[1],const dScalar drhou1[3],dScalar E_[1],dScalar dE_[3])
 {
   const dScalar p1[1] = {0},dp1[3] = {0,0,0},E1[1] = {0},dE1[3] = {0,0,0};
@@ -1543,14 +1553,16 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
   err = PetscLogEventBegin(LOG_VHTShellMult,A,X,Y,Z);dCHK(err);
   err = MatShellGetContext(A,(void**)&vht);dCHK(err);
   {  /* Check that we have correct sizes */
-    dInt nu,np,nx,ny;
+    dInt nu,np,ne,nx,ny;
     err = VecGetSize(vht->gvelocity,&nu);dCHK(err);
     err = VecGetSize(vht->gpressure,&np);dCHK(err);
+    err = VecGetSize(vht->genergy,&ne);dCHK(err);
     err = VecGetSize(X,&nx);dCHK(err);
     err = VecGetSize(Y,&ny);dCHK(err);
     switch (mmode) {
     case VHT_MULT_UU: dASSERT(nx==nu && ny==nu); break;
     case VHT_MULT_UP: dASSERT(nx==np && ny==nu); break;
+    case VHT_MULT_UE: dASSERT(nx==ne && ny==nu); break;
     case VHT_MULT_PU: dASSERT(nx==nu && ny==np); break;
     default: dERROR(PETSC_COMM_SELF,1,"Sizes do not match, unknown mult operation");
     }
@@ -1563,9 +1575,7 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
     err = VecZeroEntries(Z);dCHK(err);
     break;
   case ADD_VALUES:
-    if (Z != Y) {
-      err = VecCopy(Y,Z);dCHK(err);
-    }
+    err = VecCopy(Y,Z);dCHK(err);
     break;
   default: dERROR(vht->comm,PETSC_ERR_ARG_OUTOFRANGE,"unsupported imode");
   }
@@ -1579,6 +1589,9 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
   case VHT_MULT_UP:
     err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,             Z,dFS_HOMOGENEOUS, X,dFS_HOMOGENEOUS,NULL,              NULL,NULL);dCHK(err);
     break;
+  case VHT_MULT_UE:
+    err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,             Z,dFS_HOMOGENEOUS, NULL,             NULL,              X,dFS_HOMOGENEOUS,NULL);dCHK(err);
+    break;
   case VHT_MULT_PU:
     err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, X,dFS_HOMOGENEOUS,NULL,              NULL,             Z,dFS_HOMOGENEOUS, NULL,NULL);dCHK(err);
     break;
@@ -1586,7 +1599,7 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
   }
   while (dRulesetIteratorHasPatch(iter)) {
     const dScalar *jw;
-    dScalar (*x)[3],(*dx)[9],(*u)[3],(*du)[9],(*u_)[3],(*du_)[9],*p,*p_;
+    dScalar (*x)[3],(*dx)[9],(*u)[3],(*du)[9],(*u_)[3],(*du_)[9],*p,*p_,(*e)[1],(*de)[3];
     dInt Q;
     struct VHTStash *stash;
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
@@ -1599,6 +1612,11 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
     case VHT_MULT_UP:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,NULL,&u_,&du_, &p,NULL,NULL,NULL, NULL,NULL,NULL,NULL);dCHK(err);
       for (dInt i=0; i<Q; i++) {VHTPointwiseJacobian_up(&stash[i],&vht->scase->rheo,jw[i],p[i],u_[i],du_[i]);}
+      err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, u_,du_, NULL,NULL, NULL,NULL);dCHK(err);
+      break;
+    case VHT_MULT_UE:
+      err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,NULL,&u_,&du_, NULL,NULL,NULL,NULL, &e,&de,NULL,NULL);dCHK(err);
+      for (dInt i=0; i<Q; i++) {VHTPointwiseJacobian_ue(&stash[i],&vht->scase->rheo,dx[i],jw[i],e[i],de[i],u_[i],du_[i]);}
       err = dRulesetIteratorCommitPatchApplied(iter,INSERT_VALUES, NULL,NULL, u_,du_, NULL,NULL, NULL,NULL);dCHK(err);
       break;
     case VHT_MULT_PU:
