@@ -1971,6 +1971,38 @@ static dErr SNESMonitorVHTSplit(SNES snes,PetscInt its,PetscReal norm2,void *ctx
   err = PetscViewerASCIIMonitorPrintf(viewer,"%3D SNES Function norm %12.6e  VHT norms % 12.6e % 12.6e % 12.6e\n",its,(double)norm2,norms[0],norms[1],norms[2]);dCHK(err);
   dFunctionReturn(0);
 }
+static dErr KSPMonitorVHTSplit(KSP ksp,PetscInt its,PetscReal norm2,void *ctx)
+{
+  PetscViewerASCIIMonitor viewer = ctx;
+  VHT vht;
+  dErr err;
+  Vec rhs,work,resid;
+  Mat A,B;
+  dReal norms[3],scnorm,bnorm;
+  char normtype[dSTR_LEN];
+  KSPNormType ntype;
+  PC pc;
+
+  dFunctionBegin;
+  err = KSPGetApplicationContext(ksp,&vht);dCHK(err);
+  err = KSPGetRhs(ksp,&rhs);dCHK(err);
+  err = VecDuplicate(rhs,&work);dCHK(err);
+  err = KSPBuildResidual(ksp,0,work,&resid);dCHK(err);
+  err = VecCopy(resid,work);dCHK(err);
+  err = KSPGetPC(ksp,&pc);dCHK(err);
+  err = PCGetOperators(pc,&A,&B,PETSC_NULL);dCHK(err);
+  if (A == B) {err = MatUnScaleSystem(A,work,PETSC_NULL);dCHK(err);}
+  err = VecNorm(work,NORM_2,&scnorm);dCHK(err);
+  err = VHTVecNormsSplit(vht,work,NORM_2,norms);dCHK(err);
+  err = VecDestroy(&work);dCHK(err);
+  err = VecNorm(rhs,NORM_2,&bnorm);dCHK(err);
+
+  err = KSPGetNormType(ksp,&ntype);dCHK(err);
+  err = PetscStrncpy(normtype,KSPNormTypes[ntype],sizeof normtype);dCHK(err);
+  err = PetscStrtolower(normtype);dCHK(err);
+  err = PetscViewerASCIIMonitorPrintf(viewer,"%3D KSP %s norm % 12.6e true % 12.6e rel % 12.6e  VHT % 12.6e % 12.6e % 12.6e\n",its,normtype,norm2,scnorm,scnorm/bnorm,norms[0],norms[1],norms[2]);dCHK(err);
+  dFunctionReturn(0);
+}
 // This function cannot runs separately for each field because the nodal basis may be different for each field
 static dErr VHTGetSolutionField_All(VHT vht,dFS fs,dInt fieldnumber,Vec *insoln)
 {
