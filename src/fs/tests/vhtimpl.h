@@ -144,7 +144,8 @@ struct _n_VHT {
   struct {
     IS         ublock,pblock,eblock; /* Global index sets for each block */
     IS         lublock,lpblock,leblock; /* Local index sets for each block */
-    VecScatter extractVelocity,extractPressure,extractEnergy,extractStokes;
+    IS         sblock,lsblock;
+    VecScatter extractVelocity,extractPressure,extractEnergy;
   } all;
   dInt              velocityBDeg,pressureCodim,energyBDeg;
   dBool             cardinalMass;
@@ -154,6 +155,7 @@ struct _n_VHT {
   dInt              u_dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
   dInt              e_dirichlet[16]; /* Set numbers for Dirichlet conditions, 0 means unused */
   dBool             alldirichlet;
+  dBool             split_recursive;
   dInt              domain_error;
   struct VHTLog     log;
 };

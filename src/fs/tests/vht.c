@@ -573,6 +573,7 @@ static dErr VHTSetFromOptions(VHT vht)
     err = PetscOptionsList("-vht_Buu_mat_type","Matrix type for velocity-velocity operator","",MatList,vht->mattype_Buu,vht->mattype_Buu,sizeof(vht->mattype_Buu),NULL);dCHK(err);
     err = PetscOptionsList("-vht_Bpp_mat_type","Matrix type for pressure-pressure operator","",MatList,vht->mattype_Bpp,vht->mattype_Bpp,sizeof(vht->mattype_Bpp),NULL);dCHK(err);
     err = PetscOptionsList("-vht_Bee_mat_type","Matrix type for energy-energy operator","",MatList,vht->mattype_Bee,vht->mattype_Bee,sizeof(vht->mattype_Bee),NULL);dCHK(err);
+    err = PetscOptionsBool("-vht_split_recursive","Recursively nest the Stokes block inside the overall matrix instead of using a flat split","",vht->split_recursive,&vht->split_recursive,NULL);dCHK(err);
     err = PetscOptionsEnum("-vht_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)vht->function_qmethod,(PetscEnum*)&vht->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-vht_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)vht->jacobian_qmethod,(PetscEnum*)&vht->jacobian_qmethod,NULL);dCHK(err);
     {
@@ -701,13 +702,14 @@ static dErr VHTSetFromOptions(VHT vht)
       err = ISSetBlockSize(vht->stokes.lublock,3);dCHK(err);
     }
     {                           /* Set up the Stokes sub-problem */
-      IS   ublock,pblock,eblock;
+      IS   ublock,pblock,eblock,sblock;
       dInt rstart;
       err = VecCreateMPI(vht->comm,nu+np+ne,PETSC_DETERMINE,&vht->gpacked);dCHK(err);
       err = VecGetOwnershipRange(vht->gpacked,&rstart,NULL);dCHK(err);
       err = ISCreateStride(vht->comm,nu,rstart,1,&ublock);dCHK(err);
       err = ISCreateStride(vht->comm,np,rstart+nu,1,&pblock);dCHK(err);
       err = ISCreateStride(vht->comm,ne,rstart+nu+np,1,&eblock);dCHK(err);
+      err = ISCreateStride(vht->comm,nu*np,rstart,1,&sblock);dCHK(err);
       err = ISSetBlockSize(ublock,3);dCHK(err);
       err = VecScatterCreate(vht->gpacked,ublock,vht->gvelocity,NULL,&vht->all.extractVelocity);dCHK(err);
       err = VecScatterCreate(vht->gpacked,pblock,vht->gpressure,NULL,&vht->all.extractPressure);dCHK(err);
@@ -715,10 +717,12 @@ static dErr VHTSetFromOptions(VHT vht)
       vht->all.ublock = ublock;
       vht->all.pblock = pblock;
       vht->all.eblock = eblock;
+      vht->all.sblock = sblock;
       /* Create local index sets */
       err = ISCreateStride(PETSC_COMM_SELF,nul,0,1,&vht->all.lublock);dCHK(err);
       err = ISCreateStride(PETSC_COMM_SELF,npl,nul,1,&vht->all.lpblock);dCHK(err);
       err = ISCreateStride(PETSC_COMM_SELF,nel,nul+npl,1,&vht->all.leblock);dCHK(err);
+      err = ISCreateStride(PETSC_COMM_SELF,nul+npl,0,1,&vht->all.lsblock);dCHK(err);
       err = ISSetBlockSize(vht->all.lublock,3);dCHK(err);
     }
   }
@@ -837,13 +841,14 @@ static dErr VHTDestroy(VHT *invht)
     err = ISDestroy(&vht->all.ublock);dCHK(err);
     err = ISDestroy(&vht->all.pblock);dCHK(err);
     err = ISDestroy(&vht->all.eblock);dCHK(err);
+    err = ISDestroy(&vht->all.sblock);dCHK(err);
     err = ISDestroy(&vht->all.lublock);dCHK(err);
     err = ISDestroy(&vht->all.lpblock);dCHK(err);
     err = ISDestroy(&vht->all.leblock);dCHK(err);
+    err = ISDestroy(&vht->all.lsblock);dCHK(err);
     err = VecScatterDestroy(&vht->all.extractVelocity);dCHK(err);
     err = VecScatterDestroy(&vht->all.extractPressure);dCHK(err);
     err = VecScatterDestroy(&vht->all.extractEnergy);dCHK(err);
-    err = VecScatterDestroy(&vht->all.extractStokes);dCHK(err);
   }
   err = dFree(vht->log.epochs);dCHK(err);
   for (dInt i=0; i<EVAL_UB; i++) {err = dRulesetIteratorDestroy(&vht->regioniter[i]);dCHK(err);}
@@ -853,7 +858,7 @@ static dErr VHTDestroy(VHT *invht)
 }
 
 
-static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
+static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
 {
   dErr err;
   dInt m,nu,np,ne;
@@ -910,28 +915,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
   err = MatShellSetOperation(Jee,MATOP_MULT_ADD,(void(*)(void))MatMultAdd_VHT_ee);dCHK(err);
   err = MatSetOptionsPrefix(Jee,"Jee_");dCHK(err);
 
-  splitis[0] = vht->all.ublock;
-  splitis[1] = vht->all.pblock;
-  splitis[2] = vht->all.eblock;
-  /* Create the matrix-free operator */
-  err = MatCreateNest(vht->comm,3,splitis,3,splitis,((Mat[]){Juu,Jup,Jue, Jpu,Jpp,Jpe, Jeu,Jep,Jee}),J);dCHK(err);
-  err = MatSetOptionsPrefix(*J,"J_");dCHK(err);
-  err = MatSetFromOptions(*J);dCHK(err);
-  if (!use_jblock) {
-    err = MatShellSetOperation(*J,MATOP_MULT,(void(*)(void))MatMult_Nest_VHT_all);dCHK(err);
-  }
-
-  err = MatDestroy(&Juu);dCHK(err);
-  err = MatDestroy(&Jup);dCHK(err);
-  err = MatDestroy(&Jue);dCHK(err);
-  err = MatDestroy(&Jpu);dCHK(err);
-  err = MatDestroy(&Jpp);dCHK(err);
-  err = MatDestroy(&Jpe);dCHK(err);
-  err = MatDestroy(&Jeu);dCHK(err);
-  err = MatDestroy(&Jep);dCHK(err);
-  err = MatDestroy(&Jee);dCHK(err);
-
-  /* Create real matrix to be used for preconditioning */
+  /* Blocks to be used for preconditioning */
   err = dFSGetMatrix(vht->fsu,vht->mattype_Buu,&Buu);dCHK(err);
   err = dFSGetMatrix(vht->fsp,vht->mattype_Bpp,&Bpp);dCHK(err);
   err = dFSGetMatrix(vht->fse,vht->mattype_Bee,&Bee);dCHK(err);
@@ -942,10 +926,44 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *P)
   err = MatSetFromOptions(Buu);dCHK(err);
   err = MatSetFromOptions(Bpp);dCHK(err);
   err = MatSetFromOptions(Bee);dCHK(err);
-  err = MatCreateNest(vht->comm,3,splitis,3,splitis,((Mat[]){Buu,NULL,NULL, NULL,Bpp,NULL, NULL,NULL,Bee}),P);dCHK(err);
-  err = MatSetOptionsPrefix(*P,"B_");dCHK(err);
-  err = MatSetFromOptions(*P);dCHK(err);
 
+  splitis[0] = vht->all.ublock;
+  splitis[1] = vht->all.pblock;
+  splitis[2] = vht->all.eblock;
+  if (vht->split_recursive) { /* Do a nested split with the Stokes block inside the overall thing */
+    Mat Jss,Jse,Jes,Bss;
+    err = MatCreateNest(vht->comm,2,splitis,2,splitis,((Mat[]){Juu,Jup,Jpu,Jpp}),&Jss);dCHK(err);
+    err = MatCreateNest(vht->comm,2,NULL,1,NULL,((Mat[]){Jue,Jpe})&Jse);dCHK(err);
+    err = MatCreateNest(vht->comm,1,((IS[]){vht->all.eblock}),2,((IS[]){vht->all.sblock,vht->all.eblock}),((Mat[]){Jeu,Jep}),&Jes);dCHK(err);
+    err = MatCreateNest(vht->comm,2,NULL,2,NULL,((Mat[]){Jss,Jse,Jes,Jee}),J);dCHK(err);
+    err = MatCreateNest(vht->comm,2,splitis,2,splitis,((Mat[]){Buu,NULL,NULL,Bpp}),&Bss);dCHK(err);
+    err = MatCreateNest(vht->comm,2,NULL,2,NULL,((Mat[]){Bss,NULL,NULL,Bee}),B);dCHK(err);
+    err = MatDestroy(&Jss);dCHK(err);
+    err = MatDestroy(&Jse);dCHK(err);
+    err = MatDestroy(&Jes);dCHK(err);
+    err = MatDestroy(&Bss);dCHK(err);
+  } else {       /* A single top-level 3x3 split */
+    err = MatCreateNest(vht->comm,3,splitis,3,splitis,((Mat[]){Juu,Jup,Jue, Jpu,Jpp,Jpe, Jeu,Jep,Jee}),J);dCHK(err);
+    err = MatCreateNest(vht->comm,3,splitis,3,splitis,((Mat[]){Buu,NULL,NULL, NULL,Bpp,NULL, NULL,NULL,Bee}),B);dCHK(err);
+    err = MatNestSetSubMat(*J,1,1,Bpp);dCHK(err); // This is inconsistent, but I'm using it to make multiplicative fieldsplit do something reasonable
+  }
+  err = MatSetOptionsPrefix(*J,"J_");dCHK(err);
+  err = MatSetFromOptions(*J);dCHK(err);
+  if (!use_jblock) {
+    err = MatShellSetOperation(*J,MATOP_MULT,(void(*)(void))MatMult_Nest_VHT_all);dCHK(err);
+  }
+  err = MatSetOptionsPrefix(*B,"B_");dCHK(err);
+  err = MatSetFromOptions(*B);dCHK(err);
+
+  err = MatDestroy(&Juu);dCHK(err);
+  err = MatDestroy(&Jup);dCHK(err);
+  err = MatDestroy(&Jue);dCHK(err);
+  err = MatDestroy(&Jpu);dCHK(err);
+  err = MatDestroy(&Jpp);dCHK(err);
+  err = MatDestroy(&Jpe);dCHK(err);
+  err = MatDestroy(&Jeu);dCHK(err);
+  err = MatDestroy(&Jep);dCHK(err);
+  err = MatDestroy(&Jee);dCHK(err);
   err = MatDestroy(&Buu);dCHK(err);
   err = MatDestroy(&Bpp);dCHK(err);
   err = MatDestroy(&Bee);dCHK(err);
@@ -2168,9 +2186,14 @@ int main(int argc,char *argv[])
 
     err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPGetPC(ksp,&pc);dCHK(err);
-    err = PCFieldSplitSetIS(pc,"u",vht->all.ublock);dCHK(err);
-    err = PCFieldSplitSetIS(pc,"p",vht->all.pblock);dCHK(err);
-    err = PCFieldSplitSetIS(pc,"e",vht->all.eblock);dCHK(err);
+    if (vht->split_recursive) {
+      err = PCFieldSplitSetIS(pc,"s",vht->all.sblock);dCHK(err);
+      err = PCFieldSplitSetIS(pc,"e",vht->all.eblock);dCHK(err);
+    } else {
+      err = PCFieldSplitSetIS(pc,"u",vht->all.ublock);dCHK(err);
+      err = PCFieldSplitSetIS(pc,"p",vht->all.pblock);dCHK(err);
+      err = PCFieldSplitSetIS(pc,"e",vht->all.eblock);dCHK(err);
+    }
   }
   err = VHTGetSolutionVector(vht,&Xsoln);dCHK(err);
   if (!vht->scase->reality) {
