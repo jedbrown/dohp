@@ -2161,8 +2161,9 @@ int main(int argc,char *argv[])
   Mat J,B;
   Vec R,X,Xsoln = NULL;
   SNES snes;
-  dBool check_error,check_null,compute_explicit,use_jblock,viewdhm,snes_monitor_vht;
-  char monfilename[PETSC_MAX_PATH_LEN],dhmfilename[PETSC_MAX_PATH_LEN];
+  KSP ksp;
+  dBool check_error,check_null,compute_explicit,use_jblock,viewdhm,snes_monitor_vht,ksp_monitor_vht;
+  char snesmonfilename[PETSC_MAX_PATH_LEN],kspmonfilename[PETSC_MAX_PATH_LEN],dhmfilename[PETSC_MAX_PATH_LEN];
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -2186,23 +2187,29 @@ int main(int argc,char *argv[])
     if (check_null) {
       err = PetscOptionsBool("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",compute_explicit=dFALSE,&compute_explicit,NULL);dCHK(err);
     }
-    err = PetscOptionsString("-snes_monitor_vht","Monitor norm of function split into components","SNESMonitorSet","stdout",monfilename,sizeof monfilename,&snes_monitor_vht);dCHK(err);
+    err = PetscOptionsString("-snes_monitor_vht","Monitor norm of function split into components","SNESMonitorSet","stdout",snesmonfilename,sizeof snesmonfilename,&snes_monitor_vht);dCHK(err);
+    err = PetscOptionsString("-ksp_monitor_vht","Monitor norm of function split into components","KSPMonitorSet","stdout",kspmonfilename,sizeof kspmonfilename,&ksp_monitor_vht);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   err = VHTGetMatrices(vht,use_jblock,&J,&B);dCHK(err);
   err = SNESCreate(comm,&snes);dCHK(err);
   err = SNESSetFunction(snes,R,VHTFunction,vht);dCHK(err);
   err = SNESSetJacobian(snes,J,B,VHTJacobian,vht);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
+  err = SNESGetKSP(snes,&ksp);dCHK(err);
+  err = SNESSetApplicationContext(snes,vht);dCHK(err);
+  err = KSPSetApplicationContext(ksp,vht);dCHK(err);
   if (snes_monitor_vht) {
     PetscViewerASCIIMonitor monviewer;
-    err = PetscViewerASCIIMonitorCreate(((PetscObject)snes)->comm,monfilename,((PetscObject)snes)->tablevel,&monviewer);dCHK(err);
+    err = PetscViewerASCIIMonitorCreate(((PetscObject)snes)->comm,snesmonfilename,((PetscObject)snes)->tablevel,&monviewer);dCHK(err);
     err = SNESMonitorSet(snes,SNESMonitorVHTSplit,monviewer,(PetscErrorCode (*)(void**))PetscViewerASCIIMonitorDestroy);dCHK(err);
   }
+  if (ksp_monitor_vht) {
+    PetscViewerASCIIMonitor monviewer;
+    err = PetscViewerASCIIMonitorCreate(((PetscObject)ksp)->comm,kspmonfilename,((PetscObject)ksp)->tablevel,&monviewer);dCHK(err);
+    err = KSPMonitorSet(ksp,KSPMonitorVHTSplit,monviewer,(PetscErrorCode (*)(void**))PetscViewerASCIIMonitorDestroy);dCHK(err);
+  }
   {
-    KSP    ksp;
     PC     pc;
-
-    err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPGetPC(ksp,&pc);dCHK(err);
     if (vht->split_recursive) {
       err = PCFieldSplitSetIS(pc,"s",vht->all.sblock);dCHK(err);
@@ -2234,10 +2241,8 @@ int main(int argc,char *argv[])
   }
 
   if (vht->alldirichlet) {                             /* Set null space */
-    KSP ksp;
     MatNullSpace matnull;
     err = VHTGetNullSpace(vht,&matnull);dCHK(err);
-    err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPSetNullSpace(ksp,matnull);dCHK(err);
     if (Xsoln) {err = MatNullSpaceRemove(matnull,Xsoln,NULL);dCHK(err);}
     err = MatNullSpaceDestroy(&matnull);dCHK(err);
@@ -2251,8 +2256,6 @@ int main(int argc,char *argv[])
   err = VHTLogView(&vht->log,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
   if (vht->alldirichlet) {
     MatNullSpace matnull;
-    KSP ksp;
-    err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPGetNullSpace(ksp,&matnull);dCHK(err); /* does not reference */
     err = MatNullSpaceRemove(matnull,X,NULL);dCHK(err);
   }
