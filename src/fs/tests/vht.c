@@ -2093,11 +2093,10 @@ static dErr VHTGetNullSpace(VHT vht,MatNullSpace *matnull)
   dFunctionReturn(0);
 }
 
-static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
+static dErr CheckNullSpace(SNES snes,Vec U,Vec F)
 {
   Mat          mffd,J,Jp;
   dBool        isnull;
-  Vec          U,F;
   MatStructure mstruct;
   MatNullSpace matnull;
   KSP          ksp;
@@ -2108,13 +2107,7 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
   err = KSPGetNullSpace(ksp,&matnull);dCHK(err);
   err = MatCreateSNESMF(snes,&mffd);dCHK(err);
   err = MatSetFromOptions(mffd);dCHK(err);
-  {
-    err = VecDuplicate(residual,&U);dCHK(err);
-    err = VecDuplicate(residual,&F);dCHK(err);
-  }
   err = SNESGetJacobian(snes,&J,&Jp,NULL,NULL);dCHK(err);
-  err = VecSet(U,0);dCHK(err);
-  err = SNESComputeFunction(snes,U,F);dCHK(err); /* Need base for MFFD */
   err = MatMFFDSetBase(mffd,U,F);dCHK(err);
   err = MatNullSpaceTest(matnull,mffd,&isnull);dCHK(err);
   if (!isnull) dERROR(PETSC_COMM_SELF,1,"Vector is not in the null space of the MFFD operator");dCHK(err);
@@ -2125,66 +2118,71 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
   // At present, Jp intentionally contains an auxilliary matrix in the (p,p) block. It does not have the same null space as the Jacobian so we disable the error below.
   if (false && !isnull) dERROR(PETSC_COMM_SELF,1,"Vector is not in the null space of Jp");dCHK(err);
   err = MatDestroy(&mffd);dCHK(err);
-  if (compute_explicit) {
-    Mat expmat,expmat_fd;
-    dInt m,n;
-    dBool contour = dFALSE;
-    err = MatGetLocalSize(J,&m,&n);dCHK(err);
-    err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
-    err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
-    err = SNESDefaultComputeJacobian(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
-    err = MatSetOptionsPrefix(expmat,"explicit_");dCHK(err);
-    err = MatSetOptionsPrefix(expmat_fd,"explicit_fd_");dCHK(err);
-    err = MatSetFromOptions(expmat);dCHK(err);
-    err = MatSetFromOptions(expmat_fd);dCHK(err);
-
-    err = PetscOptionsGetBool(NULL,"-mat_view_contour",&contour,NULL);dCHK(err);
-    if (contour) {err = PetscViewerPushFormat(PETSC_VIEWER_DRAW_WORLD,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);}
-    {
-      dBool flg = dFALSE;
-      err = PetscOptionsGetBool(NULL,"-explicit_mat_view",&flg,NULL);dCHK(err);
-      if (flg) {
-        err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using mat-free implementation of J\n");dCHK(err);
-        err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-      }
-      flg = dFALSE;
-      err = PetscOptionsGetBool(NULL,"-explicit_mat_view_draw",&flg,NULL);dCHK(err);
-      if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-    }
-
-    {
-      dBool flg = dFALSE;
-      err = PetscOptionsGetBool(NULL,"-explicit_fd_mat_view",&flg,NULL);dCHK(err);
-      if (flg) {
-        err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using FD\n");dCHK(err);
-        err = MatView(expmat_fd,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-      }
-      flg = dFALSE;
-      err = PetscOptionsGetBool(NULL,"-explicit_fd_mat_view_draw",&flg,NULL);dCHK(err);
-      if (flg) {err = MatView(expmat_fd,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-    }
-
-    err = MatAXPY(expmat,-1,expmat_fd,SAME_NONZERO_PATTERN);dCHK(err);
-    {
-      dBool flg = dFALSE;
-      err = PetscOptionsGetBool(NULL,"-explicit_diff_mat_view",&flg,NULL);dCHK(err);
-      if (flg) {
-        err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Difference between mat-free implementation of J and FD\n");dCHK(err);
-        err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
-      }
-      flg = dFALSE;
-      err = PetscOptionsGetBool(NULL,"-explicit_diff_mat_view_draw",&flg,NULL);dCHK(err);
-      if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-    }
-    if (contour) {err = PetscViewerPopFormat(PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
-    err = MatDestroy(&expmat);dCHK(err);
-    err = MatDestroy(&expmat_fd);dCHK(err);
-  }
-  err = VecDestroy(&U);dCHK(err);
-  err = VecDestroy(&F);dCHK(err);
   dFunctionReturn(0);
 }
+static dErr ComputeExplicit(SNES snes,Vec U)
+{
+  Mat J,Jp,expmat,expmat_fd;
+  dInt m,n;
+  dBool contour = dFALSE;
+  MatStructure mstruct;
+  dErr err;
 
+  dFunctionBegin;
+  err = SNESGetJacobian(snes,&J,&Jp,NULL,NULL);dCHK(err);
+  err = SNESComputeJacobian(snes,U,&J,&Jp,&mstruct);dCHK(err);
+  err = MatGetLocalSize(J,&m,&n);dCHK(err);
+  err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
+  err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
+  err = SNESDefaultComputeJacobian(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
+  err = MatSetOptionsPrefix(expmat,"explicit_");dCHK(err);
+  err = MatSetOptionsPrefix(expmat_fd,"explicit_fd_");dCHK(err);
+  err = MatSetFromOptions(expmat);dCHK(err);
+  err = MatSetFromOptions(expmat_fd);dCHK(err);
+
+  err = PetscOptionsGetBool(NULL,"-mat_view_contour",&contour,NULL);dCHK(err);
+  if (contour) {err = PetscViewerPushFormat(PETSC_VIEWER_DRAW_WORLD,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);}
+  {
+    dBool flg = dFALSE;
+    err = PetscOptionsGetBool(NULL,"-explicit_mat_view",&flg,NULL);dCHK(err);
+    if (flg) {
+      err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using mat-free implementation of J\n");dCHK(err);
+      err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+    }
+    flg = dFALSE;
+    err = PetscOptionsGetBool(NULL,"-explicit_mat_view_draw",&flg,NULL);dCHK(err);
+    if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+  }
+
+  {
+    dBool flg = dFALSE;
+    err = PetscOptionsGetBool(NULL,"-explicit_fd_mat_view",&flg,NULL);dCHK(err);
+    if (flg) {
+      err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Explicit matrix using FD\n");dCHK(err);
+      err = MatView(expmat_fd,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+    }
+    flg = dFALSE;
+    err = PetscOptionsGetBool(NULL,"-explicit_fd_mat_view_draw",&flg,NULL);dCHK(err);
+    if (flg) {err = MatView(expmat_fd,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+  }
+
+  err = MatAXPY(expmat,-1,expmat_fd,SAME_NONZERO_PATTERN);dCHK(err);
+  {
+    dBool flg = dFALSE;
+    err = PetscOptionsGetBool(NULL,"-explicit_diff_mat_view",&flg,NULL);dCHK(err);
+    if (flg) {
+      err = PetscViewerASCIIPrintf(PETSC_VIEWER_STDOUT_WORLD,"###  Difference between mat-free implementation of J and FD\n");dCHK(err);
+      err = MatView(expmat,PETSC_VIEWER_STDOUT_WORLD);dCHK(err);
+    }
+    flg = dFALSE;
+    err = PetscOptionsGetBool(NULL,"-explicit_diff_mat_view_draw",&flg,NULL);dCHK(err);
+    if (flg) {err = MatView(expmat,PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+  }
+  if (contour) {err = PetscViewerPopFormat(PETSC_VIEWER_DRAW_WORLD);dCHK(err);}
+  err = MatDestroy(&expmat);dCHK(err);
+  err = MatDestroy(&expmat_fd);dCHK(err);
+  dFunctionReturn(0);
+}
 
 int main(int argc,char *argv[])
 {
@@ -2216,9 +2214,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsString("-viewdhm","View the solution (filename optional)","","vht.dhm",dhmfilename,sizeof dhmfilename,&viewdhm);dCHK(err);
     if (viewdhm && !dhmfilename[0]) {err = PetscSNPrintf(dhmfilename,sizeof dhmfilename,"vht-%s.dhm",vht->scase->name);dCHK(err);}
     err = PetscOptionsBool("-check_null","Check that constant pressure really is in the null space","",check_null=dFALSE,&check_null,NULL);dCHK(err);
-    if (check_null) {
-      err = PetscOptionsBool("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",compute_explicit=dFALSE,&compute_explicit,NULL);dCHK(err);
-    }
+    err = PetscOptionsBool("-compute_explicit","Compute explicit Jacobian (only very small sizes)","",compute_explicit=dFALSE,&compute_explicit,NULL);dCHK(err);
     err = PetscOptionsString("-snes_monitor_vht","Monitor norm of function split into components","SNESMonitorSet","stdout",snesmonfilename,sizeof snesmonfilename,&snes_monitor_vht);dCHK(err);
     err = PetscOptionsString("-ksp_monitor_vht","Monitor norm of function split into components","KSPMonitorSet","stdout",kspmonfilename,sizeof kspmonfilename,&ksp_monitor_vht);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
@@ -2279,8 +2275,16 @@ int main(int argc,char *argv[])
     if (Xsoln) {err = MatNullSpaceRemove(matnull,Xsoln,NULL);dCHK(err);}
     err = MatNullSpaceDestroy(&matnull);dCHK(err);
   }
-  if (check_null) {
-    err = CheckNullSpace(snes,R,compute_explicit);dCHK(err);
+  if (check_null || compute_explicit) {
+    Vec U,F;
+    err = VecDuplicate(R,&U);dCHK(err);
+    err = VecDuplicate(R,&F);dCHK(err);
+    err = VecSet(U,1.0);dCHK(err);
+    err = SNESComputeFunction(snes,U,F);dCHK(err); /* Need base for MFFD and analytic matrix-free */
+    if (check_null) {err = CheckNullSpace(snes,U,F);dCHK(err);}
+    if (compute_explicit) {err = ComputeExplicit(snes,U);dCHK(err);}
+    err = VecDestroy(&U);dCHK(err);
+    err = VecDestroy(&F);dCHK(err);
   }
   err = VecZeroEntries(R);dCHK(err);
   err = VecZeroEntries(X);dCHK(err);
