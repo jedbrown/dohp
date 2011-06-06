@@ -953,7 +953,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   } else {       /* A single top-level 3x3 split */
     err = MatCreateNest(vht->comm,3,splitis,3,splitis,((Mat[]){Juu,Jup,Jue, Jpu,Jpp,Jpe, Jeu,Jep,Jee}),J);dCHK(err);
     err = MatCreateNest(vht->comm,3,splitis,3,splitis,((Mat[]){Buu,NULL,NULL, NULL,Bpp,NULL, NULL,NULL,Bee}),B);dCHK(err);
-    err = MatNestSetSubMat(*J,1,1,Bpp);dCHK(err); // This is inconsistent, but I'm using it to make multiplicative fieldsplit do something reasonable
+    //err = MatNestSetSubMat(*J,1,1,Bpp);dCHK(err); // This is inconsistent, activate for certain multiplicative fieldsplit experiments
   }
   err = MatSetOptionsPrefix(*J,"J_");dCHK(err);
   err = MatSetFromOptions(*J);dCHK(err);
@@ -1684,7 +1684,7 @@ static dErr MatMultAdd_VHT_eX(Mat A,Vec X,Vec Y,Vec Z,VHTMultMode mmode)
   }
   while (dRulesetIteratorHasPatch(iter)) {
     const dScalar *jw;
-    dScalar (*x)[3],(*dx)[9],(*u)[2],(*du)[9],(*p)[1],(*dp)[3],(*e)[1],(*de)[3],(*e_)[1],(*de_)[3];
+    dScalar (*x)[3],(*dx)[9],(*u)[3],(*du)[9],(*p)[1],(*dp)[3],(*e)[1],(*de)[3],(*e_)[1],(*de_)[3];
     dInt Q;
     struct VHTStash *stash;
     err = dRulesetIteratorGetStash(iter,NULL,&stash);dCHK(err);
