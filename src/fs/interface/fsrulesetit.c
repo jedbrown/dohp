@@ -85,6 +85,7 @@ struct _n_dRulesetIterator {
   dInt *Ksplit_sizes;           /**< Sizes of each array in Ksplit */
   struct dRulesetIteratorStash stash; /**< Private storage for the user */
   struct dRulesetIteratorLink *link;  /**< Links for each registered function space */
+  InsertMode insertmode;
 };
 
 /** @struct dRulesetIterator
@@ -144,7 +145,15 @@ dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter)
   }
   err = dRulesetGetMaxQ(rset,&it->maxQ,&it->maxnpatches,&it->maxQelem);dCHK(err);
   err = dRulesetIteratorAddFS(it,cfs);dCHK(err);
+  it->insertmode = INSERT_VALUES;
   *iter = it;
+  dFunctionReturn(0);
+}
+
+dErr dRulesetIteratorSetMode(dRulesetIterator it,InsertMode imode)
+{
+  dFunctionBegin;
+  it->insertmode = imode;
   dFunctionReturn(0);
 }
 
@@ -307,7 +316,7 @@ dErr dRulesetIteratorFinish(dRulesetIterator it)
     err = VecRestoreArray(p->Xexp,&p->x);dCHK(err);
     err = VecRestoreArray(p->Yexp,&p->y);dCHK(err);
     if (!p->Y) continue;        /* This field is not being assembled */
-    err = dFSExpandedToGlobal(p->fs,p->Yexp,p->Y,p->yhomogeneous,INSERT_VALUES);dCHK(err);
+    err = dFSExpandedToGlobal(p->fs,p->Yexp,p->Y,p->yhomogeneous,it->insertmode);dCHK(err);
   }
   dFunctionReturn(0);
 }

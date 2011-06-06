@@ -101,6 +101,7 @@ extern dErr dRulesetDestroy(dRuleset*);
 
 extern dErr dRulesetCreateIterator(dRuleset rset,dFS cfs,dRulesetIterator *iter);
 extern dErr dRulesetIteratorDestroy(dRulesetIterator*);
+extern dErr dRulesetIteratorSetMode(dRulesetIterator it,InsertMode imode);
 extern dErr dRulesetIteratorAddFS(dRulesetIterator it,dFS fs);
 extern dErr dRulesetIteratorStart(dRulesetIterator it,Vec X,...);
 extern dErr dRulesetIteratorNextPatch(dRulesetIterator it);
