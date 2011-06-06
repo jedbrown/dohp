@@ -711,7 +711,7 @@ static dErr VHTSetFromOptions(VHT vht)
       err = ISCreateStride(vht->comm,nu,rstart,1,&ublock);dCHK(err);
       err = ISCreateStride(vht->comm,np,rstart+nu,1,&pblock);dCHK(err);
       err = ISCreateStride(vht->comm,ne,rstart+nu+np,1,&eblock);dCHK(err);
-      err = ISCreateStride(vht->comm,nu*np,rstart,1,&sblock);dCHK(err);
+      err = ISCreateStride(vht->comm,nu+np,rstart,1,&sblock);dCHK(err);
       err = ISSetBlockSize(ublock,3);dCHK(err);
       err = VecScatterCreate(vht->gpacked,ublock,vht->gvelocity,NULL,&vht->all.extractVelocity);dCHK(err);
       err = VecScatterCreate(vht->gpacked,pblock,vht->gpressure,NULL,&vht->all.extractPressure);dCHK(err);
