@@ -737,7 +737,7 @@ static dErr VHTSetFromOptions(VHT vht)
   if (doview) {err = VHTView(vht,NULL);dCHK(err);}
   dFunctionReturn(0);
 }
-static dErr VHTGetRegionIterator(VHT vht,VHTEvaluation eval,dRulesetIterator *riter)
+static dErr VHTGetRegionIterator(VHT vht,VHTEvaluation eval,InsertMode imode,dRulesetIterator *riter)
 {
   dErr err;
 
@@ -765,6 +765,7 @@ static dErr VHTGetRegionIterator(VHT vht,VHTEvaluation eval,dRulesetIterator *ri
     vht->regioniter[eval] = iter;
   }
   *riter = vht->regioniter[eval];
+  err = dRulesetIteratorSetMode(*riter,imode);dCHK(err);
   dFunctionReturn(0);
 }
 
@@ -936,12 +937,13 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   splitis[2] = vht->all.eblock;
   if (vht->split_recursive) { /* Do a nested split with the Stokes block inside the overall thing */
     Mat Jss,Jse,Jes,Bss;
-    err = MatCreateNest(vht->comm,2,splitis,2,splitis,((Mat[]){Juu,Jup,Jpu,Jpp}),&Jss);dCHK(err);
-    err = MatCreateNest(vht->comm,2,NULL,1,NULL,((Mat[]){Jue,Jpe}),&Jse);dCHK(err);
-    err = MatCreateNest(vht->comm,1,((IS[]){vht->all.eblock}),2,((IS[]){vht->all.sblock,vht->all.eblock}),((Mat[]){Jeu,Jep}),&Jes);dCHK(err);
-    err = MatCreateNest(vht->comm,2,NULL,2,NULL,((Mat[]){Jss,Jse,Jes,Jee}),J);dCHK(err);
-    err = MatCreateNest(vht->comm,2,splitis,2,splitis,((Mat[]){Buu,NULL,NULL,Bpp}),&Bss);dCHK(err);
-    err = MatCreateNest(vht->comm,2,NULL,2,NULL,((Mat[]){Bss,NULL,NULL,Bee}),B);dCHK(err);
+    IS stokesis[] = {vht->stokes.ublock,vht->stokes.pblock},allis[] = {vht->all.sblock,vht->all.eblock};
+    err = MatCreateNest(vht->comm,2,stokesis,2,stokesis,((Mat[]){Juu,Jup,Jpu,Jpp}),&Jss);dCHK(err);
+    err = MatCreateNest(vht->comm,2,stokesis,1,NULL,((Mat[]){Jue,Jpe}),&Jse);dCHK(err);
+    err = MatCreateNest(vht->comm,1,NULL,2,stokesis,((Mat[]){Jeu,Jep}),&Jes);dCHK(err);
+    err = MatCreateNest(vht->comm,2,allis,2,allis,((Mat[]){Jss,Jse,Jes,Jee}),J);dCHK(err);
+    err = MatCreateNest(vht->comm,2,stokesis,2,stokesis,((Mat[]){Buu,NULL,NULL,Bpp}),&Bss);dCHK(err);
+    err = MatCreateNest(vht->comm,2,allis,2,allis,((Mat[]){Bss,NULL,NULL,Bee}),B);dCHK(err);
     err = MatDestroy(&Jss);dCHK(err);
     err = MatDestroy(&Jse);dCHK(err);
     err = MatDestroy(&Jes);dCHK(err);
@@ -1482,7 +1484,7 @@ static dErr VHTFunction(SNES snes,Vec X,Vec Y,void *ctx)
   err = VHTLogEpochStart(&vht->log);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
   VHTCheckDomain(vht,snes,Xp);
-  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,INSERT_VALUES,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, Xu,dFS_INHOMOGENEOUS,Xu,dFS_INHOMOGENEOUS, Xp,dFS_INHOMOGENEOUS,Xp,dFS_INHOMOGENEOUS, Xe,dFS_INHOMOGENEOUS,Xe,dFS_INHOMOGENEOUS);dCHK(err);
   while (dRulesetIteratorHasPatch(iter)) {
@@ -1519,7 +1521,7 @@ static dErr MatMult_Nest_VHT_all(Mat J,Vec X,Vec Y)
   err = MatNestGetSubMat(J,0,0,&A);dCHK(err);
   err = MatShellGetContext(A,(void**)&vht);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
-  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,INSERT_VALUES,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, Xu,dFS_HOMOGENEOUS,Xu,dFS_HOMOGENEOUS, Xp,dFS_HOMOGENEOUS,Xp,dFS_HOMOGENEOUS, Xe,dFS_HOMOGENEOUS,Xe,dFS_HOMOGENEOUS);dCHK(err);
   while (dRulesetIteratorHasPatch(iter)) {
@@ -1572,7 +1574,6 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
   case INSERT_VALUES:
     if (Z) dERROR(vht->comm,PETSC_ERR_ARG_INCOMP,"Cannot use INSERT_VALUES and set gz");
     Z = Y;
-    err = VecZeroEntries(Z);dCHK(err);
     break;
   case ADD_VALUES:
     err = VecCopy(Y,Z);dCHK(err);
@@ -1580,7 +1581,7 @@ static dErr MatMultXIorA_VHT_stokes(Mat A,Vec X,Vec Y,Vec Z,InsertMode imode,VHT
   default: dERROR(vht->comm,PETSC_ERR_ARG_OUTOFRANGE,"unsupported imode");
   }
 
-  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,imode,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   switch (mmode) {
   case VHT_MULT_UU:
@@ -1653,7 +1654,7 @@ static dErr MatMultAdd_VHT_eX(Mat A,Vec X,Vec Y,Vec Z,VHTMultMode mmode)
   err = PetscLogEventBegin(LOG_VHTShellMult,A,X,Z,0);dCHK(err);
   err = MatShellGetContext(A,(void**)&vht);dCHK(err);
   err = VecCopy(Y,Z);dCHK(err);
-  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,ADD_VALUES,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   switch (mmode) {
   case VHT_MULT_EU:
@@ -1706,7 +1707,7 @@ static dErr VHTJacobianAssemble_Velocity(VHT vht,Mat Buu,Vec Mdiag,Vec X)
   dFunctionBegin;
   err = VHTExtractGlobalSplit(vht,X,&Xu,NULL,NULL);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
-  err = VHTGetRegionIterator(vht,EVAL_JACOBIAN,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_JACOBIAN,NOT_SET_VALUES,&iter);dCHK(err);
   if (Mdiag) {
     err = VecZeroEntries(Mdiag);dCHK(err);
     err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, Xu,dFS_INHOMOGENEOUS,Mdiag,dFS_HOMOGENEOUS, NULL,NULL, NULL,NULL);dCHK(err);
@@ -1777,7 +1778,7 @@ static dErr VHTJacobianAssemble_PressureEnergy(VHT vht,Mat Bpp,Mat Daux,Mat Bee,
   * (indeed the entire problem) is always linear in pressure.  It \e might be nonlinear in velocity and energy. */
   err = VHTExtractGlobalSplit(vht,X,&Xu,NULL,&Xe);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
-  err = VHTGetRegionIterator(vht,EVAL_JACOBIAN,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_JACOBIAN,NOT_SET_VALUES,&iter);dCHK(err);
   err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, Xu,dFS_INHOMOGENEOUS,NULL, NULL,NULL, Xe,dFS_INHOMOGENEOUS,NULL);dCHK(err);
   err = dRulesetIteratorGetMatrixSpaceSplit(iter, NULL,NULL,NULL,NULL, NULL,NULL,NULL,NULL, NULL,NULL,&Kpp_flat,NULL, NULL,NULL,NULL,&Kee_flat);dCHK(err);
   err = dRulesetIteratorGetMatrixSpaceSizes(iter,NULL,NULL,&Ksizes);dCHK(err);
@@ -1886,7 +1887,7 @@ static dErr VHTGetPressureShift(VHT vht,Vec Xp,dScalar *pressureshift)
   *pressureshift = 0;
   if (!vht->alldirichlet) dFunctionReturn(0);
    // Do a volume integral of the exact solution to that we can remove the constant pressure mode
-  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,NOT_SET_VALUES,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, NULL,NULL, Xp,dFS_INHOMOGENEOUS,NULL, NULL,NULL);dCHK(err);
   while (dRulesetIteratorHasPatch(iter)) {
@@ -1919,7 +1920,7 @@ static dErr VHTErrorNorms(VHT vht,Vec X,dReal N0u[3],dReal N1u[3],dReal N0p[3],d
   err = dNormsStart(N0p,N1p);dCHK(err);
   err = dNormsStart(N0e,N1e);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
-  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,&iter);dCHK(err);
+  err = VHTGetRegionIterator(vht,EVAL_FUNCTION,NOT_SET_VALUES,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
   err = VHTGetPressureShift(vht,Xp,&pressureshift);dCHK(err);
   err = dRulesetIteratorStart(iter, Coords,dFS_INHOMOGENEOUS,NULL, Xu,dFS_INHOMOGENEOUS,NULL, Xp,dFS_INHOMOGENEOUS,NULL, Xe,dFS_INHOMOGENEOUS,NULL);dCHK(err);
