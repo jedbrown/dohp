@@ -552,21 +552,23 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode 
 {
   dErr err;
   Vec  gd,gc,lf;
-  dBool flg;
+  dBool isdohp;
 
   dFunctionBegin;
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(g,VEC_CLASSID,2);
   dValidHeader(x,VEC_CLASSID,3);
-  err = PetscTypeCompare((PetscObject)g,VECDOHP,&flg);dCHK(err);
-  if (flg) {
+  err = PetscTypeCompare((PetscObject)g,VECDOHP,&isdohp);dCHK(err);
+  if (isdohp) {
     gd = g;
   } else {                      /* Cannot take the closure of a "normal" vector */
     err = DMGetGlobalVector((DM)fs,&gd);dCHK(err);
+    err = VecDohpZeroEntries(gd);dCHK(err);
   }
   err = VecDohpGetClosure(gd,&gc);dCHK(err);
   err = VecGhostGetLocalForm(gc,&lf);dCHK(err);
-  if (imode == ADD_VALUES) {    /* If we want to add, we have to kill off the ghost values otherwise they will be assembled twice */
+  switch (imode) {
+  case ADD_VALUES: {    /* If we want to add, we have to kill off the ghost values otherwise they will be assembled twice */
     dInt     gstart,end;
     dScalar *a;
     err = VecGetLocalSize(gc,&gstart);dCHK(err);
@@ -574,15 +576,23 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode 
     err = VecGetArray(lf,&a);dCHK(err);
     err = dMemzero(a+gstart,(end-gstart)*sizeof(*a));dCHK(err);
     err = VecRestoreArray(lf,&a);dCHK(err);
-  } else if (imode != INSERT_VALUES) dERROR(PETSC_COMM_SELF,1,"unsupported imode");
+  } break;
+  case INSERT_VALUES:
+    break;
+  default: dERROR(((PetscObject)fs)->comm,PETSC_ERR_SUP,"unsupported imode");
+  }
   err = dFSExpandedToLocal(fs,x,lf,imode);dCHK(err);
   err = VecGhostRestoreLocalForm(gc,&lf);dCHK(err);
   err = VecGhostUpdateBegin(gc,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
   err = VecGhostUpdateEnd(gc,ADD_VALUES,SCATTER_REVERSE);dCHK(err);
   if (hmode == dFS_HOMOGENEOUS) { /* \todo project into homogeneous space (for rotated coords) */ }
   err = VecDohpRestoreClosure(gd,&gc);dCHK(err);
-  if (gd != g) {
-    err = VecCopy(gd,g);dCHK(err);
+  if (!isdohp) {
+    switch (imode) {
+    case ADD_VALUES: err = VecAXPY(g,1.0,gd);dCHK(err); break;
+    case INSERT_VALUES: err = VecCopy(gd,g);dCHK(err); break;
+    default: dERROR(((PetscObject)fs)->comm,PETSC_ERR_SUP,"unsupported imode");
+    }
     err = DMRestoreGlobalVector((DM)fs,&gd);dCHK(err);
   }
   dFunctionReturn(0);
