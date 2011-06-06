@@ -950,6 +950,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
     err = MatGetLocalToGlobalMapping(Bpp,&ltogs[1],NULL);dCHK(err);
     err = ISLocalToGlobalMappingConcatenate(((PetscObject)Bss)->comm,2,ltogs,&ltogcat);dCHK(err);
     err = MatSetLocalToGlobalMapping(Bss,ltogcat,ltogcat);dCHK(err);
+    err = ISLocalToGlobalMappingDestroy(&ltogcat);dCHK(err);
     err = MatCreateNest(vht->comm,2,allis,2,allis,((Mat[]){Bss,NULL,NULL,Bee}),B);dCHK(err);
     err = MatDestroy(&Jss);dCHK(err);
     err = MatDestroy(&Jse);dCHK(err);
