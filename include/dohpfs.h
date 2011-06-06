@@ -161,59 +161,6 @@ extern dErr dFSGetNodalCoordinatesGlobal(dFS,Vec*);
 
 extern dErr dFSRedimension(dFS,dInt,dFSClosureMode,dFS*);
 
-/** The Q1 stuff doesn't really belong here, but it is used at the same level of abstraction and I'm too lazy to
-* separate it out yet.  This macro is a rather dirty way to avoid a bunch of code duplication without much runtime cost.
-* When there's time, I should make this more elegant.
-*
-* @param c An const array is declared with this name, it gives the element-wise index for each corner (basis function)
-* on the Q1 sub-element.  The indexing is determined using \a p (3-array of number of basis functions in each Cartesian
-* direction) and \a i, \a j, \a k, the indices in the tensor element.
-*
-* @param rowcol A const array with this name is declared, it is just \a c shifted by \a off and is normally only used to
-* provide indices for dFSMatSetValuesExpanded.
-*
-* @param corners A const array \c dReal[8][3] with this name is declared which holds the global coordinates of each corner.
-* In many cases, it will simply be passed to dQ1HexComputeQuadrature.
-*
-* @param off Offset of this element in expanded vector.
-* @param nx Coordinates of all the nodes on the element, these will be used to create the \a corners array
-* @param p Array \c dInt[3] with the number of Lagrange nodes in each Cartesian direction
-* @param i Index in element basis x-direction
-* @param j Index in element basis y-direction
-* @param k Index in element basis z-direction
-**/
-#define dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off,nx,p,i,j,k)        \
-          const dInt (c)[8] = {((((i)+0)*(p)[1]+(j)+0)*(p)[2]+(k)),     \
-                               ((((i)+1)*(p)[1]+(j)+0)*(p)[2]+(k)),     \
-                               ((((i)+1)*(p)[1]+(j)+1)*(p)[2]+(k)),     \
-                               ((((i)+0)*(p)[1]+(j)+1)*(p)[2]+(k)),     \
-                               ((((i)+0)*(p)[1]+(j)+0)*(p)[2]+(k)+1),   \
-                               ((((i)+1)*(p)[1]+(j)+0)*(p)[2]+(k)+1),   \
-                               ((((i)+1)*(p)[1]+(j)+1)*(p)[2]+(k)+1),   \
-                               ((((i)+0)*(p)[1]+(j)+1)*(p)[2]+(k)+1)};  \
-          const dInt (rowcol)[8] = {(off)+(c)[0],(off)+(c)[1],(off)+(c)[2],(off)+(c)[3], \
-                                    (off)+(c)[4],(off)+(c)[5],(off)+(c)[6],(off)+(c)[7]}; \
-          const dReal (corners)[8][3] = {{(nx)[(c)[0]][0],(nx)[(c)[0]][1],(nx)[(c)[0]][2]}, \
-                                         {(nx)[(c)[1]][0],(nx)[(c)[1]][1],(nx)[(c)[1]][2]}, \
-                                         {(nx)[(c)[2]][0],(nx)[(c)[2]][1],(nx)[(c)[2]][2]}, \
-                                         {(nx)[(c)[3]][0],(nx)[(c)[3]][1],(nx)[(c)[3]][2]}, \
-                                         {(nx)[(c)[4]][0],(nx)[(c)[4]][1],(nx)[(c)[4]][2]}, \
-                                         {(nx)[(c)[5]][0],(nx)[(c)[5]][1],(nx)[(c)[5]][2]}, \
-                                         {(nx)[(c)[6]][0],(nx)[(c)[6]][1],(nx)[(c)[6]][2]}, \
-                                         {(nx)[(c)[7]][0],(nx)[(c)[7]][1],(nx)[(c)[7]][2]}}
-
-#define dQ1SCALE_DECLARE(tscale,scale,i,j,k)                            \
-  const dReal dUNUSED (scale)[8] = {(tscale)[0][(i)+0]*(tscale)[1][(j)+0]*(tscale)[2][(k)+0], \
-                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+0]*(tscale)[2][(k)+0], \
-                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+1]*(tscale)[2][(k)+0], \
-                                    (tscale)[0][(i)+0]*(tscale)[1][(j)+1]*(tscale)[2][(k)+0], \
-                                    (tscale)[0][(i)+0]*(tscale)[1][(j)+0]*(tscale)[2][(k)+1], \
-                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+0]*(tscale)[2][(k)+1], \
-                                    (tscale)[0][(i)+1]*(tscale)[1][(j)+1]*(tscale)[2][(k)+1], \
-                                    (tscale)[0][(i)+0]*(tscale)[1][(j)+1]*(tscale)[2][(k)+1]}
-
-extern dErr dQ1HexComputeQuadrature(const dReal x[8][3],dInt *n,const dReal (**qx)[3],const dReal **jw,const dReal **basis,const dReal **deriv);
-
 
 dEXTERN_C_END
 #endif  /* _DOHPFS_H */

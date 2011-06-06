@@ -481,69 +481,6 @@ static dErr ProjJacobian1(SNES dUNUSED snes,Vec gx,Mat *J,Mat *Jp,MatStructure *
   dFunctionReturn(0);
 }
 
-#if 0
-static dErr ProjJacobian(SNES dUNUSED snes,Vec gx,Mat dUNUSED *J,Mat *Jp,MatStructure *structure,void *ctx)
-{
-  struct ProjContext *proj = ctx;
-  dRule *rule;
-  dEFS *efs;
-  dReal (*nx)[3];
-  dScalar *x;
-  dFS fs = proj->fs;
-  dInt n,*off,*geomoff;
-  dReal (*geom)[3];
-  dErr err;
-
-  dFunctionBegin;
-  err = MatZeroEntries(*Jp);dCHK(err);
-  err = dFSGlobalToExpanded(fs,gx,proj->x,dFS_INHOMOGENEOUS,INSERT_VALUES);dCHK(err);
-  err = VecGetArray(proj->x,&x);dCHK(err);
-  err = dFSGetElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = dFSGetWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
-  for (dInt e=0; e<n; e++) {
-    dInt three,P[3];
-    err = dEFSGetGlobalCoordinates(efs[e],(const dReal(*)[3])(geom+geomoff[e]),&three,P,nx);dCHK(err);
-    if (three != 3) dERROR(PETSC_COMM_SELF,1,"Dimension not equal to 3");
-    for (dInt i=0; i<P[0]-1; i++) { /* P-1 = number of sub-elements in each direction */
-      for (dInt j=0; j<P[1]-1; j++) {
-        for (dInt k=0; k<P[2]-1; k++) {
-          dQ1CORNER_CONST_DECLARE(c,rowcol,corners,off[e],nx,P,i,j,k);
-          //const dScalar (*u)[1] = (const dScalar(*)[1])x+off[e]; /* Scalar valued function, can be indexed at corners as u[c[#]][0] */
-          const dReal (*qx)[3],*jw,*flatBasis,*flatDeriv;
-          dInt qn;
-          dScalar K[8][8];
-          err = dMemzero(K,sizeof(K));dCHK(err);
-          err = dQ1HexComputeQuadrature(corners,&qn,&qx,&jw,&flatBasis,&flatDeriv);dCHK(err);
-          {                     /* Scoping for VLA-pointer access */
-            const dReal (*basis)[8] = (const dReal(*)[8])flatBasis;
-            // const dReal (*deriv)[qn][8] = (const dReal(*)[qn][8])flatDeriv; /* UNUSED */
-            if (qn != 8) dERROR(PETSC_COMM_SELF,1,"Unexpected number of quadrature points %d, but it *should* work, disable this error",qn);
-            for (dInt lq=0; lq<qn; lq++) {           /* Loop over quadrature points */
-              for (dInt ltest=0; ltest<8; ltest++) { /* Loop over test basis functions (corners) */
-                for (dInt lp=0; lp<8; lp++) {        /* Loop over trial basis functions (corners) */
-                  K[ltest][lp] += gopt.q1scale * (basis[lq][ltest] * jw[lq] * basis[lq][lp]);
-                }
-              }
-            }
-          }
-          err = dFSMatSetValuesBlockedExpanded(fs,*Jp,8,rowcol,8,rowcol,&K[0][0],ADD_VALUES);dCHK(err);
-        }
-      }
-    }
-  }
-  err = dFSRestoreWorkspace(fs,__func__,&nx,NULL,NULL,NULL,NULL,NULL,NULL);dCHK(err);
-  err = dFSRestoreElements(fs,&n,&off,&rule,&efs,&geomoff,&geom);dCHK(err);
-  err = VecRestoreArray(proj->x,&x);dCHK(err);
-  err = MatAssemblyBegin(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyEnd(*Jp,MAT_FINAL_ASSEMBLY);dCHK(err);
-  /* Dummy assembly, somehow important for -snes_mf_operator */
-  err = MatAssemblyBegin(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
-  err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
-  *structure = DIFFERENT_NONZERO_PATTERN;
-  dFunctionReturn(0);
-}
-#endif
-
 static dErr ProjResidualNorms(struct ProjContext *proj,Vec gx,dReal residualNorms[static 3],dReal gresidualNorms[static 3])
 {
   Vec Coords;
