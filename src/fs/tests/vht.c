@@ -769,6 +769,21 @@ static dErr VHTGetRegionIterator(VHT vht,VHTEvaluation eval,InsertMode imode,dRu
   dFunctionReturn(0);
 }
 
+static dErr MatNestGetVHT(Mat A,VHT *vht)
+{
+  dErr err;
+  Mat B,C;
+  dBool flg;
+
+  dFunctionBegin;
+  err = MatNestGetSubMat(A,0,0,&B);dCHK(err);
+  err = PetscTypeCompare((PetscObject)B,MATNEST,&flg);dCHK(err);
+  if (flg) {err = MatNestGetSubMat(B,0,0,&C);dCHK(err);}
+  else C = B;
+  err = MatShellGetContext(C,(void**)vht);dCHK(err);
+  dFunctionReturn(0);
+}
+
 static dErr VHTExtractGlobalSplit(VHT vht,Vec X,Vec *Xu,Vec *Xp,Vec *Xe)
 {
   dErr err;
@@ -1538,12 +1553,10 @@ static dErr MatMult_Nest_VHT_all(Mat J,Vec X,Vec Y)
   Vec              Coords,Xu,Xp,Xe;
   dRulesetIterator iter;
   dErr             err;
-  Mat              A;
 
   dFunctionBegin;
   err = PetscLogEventBegin(LOG_VHTShellMult,J,X,Y,0);dCHK(err);
-  err = MatNestGetSubMat(J,0,0,&A);dCHK(err);
-  err = MatShellGetContext(A,(void**)&vht);dCHK(err);
+  err = MatNestGetVHT(J,&vht);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
   err = VHTGetRegionIterator(vht,EVAL_FUNCTION,INSERT_VALUES,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
@@ -2279,8 +2292,17 @@ int main(int argc,char *argv[])
     PC     pc;
     err = KSPGetPC(ksp,&pc);dCHK(err);
     if (vht->split_recursive) {
+      KSP *subksp;
+      PC pcstk;
+      dInt nsub;
       err = PCFieldSplitSetIS(pc,"s",vht->all.sblock);dCHK(err);
       err = PCFieldSplitSetIS(pc,"e",vht->all.eblock);dCHK(err);
+      err = PCFieldSplitGetSubKSP(pc,&nsub,&subksp);dCHK(err);
+      err = KSPGetPC(subksp[0],&pcstk);dCHK(err);
+      err = PCSetType(pcstk,PCFIELDSPLIT);dCHK(err);
+      err = PCFieldSplitSetIS(pcstk,"u",vht->stokes.ublock);dCHK(err);
+      err = PCFieldSplitSetIS(pcstk,"p",vht->stokes.pblock);dCHK(err);
+      err = PetscFree(subksp);dCHK(err);
     } else {
       err = PCFieldSplitSetIS(pc,"u",vht->all.ublock);dCHK(err);
       err = PCFieldSplitSetIS(pc,"p",vht->all.pblock);dCHK(err);
