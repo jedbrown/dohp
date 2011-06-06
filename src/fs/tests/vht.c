@@ -940,11 +940,16 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   if (vht->split_recursive) { /* Do a nested split with the Stokes block inside the overall thing */
     Mat Jss,Jse,Jes,Bss;
     IS stokesis[] = {vht->stokes.ublock,vht->stokes.pblock},allis[] = {vht->all.sblock,vht->all.eblock};
+    ISLocalToGlobalMapping ltogs[2],ltogcat;
     err = MatCreateNest(vht->comm,2,stokesis,2,stokesis,((Mat[]){Juu,Jup,Jpu,Jpp}),&Jss);dCHK(err);
     err = MatCreateNest(vht->comm,2,stokesis,1,NULL,((Mat[]){Jue,Jpe}),&Jse);dCHK(err);
     err = MatCreateNest(vht->comm,1,NULL,2,stokesis,((Mat[]){Jeu,Jep}),&Jes);dCHK(err);
     err = MatCreateNest(vht->comm,2,allis,2,allis,((Mat[]){Jss,Jse,Jes,Jee}),J);dCHK(err);
     err = MatCreateNest(vht->comm,2,stokesis,2,stokesis,((Mat[]){Buu,NULL,NULL,Bpp}),&Bss);dCHK(err);
+    err = MatGetLocalToGlobalMapping(Buu,&ltogs[0],NULL);dCHK(err);
+    err = MatGetLocalToGlobalMapping(Bpp,&ltogs[1],NULL);dCHK(err);
+    err = ISLocalToGlobalMappingConcatenate(((PetscObject)Bss)->comm,2,ltogs,&ltogcat);dCHK(err);
+    err = MatSetLocalToGlobalMapping(Bss,ltogcat,ltogcat);dCHK(err);
     err = MatCreateNest(vht->comm,2,allis,2,allis,((Mat[]){Bss,NULL,NULL,Bee}),B);dCHK(err);
     err = MatDestroy(&Jss);dCHK(err);
     err = MatDestroy(&Jse);dCHK(err);
@@ -1858,13 +1863,20 @@ static dErr VHTJacobian(SNES dUNUSED snes,Vec X,Mat *J,Mat *B,MatStructure *stru
 {
   VHT vht = ctx;
   dErr err;
-  Mat Buu,Bpp,Daux,Bee;
+  Mat Bss,Buu,Bpp,Daux,Bee;
   Vec Mdiag;
 
   dFunctionBegin;
-  err = MatGetLocalSubMatrix(*B,vht->all.lublock,vht->all.lublock,&Buu);dCHK(err);
-  err = MatGetLocalSubMatrix(*B,vht->all.lpblock,vht->all.lpblock,&Bpp);dCHK(err);
-  err = MatGetLocalSubMatrix(*B,vht->all.leblock,vht->all.leblock,&Bee);dCHK(err);
+  if (vht->split_recursive) {
+    err = MatGetLocalSubMatrix(*B,vht->all.lsblock,vht->all.lsblock,&Bss);dCHK(err);
+    err = MatGetLocalSubMatrix(Bss,vht->stokes.lublock,vht->stokes.lublock,&Buu);dCHK(err);
+    err = MatGetLocalSubMatrix(Bss,vht->stokes.lpblock,vht->stokes.lpblock,&Bpp);dCHK(err);
+    err = MatGetLocalSubMatrix(*B,vht->all.leblock,vht->all.leblock,&Bee);dCHK(err);
+  } else {
+    err = MatGetLocalSubMatrix(*B,vht->all.lublock,vht->all.lublock,&Buu);dCHK(err);
+    err = MatGetLocalSubMatrix(*B,vht->all.lpblock,vht->all.lpblock,&Bpp);dCHK(err);
+    err = MatGetLocalSubMatrix(*B,vht->all.leblock,vht->all.leblock,&Bee);dCHK(err);
+  }
   err = PetscObjectQuery((dObject)Bpp,"LSC_M_diag",(dObject*)&Mdiag);dCHK(err);
   err = PetscObjectQuery((dObject)Bpp,"LSC_L",(dObject*)&Daux);dCHK(err);
   err = MatZeroEntries(*B);dCHK(err);
@@ -1875,9 +1887,16 @@ static dErr VHTJacobian(SNES dUNUSED snes,Vec X,Mat *J,Mat *B,MatStructure *stru
     err = MatAssemblyBegin(Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
     err = MatAssemblyEnd  (Daux,MAT_FINAL_ASSEMBLY);dCHK(err);
   }
-  err = MatRestoreLocalSubMatrix(*B,vht->all.lublock,vht->all.lublock,&Buu);dCHK(err);
-  err = MatRestoreLocalSubMatrix(*B,vht->all.lpblock,vht->all.lpblock,&Bpp);dCHK(err);
-  err = MatRestoreLocalSubMatrix(*B,vht->all.leblock,vht->all.leblock,&Bee);dCHK(err);
+  if (vht->split_recursive) {
+    err = MatRestoreLocalSubMatrix(Bss,vht->stokes.lublock,vht->stokes.lublock,&Buu);dCHK(err);
+    err = MatRestoreLocalSubMatrix(Bss,vht->stokes.lpblock,vht->stokes.lpblock,&Bpp);dCHK(err);
+    err = MatRestoreLocalSubMatrix(*B,vht->all.lsblock,vht->all.lsblock,&Bss);dCHK(err);
+    err = MatRestoreLocalSubMatrix(*B,vht->all.leblock,vht->all.leblock,&Bee);dCHK(err);
+  } else {
+    err = MatRestoreLocalSubMatrix(*B,vht->all.lublock,vht->all.lublock,&Buu);dCHK(err);
+    err = MatRestoreLocalSubMatrix(*B,vht->all.lpblock,vht->all.lpblock,&Bpp);dCHK(err);
+    err = MatRestoreLocalSubMatrix(*B,vht->all.leblock,vht->all.leblock,&Bee);dCHK(err);
+  }
 
   /* MatNest calls assembly on the constituent pieces */
   err = MatAssemblyBegin(*B,MAT_FINAL_ASSEMBLY);dCHK(err);
