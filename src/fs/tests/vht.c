@@ -945,7 +945,11 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
     err = MatCreateNest(vht->comm,2,stokesis,1,NULL,((Mat[]){Jue,Jpe}),&Jse);dCHK(err);
     err = MatCreateNest(vht->comm,1,NULL,2,stokesis,((Mat[]){Jeu,Jep}),&Jes);dCHK(err);
     err = MatCreateNest(vht->comm,2,allis,2,allis,((Mat[]){Jss,Jse,Jes,Jee}),J);dCHK(err);
+    err = MatSetOptionsPrefix(Jss,"Jss_");dCHK(err);
+    err = MatSetOptionsPrefix(Jse,"Jse_");dCHK(err);
+    err = MatSetOptionsPrefix(Jes,"Jes_");dCHK(err);
     err = MatCreateNest(vht->comm,2,stokesis,2,stokesis,((Mat[]){Buu,NULL,NULL,Bpp}),&Bss);dCHK(err);
+    err = MatSetOptionsPrefix(Bss,"Bss_");dCHK(err);
     err = MatGetLocalToGlobalMapping(Buu,&ltogs[0],NULL);dCHK(err);
     err = MatGetLocalToGlobalMapping(Bpp,&ltogs[1],NULL);dCHK(err);
     err = ISLocalToGlobalMappingConcatenate(((PetscObject)Bss)->comm,2,ltogs,&ltogcat);dCHK(err);
