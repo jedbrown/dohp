@@ -1844,7 +1844,7 @@ static dErr VHTJacobianAssemble_PressureEnergy(VHT vht,Mat Bpp,Mat Daux,Mat Bee,
         for (dInt j=0; j<Pp; j++) { /* trial functions */
           for (dInt i=0; i<Pp; i++) {
             /* Scaled mass matrx */
-            Kpp[i][j] += interpp[q][i] * jw[q] * (1./stash.eta.x) * interpp[q][j];
+            Kpp[i][j] += interpp[q][i] * jw[q] * (stash.rho.x/stash.eta.x) * interpp[q][j];
             /* Neumann Laplacian */
             Kppaux[i][j] += (+ derivp[q][i][0] * jw[q] * derivp[q][j][0]
                              + derivp[q][i][1] * jw[q] * derivp[q][j][1]
