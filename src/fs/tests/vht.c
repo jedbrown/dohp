@@ -1412,33 +1412,44 @@ static void VHTPointwiseJacobian_up(const struct VHTStash *st,const struct VHTRh
   for (dInt i=0; i<3; i++) rhou_[i] = -rheo->rscale.momentum*weight * rho1 * rheo->gravity[i];
   for (dInt i=0; i<9; i++) drhou_[i] = rheo->rscale.momentum*weight * Stress1[i];
 }
-static void VHTPointwiseJacobian_ue(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar E1[1],const dScalar dE1[3],dScalar rhou_[1],dScalar drhou_[3])
+static dErr VHTPointwiseJacobian_ue(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar E1[1],const dScalar dE1[3],dScalar rhou_[3],dScalar drhou_[9])
 {
   const dScalar rhou1[3] = {0,0,0},drhou1[9] = {0,0,0,0,0,0,0,0,0},p1[1] = {0},dp1[3] = {0,0,0};
   dScalar E_[3],dE_[9],p_[1];
-  VHTPointwiseJacobian(st,rheo,dx,weight,rhou1,drhou1,p1,dp1,E1,dE1,rhou_,drhou_,p_,E_,dE_);
+  dErr err;
+  dFunctionBegin;
+  err = VHTPointwiseJacobian(st,rheo,dx,weight,rhou1,drhou1,p1,dp1,E1,dE1,rhou_,drhou_,p_,E_,dE_);dCHK(err);
+  dFunctionReturn(0);
 }
-static void VHTPointwiseJacobian_eu(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar rhou1[1],const dScalar drhou1[3],dScalar E_[1],dScalar dE_[3])
+static dErr VHTPointwiseJacobian_eu(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar rhou1[3],const dScalar drhou1[9],dScalar E_[1],dScalar dE_[3])
 {
   const dScalar p1[1] = {0},dp1[3] = {0,0,0},E1[1] = {0},dE1[3] = {0,0,0};
   dScalar rhou_[3],drhou_[9],p_[1];
-  VHTPointwiseJacobian(st,rheo,dx,weight,rhou1,drhou1,p1,dp1,E1,dE1,rhou_,drhou_,p_,E_,dE_);
+  dErr err;
+  dFunctionBegin;
+  err = VHTPointwiseJacobian(st,rheo,dx,weight,rhou1,drhou1,p1,dp1,E1,dE1,rhou_,drhou_,p_,E_,dE_);dCHK(err);
+  dFunctionReturn(0);
 }
-static void VHTPointwiseJacobian_ep(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar p1[1],const dScalar dp1[3],dScalar E_[1],dScalar dE_[3])
+static dErr VHTPointwiseJacobian_ep(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar p1[1],const dScalar dp1[3],dScalar E_[1],dScalar dE_[3])
 {
   const dScalar rhou1[3] = {0,0,0},drhou1[9] = {0,0,0,0,0,0,0,0,0},E1[1] = {0},dE1[3] = {0,0,0};
   dScalar rhou_[3],drhou_[9],p_[1];
-  VHTPointwiseJacobian(st,rheo,dx,weight,rhou1,drhou1,p1,dp1,E1,dE1,rhou_,drhou_,p_,E_,dE_);
+  dErr err;
+  dFunctionBegin;
+  err = VHTPointwiseJacobian(st,rheo,dx,weight,rhou1,drhou1,p1,dp1,E1,dE1,rhou_,drhou_,p_,E_,dE_);dCHK(err);
+  dFunctionReturn(0);
 }
-static void VHTPointwiseJacobian_ee(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar E1[1],const dScalar dE1[3],dScalar E_[1],dScalar dE_[3])
+static dErr VHTPointwiseJacobian_ee(const struct VHTStash *st,const struct VHTRheology *rheo,const dScalar dx[9],dReal weight,const dScalar E1[1],const dScalar dE1[3],dScalar E_[1],dScalar dE_[3])
 {
   dScalar u1[3],Stress1[9],Sigma1,drhou1[9] = {0},p1=0,rho1,supgflux1[3];
   VHTScalarD rho;
+  dErr err;
+  dFunctionBegin;
   VHTStashGetRho(st,rheo,&rho);
   rho1 = rho.dE*E1[0];
   VHTStashGetStress1(st,rheo,drhou1,p1,E1[0],Stress1,&Sigma1);
   for (dInt i=0; i<3; i++) u1[i] = - (rho.x*st->u[i]) / dSqr(rho.x) * rho1; // perturb u = rhou/rho
-  VHTStashGetStreamlineFlux1(st,rheo,dx,u1,dE1,supgflux1);
+  err = VHTStashGetStreamlineFlux1(st,rheo,dx,u1,dE1,supgflux1);dCHK(err);
 
   E_[0] = -rheo->rscale.energy*weight * Sigma1;
   for (dInt i=0; i<3; i++) dE_[i] = -rheo->rscale.energy*weight
@@ -1447,6 +1458,7 @@ static void VHTPointwiseJacobian_ee(const struct VHTStash *st,const struct VHTRh
                                 - st->K1[0][1]*E1[0]*st->dp[i]
                                 - st->K1[1][1]*E1[0]*st->dE[i]
                                 + supgflux1[i]);
+  dFunctionReturn(0);
 }
 
 static dErr VHTCheckDomain_Private(VHT vht,SNES snes,Vec Xp,dBool *in) {
@@ -1679,15 +1691,15 @@ static dErr MatMultAdd_VHT_eX(Mat A,Vec X,Vec Y,Vec Z,VHTMultMode mmode)
     switch (mmode) {
     case VHT_MULT_EU:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, &u,&du,NULL,NULL, NULL,NULL,NULL,NULL, NULL,NULL,&e_,&de_);dCHK(err);
-      for (dInt i=0; i<Q; i++) {VHTPointwiseJacobian_eu(&stash[i],&vht->scase->rheo,dx[i],jw[i],u[i],du[i],e_[i],de_[i]);dCHK(err);}
+      for (dInt i=0; i<Q; i++) {err = VHTPointwiseJacobian_eu(&stash[i],&vht->scase->rheo,dx[i],jw[i],u[i],du[i],e_[i],de_[i]);dCHK(err);}
       break;
     case VHT_MULT_EP:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,NULL,NULL,NULL, &p,&dp,NULL,NULL, NULL,NULL,&e_,&de_);dCHK(err);
-      for (dInt i=0; i<Q; i++) {VHTPointwiseJacobian_ep(&stash[i],&vht->scase->rheo,dx[i],jw[i],p[i],dp[i],e_[i],de_[i]);dCHK(err);}
+      for (dInt i=0; i<Q; i++) {err = VHTPointwiseJacobian_ep(&stash[i],&vht->scase->rheo,dx[i],jw[i],p[i],dp[i],e_[i],de_[i]);dCHK(err);}
       break;
     case VHT_MULT_EE:
       err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, (dScalar**)&x,(dScalar**)&dx,NULL,NULL, NULL,NULL,NULL,NULL, NULL,NULL,NULL,NULL, &e,&de,&e_,&de_);dCHK(err);
-      for (dInt i=0; i<Q; i++) {VHTPointwiseJacobian_ee(&stash[i],&vht->scase->rheo,dx[i],jw[i],e[i],de[i],e_[i],de_[i]);dCHK(err);}
+      for (dInt i=0; i<Q; i++) {err = VHTPointwiseJacobian_ee(&stash[i],&vht->scase->rheo,dx[i],jw[i],e[i],de[i],e_[i],de_[i]);dCHK(err);}
       break;
     default: dERROR(vht->comm,PETSC_ERR_ARG_OUTOFRANGE,"Invalid mmode");
     }
