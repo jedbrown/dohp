@@ -722,7 +722,7 @@ static dErr StokesJacobianAssemble_Velocity(Stokes stk,Mat Ap,Vec Mdiag,Vec gx)
           }
         }
       }
-      err = dFSMatSetValuesBlockedExpanded(stk->fsu,Ap,8,rowcol,8,rowcol,&K[0][0][0][0],ADD_VALUES);dCHK(err);
+      err = dFSMatSetValuesBlockedExpanded(stk->fsu,Ap,P,rowcol,P,rowcol,&K[0][0][0][0],ADD_VALUES);dCHK(err);
       for (dInt i=0; i<P; i++) {
         dScalar Mentry = 0;
         for (dInt q=0; q<Q; q++) Mentry += interp[q][i] * jw[q] * interp[q][i]; /* Integrate the diagonal entry over this element */
