@@ -1375,7 +1375,7 @@ static dErr VHTPointwiseJacobian(const struct VHTStash *st,const struct VHTRheol
                              drhou_[i*3+j] = -rheo->rscale.momentum*weight
                                                       * (rheo->mask_momtrans*(rhou1[i]*st->u[j] + rho.x*st->u[i]*u1[j]) - Stress1[i*3+j]);
   p_[0] = -rheo->rscale.mass*weight*(drhou1[0]+drhou1[4]+drhou1[8]);                 // -q tr(Du)
-  E_[0] = -rheo->rscale.energy*weight*(Sigma1 - dDotScalar3(rhou1,rheo->gravity));
+  E_[0] = -rheo->rscale.energy*weight*(Sigma1 + dDotScalar3(rhou1,rheo->gravity));
   for (dInt i=0; i<3; i++) dE_[i] = -rheo->rscale.energy*weight
                              * (st->u[i] * (E1[0]+rheo->mask_Ep*p1[0]) + u1[i] * (st->E + rheo->mask_Ep*(st->p+rheo->p0))
                                 - st->K[0]*dp1[i] - st->K[1]*dE1[i]
