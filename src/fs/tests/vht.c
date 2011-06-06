@@ -878,8 +878,9 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   err = MatCreateShell(vht->comm,nu,nu,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Juu);dCHK(err);
   err = MatShellSetOperation(Juu,MATOP_GET_VECS,(void(*)(void))MatGetVecs_VHT_stokes);dCHK(err);
   err = MatShellSetOperation(Juu,MATOP_MULT,(void(*)(void))MatMult_VHT_uu);dCHK(err);
-  err = MatShellSetOperation(Juu,MATOP_MULT_TRANSPOSE,(void(*)(void))MatMult_VHT_uu);dCHK(err);
   err = MatShellSetOperation(Juu,MATOP_MULT_ADD,(void(*)(void))MatMultAdd_VHT_uu);dCHK(err);
+  /* This is a lie, it is not strictly symmetric. But it is very close to symmetric at low Reynolds number with small melt fraction */
+  err = MatShellSetOperation(Juu,MATOP_MULT_TRANSPOSE,(void(*)(void))MatMult_VHT_uu);dCHK(err);
   err = MatShellSetOperation(Juu,MATOP_MULT_TRANSPOSE_ADD,(void(*)(void))MatMultAdd_VHT_uu);dCHK(err);
   err = MatSetOptionsPrefix(Juu,"Juu_");dCHK(err);
 
@@ -887,11 +888,12 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   err = MatCreateShell(vht->comm,np,nu,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Jpu);dCHK(err);
   err = MatShellSetOperation(Jpu,MATOP_GET_VECS,(void(*)(void))MatGetVecs_VHT_stokes);dCHK(err);
   err = MatShellSetOperation(Jpu,MATOP_MULT,(void(*)(void))MatMult_VHT_pu);dCHK(err);
-  err = MatShellSetOperation(Jpu,MATOP_MULT_TRANSPOSE,(void(*)(void))MatMult_VHT_up);dCHK(err);
   err = MatShellSetOperation(Jpu,MATOP_MULT_ADD,(void(*)(void))MatMultAdd_VHT_pu);dCHK(err);
-  err = MatShellSetOperation(Jpu,MATOP_MULT_TRANSPOSE_ADD,(void(*)(void))MatMultAdd_VHT_up);dCHK(err);
-  err = MatCreateTranspose(Jpu,&Jup);dCHK(err);
   err = MatSetOptionsPrefix(Jpu,"Jpu_");dCHK(err);
+
+  err = MatCreateShell(vht->comm,nu,np,PETSC_DETERMINE,PETSC_DETERMINE,vht,&Jup);dCHK(err);
+  err = MatShellSetOperation(Jup,MATOP_MULT,(void(*)(void))MatMult_VHT_up);dCHK(err);
+  err = MatShellSetOperation(Jup,MATOP_MULT_ADD,(void(*)(void))MatMultAdd_VHT_up);dCHK(err);
   err = MatSetOptionsPrefix(Jup,"Jup_");dCHK(err);
 
   /* These entries are really zero */
