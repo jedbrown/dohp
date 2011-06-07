@@ -2055,6 +2055,7 @@ static dErr VHTVecNormsSplitStokes(VHT vht,Vec X,NormType ntype,dReal norms[2])
   Vec Xu,Xp;
 
   dFunctionBegin;
+  dPragmaGCC(diagnostic ignored "-Wuninitialized") // spurious
   err = VHTExtractStokesSplit(vht,X,&Xu,&Xp);dCHK(err);
   err = VecNorm(Xu,ntype,&norms[0]);dCHK(err);
   err = VecNorm(Xp,ntype,&norms[1]);dCHK(err);
