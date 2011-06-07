@@ -1,0 +1,6 @@
+    0 KSP Residual norm 172.603 
+    1 KSP Residual norm < 1.e-11
+Algebraic residual        |x|_1 1.77e-01  |x|_2 9.71e-01  |x|_inf 2.23e+01
+Interpolation residual    |x|_1 1.45e-01  |x|_2 4.20e-01  |x|_inf 4.90e+00
+Pointwise solution error  |x|_1 3.95e+00  |x|_2 2.38e+00  |x|_inf 5.59e+00
+Pointwise gradient error  |x|_1 3.72e+01  |x|_2 2.49e+01  |x|_inf 5.67e+01
