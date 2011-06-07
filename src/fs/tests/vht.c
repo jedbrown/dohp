@@ -2260,7 +2260,6 @@ static dErr CheckNullSpace(SNES snes,Vec U,Vec F)
 static dErr ComputeExplicit(SNES snes,Vec U)
 {
   Mat J,Jp,expmat,expmat_fd;
-  dInt m,n;
   dBool contour = dFALSE;
   MatStructure mstruct;
   dErr err;
@@ -2268,7 +2267,6 @@ static dErr ComputeExplicit(SNES snes,Vec U)
   dFunctionBegin;
   err = SNESGetJacobian(snes,&J,&Jp,NULL,NULL);dCHK(err);
   err = SNESComputeJacobian(snes,U,&J,&Jp,&mstruct);dCHK(err);
-  err = MatGetLocalSize(J,&m,&n);dCHK(err);
   err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
   err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
   err = SNESDefaultComputeJacobian(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
