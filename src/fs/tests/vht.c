@@ -1893,7 +1893,6 @@ static dErr VHTJacobianAssemble_PressureEnergy(VHT vht,Mat Bpp,Mat Daux,Mat Bee,
   dFunctionReturn(0);
 }
 
-
 static dErr VHTJacobian(SNES dUNUSED snes,Vec X,Mat *J,Mat *B,MatStructure *structure,void *ctx)
 {
   VHT vht = ctx;
@@ -1941,6 +1940,30 @@ static dErr VHTJacobian(SNES dUNUSED snes,Vec X,Mat *J,Mat *B,MatStructure *stru
     err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
   }
   *structure = SAME_NONZERO_PATTERN;
+  {
+    Mat Jss,Juu,Juu_ex;
+    PetscViewer viewer,ascviewer;
+    dBool flg = dFALSE;
+    err = PetscOptionsGetBool(NULL,"-explicit_nest_mat_view_draw",&flg,NULL);dCHK(err);
+    if (!flg) dFunctionReturn(0);
+    err = MatNestGetSubMat(*J,0,0,&Jss);dCHK(err);
+    err = MatNestGetSubMat(Jss,0,0,&Juu);dCHK(err);
+    err = MatNestGetSubMat(*B,0,0,&Bss);dCHK(err);
+    err = MatNestGetSubMat(Bss,0,0,&Buu);dCHK(err);
+    viewer = PETSC_VIEWER_DRAW_(((PetscObject)Juu)->comm);
+    ascviewer = PETSC_VIEWER_STDOUT_(((PetscObject)Juu)->comm);
+    err = MatComputeExplicitOperator(Juu,&Juu_ex);dCHK(err);
+    err = PetscViewerPushFormat(viewer,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);
+    err = PetscViewerASCIIPrintf(ascviewer,"Matrix-free operator Juu\n");dCHK(err);
+    err = MatView(Juu_ex,viewer);dCHK(err);
+    err = PetscViewerASCIIPrintf(ascviewer,"Assembled Buu\n");dCHK(err);
+    err = MatView(Buu,viewer);dCHK(err);
+    err = MatAXPY_Basic(Juu_ex,-1.0,Buu,DIFFERENT_NONZERO_PATTERN);dCHK(err);
+    err = PetscViewerASCIIPrintf(ascviewer,"Difference Juu - Buu\n");dCHK(err);
+    err = MatView(Juu_ex,viewer);dCHK(err);
+    err = PetscViewerPopFormat(viewer);dCHK(err);
+    err = MatDestroy(&Juu_ex);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
