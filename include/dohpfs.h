@@ -161,6 +161,8 @@ extern dErr dFSGetNodalCoordinatesGlobal(dFS,Vec*);
 
 extern dErr dFSRedimension(dFS,dInt,dFSClosureMode,dFS*);
 
+/* The normal MatAXPY() does not work for arguments of mixed type, so we redeclare this "private" function here. */
+extern PetscErrorCode MatAXPY_Basic(Mat Y,PetscScalar a,Mat X,MatStructure str);
 
 dEXTERN_C_END
 #endif  /* _DOHPFS_H */
