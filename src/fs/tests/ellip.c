@@ -121,6 +121,7 @@ struct EllipCtx {
   dInt                  constBDeg;
   dBool                 errorview;
   dBool                 eta_monitor;
+  dBool                 compute_explicit;
   dQuadratureMethod     function_qmethod,jacobian_qmethod;
   dRulesetIterator      regioniter[EVAL_UB];
 };
@@ -192,6 +193,7 @@ static dErr EllipSetFromOptions(Ellip elp)
     err = PetscOptionsReal("-ellip_lam","Strength of Bratu nonlinearity","",prm->lambda,&prm->lambda,NULL);dCHK(err);
     err = PetscOptionsEnum("-ellip_f_qmethod","Quadrature method for residual evaluation/matrix-free","",dQuadratureMethods,(PetscEnum)elp->function_qmethod,(PetscEnum*)&elp->function_qmethod,NULL);dCHK(err);
     err = PetscOptionsEnum("-ellip_jac_qmethod","Quadrature to use for Jacobian assembly","",dQuadratureMethods,(PetscEnum)elp->jacobian_qmethod,(PetscEnum*)&elp->jacobian_qmethod,NULL);dCHK(err);
+    err = PetscOptionsBool("-ellip_compute_explicit","Compute the explicit operators for the Jacobian and the preconditioner","",elp->compute_explicit,&elp->compute_explicit,NULL);dCHK(err);
     {
       dBool flg; dInt n = ALEN(prm->dirichlet);
       err = PetscOptionsIntArray("-dirichlet","List of boundary sets on which to impose Dirichlet conditions","",prm->dirichlet,&n,&flg);dCHK(err);
@@ -475,6 +477,23 @@ static dErr EllipJacobian(SNES snes,Vec gx,Mat *J,Mat *Jp,MatStructure *structur
     err = MatAssemblyEnd(*J,MAT_FINAL_ASSEMBLY);dCHK(err);
   }
   *structure = SAME_NONZERO_PATTERN;
+  if (elp->compute_explicit) {
+    Mat A = *J,B = *Jp,A_ex;
+    PetscViewer viewer,ascviewer;
+    viewer = PETSC_VIEWER_DRAW_(((PetscObject)A)->comm);
+    ascviewer = PETSC_VIEWER_STDOUT_(((PetscObject)A)->comm);
+    err = MatComputeExplicitOperator(A,&A_ex);dCHK(err);
+    err = PetscViewerPushFormat(viewer,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);
+    err = PetscViewerASCIIPrintf(ascviewer,"Matrix-free operator A\n");dCHK(err);
+    err = MatView(A_ex,viewer);dCHK(err);
+    err = PetscViewerASCIIPrintf(ascviewer,"Assembled B\n");dCHK(err);
+    err = MatView(B,viewer);dCHK(err);
+    err = MatAXPY_Basic(A_ex,-1.0,B,DIFFERENT_NONZERO_PATTERN);dCHK(err);
+    err = PetscViewerASCIIPrintf(ascviewer,"Difference A - B\n");dCHK(err);
+    err = MatView(A_ex,viewer);dCHK(err);
+    err = PetscViewerPopFormat(viewer);dCHK(err);
+    err = MatDestroy(&A_ex);dCHK(err);
+  }
   dFunctionReturn(0);
 }
 
