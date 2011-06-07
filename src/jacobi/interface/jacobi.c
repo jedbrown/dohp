@@ -567,17 +567,15 @@ dErr dEFSGetExplicit(dEFS efs,const dReal jinv[],dInt *inQ,dInt *inP,const dReal
     err = dMallocA2(P*Q,&newbasis,P*Q*3,&newderiv);dCHK(err);
     /* Transpose and place in user vectors */
     for (dInt i=0; i<Q; i++) {
-      const PetscReal *ji = jinv ? &jinv[9*i] : ((const PetscReal[]){1,0,0,0,1,0,0,0,1});
       for (dInt j=0; j<P; j++) {
         PetscReal ux,uy,uz;
         newbasis[i*P+j] = PetscRealPart(basis[i+j*Q]);
         ux = PetscRealPart(deriv[(i+j*Q)*3+0]);
         uy = PetscRealPart(deriv[(i+j*Q)*3+1]);
         uz = PetscRealPart(deriv[(i+j*Q)*3+2]);
-        /* chain rule: (\grad u)^T J^{-1} */
-        newderiv[(i*P+j)*3+0] = ux*ji[0] + uy*ji[3] + uz*ji[6];
-        newderiv[(i*P+j)*3+1] = ux*ji[1] + uy*ji[4] + uz*ji[7];
-        newderiv[(i*P+j)*3+2] = ux*ji[2] + uy*ji[5] + uz*ji[8];
+        newderiv[(i*P+j)*3+0] = ux;
+        newderiv[(i*P+j)*3+1] = uy;
+        newderiv[(i*P+j)*3+2] = uz;
       }
     }
     err = dFree2(basis,deriv);dCHK(err);
