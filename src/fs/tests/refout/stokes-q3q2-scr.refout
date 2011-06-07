@@ -2,6 +2,7 @@ Norm of discrete residual for exact solution 0.00343338
 Norm of discrete linear residual at exact solution 0.00343338
   0 SNES Function norm 1.75588 
       Linear solve converged due to CONVERGED_RTOL iterations 20
+      Residual norms for fieldsplit_p_ solve.
       0 KSP Residual norm 4.22361 
       Linear solve converged due to CONVERGED_RTOL iterations 20
       1 KSP Residual norm 2.27549 
