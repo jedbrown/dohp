@@ -102,6 +102,18 @@ static void EllipExact_3_Forcing(const struct EllipExactCtx *ctx,const struct El
   f[0] = pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p/2))*(1 - p/2)*(-2*c*x*z + b*pow(y,2))*(-2*c*x*(-2*c*x*z + b*pow(y,2)) - 2*c*z*(c*(1 - pow(z,2)) + 3*a*pow(x,2)) + 4*z*pow(b,2)*pow(y,2)) + pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p/2))*(1 - p/2)*(c*(1 - pow(z,2)) + 3*a*pow(x,2))*(-2*c*z*(-2*c*x*z + b*pow(y,2)) + 6*a*x*(c*(1 - pow(z,2)) + 3*a*pow(x,2))) + 2*b*y*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p/2))*(1 - p/2)*(2*b*y*(-2*c*x*z + b*pow(y,2)) + 4*y*pow(b,2)*pow(z,2)) - 6*a*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-1 + p/2)) - 2*b*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-1 + p/2)) + 2*c*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-1 + p/2));
 }
 
+static void EllipExact_4_Solution(const struct EllipExactCtx dUNUSED *ctx,const struct EllipParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar u[1],dScalar du[3])
+{ // This is not actually an exact solution
+  u[0] = 0;
+  du[0] = 0;
+  du[1] = 0;
+  du[2] = 0;
+}
+static void EllipExact_4_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[1])
+{
+  f[0] = ctx->a;
+}
+
 struct EllipStore {
   dReal eta;
   dReal sqrt_mdeta_Du[3];
@@ -208,23 +220,27 @@ static dErr EllipSetFromOptions(Ellip elp)
   } err = PetscOptionsEnd();dCHK(err);
 
   switch (exact) {
-    case 0:
-      elp->exact.solution = EllipExact_0_Solution;
-      elp->exact.forcing = EllipExact_0_Forcing;
-      break;
-    case 1:
-      elp->exact.solution = EllipExact_1_Solution;
-      elp->exact.forcing = EllipExact_1_Forcing;
-      break;
-    case 2:
-      elp->exact.solution = EllipExact_2_Solution;
-      elp->exact.forcing = EllipExact_2_Forcing;
-      break;
-    case 3:
-      elp->exact.solution = EllipExact_3_Solution;
-      elp->exact.forcing = EllipExact_3_Forcing;
-      break;
-    default: dERROR(PETSC_COMM_SELF,1,"Exact solution %d not implemented");
+  case 0:
+    elp->exact.solution = EllipExact_0_Solution;
+    elp->exact.forcing = EllipExact_0_Forcing;
+    break;
+  case 1:
+    elp->exact.solution = EllipExact_1_Solution;
+    elp->exact.forcing = EllipExact_1_Forcing;
+    break;
+  case 2:
+    elp->exact.solution = EllipExact_2_Solution;
+    elp->exact.forcing = EllipExact_2_Forcing;
+    break;
+  case 3:
+    elp->exact.solution = EllipExact_3_Solution;
+    elp->exact.forcing = EllipExact_3_Forcing;
+    break;
+  case 4:
+    elp->exact.solution = EllipExact_4_Solution;
+    elp->exact.forcing = EllipExact_4_Forcing;
+    break;
+  default: dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Exact solution %d not implemented",exact);
   }
 
   err = dMeshCreate(elp->comm,&mesh);dCHK(err);
@@ -320,7 +336,7 @@ static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal
   st->eta = pow(espg,(p-2)/2);
   sqrt_mdeta = sqrt(-((p-2)/2) * st->eta / espg);
   for (dInt i=0; i<3; i++) st->sqrt_mdeta_Du[i] = sqrt_mdeta*Du[i];
-  st->lambda_exp_u = prm->lambda * exp(u[0]);
+  st->lambda_exp_u = prm->lambda != 0 ? prm->lambda * exp(u[0]) : 0;
 }
 
 static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExact *exact,struct EllipExactCtx *exactctx,
