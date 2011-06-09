@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.6.3)
 project (Dohp)
 
-list (APPEND CMAKE_MODULE_PATH "${Dohp_SOURCE_DIR}/CMake")
+list (APPEND CMAKE_MODULE_PATH "${Dohp_SOURCE_DIR}/cmake-modules")
 
 # Normally PETSc is built with MPI, if not, use CC=mpicc, etc
 find_package (PETSc REQUIRED)
