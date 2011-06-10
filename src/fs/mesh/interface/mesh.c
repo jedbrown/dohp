@@ -1,6 +1,5 @@
 #include <dohpmeshimpl.h>
 #include <dohpgeom.h>
-#include <iMeshP.h>
 #include <iMesh_extensions.h>
 #include <MBParallelConventions.h>
 #include <ctype.h>              /* needed for isprint() */
