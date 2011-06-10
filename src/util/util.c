@@ -38,7 +38,7 @@ dErr dFilePathSplit(const char *path,dInt *slash,dInt *dot)
     if (path[i] == '/' || i == 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Path '%s' does not contain valid suffix",path);
   }
   *slash = -1;
-  for ( ; i>=0; i++) {
+  for ( ; i>=0; i--) {
     if (path[i] == '/') {*slash = i; break;}
   }
   dFunctionReturn(0);
