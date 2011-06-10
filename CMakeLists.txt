@@ -7,6 +7,7 @@ list (APPEND CMAKE_MODULE_PATH "${Dohp_SOURCE_DIR}/cmake-modules")
 find_package (PETSc REQUIRED)
 find_package (ITAPS COMPONENTS MESH GEOM REL)
 find_package (GDAL)
+find_package (HDF5)
 if (GDAL_FOUND)
   set (dHAVE_GDAL TRUE)
 endif ()
@@ -69,10 +70,10 @@ add_custom_target (etags
   WORKING_DIRECTORY ${Dohp_SOURCE_DIR})
 
 # Essential: include our directories first otherwise we can get internal headers from some installed path
-include_directories ("${Dohp_SOURCE_DIR}/include" "${Dohp_BINARY_DIR}/include" ${PETSC_INCLUDES} ${ITAPS_INCLUDES})
+include_directories ("${Dohp_SOURCE_DIR}/include" "${Dohp_BINARY_DIR}/include" ${PETSC_INCLUDES} ${ITAPS_INCLUDES} ${HDF5_INCLUDE_DIRS})
 add_definitions (${PETSC_DEFINITIONS})
 
-set (Dohp_DEPENDENT_LIBRARIES "${ITAPS_REL_LIBRARIES}" "${ITAPS_MESH_LIBRARIES}" "${ITAPS_GEOM_LIBRARIES}" "${PETSC_LIBRARIES}")
+set (Dohp_DEPENDENT_LIBRARIES "${ITAPS_REL_LIBRARIES}" "${ITAPS_MESH_LIBRARIES}" "${ITAPS_GEOM_LIBRARIES}" "${PETSC_LIBRARIES}" "${HDF5_LIBRARIES}")
 set (Dohp_LIBRARIES dohp ${Dohp_DEPENDENT_LIBRARIES})
 
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${Dohp_BINARY_DIR}/lib CACHE PATH "Output directory for Dohp archives")
