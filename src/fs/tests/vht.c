@@ -438,7 +438,7 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
   vht->e_dirichlet[1]  = 200;
   vht->e_dirichlet[2]  = 300;
   vht->alldirichlet  = dTRUE;
-  vht->domain_error  = 1;
+  vht->domain_error  = 2;
   vht->function_qmethod = dQUADRATURE_METHOD_FAST;
   vht->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
 
