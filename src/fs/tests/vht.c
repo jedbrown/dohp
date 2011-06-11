@@ -329,7 +329,7 @@ static dErr VHTLogEpochStart(struct VHTLog *vlog)
     struct VHTLogEpoch *tmp = vlog->epochs;
     err = dCallocA(newalloc,&vlog->epochs);dCHK(err);
     err = dMemcpy(vlog->epochs,tmp,vlog->alloc*sizeof(tmp[0]));dCHK(err);
-    err = dFree(tmp);dCHK(err);dCHK(err);
+    err = dFree(tmp);dCHK(err);
     vlog->alloc = newalloc;
   }
   err = VHTLogEpochReset(&vlog->epochs[vlog->epoch]);dCHK(err);
