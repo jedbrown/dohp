@@ -2,10 +2,13 @@
 #define _DOHPMESH_H
 
 #include <petscsys.h>
-#include <stdlib.h>
-#include <string.h>
 #include <dohptype.h>
 #include <dohpjacobi.h>
+
+#ifdef dHAVE_ITAPS_REL
+#  include <iGeom.h>
+#  include <iRel.h>
+#endif
 
 dEXTERN_C_BEGIN
 
@@ -167,6 +170,11 @@ extern dErr dMeshRestoreAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,
 extern dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
 extern dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 extern dErr dMeshSetClosure(dMesh,dMeshESH);
+
+#ifdef dHAVE_ITAPS_REL
+extern dErr dMeshSetGeometryRelation(dMesh,iGeom_Instance,iRel_Instance);
+extern dErr dMeshGetGeometryRelation(dMesh,iGeom_Instance*,iRel_Instance*);
+#endif
 
 dEXTERN_C_END
 

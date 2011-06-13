@@ -16,6 +16,10 @@ struct _p_dMesh {
   PETSCHEADER(struct _dMeshOps);
   char *infile,*inoptions;
   iMesh_Instance mi;
+#ifdef dHAVE_ITAPS_REL
+  iGeom_Instance igeom;
+  iRel_Instance irel;
+#endif
   dMeshESH root,emptyset;
   dMeshTag senseTag;
   MeshListEH v,e,f,r;           /* vertices, edges, faces, vertices */

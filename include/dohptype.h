@@ -1,7 +1,7 @@
 #ifndef _DOHPTYPE_H
 #define _DOHPTYPE_H
 
-#include "dohpconfig.h"
+#include <dohpconfig.h>
 #include <petscconf.h>
 #include <iMesh.h>
 #include <mpi.h>

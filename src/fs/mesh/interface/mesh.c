@@ -1108,6 +1108,7 @@ dErr dMeshDestroy(dMesh *meshp)
 {
   dMesh m = *meshp;
   dErr err;
+  dIInt ierr;
 
   dFunctionBegin;
   if (!m) dFunctionReturn(0);
@@ -1120,9 +1121,13 @@ dErr dMeshDestroy(dMesh *meshp)
   MeshListFree(m->arf); MeshListFree(m->afe); MeshListFree(m->aev);
   MeshListFree(m->orf); MeshListFree(m->ofe);
   MeshListFree(m->x);
-  iMesh_dtor(m->mi,&err);dICHK(m->mi,err);
+  iMesh_dtor(m->mi,&ierr);dICHK(m->mi,ierr);
   err = PetscFree(m->infile);dCHK(err);
   err = PetscFree(m->inoptions);dCHK(err);
+#ifdef dHAVE_ITAPS_REL
+  if (m->irel)  {iRel_destroy(m->irel,&ierr);dIRCHK(m->irel,ierr);}
+  if (m->igeom) {iGeom_dtor(m->igeom,&ierr);dIGCHK(m->igeom,ierr);}
+#endif
   err = PetscHeaderDestroy(meshp);dCHK(err);
   dFunctionReturn(0);
 }
@@ -1535,3 +1540,29 @@ dErr dMeshSetClosure(dMesh mesh,dMeshESH set)
   ents_a = adj_a = off_a = 0;
   dFunctionReturn(0);
 }
+
+#ifdef dHAVE_ITAPS_REL
+// The mesh takes ownership with this call. ITAPS interfaces do not have reference counting.
+dErr dMeshSetGeometryRelation(dMesh mesh,iGeom_Instance geom,iRel_Instance rel)
+{
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  if (rel) {
+    if (mesh->irel && rel != mesh->irel) dERROR(((dObject)mesh)->comm,PETSC_ERR_ARG_WRONGSTATE,"Can only set relation once");
+    mesh->irel = rel;
+  }
+  if (geom) {
+    if (mesh->igeom && geom != mesh->igeom) dERROR(((dObject)mesh)->comm,PETSC_ERR_ARG_WRONGSTATE,"Can only set geometry once");
+    mesh->igeom = geom;
+  }
+  dFunctionReturn(0);
+}
+dErr dMeshGetGeometryRelation(dMesh mesh,iGeom_Instance *geom,iRel_Instance *rel)
+{
+  dFunctionBegin;
+  dValidHeader(mesh,dMESH_CLASSID,1);
+  if (rel)  *rel = mesh->irel;
+  if (geom) *geom = mesh->igeom;
+  dFunctionReturn(0);
+}
+#endif
