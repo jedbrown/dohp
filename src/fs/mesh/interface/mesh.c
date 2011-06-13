@@ -252,57 +252,6 @@ dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
   dFunctionReturn(0);
 }
 
-#if 0
-/* Maps facet degrees of freedom to element degrees of freedom, adding
-* contributions.  This function is actually an optimization for conforming
-* elements since it does not need to do interpolation. */
-static dErr EFSFacetToElem_HexQuad_Conforming(dInt dof,const dInt rsize[],const dInt fsize[],dInt fnum,dInt forient,const dScalar fvals[],dScalar rvals[])
-{
-  dInt ri,rj,fi,fj,k;
-  DohpLoopBounds rl[2],fl[2];
-  dErr err;
-
-  dFunctionBegin;
-  err = dMeshLoopBounds_Hex(rsize,fnum,rl);dCHK(err);
-  err = dMeshOrientLoopBounds_Quad(forient,fsize,fl);dCHK(err);
-  for (ri=rl[0].start,fi=fl[0].start; ri!=rl[0].end && fi!=fl[0].end; ri+=rl[0].stride,fi+=fl[0].stride) {
-    for (rj=rl[1].start,fj=fl[1].start; rj!=rl[1].end && fj!=fl[1].end; rj+=rl[1].stride,fj+=fl[1].stride) {
-      for (k=0; k<dof; k++) {
-        rvals[(ri+rj)*dof+k] += fvals[(fi+fj)*dof+k];
-      }
-    }
-    if (!(rj==rl[1].end && fj==fl[1].end)) {
-      dERROR(PETSC_COMM_SELF,1,"Inner loop bounds do not agree.  Is this relation conforming?");
-    }
-  }
-  if (!(ri==rl[0].end && fi==fl[0].end)) {
-    dERROR(PETSC_COMM_SELF,1,"Outer loop bounds do not agree.  Is this relation conforming?");
-  }
-  dFunctionReturn(0);
-}
-
-static dErr EFSFacetToElem_QuadLine_Conforming(dInt dof,const dInt fsize[],const dInt esize[],dInt en,dInt eorient,const dScalar evals[],dScalar fvals[])
-{
-  dInt fi,ei,j;
-  DohpLoopBounds fl,el;
-  dErr err;
-
-  dFunctionBegin;
-  err = dMeshLoopBounds_Quad(fsize,en,&fl);dCHK(err);
-  err = dMeshOrientLoopBounds_Line(eorient,esize,&el);dCHK(err);
-  for (fi=fl.start,ei=el.start; fi!=fl.end && ei!=el.end; fi+=fl.stride,ei+=el.stride) {
-    for (j=0; j<dof; j++) {
-      fvals[fi*dof+j] += evals[ei*dof+j];
-    }
-  }
-  if (!(fi==fl.end && ei==el.end)) {
-    dERROR(PETSC_COMM_SELF,1,"Loop bounds do not agree.  Is this relation conforming?");
-  }
-  dFunctionReturn(0);
-}
-
-#endif
-
 dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
 {
   dErr err;
