@@ -38,7 +38,7 @@ static dErr PrintBoundingBox(iGeom_Instance geom,iBase_EntityHandle gent,const c
   return 0;
 }
 
-static dErr doMaterial(iMesh_Instance mesh)
+static dErr doMaterial(iMesh_Instance mesh,iBase_EntitySetHandle root)
 {
   static const char matSetName[] = "MAT_SET",matNumName[] = "MAT_NUM";
   dMeshTag matSetTag,matNumTag;
@@ -54,7 +54,7 @@ static dErr doMaterial(iMesh_Instance mesh)
   dFunctionBegin;
   iMesh_createTag(mesh,matSetName,1,iBase_INTEGER,&matSetTag,&err,sizeof(matSetName));dICHK(mesh,err);
   iMesh_createTag(mesh,matNumName,1,iBase_DOUBLE,&matNumTag,&err,sizeof(matNumName));dICHK(mesh,err);
-  iMesh_getEntities(mesh,0,iBase_REGION,iMesh_ALL_TOPOLOGIES,MLREF(r),&err);dICHK(mesh,err);
+  iMesh_getEntities(mesh,root,iBase_REGION,iMesh_ALL_TOPOLOGIES,MLREF(r),&err);dICHK(mesh,err);
   iMesh_getEntArrAdj(mesh,r.v,r.s,iBase_VERTEX,MLREF(v),MLREF(rvo),&err);dICHK(mesh,err);
   iMesh_getVtxArrCoords(mesh,v.v,v.s,iBase_INTERLEAVED,MLREF(x),&err);dICHK(mesh,err);
   err = dMalloc(r.s*sizeof(ents[0]),&ents);dCHK(err);
@@ -80,7 +80,7 @@ static dErr doMaterial(iMesh_Instance mesh)
   dFunctionReturn(0);
 }
 
-static dErr doGlobalNumber(iMesh_Instance mesh)
+static dErr doGlobalNumber(iMesh_Instance mesh,iBase_EntitySetHandle root)
 {
   MeshListEH ents=MLZ;
   int owned,offset,*number;
@@ -88,7 +88,7 @@ static dErr doGlobalNumber(iMesh_Instance mesh)
   dErr err;
 
   dFunctionBegin;
-  iMesh_getEntities(mesh,0,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
+  iMesh_getEntities(mesh,root,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
   err = dMalloc(ents.s*sizeof(number[0]),&number);dCHK(err);
   owned = ents.s; offset = 0;
   for (int i=0; i<owned; i++) {
@@ -101,7 +101,7 @@ static dErr doGlobalNumber(iMesh_Instance mesh)
   dFunctionReturn(0);
 }
 
-static dErr doGlobalID(iMesh_Instance mesh)
+static dErr doGlobalID(iMesh_Instance mesh,iBase_EntitySetHandle root)
 {
   MeshListEH ents=MLZ;
   MeshListInt type=MLZ;
@@ -111,7 +111,7 @@ static dErr doGlobalID(iMesh_Instance mesh)
   dErr err;
 
   dFunctionBegin;
-  iMesh_getEntities(mesh,0,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
+  iMesh_getEntities(mesh,root,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
   iMesh_getEntArrType(mesh,ents.v,ents.s,MLREF(type),&err);dICHK(mesh,err);
   err = dMalloc(ents.s*sizeof(number[0]),&number);dCHK(err);
   owned = ents.s;
@@ -125,8 +125,7 @@ static dErr doGlobalID(iMesh_Instance mesh)
   dFunctionReturn(0);
 }
 
-
-static dErr createUniformTags(iMesh_Instance mesh)
+static dErr createUniformTags(iMesh_Instance mesh,iBase_EntitySetHandle root)
 {
   dMeshTag itag,rtag;
   MeshListEH ents=MLZ;
@@ -135,7 +134,7 @@ static dErr createUniformTags(iMesh_Instance mesh)
   dErr err;
 
   dFunctionBegin;
-  iMesh_getEntities(mesh,0,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
+  iMesh_getEntities(mesh,root,iBase_ALL_TYPES,iMesh_ALL_TOPOLOGIES,MLREF(ents),&err);dICHK(mesh,err);
   err = dMalloc(ents.s*sizeof(idata[0]),&idata);dCHK(err);
   err = dMalloc(ents.s*sizeof(rdata[0]),&rdata);dCHK(err);
   for (dInt i=0; i<ents.s; i++) {
@@ -150,21 +149,21 @@ static dErr createUniformTags(iMesh_Instance mesh)
   dFunctionReturn(0);
 }
 
+dErr dMeshGenerateBlock(dMesh mesh,dMeshESH root,PetscBool do_geom);
 
-#undef __FUNCT__
-#define __FUNCT__ "main"
-int main(int argc, char *argv[])
+// Generates a mesh of a brick using run-time parameters.
+// The new mesh populates the given root set.
+// This should be converted to have a useful programmatic API.
+dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
 {
-  const char outopts[]="",pTagName[]="OWNING_PART", pSetName[]="PARALLEL_PARTITION";
-  PetscBool  do_geom=1,assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
+  const char pTagName[]="OWNING_PART", pSetName[]="PARALLEL_PARTITION";
+  PetscBool  assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
   PetscBool  do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1;
   dReal rotate_y = 0;
-  char outfile[256] = "dblock.h5m";
-  char outgeom[256] = "dblock.brep";
   dInt verbose = 1;
   iMesh_Instance mesh;
   iBase_EntityHandle *entbuf;
-  iBase_EntitySetHandle root,facesets[6];
+  iBase_EntitySetHandle facesets[6];
   iBase_TagHandle pTag;
   MeshListEH v=MLZ,e=MLZ,f=MLZ,r=MLZ,c=MLZ;
   MeshListReal x=MLZ;
@@ -174,13 +173,10 @@ int main(int argc, char *argv[])
   Box box;
 
   dFunctionBegin;
-  err = dInitialize(&argc,&argv,(char *)0,help);dCHK(err);
-
-  err = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"dohpblock: create cartesian meshes",NULL);dCHK(err);
+  err = PetscOptionsBegin(((PetscObject)dmesh)->comm,NULL,"dMeshGenerate Block: generate cartesian meshes",NULL);dCHK(err);
   {
     char boxstr[256] = "-1:1,-1:1,-1:1",mnp[256] = "9,9,9",MNP[256] = "2,2,2";
     err = PetscOptionsInt("-verbose","verbosity of output","none",verbose,&verbose,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_geom","create geometric models","none",do_geom,&do_geom,NULL);dCHK(err);
     if (do_geom) {
       err = PetscOptionsBool("-assoc_with_brick","associate boundaries with brick","none",assoc_with_brick,&assoc_with_brick,NULL);dCHK(err);
     }
@@ -197,10 +193,7 @@ int main(int argc, char *argv[])
     err = PetscOptionsString("-box","box x0:x1,y0:y1,z0:z1","none",boxstr,boxstr,sizeof(boxstr),NULL);dCHK(err);
     err = PetscOptionsString("-mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
     err = PetscOptionsString("-procs_mnp","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
-    err = PetscOptionsString("-o","outfile","none",outfile,outfile,sizeof(outfile),NULL);dCHK(err);
-    if (do_geom) {
-      err = PetscOptionsString("-ogeom","outfile for geometry","none",outgeom,outgeom,sizeof(outgeom),NULL);dCHK(err);
-    }
+
     i = sscanf(boxstr,"%lf:%lf,%lf:%lf,%lf:%lf",&box.x0,&box.x1,&box.y0,&box.y1,&box.z0,&box.z1);
     if (i != 6) dERROR(PETSC_COMM_SELF,1,"Failed to parse bounding box.");
     i = sscanf(mnp,"%d,%d,%d",&m,&n,&p);
@@ -209,9 +202,7 @@ int main(int argc, char *argv[])
     if (i != 3) dERROR(PETSC_COMM_SELF,1,"Failed to parse partition size.");
   }
   err = PetscOptionsEnd();
-
-  iMesh_newMesh("",&mesh,&err,0);dICHK(mesh,err);
-  iMesh_getRootSet(mesh,&root,&err);dICHK(mesh,err);
+  err = dMeshGetInstance(dmesh,&mesh);dCHK(err);
 
   /* Allocate buffers */
   err = dMallocA(m*n*p*3,&entbuf);dCHK(err); /* More than enough to hold all entities of any given type */
@@ -269,8 +260,8 @@ int main(int argc, char *argv[])
   if (r.s != (m-1)*(n-1)*(p-1)) dERROR(PETSC_COMM_SELF,1,"Wrong number of regions created.");
   printf("region size %d, status size %d\n",r.s,s.s);
 
-  if (do_global_number) {err = doGlobalNumber(mesh);dCHK(err);}
-  if (do_global_id) {err = doGlobalID(mesh);dCHK(err);}
+  if (do_global_number) {err = doGlobalNumber(mesh,root);dCHK(err);}
+  if (do_global_id) {err = doGlobalID(mesh,root);dCHK(err);}
 
   if (do_partition) {           /* Partition tags */
     /* Create partition. */
@@ -454,7 +445,7 @@ int main(int argc, char *argv[])
     err = dFree(entbuf);dCHK(err);
   }
 
-  if (do_material) {err = doMaterial(mesh);dCHK(err);}
+  if (do_material) {err = doMaterial(mesh,root);dCHK(err);}
 
   /* Add a real valued tag over the vertices. */
   if (do_pressure) {
@@ -462,7 +453,7 @@ int main(int argc, char *argv[])
     iBase_TagHandle myTag;
     double *myData;
 
-    iMesh_getEntities(mesh,0,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&err);dICHK(mesh,err);
+    iMesh_getEntities(mesh,root,iBase_VERTEX,iMesh_POINT,&v.v,&v.a,&v.s,&err);dICHK(mesh,err);
     iMesh_createTag(mesh,myTagName,1,iBase_DOUBLE,&myTag,&err,(int)strlen(myTagName));dICHK(mesh,err);
     err = PetscMalloc(v.s*sizeof(double),&myData);dCHK(err);
     for (i=0; i<v.s; i++) { myData[i] = 1.0 * i; }
@@ -471,18 +462,18 @@ int main(int argc, char *argv[])
     MeshListFree(v);
   }
 
-  if (do_uniform) {err = createUniformTags(mesh);dCHK(err);}
+  if (do_uniform) {err = createUniformTags(mesh,root);dCHK(err);}
 
   if (do_geom)
   {
-    char geom_options[] = ";ENGINE=OCC;",
-      geom_save_options[] = ";TYPE=OCC;";
+    const char geom_options[] = ";ENGINE=OCC;";
+    const char rel_options[] = "";
     iGeom_Instance geom;
     iRel_Instance assoc;
     iRel_PairHandle pair;
     iBase_EntityHandle brick;
     iGeom_newGeom(geom_options,&geom,&err,sizeof geom_options);dIGCHK(geom,err);
-    iRel_create(0,&assoc,&err,0);dIRCHK(assoc,err);
+    iRel_create(rel_options,&assoc,&err,sizeof rel_options);dIRCHK(assoc,err);
     iRel_createPair(assoc,geom,0,iRel_IGEOM_IFACE,iRel_ACTIVE,mesh,1,iRel_IMESH_IFACE,iRel_ACTIVE,&pair,&err);dIGCHK(assoc,err);
     iGeom_createBrick(geom,box.x1-box.x0,box.y1-box.y0,box.z1-box.z0,&brick,&err);dIGCHK(geom,err);
     iGeom_moveEnt(geom,brick,0.5*(box.x0+box.x1),0.5*(box.y0+box.y1),0.5*(box.z0+box.z1),&err);dIGCHK(geom,err);
@@ -529,12 +520,52 @@ int main(int argc, char *argv[])
         iMesh_setEntSetIntData(mesh,facesets[i],meshGlobalIDTag,gid,&err);dICHK(mesh,err);
       }
     }
+    err = dMeshSetGeometryRelation(dmesh,geom,assoc);dCHK(err);
+  }
+  dFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "main"
+int main(int argc, char *argv[])
+{
+  dErr err;
+  dMesh mesh;
+  PetscBool do_geom;
+  char outfile[256] = "dblock.h5m";
+  char outopts[]="";
+  char outgeom[256] = "dblock.brep";
+  iBase_EntitySetHandle root;
+  iMesh_Instance mi;
+
+  dFunctionBegin;
+  err = dInitialize(&argc,&argv,(char *)0,help);dCHK(err);
+
+  err = dMeshCreate(PETSC_COMM_WORLD,&mesh);dCHK(err);
+  err = dMeshSetFromOptions(mesh);dCHK(err);
+  err = dMeshGetRoot(mesh,&root);dCHK(err);
+
+  err = PetscOptionsBegin(((PetscObject)mesh)->comm,NULL,"dohpblock: create cartesian meshes",NULL);dCHK(err);
+  {
+    err = PetscOptionsString("-o","outfile","none",outfile,outfile,sizeof(outfile),NULL);dCHK(err);
+    err = PetscOptionsBool("-do_geom","create geometric models","none",do_geom=dTRUE,&do_geom,NULL);dCHK(err);
+    if (do_geom) {
+      err = PetscOptionsString("-ogeom","outfile for geometry","none",outgeom,outgeom,sizeof(outgeom),NULL);dCHK(err);
+    }
+  }
+  err = PetscOptionsEnd();
+
+  err = dMeshGenerateBlock(mesh,root,do_geom);dCHK(err);
+  if (do_geom) {
+    const char geom_save_options[] = ";TYPE=OCC;";
+    iGeom_Instance geom;
+    err = dMeshGetGeometryRelation(mesh,&geom,NULL);dCHK(err);
     iGeom_save(geom,outgeom,geom_save_options,&err,sizeof outgeom,sizeof geom_save_options);dIGCHK(geom,err);
-    iGeom_dtor(geom,&err);dIGCHK(geom,err);
-    iRel_destroy(assoc,&err);dIRCHK(assoc,err);
   }
 
-  iMesh_save(mesh,0,outfile,outopts,&err,(int)sizeof(outfile),(int)strlen(outopts));dICHK(mesh,err);
+  err = dMeshGetInstance(mesh,&mi);dCHK(err);
+  iMesh_save(mi,root,outfile,outopts,&err,(int)sizeof(outfile),(int)strlen(outopts));dICHK(mi,err);
+  err = dMeshDestroy(&mesh);dCHK(err);
   err = dFinalize();dCHK(err);
   dFunctionReturn(0);
 }
