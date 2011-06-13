@@ -170,6 +170,7 @@ extern dErr dMeshRestoreAdjVertexCoords(dMesh,dInt,const dMeshEH[],const dInt**,
 extern dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
 extern dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 extern dErr dMeshSetClosure(dMesh,dMeshESH);
+extern dErr dMeshGenerateBlock(dMesh mesh,dMeshESH root,PetscBool do_geom);
 
 #ifdef dHAVE_ITAPS_REL
 extern dErr dMeshSetGeometryRelation(dMesh,iGeom_Instance,iRel_Instance);

@@ -27,6 +27,7 @@ list (APPEND Dohp_SRCS
 list (APPEND Dohp_SRCS
   fs/mesh/interface/mesh.c
   fs/mesh/interface/meshreg.c
+  fs/mesh/interface/genblock.c
   fs/mesh/impls/pack/pack.c
   fs/mesh/impls/serial/serial.c)
 
