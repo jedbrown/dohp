@@ -7,5 +7,7 @@
 #cmakedefine dUSE_VALGRIND
 #cmakedefine dHAVE_PRAGMA_GCC
 #cmakedefine dHAVE_GDAL
+#cmakedefine dHAVE_ITAPS_GEOM
+#cmakedefine dHAVE_ITAPS_REL
 
 #endif
