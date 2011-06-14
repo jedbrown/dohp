@@ -33,12 +33,14 @@ int main(int argc, char *argv[])
   err = PetscOptionsEnd();
 
   err = dMeshGenerateBlock(mesh,root,do_geom);dCHK(err);
+#ifdef dHAVE_ITAPS_REL
   if (do_geom) {
     const char geom_save_options[] = ";TYPE=OCC;";
     iGeom_Instance geom;
     err = dMeshGetGeometryRelation(mesh,&geom,NULL);dCHK(err);
     iGeom_save(geom,outgeom,geom_save_options,&err,sizeof outgeom,sizeof geom_save_options);dIGCHK(geom,err);
   }
+#endif
 
   err = dMeshGetInstance(mesh,&mi);dCHK(err);
   iMesh_save(mi,root,outfile,outopts,&err,(int)sizeof(outfile),(int)strlen(outopts));dICHK(mi,err);
