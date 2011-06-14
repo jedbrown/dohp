@@ -97,6 +97,8 @@ typedef struct {
 #define dTAG_PARTITION         "PARALLEL_PARTITION"
 
 typedef enum {dMESHSET_UNORDERED = 0,dMESHSET_ORDERED = 1} dMeshSetOrdering;
+typedef enum {dMESHGEN_NONE, dMESHGEN_BLOCK} dMeshGenType;
+extern const char *const dMeshGenTypes[];
 
 #define dMeshType char *
 #define dMESHPACK   "pack"
@@ -171,6 +173,7 @@ extern dErr dMeshPartitionOnOwnership(dMesh,dMeshEH[],dInt,dInt*);
 extern dErr dMeshMorph(dMesh,void(*morph)(void*,double*),void*);
 extern dErr dMeshSetClosure(dMesh,dMeshESH);
 extern dErr dMeshGenerateBlock(dMesh mesh,dMeshESH root,PetscBool do_geom);
+extern dErr dMeshSetGenerate(dMesh,dMeshGenType);
 
 #ifdef dHAVE_ITAPS_REL
 extern dErr dMeshSetGeometryRelation(dMesh,iGeom_Instance,iRel_Instance);

@@ -7,6 +7,8 @@ PetscLogEvent dLOG_MeshLoad;
 PetscFList dMeshList;
 static PetscBool dMeshPackageInitialized;
 
+const char *const dMeshGenTypes[] = {"NONE","BLOCK","dMeshGenType","dMESHGEN_",0};
+
 dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
 {
   dMesh m;
@@ -28,6 +30,7 @@ dErr dMeshSetFromOptions(dMesh mesh)
   char type[256],str[dSTR_LEN];
   PetscMPIInt size;
   dBool flg;
+  dMeshGenType gtype;
   dErr err;
 
   dFunctionBegin;
@@ -45,6 +48,8 @@ dErr dMeshSetFromOptions(dMesh mesh)
   if (flg) {err = dMeshSetInFile(mesh,NULL,str);dCHK(err);}
   err = PetscOptionsBool("-dmesh_intermediate_adjacencies","Infer face and edge adjacencies","dMeshInferIntermediateAdjacencies",flg=dFALSE,&flg,NULL);dCHK(err);
   if (flg) {err = dMeshInferIntermediateAdjacencies(mesh);dCHK(err);}
+  err = PetscOptionsEnum("-dmesh_gen","Generate a mesh of a block at a resolution and size chosen by run-time parameters","dMeshSetGenerate",dMeshGenTypes,(PetscEnum)(gtype=dMESHGEN_NONE),(PetscEnum*)&gtype,&flg);dCHK(err);
+  if (flg) {err = dMeshSetGenerate(mesh,gtype);dCHK(err);}
   if (mesh->ops->setfromoptions) {
     err = (*mesh->ops->setfromoptions)(mesh);dCHK(err);
   }

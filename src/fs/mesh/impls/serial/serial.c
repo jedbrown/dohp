@@ -8,13 +8,15 @@ static dErr dMeshLoad_Serial(dMesh mesh)
   char options[dSTR_LEN];
   size_t fnamelen;
   dErr err;
+  dMeshESH root;
 
   dFunctionBegin;
   err = PetscStrlen(mesh->infile,&fnamelen);dCHK(err);
   if (mesh->inoptions) {
     err = PetscSNPrintf(options,sizeof(options),"%s",mesh->inoptions);dCHK(err);
   } else options[0] = 0;
-  iMesh_load(mesh->mi,0,mesh->infile,options,&err,(int)fnamelen,(int)strlen(options));dICHK(mesh->mi,err);
+  err = dMeshGetRoot(mesh,&root);dCHK(err);
+  iMesh_load(mesh->mi,root,mesh->infile,options,&err,(int)fnamelen,(int)strlen(options));dICHK(mesh->mi,err);
   dFunctionReturn(0);
 }
 

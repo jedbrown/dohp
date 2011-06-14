@@ -251,6 +251,7 @@ dErr dMeshLoopBounds_Quad(const dInt *size, dInt edge, DohpLoopBounds *l)
   dFunctionReturn(0);
 }
 
+// Causes dMeshLoad() to read this file name.
 dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
 {
   dErr err;
@@ -265,6 +266,14 @@ dErr dMeshSetInFile(dMesh mesh,const char *fname,const char *options)
     err = PetscFree(mesh->inoptions);dCHK(err);
     err = PetscStrallocpy(options,&mesh->inoptions);dCHK(err);
   }
+  dFunctionReturn(0);
+}
+
+// Set the mesh generation type to be used when dMeshLoad() is called.
+dErr dMeshSetGenerate(dMesh mesh,dMeshGenType gtype)
+{
+  dFunctionBegin;
+  mesh->gentype = gtype;
   dFunctionReturn(0);
 }
 
@@ -821,14 +830,16 @@ dErr dMeshLoad(dMesh mesh)
   dMeshTag emptysettag;
   dMeshESH root;
   //MeshListInt off=MLZ;
-  dBool flg;
+  PetscBool flg;
   dIInt ierr;
   dErr err;
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
   err = PetscLogEventBegin(dLOG_MeshLoad,mesh,0,0,0);dCHK(err);
-  {
+  err = dMeshGetRoot(mesh,&root);dCHK(err);
+  switch (mesh->gentype) {
+  case dMESHGEN_NONE: {
     PetscMPIInt rank;
     FILE *file;
     err = MPI_Comm_rank(((dObject)mesh)->comm,&rank);dCHK(err);
@@ -837,13 +848,17 @@ dErr dMeshLoad(dMesh mesh)
       if (!file) dERROR(PETSC_COMM_SELF,1,"Could not open %s for reading",mesh->infile);
       if (fclose(file)) dERROR(PETSC_COMM_SELF,1,"Error closing %s",mesh->infile);
     }
+    if (mesh->ops->load) {
+      err = (*mesh->ops->load)(mesh);dCHK(err);
+    } else {
+      dERROR(PETSC_COMM_SELF,1,"No load function set");
+    }
+  } break;
+  case dMESHGEN_BLOCK: {
+    dBool do_geom = dFALSE; // @todo make optional
+    err = dMeshGenerateBlock(mesh,root,do_geom);dCHK(err);
+  } break;
   }
-  if (mesh->ops->load) {
-    err = (*mesh->ops->load)(mesh);dCHK(err);
-  } else {
-    dERROR(PETSC_COMM_SELF,1,"No load function set");
-  }
-  err = dMeshGetRoot(mesh,&root);dCHK(err);
 
   /* Make sure the sense tag exists, to protect against degenerate cases */
   iMesh_getTagHandle(mi,dTAG_SENSE,&mesh->senseTag,&ierr,sizeof(dTAG_SENSE));

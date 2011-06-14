@@ -15,6 +15,7 @@ struct _dMeshOps {
 struct _p_dMesh {
   PETSCHEADER(struct _dMeshOps);
   char *infile,*inoptions;
+  dMeshGenType gentype;
   iMesh_Instance mi;
 #ifdef dHAVE_ITAPS_REL
   iGeom_Instance igeom;
