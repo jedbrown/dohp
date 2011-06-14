@@ -237,7 +237,7 @@ static inline void ElastPiolaKirchoff2Jacobian(struct ElastParam *prm,const dSca
   for (dInt i=0; i<6; i++)      // Saint-Venant Kirchoff model: S = lambda*tr(E)*1 + 2*mu*E
     dS[i] = prm->lambda*dtrace*(i<3) + 2*prm->mu*dE[i];
 }
-static inline void ElastPointwiseFunction(struct ElastParam *prm,struct ElastExact *exact,struct ElastExactCtx *exactctx,
+static void ElastPointwiseFunction(struct ElastParam *prm,struct ElastExact *exact,struct ElastExactCtx *exactctx,
                                           const dReal x[3],dReal weight,const dScalar u[3],const dScalar Du[9],
                                           struct ElastStore *st,dScalar v[3],dScalar Dv[9])
 {
@@ -250,7 +250,7 @@ static inline void ElastPointwiseFunction(struct ElastParam *prm,struct ElastExa
   for (dInt i=0; i<9; i++) Dv[i] *= weight;
 }
 
-static inline void ElastPointwiseJacobian(struct ElastParam *prm,const struct ElastStore *restrict st,dReal weight,
+static void ElastPointwiseJacobian(struct ElastParam *prm,const struct ElastStore *restrict st,dReal weight,
                                           const dScalar dUNUSED u[restrict static 3],const dScalar Du[restrict static 9],
                                           dScalar v[restrict static 3],dScalar Dv[restrict static 9])
 {
