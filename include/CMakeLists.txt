@@ -7,6 +7,7 @@ install_files (/include FILES
   dohpmesh.h
   dohpvec.h
   dohpviewer.h
+  dohpviewerdhm.h
   dohpstring.h                  # safer string handling, entirely optional
   dohpsys.h                     # needed for user 'main', not usually otherwise
   dohp.h                        # macros, optional for users, used heavily internally

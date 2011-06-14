@@ -1,8 +1,8 @@
 #include <dohpfs.h>
 #include <dohpvec.h>
 #include <dohpstring.h>
+#include <dohpviewerdhm.h>
 #include "cont.h"
-#include "../../../viewer/dhm.h"
 
 #include <libgen.h>             /* dirname() */
 
@@ -57,61 +57,12 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
 {
   /* dFS_Cont *cont = fs->data; */
   dViewer_DHM *dhm = viewer->data;
-  const char *meshname;
-  char mstatestr[16];
-  dInt meshstate;
   herr_t herr;
-  htri_t hflg;
-  hid_t meshgrp;
   dErr err;
-  dIInt ierr;
 
   dFunctionBegin;
   err = dViewerDHMSetUp(viewer);dCHK(err);
-  /* Check if current mesh has been written */
-  err = PetscObjectGetName((dObject)fs->mesh,&meshname);dCHK(err);
-  err = PetscObjectStateQuery((dObject)fs->mesh,&meshstate);dCHK(err);
-  hflg = H5Lexists(dhm->meshroot,meshname,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
-  if (!hflg) {
-    meshgrp = H5Gcreate(dhm->meshroot,meshname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(meshgrp,H5Gcreate);
-  } else {
-    meshgrp = H5Gopen(dhm->meshroot,meshname,H5P_DEFAULT);dH5CHK(meshgrp,H5Gopen);
-  }
-  err = PetscSNPrintf(mstatestr,sizeof mstatestr,"%03d",meshstate);dCHK(err);
-#if defined dH5_USE_EXTERNAL_LINK
-  hflg = H5Lexists(meshgrp,mstatestr,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
-#else
-  hflg = H5Aexists(meshgrp,mstatestr);dH5CHK(hflg,H5Lexists);
-  hflg = 0;                     /* Why can't I just check if the dataset exists? */
-#endif
-  if (!hflg) {                  /* Save mesh to external file and create link to it */
-    const char *dhmpath;
-    char dhmpathbuf[dMAX_PATH_LEN],imeshpath[dMAX_PATH_LEN],*imeshpath_ptr = imeshpath;
-    iMesh_Instance mi;
-    dInt slash,dot;
-    err = PetscViewerFileGetName(viewer,&dhmpath);dCHK(err);
-    err = dStrcpyS(dhmpathbuf,sizeof dhmpathbuf,dhmpath);dCHK(err);
-    err = dFilePathSplit(dhmpathbuf,&slash,&dot);dCHK(err);
-    dhmpathbuf[dot] = 0; // gets everything but the final '.'
-    err = PetscSNPrintf(imeshpath,sizeof imeshpath,"%s-imesh-%s-%03d.h5m",dhmpathbuf,meshname,meshstate);dCHK(err);
-    err = dMeshGetInstance(fs->mesh,&mi);dCHK(err);
-    iMesh_save(mi,0,imeshpath,"",&ierr,(int)strlen(imeshpath),0);dICHK(mi,ierr);
-#if defined dH5_USE_EXTERNAL_LINK
-    herr = H5Lcreate_external(imeshpath,"tstt",meshgrp,mstatestr,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(hflg,H5Lcreate_external);
-#else
-    {
-      hid_t fstring,mstring,sspace,strattr;
-      err = dViewerDHMGetStringTypes(viewer,&fstring,&mstring,&sspace);dCHK(err);
-      hflg = H5Lexists(meshgrp,mstatestr,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
-      if (!hflg) {
-        strattr = H5Dcreate(meshgrp,mstatestr,fstring,sspace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(strattr,H5Dcreate);
-        herr = H5Dwrite(strattr,mstring,sspace,sspace,H5P_DEFAULT,&imeshpath_ptr);dH5CHK(herr,H5Dwrite);
-        herr = H5Dclose(strattr);dH5CHK(strattr,H5Dclose);
-      }
-    }
-#endif
-  }
-
+  err = dMeshView(fs->mesh,viewer);dCHK(err);
   {
     dht_FS     fs5;
     dht_Field *field5;
@@ -125,7 +76,7 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     err = dMeshGetTagName(fs->mesh,fs->tag.partition,&fs5.partition);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->tag.orderedsub,&fs5.ordered_subdomain);dCHK(err);
     err = dMeshGetTagName(fs->mesh,fs->tag.bstatus,&fs5.bstatus);dCHK(err);
-    herr = H5Rcreate(&fs5.mesh,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
+    err = dViewerDHMGetReferenceMesh(viewer,fs->mesh,&fs5.mesh);dCHK(err);
     fs5.time = dhm->time;
     err = dFSGetBlockSize(fs,&bs);dCHK(err);
     err = PetscObjectStateQuery((PetscObject)fs,&fs5.internal_state);dCHK(err);
@@ -154,7 +105,6 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
 
   /* \todo We need a way to identify the active set in MOAB's file if the FS was only defined on a subset. */
 
-  herr = H5Gclose(meshgrp);dH5CHK(herr,H5Gclose);
   dFunctionReturn(0);
 }
 

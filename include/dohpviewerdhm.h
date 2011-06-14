@@ -1,9 +1,5 @@
 /**
-* @file   dhm.h
-* @author Jed Brown <jed@59A2.org>
-* @date   Sat Oct 24 17:20:17 2009
-*
-* @brief DHM is format for storing Dohp vectors in HDF5 with reference to iMesh.
+* @brief DHM is a format for storing Dohp vectors in HDF5 with reference to iMesh.
 *
 * This is a Multiple Time Multiple Domain format.  A mesh defines the macro-topology, but can be a heavy object to
 * duplicate at every time step, and this duplication is clumsy to deal with for certain applications because it's not
@@ -102,5 +98,9 @@ typedef struct {
 extern dErr dH5Dopen(hid_t loc_id,const char *name,hid_t dapl_id,hid_t *dset);
 extern dErr dH5Gopen(hid_t loc_id,const char *name,hid_t dapl_id,hid_t *grp);
 extern dErr dH5Aopen(hid_t obj_id,const char *name,hid_t aapl_id,hid_t *attr);
+
+/* Uses HDF5 */
+extern dErr dViewerDHMGetReferenceMesh(PetscViewer viewer,dMesh mesh,hobj_ref_t *mref);
+extern dErr dViewerDHMGetMeshGroup(PetscViewer viewer,dMesh mesh,hid_t *meshgrp);
 
 #endif

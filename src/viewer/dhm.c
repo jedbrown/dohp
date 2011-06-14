@@ -1,4 +1,4 @@
-#include "dhm.h"
+#include <dohpviewerdhm.h>
 #include <dohp.h>
 #include <dohpstring.h>
 #include <string.h>
@@ -98,6 +98,44 @@ static dErr dViewerDHMGetTimeType(PetscViewer viewer,hid_t *timetype)
     dhm->h5t_time = type;
   }
   *timetype = dhm->h5t_time;
+  dFunctionReturn(0);
+}
+
+// Caller should call H5Gclose(meshgrp)
+dErr dViewerDHMGetMeshGroup(PetscViewer viewer,dMesh mesh,hid_t *meshgrp)
+{
+  dViewer_DHM *dhm = viewer->data;
+  htri_t hflg;
+  const char *meshname;
+  dErr err;
+
+  dFunctionBegin;
+  err = dViewerDHMSetUp(viewer);dCHK(err);
+  err = PetscObjectGetName((dObject)mesh,&meshname);dCHK(err);
+  hflg = H5Lexists(dhm->meshroot,meshname,H5P_DEFAULT);dH5CHK(hflg,H5Lexists);
+  if (!hflg) {
+    *meshgrp = H5Gcreate(dhm->meshroot,meshname,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);dH5CHK(*meshgrp,H5Gcreate);
+  } else {
+    *meshgrp = H5Gopen(dhm->meshroot,meshname,H5P_DEFAULT);dH5CHK(*meshgrp,H5Gopen);
+  }
+  dFunctionReturn(0);
+}
+
+// Dirty way to extract a reference to a given mesh, assuming it has already been written.
+dErr dViewerDHMGetReferenceMesh(PetscViewer viewer,dMesh mesh,hobj_ref_t *mref)
+{
+  dErr err;
+  herr_t herr;
+  hid_t meshgrp;
+  dInt meshstate;
+  char mstatestr[16];
+
+  dFunctionBegin;
+  err = dViewerDHMGetMeshGroup(viewer,mesh,&meshgrp);dCHK(err);
+  err = PetscObjectStateQuery((dObject)mesh,&meshstate);dCHK(err);
+  err = PetscSNPrintf(mstatestr,sizeof mstatestr,"%03d",meshstate);dCHK(err);
+  herr = H5Rcreate(mref,meshgrp,mstatestr,H5R_OBJECT,-1);dH5CHK(herr,H5Rcreate);
+  herr = H5Gclose(meshgrp);dH5CHK(herr,H5Gclose);
   dFunctionReturn(0);
 }
 
