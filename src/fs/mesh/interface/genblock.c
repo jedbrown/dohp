@@ -16,6 +16,7 @@ static dErr CommitToFaceSets(iMesh_Instance mesh,dMeshEH *ents,int **face,int *f
   }
   return 0;
 }
+#ifdef dHAVE_ITAPS_REL
 static dErr BoundingBoxView(iGeom_Instance geom,iBase_EntityHandle gent,const char *name,PetscViewer viewer)
 {
   dErr err;
@@ -24,6 +25,7 @@ static dErr BoundingBoxView(iGeom_Instance geom,iBase_EntityHandle gent,const ch
   err =  PetscViewerASCIIPrintf(viewer,"Geom `%s' bounding box (%f,%f)x(%f,%f)x(%f,%f)\n",name,x0,x1,y0,y1,z0,z1);dCHK(err);
   return 0;
 }
+#endif
 
 static dErr doMaterial(iMesh_Instance mesh,iBase_EntitySetHandle root)
 {
@@ -454,6 +456,9 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
   if (do_uniform) {err = createUniformTags(mesh,root);dCHK(err);}
 
   if (do_geom)
+#ifndef dHAVE_ITAPS_REL
+    dERROR(((dObject)dmesh)->comm,PETSC_ERR_ARG_UNKNOWN_TYPE,"Dohp has not been configured with support for geometry");
+#else
   {
     const char geom_options[] = ";ENGINE=OCC;";
     const char rel_options[] = "";
@@ -511,5 +516,6 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
     }
     err = dMeshSetGeometryRelation(dmesh,geom,assoc);dCHK(err);
   }
+#endif
   dFunctionReturn(0);
 }
