@@ -123,6 +123,7 @@ extern dErr dMeshSetGetOrdering(dMesh,dMeshESH,dMeshSetOrdering*);
 extern dErr dMeshCreate(MPI_Comm comm,dMesh *inm);
 extern dErr dMeshDestroy(dMesh*);
 extern dErr dMeshView(dMesh,dViewer);
+extern dErr dMeshDumpDHM(dMesh,const char *filename,...);
 extern dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer);
 extern dErr dMeshRegisterAll(const char path[]);
 #if defined PETSC_USE_DYNAMIC_LIBRARIES

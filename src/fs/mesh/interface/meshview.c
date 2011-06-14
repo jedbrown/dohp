@@ -99,6 +99,28 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   dFunctionReturn(0);
 }
 
+// This function is for debugging, use dMeshView() for real code
+dErr dMeshDumpDHM(dMesh m,const char *format,...)
+{
+  dErr err;
+  PetscViewer viewer;
+  char filename[dMAX_PATH_LEN];
+  va_list Argp;
+  size_t fullLen;
+
+  dFunctionBegin;
+  va_start(Argp,format);
+  err = PetscVSNPrintf(filename,sizeof filename,format,&fullLen,Argp);dCHK(err);
+  va_end(Argp);
+  err = PetscViewerCreate(((dObject)m)->comm,&viewer);dCHK(err);
+  err = PetscViewerSetType(viewer,PETSCVIEWERDHM);dCHK(err);
+  err = PetscViewerFileSetName(viewer,filename);dCHK(err);
+  err = PetscViewerFileSetMode(viewer,FILE_MODE_WRITE);dCHK(err);
+  err = dMeshView(m,viewer);dCHK(err);
+  err = PetscViewerDestroy(&viewer);dCHK(err);
+  dFunctionReturn(0);
+}
+
 dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer)
 {
   size_t valuesLen = 256;
