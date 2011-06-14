@@ -16,12 +16,12 @@ static dErr CommitToFaceSets(iMesh_Instance mesh,dMeshEH *ents,int **face,int *f
   }
   return 0;
 }
-static dErr PrintBoundingBox(iGeom_Instance geom,iBase_EntityHandle gent,const char *name)
+static dErr BoundingBoxView(iGeom_Instance geom,iBase_EntityHandle gent,const char *name,PetscViewer viewer)
 {
   dErr err;
   double x0,y0,z0,x1,y1,z1;
   iGeom_getEntBoundBox(geom,gent,&x0,&y0,&z0,&x1,&y1,&z1,&err);dIGCHK(geom,err);
-  printf("Geom `%s' bounding box (%f,%f)x(%f,%f)x(%f,%f)\n",name,x0,x1,y0,y1,z0,z1);
+  err =  PetscViewerASCIIPrintf(viewer,"Geom `%s' bounding box (%f,%f)x(%f,%f)x(%f,%f)\n",name,x0,x1,y0,y1,z0,z1);dCHK(err);
   return 0;
 }
 
@@ -62,7 +62,8 @@ static dErr doMaterial(iMesh_Instance mesh,iBase_EntitySetHandle root)
     iMesh_addEntArrToSet(mesh,ents,nents,mat[i],&err);dICHK(mesh,err);
     iMesh_setArrData(mesh,ents,nents,matNumTag,(char*)matnum,nents*(int)sizeof(matnum[0]),&err);dICHK(mesh,err);
   }
-  dFree(ents);
+  err = dFree(ents);dCHK(err);
+  err = dFree(matnum);dCHK(err);
   MeshListFree(r); MeshListFree(v); MeshListFree(rvo); MeshListFree(x);
   dFunctionReturn(0);
 }
@@ -145,7 +146,7 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
   PetscBool  assoc_with_brick=0,do_color_bdy=0,do_material = 1,do_uniform = 1,do_global_number = 0,do_global_id = 1;
   PetscBool  do_partition = 1,do_pressure = 0,do_faces = 1,do_edges = 1;
   dReal rotate_y = 0;
-  dInt verbose = 1;
+  dInt verbose = 0;
   iMesh_Instance mesh;
   iBase_EntityHandle *entbuf;
   iBase_EntitySetHandle facesets[6];
@@ -156,28 +157,31 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
   dInt *face[6],facecount[6]={0};
   int err,i,j,k,m,n,p,M,N,P,I,J,K,order=iBase_INTERLEAVED;
   Box box;
+  PetscViewer viewer;
 
   dFunctionBegin;
-  err = PetscOptionsBegin(((PetscObject)dmesh)->comm,NULL,"dMeshGenerate Block: generate cartesian meshes",NULL);dCHK(err);
+  dValidHeader(dmesh,dMESH_CLASSID,1);
+  err = PetscViewerASCIIGetStdout(((PetscObject)dmesh)->comm,&viewer);dCHK(err);
+  err = PetscOptionsBegin(((PetscObject)dmesh)->comm,((PetscObject)dmesh)->prefix,"dMeshGenerate Block: generate cartesian meshes",NULL);dCHK(err);
   {
-    char boxstr[256] = "-1:1,-1:1,-1:1",mnp[256] = "9,9,9",MNP[256] = "2,2,2";
-    err = PetscOptionsInt("-verbose","verbosity of output","none",verbose,&verbose,NULL);dCHK(err);
+    char boxstr[256] = "-1:1,-1:1,-1:1",mnp[256] = "5,5,5",MNP[256] = "2,2,2";
+    err = PetscOptionsInt("-dmeshgen_block_verbose","verbosity of output","none",verbose,&verbose,NULL);dCHK(err);
     if (do_geom) {
-      err = PetscOptionsBool("-assoc_with_brick","associate boundaries with brick","none",assoc_with_brick,&assoc_with_brick,NULL);dCHK(err);
+      err = PetscOptionsBool("-dmeshgen_block_assoc_with_brick","associate boundaries with brick","none",assoc_with_brick,&assoc_with_brick,NULL);dCHK(err);
     }
-    err = PetscOptionsBool("-do_color_bdy","color boundary sets","none",do_color_bdy,&do_color_bdy,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
-    err = PetscOptionsBool("-do_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
-    err = PetscOptionsReal("-rotate_y","rotate domain by given angle (degrees) around y axis)","none",rotate_y,&rotate_y,NULL);dCHK(err); rotate_y *= PETSC_PI/180.;
-    err = PetscOptionsString("-box","box x0:x1,y0:y1,z0:z1","none",boxstr,boxstr,sizeof(boxstr),NULL);dCHK(err);
-    err = PetscOptionsString("-mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
-    err = PetscOptionsString("-procs_mnp","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_color_bdy","color boundary sets","none",do_color_bdy,&do_color_bdy,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_material","create material sets","none",do_material,&do_material,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_uniform","create uniform sets","none",do_uniform,&do_uniform,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_global_number","create global_number tags","none",do_global_number,&do_global_number,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_global_id","create GLOBAL_ID tags","none",do_global_id,&do_global_id,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_partition","create partition sets","none",do_partition,&do_partition,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_pressure","create pressure sets","none",do_pressure,&do_pressure,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_faces","create face entities","none",do_faces,&do_faces,NULL);dCHK(err);
+    err = PetscOptionsBool("-dmeshgen_block_edges","create face entities","none",do_edges,&do_edges,NULL);dCHK(err);
+    err = PetscOptionsReal("-dmeshgen_block_rotate_y","rotate domain by given angle (degrees) around y axis)","none",rotate_y,&rotate_y,NULL);dCHK(err); rotate_y *= PETSC_PI/180.;
+    err = PetscOptionsString("-dmeshgen_block_box","box x0:x1,y0:y1,z0:z1","none",boxstr,boxstr,sizeof(boxstr),NULL);dCHK(err);
+    err = PetscOptionsString("-dmeshgen_block_mnp","number of points m,n,p","none",mnp,mnp,sizeof(mnp),NULL);dCHK(err);
+    err = PetscOptionsString("-dmeshgen_block_procs_mnp","number of procs M,N,P","none",MNP,MNP,sizeof(MNP),NULL);dCHK(err);
 
     i = sscanf(boxstr,"%lf:%lf,%lf:%lf,%lf:%lf",&box.x0,&box.x1,&box.y0,&box.y1,&box.z0,&box.z1);
     if (i != 6) dERROR(PETSC_COMM_SELF,1,"Failed to parse bounding box.");
@@ -243,7 +247,7 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
   if (I != c.s) dERROR(PETSC_COMM_SELF,1,"Wrong number of regions.");
   iMesh_createEntArr(mesh,iMesh_HEXAHEDRON,c.v,c.s,&r.v,&r.a,&r.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
   if (r.s != (m-1)*(n-1)*(p-1)) dERROR(PETSC_COMM_SELF,1,"Wrong number of regions created.");
-  printf("region size %d, status size %d\n",r.s,s.s);
+  if (verbose > 0) {err = PetscViewerASCIIPrintf(viewer,"region size %d, status size %d\n",r.s,s.s);dCHK(err);}
 
   if (do_global_number) {err = doGlobalNumber(mesh,root);dCHK(err);}
   if (do_global_id) {err = doGlobalID(mesh,root);dCHK(err);}
@@ -289,7 +293,7 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
               }
             }
           }
-          printf("part[%d (%d,%d,%d)] has %d regions\n",(i*N+j)*P+k,i,j,k,(int)(entp-entbuf));
+          if (verbose > 0) {err = PetscViewerASCIIPrintf(viewer,"part[%d (%d,%d,%d)] has %d regions\n",(i*N+j)*P+k,i,j,k,(int)(entp-entbuf));dCHK(err);}
           iMesh_addEntArrToSet(mesh,entbuf,(int)(entp-entbuf),partset,&err);dICHK(mesh,err);
           iMesh_setEntSetIntData(mesh,partset,pTag,(i*N+j)*P+k,&err);dICHK(mesh,err);
         }
@@ -342,7 +346,7 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
     if (I != c.s) dERROR(PETSC_COMM_SELF,1, "Wrong number of faces.");
     iMesh_createEntArr(mesh,iMesh_QUADRILATERAL,c.v,c.s,&f.v,&f.a,&f.s,&s.v,&s.a,&s.s,&err);dICHK(mesh,err);
     err = CommitToFaceSets(mesh,f.v,face,facecount,facesets,entbuf);dCHK(err);
-    printf("face size %d, status size %d\n",f.s,s.s);
+    if (verbose > 0) {err = PetscViewerASCIIPrintf(viewer,"face size %d, status size %d\n",f.s,s.s);dCHK(err);}
     MeshListFree(f); MeshListFree(s); MeshListFree(c);
   }
 
@@ -390,7 +394,7 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
     if (I != c.s) dERROR(PETSC_COMM_SELF,1, "Wrong number of edges.");
     iMesh_createEntArr(mesh,iMesh_LINE_SEGMENT,c.v,c.s, &e.v,&e.a,&e.s, &s.v,&s.a,&s.s,&err);dICHK(mesh,err);
     err = CommitToFaceSets(mesh,e.v,face,facecount,facesets,entbuf);dCHK(err);
-    printf("edge size %d, status size %d\n",e.s,s.s);
+    if (verbose > 0) {err = PetscViewerASCIIPrintf(viewer,"edge size %d, status size %d\n",e.s,s.s);dCHK(err);}
     MeshListFree(e); MeshListFree(s); MeshListFree(c);
   }
 
@@ -462,7 +466,7 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
     iRel_createPair(assoc,geom,0,iRel_IGEOM_IFACE,iRel_ACTIVE,mesh,1,iRel_IMESH_IFACE,iRel_ACTIVE,&pair,&err);dIGCHK(assoc,err);
     iGeom_createBrick(geom,box.x1-box.x0,box.y1-box.y0,box.z1-box.z0,&brick,&err);dIGCHK(geom,err);
     iGeom_moveEnt(geom,brick,0.5*(box.x0+box.x1),0.5*(box.y0+box.y1),0.5*(box.z0+box.z1),&err);dIGCHK(geom,err);
-    err = PrintBoundingBox(geom,brick,"brick");dCHK(err);
+    if (verbose > 0) {err = BoundingBoxView(geom,brick,"brick",viewer);dCHK(err);}
     {
       iBase_EntityHandle gface[6],*gface_p=gface;
       int gface_a=6,gface_s;
@@ -470,7 +474,7 @@ dErr dMeshGenerateBlock(dMesh dmesh,dMeshESH root,PetscBool do_geom)
       for (i=0; i<6; i++) {
         char name[20];
         sprintf(name,"face_%d",i);
-        err = PrintBoundingBox(geom,gface[i],name);dCHK(err);
+        err = BoundingBoxView(geom,gface[i],name,viewer);dCHK(err);
       }
       if (assoc_with_brick) {
         for (i=0; i<6; i++) {
