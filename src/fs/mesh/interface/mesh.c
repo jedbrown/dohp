@@ -525,7 +525,19 @@ dErr dMeshGetTaggedSet(dMesh mesh,dMeshTag tag,const void *value,dMeshESH *set)
   dValidPointer(set,4);
   *set = 0;
   iMesh_getEntSetsByTagsRec(mesh->mi,mesh->root,&tag,value?(const char*const*)&value:NULL,1,0,&set,&alloc,&size,&ierr);dICHK(mesh->mi,ierr);
-  if (size != 1) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Got %d sets, but expected only one",size);
+  if (size != 1) {
+    char name[dSTR_LEN],val[dSTR_LEN] = "unknown";
+    dIInt ttype;
+    iMesh_getTagName(mesh->mi,tag,name,&ierr,sizeof name);dICHK(mesh->mi,ierr);
+    iMesh_getTagType(mesh->mi,tag,&ttype,&ierr);dICHK(mesh->mi,ierr);
+    switch (ttype) {
+    case iBase_INTEGER: snprintf(val,sizeof val,"INTEGER %d",*(int*)value); break;
+    case iBase_DOUBLE: snprintf(val,sizeof val,"DOUBLE %e",*(double*)value); break;
+    default:
+      snprintf(val,sizeof val,"UNKNOWN");
+    }
+    dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB,"Got %d sets when searching for tag %s, but expected exactly one",size,val);
+  }
   dFunctionReturn(0);
 }
 
