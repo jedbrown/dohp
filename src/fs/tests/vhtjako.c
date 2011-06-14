@@ -323,7 +323,7 @@ static dErr VHTCaseSetUp_Jako(VHTCase scase)
 
     // Convert a physical coordinate in the current projection to a pixel coordinate
     gerr = GDALInvGeoTransform(jako->mygeo,jako->myinvgeo);dGDALCHK(gerr);
-    if (0) {
+    if (gdal->verbose) {
       dInt i,j;
       double a,b;
       err = dRealTableView(3,2,&scase->bbox[0][0],PETSC_VIEWER_STDOUT_WORLD,"bbox");dCHK(err);
