@@ -252,7 +252,7 @@ static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal
   gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
   espg = dSqr(prm->epsilon) + gamma;
   st->eta = pow(espg,(p-2)/2);
-  sqrt_mdeta = sqrt(-((p-2)/2) * st->eta / espg);
+  sqrt_mdeta = PetscSign(p-2) * sqrt(PetscAbs(p-2)/2 * st->eta / espg);
   for (dInt i=0; i<3; i++) st->sqrt_mdeta_Du[i] = sqrt_mdeta*Du[i];
 }
 
@@ -274,7 +274,7 @@ static inline void EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const s
   const dScalar dotw = dDotScalar3(st->sqrt_mdeta_Du,Du)*weight;
   const dReal etaw = st->eta*weight;
   v[0] = weight * 0 * u[0];
-  for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] - dotw*st->sqrt_mdeta_Du[i];
+  for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] + dotw*st->sqrt_mdeta_Du[i];
 }
 
 static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
