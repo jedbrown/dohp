@@ -68,7 +68,8 @@ static void EllipExact_1_Forcing(const struct EllipExactCtx *ctx,const struct El
 
 struct EllipStore {
   dReal eta;
-  dReal sqrt_mdeta_Du[3];
+  dReal deta;
+  dReal Du[3];
 };
 
 typedef enum {EVAL_FUNCTION,EVAL_JACOBIAN, EVAL_UB} EllipEvaluation;
@@ -248,12 +249,12 @@ static dErr EllipDestroy(Ellip elp)
 
 static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal dUNUSED x[3],const dScalar dUNUSED u[1],const dScalar Du[3],struct EllipStore *st)
 {
-  dReal gamma,espg,p=prm->p,sqrt_mdeta;
+  dReal gamma,espg,p=prm->p;
   gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
   espg = dSqr(prm->epsilon) + gamma;
   st->eta = pow(espg,(p-2)/2);
-  sqrt_mdeta = PetscSign(p-2) * sqrt(PetscAbs(p-2)/2 * st->eta / espg);
-  for (dInt i=0; i<3; i++) st->sqrt_mdeta_Du[i] = sqrt_mdeta*Du[i];
+  st->deta = (p-2)/2 * st->eta / espg;
+  for (dInt i=0; i<3; i++) st->Du[i] = Du[i];
 }
 
 static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExact *exact,struct EllipExactCtx *exactctx,
@@ -271,10 +272,10 @@ static inline void EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const s
                                           const dScalar u[restrict static 1],const dScalar Du[restrict static 3],
                                           dScalar v[restrict static 1],dScalar Dv[restrict static 3])
 {
-  const dScalar dotw = dDotScalar3(st->sqrt_mdeta_Du,Du)*weight;
+  const dScalar dotw = dDotScalar3(st->Du,Du)*weight;
   const dReal etaw = st->eta*weight;
   v[0] = weight * 0 * u[0];
-  for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] + dotw*st->sqrt_mdeta_Du[i];
+  for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] + st->deta*dotw*st->Du[i];
 }
 
 static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
@@ -538,7 +539,7 @@ int main(int argc,char *argv[])
     p = elp->param.p;
     err = PetscOptionsBegin(comm,NULL,"Inverse iteration eigensolver parameters",__FILE__);dCHK(err); {
       err = PetscOptionsReal("-eig_mu","an arbitrary positive number, or 0 for auto","",mu=1,&mu,NULL);dCHK(err);
-      err = PetscOptionsReal("-eig_q","q should be chosen close to p","",q=p-0.1,&q,NULL);dCHK(err);
+      err = PetscOptionsReal("-eig_q","q should be chosen close to p","",q=p,&q,NULL);dCHK(err);
       err = PetscOptionsInt("-eig_max_it","maximum iterations of eigen-solver","",max_it=10,&max_it,NULL);dCHK(err);
       err = PetscOptionsBool("-eig_monitor","monitor eigenvalue estimates","",eig_monitor=dFALSE,&eig_monitor,NULL);dCHK(err);
     } err = PetscOptionsEnd();dCHK(err);
@@ -555,14 +556,12 @@ int main(int argc,char *argv[])
     kp = pow(norm,1-p);
     if (mu == 0) pleig.mu = mu = kp;
     err = dPrintf(comm,"Torsion function norm %12.6e  kp %12.6e\n",norm,kp);
-    err = VecScale(x,1/norm);dCHK(err);
     for (dInt i=0; i<max_it; i++) {
-      err = PFApplyVec(pfeig,x,elp->rhs);dCHK(err); // rhs = mu * u^{q-1}
-      err = VecCopy(x,z);dCHK(err);                 // save
+      err = VecAXPBY(z,1./norm,0,x);                // z <- normalize(x)
+      err = PFApplyVec(pfeig,z,elp->rhs);dCHK(err); // rhs = mu * u^{q-1}
       err = SNESSolve(snes,NULL,x);dCHK(err);
       err = VecNorm(x,NORM_MAX,&norm);dCHK(err);
       //mu_q = mu * pow(norm,q-p);
-      err = VecScale(x,1./norm);dCHK(err);
       if (eig_monitor) {
         dReal xnorm2,znorm2,lambda_p;
         lambda_p = mu / pow(norm,p-1);
