@@ -531,13 +531,13 @@ int main(int argc,char *argv[])
   if (eigen) {
     PF pfeig;
     struct PLapEig pleig;
-    dReal mu,q,p,norm,kp,scale;
+    dReal mu,q,p,norm,kp;
     dInt n,max_it;
     dBool eig_monitor;
     Vec z;
     p = elp->param.p;
     err = PetscOptionsBegin(comm,NULL,"Inverse iteration eigensolver parameters",__FILE__);dCHK(err); {
-      err = PetscOptionsReal("-eig_mu","an arbitrary positive number, or 0 for auto","",mu=0,&mu,NULL);dCHK(err);
+      err = PetscOptionsReal("-eig_mu","an arbitrary positive number, or 0 for auto","",mu=1,&mu,NULL);dCHK(err);
       err = PetscOptionsReal("-eig_q","q should be chosen close to p","",q=p-0.1,&q,NULL);dCHK(err);
       err = PetscOptionsInt("-eig_max_it","maximum iterations of eigen-solver","",max_it=10,&max_it,NULL);dCHK(err);
       err = PetscOptionsBool("-eig_monitor","monitor eigenvalue estimates","",eig_monitor=dFALSE,&eig_monitor,NULL);dCHK(err);
@@ -554,20 +554,18 @@ int main(int argc,char *argv[])
     err = VecNorm(x,NORM_MAX,&norm);dCHK(err);
     kp = pow(norm,1-p);
     if (mu == 0) pleig.mu = mu = kp;
-    scale = pow(mu/kp,1/(p-q));
-    err = dPrintf(comm,"Torsion function norm %12.6e  kp %12.6e  scaling by %12.6e for supersolution\n",norm,kp,scale);
-    err = VecScale(x,scale/norm);dCHK(err);
+    err = dPrintf(comm,"Torsion function norm %12.6e  kp %12.6e\n",norm,kp);
+    err = VecScale(x,1/norm);dCHK(err);
     for (dInt i=0; i<max_it; i++) {
       err = PFApplyVec(pfeig,x,elp->rhs);dCHK(err); // rhs = mu * u^{q-1}
       err = VecCopy(x,z);dCHK(err);                 // save
       err = SNESSolve(snes,NULL,x);dCHK(err);
       err = VecNorm(x,NORM_MAX,&norm);dCHK(err);
       //mu_q = mu * pow(norm,q-p);
-      //err = VecScale(x,1./norm);dCHK(err);
+      err = VecScale(x,1./norm);dCHK(err);
       if (eig_monitor) {
         dReal xnorm2,znorm2,lambda_p;
-        lambda_p = mu*pow(norm,q-p); // paper
-        //lambda_p = norm / pow(mu,p-1);
+        lambda_p = mu / pow(norm,p-1);
         err = VecAYPX(z,-1,x);dCHK(err);
         err = VecNorm(x,NORM_2,&xnorm2);dCHK(err);
         err = VecNorm(z,NORM_2,&znorm2);dCHK(err);
