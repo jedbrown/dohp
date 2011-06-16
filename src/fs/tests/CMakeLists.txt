@@ -13,6 +13,7 @@ set_source_files_properties (vhtexact.c PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURR
 dohp_link_executable (fs-ex1 ex1.c)
 dohp_link_executable (fs-ex4 fsex4.c)
 dohp_link_executable (ellip ellip.c)
+dohp_link_executable (plapeig plapeig.c)
 # dohp_link_executable (cellip cellip.c)
 dohp_link_executable (bu bu.c)
 dohp_link_executable (cunit cunit.c)
