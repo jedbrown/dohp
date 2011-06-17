@@ -20,22 +20,23 @@ struct _n_dUnit {
   dReal expon[dUNITS_MAX];
 };
 
+static const char nounit[] = "nounit";
 const char *dUnitQuantityName(dUnit u)
-{return u->quantity;}
+{return u ? u->quantity : nounit;}
 const char *dUnitName(dUnit u)
-{return u->longname;}
+{return u ? u->longname : nounit;}
 const char *dUnitShortName(dUnit u)
-{return u->shortname;}
+{return u ? u->shortname : nounit;}
 const char *dUnitSIName(dUnit u)
-{return u->siname;}
+{return u ? u->siname : nounit;}
 dScalar dUnitDimensionalize(dUnit u,dScalar x)
-{return x * u->toCommon;}
+{return u ? x * u->toCommon : x;}
 dScalar dUnitNonDimensionalize(dUnit u,dScalar x)
-{return x / u->toCommon;}
+{return u ? x / u->toCommon : x;}
 dScalar dUnitDimensionalizeSI(dUnit u,dScalar x)
-{return x * u->toSI;}
+{return u ? x * u->toSI : x;}
 dScalar dUnitNonDimensionalizeSI(dUnit u,dScalar x)
-{return x / u->toSI;}
+{return u ? x / u->toSI : x;}
 
 const char *const dUnitsBaseTypes[] = {"LENGTH","MASS","TIME","TEMPERATURE","dUnitsBaseType","dUNITS_",0};
 const char *const dUnitsBaseNamesSI[] = {"meter","kilogram","second","Kelvin"};
