@@ -885,3 +885,18 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
 #endif
   dFunctionReturn(0);
 }
+
+// Retrieve the FS composed with a VecDohp, return NULL if there is none
+dErr VecDohpGetFS(Vec X,dFS *fs)
+{
+  dErr err;
+  dBool isdohp;
+
+  dFunctionBegin;
+  dValidHeader(X,VEC_CLASSID,1);
+  dValidPointer(fs,2);
+  err = PetscTypeCompare((PetscObject)X,VECDOHP,&isdohp);dCHK(err);
+  if (!isdohp) dERROR(((PetscObject)X)->comm,PETSC_ERR_ARG_WRONG,"Vector is not of type DOHP");
+  err = PetscObjectQuery((PetscObject)X,"dFS",(PetscObject*)fs);dCHK(err);
+  dFunctionReturn(0);
+}
