@@ -91,6 +91,7 @@ typedef struct {
 typedef struct {
   hdset_reg_ref_t fs;
   dReal           time;
+  dht_Units       units;
   dInt            internal_state;
 } dht_Vec;
 

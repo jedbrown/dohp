@@ -87,8 +87,8 @@ dErr dFSView_Cont_DHM(dFS fs,dViewer viewer)
     err = dMallocA(fs5.fields.len,&field5);dCHK(err);
     for (i=0; i<bs; i++) {
       field5[i].name = fs->fieldname[i];
-      field5[i].units.dimensions = (char*)"m s-1"; /* we only use it as \c const */
-      field5[i].units.scale = exp(1.0);
+      field5[i].units.dimensions = (char*)dUnitName(fs->fieldunit[i]); /* we only use it as \c const */
+      field5[i].units.scale = dUnitDimensionalize(fs->fieldunit[i],1.0);
     }
     fs5.fields.p = field5;
     err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err); /* Get location to write this FS */
@@ -133,6 +133,7 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   const char  *xname;
   dFS          fs;
   Vec          Xclosure;
+  dUnit        fieldunit;
   dScalar     *x;
   hid_t        fsdset,fsspace,curstep,dset,fspace,mspace,plist;
   hsize_t      gdim[2],offset[2],count[2];
@@ -142,8 +143,9 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
   dFunctionBegin;
   err = dViewerDHMSetUp(viewer);dCHK(err);
   err = PetscObjectGetName((PetscObject)X,&xname);dCHK(err);
-  err = PetscObjectQuery((PetscObject)X,"dFS",(PetscObject*)&fs);dCHK(err);
+  err = VecDohpGetFS(X,&fs);dCHK(err);
   if (!fs) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
+  err = dFSGetFieldUnit(fs,0,&fieldunit);dCHK(err);
   err = dFSGetDHMLink(fs,viewer,&fsdset,&fsspace);dCHK(err); /* we are responsible for closing */
   err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);        /* leave curstep open */
   err = dFSView_Cont_DHM(fs,viewer);dCHK(err);
@@ -180,6 +182,8 @@ static dErr VecView_Dohp_FSCont_DHM(Vec X,PetscViewer viewer)
       /* Initialize data vecatt[0] */
       herr = H5Rcreate(&vecatt[0].fs,dhm->file,fsname,H5R_DATASET_REGION,fsspace);dH5CHK(herr,H5Rcreate);
       vecatt[0].time = dhm->time;
+      vecatt[0].units.dimensions = NULL;
+      vecatt[0].units.scale = dUnitDimensionalize(fieldunit,1.0);
       err = PetscObjectStateQuery((PetscObject)X,&vecatt[0].internal_state);dCHK(err);
       /* Write attribute */
       aspace = H5Screate_simple(1,dims,NULL);dH5CHK(aspace,H5Screate_simple);
@@ -206,8 +210,7 @@ dErr VecView_Dohp_FSCont(Vec x,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = PetscObjectQuery((PetscObject)x,"dFS",(PetscObject*)&fs);dCHK(err);
-  if (!fs) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Vector not generated from a FS");
+  err = VecDohpGetFS(x,&fs);dCHK(err);
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&isdhm);dCHK(err);
   if (isdhm) {
     err = VecView_Dohp_FSCont_DHM(x,viewer);dCHK(err);
@@ -249,7 +252,7 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
     herr = H5Sclose(memspace);
 
     if (debug) {
-      dPrintf(PETSC_COMM_SELF,"degree = %s\nglobal_offset = %s\npartition = %s\nordered_subdomain = %s\n",fs5.degree,fs5.global_offset,fs5.partition,fs5.ordered_subdomain);dCHK(err);
+      err = dPrintf(PETSC_COMM_SELF,"degree = %s\nglobal_offset = %s\npartition = %s\nordered_subdomain = %s\n",fs5.degree,fs5.global_offset,fs5.partition,fs5.ordered_subdomain);dCHK(err);
     }
     meshobj = H5Rdereference(dhm->meshroot,H5R_OBJECT,&fs5.mesh);dH5CHK(meshobj,H5Rdereference);
     {
@@ -346,11 +349,15 @@ dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
 {
   dErr    err;
   dBool   match;
-  hid_t   curstep,dset,memspace,filespace;
+  dht_Vec vecmeta;
+  hid_t   curstep,dset,memspace,filespace,vattr,vectype;
   hsize_t gdim[2],offset[2],count[2];
   herr_t  herr;
   Vec     Xclosure;
   dScalar *x;
+  dReal   scale;
+  dFS     fs;
+  dUnit   unit;
 
   dFunctionBegin;
   err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&match);dCHK(err);
@@ -360,7 +367,11 @@ dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
 
   err = dViewerDHMSetUp(viewer);dCHK(err);
   err = dViewerDHMGetStep(viewer,&curstep);dCHK(err);
+  err = dViewerDHMGetVecType(viewer,&vectype);dCHK(err);
   err = dH5Dopen(curstep,fieldname,H5P_DEFAULT,&dset);dCHK(err);
+  err = dH5Aopen(dset,"meta",H5P_DEFAULT,&vattr);dCHK(err);
+  herr = H5Aread(vattr,vectype,&vecmeta);dH5CHK(herr,H5Aread);
+  herr = H5Aclose(vattr);dH5CHK(herr,H5Aclose);
 
   err = VecDohpGetClosure(X,&Xclosure);dCHK(err);
 
@@ -377,6 +388,12 @@ dErr VecDohpLoadIntoVector(PetscViewer viewer,const char fieldname[],Vec X)
   herr = H5Sclose(memspace);dH5CHK(herr,H5Sclose);
   herr = H5Sclose(filespace);dH5CHK(herr,H5Sclose);
   herr = H5Dclose(dset);dH5CHK(herr,H5Dclose);
+
+  err = VecDohpGetFS(X,&fs);dCHK(err);
+  err = dFSGetFieldUnit(fs,0,&unit);dCHK(err);
+  scale = dUnitNonDimensionalize(unit,vecmeta.units.scale);
+  err = VecScale(Xclosure,scale);dCHK(err);
+
   err = VecDohpRestoreClosure(X,&Xclosure);dCHK(err);
   dFunctionReturn(0);
 }

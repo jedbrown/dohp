@@ -103,6 +103,8 @@ dErr dFSSetBlockSize(dFS fs,dInt bs)
   for (dInt i=0; i<obs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
   err = dFree(fs->fieldname);dCHK(err);
   err = dCallocA(bs,&fs->fieldname);dCHK(err);
+  err = dFree(fs->fieldunit);dCHK(err);
+  err = dCallocA(bs,&fs->fieldunit);dCHK(err);
   fs->dm.bs = bs;
   dFunctionReturn(0);
 }
@@ -136,6 +138,44 @@ dErr dFSSetFieldName(dFS fs,dInt fn,const char *fname)
   if (fn < 0 || bs <= fn) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
   if (fs->fieldname[fn]) {err = dFree(fs->fieldname[fn]);dCHK(err);}
   err = PetscStrallocpy(fname,&fs->fieldname[fn]);dCHK(err);
+  dFunctionReturn(0);
+}
+dErr dFSGetFieldName(dFS fs,dInt fn,const char **fname)
+{
+  dErr err;
+  dInt bs;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
+  if (fn < 0 || bs <= fn) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
+  *fname = fs->fieldname[fn];
+  dFunctionReturn(0);
+}
+
+// Set the physical units to use for the field
+dErr dFSSetFieldUnit(dFS fs,dInt fn,dUnit unit)
+{
+  dErr err;
+  dInt bs;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
+  if (fn < 0 || bs <= fn) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
+  fs->fieldunit[fn] = unit;
+  dFunctionReturn(0);
+}
+dErr dFSGetFieldUnit(dFS fs,dInt fn,dUnit *unit)
+{
+  dErr err;
+  dInt bs;
+
+  dFunctionBegin;
+  dValidHeader(fs,DM_CLASSID,1);
+  err = dFSGetBlockSize(fs,&bs);dCHK(err);
+  if (fn < 0 || bs <= fn) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Field number %d out of range",fn);
+  *unit = fs->fieldunit[fn];
   dFunctionReturn(0);
 }
 
@@ -333,6 +373,7 @@ dErr DMDestroy_dFS(DM dm)
   err = dFSGetBlockSize(fs,&bs);dCHK(err);
   for (dInt i=0; i<bs; i++) {err = dFree(fs->fieldname[i]);dCHK(err);}
   err = dFree(fs->fieldname);dCHK(err);
+  err = dFree(fs->fieldunit);dCHK(err);
   err = VecDestroy(&fs->gvec);dCHK(err);
   err = VecDestroy(&fs->dcache);dCHK(err);
   err = VecScatterDestroy(&fs->dscat);dCHK(err);

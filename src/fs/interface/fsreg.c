@@ -61,6 +61,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 /* Defaults */
   fs->dm.bs = 1;
   err = dCallocA(1,&fs->fieldname);dCHK(err);
+  err = dCallocA(1,&fs->fieldunit);dCHK(err);
 
   *infs = fs;
   dFunctionReturn(0);

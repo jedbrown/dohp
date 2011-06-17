@@ -12,6 +12,7 @@
 
 #include "dohpmesh.h"
 #include "dohpjacobi.h"
+#include "dohpunits.h"
 
 dEXTERN_C_BEGIN
 
@@ -65,6 +66,9 @@ extern dErr dFSSetDegree(dFS,dJacobi,dMeshTag);
 extern dErr dFSSetBlockSize(dFS,dInt);
 extern dErr dFSGetBlockSize(dFS,dInt*);
 extern dErr dFSSetFieldName(dFS,dInt,const char*);
+extern dErr dFSGetFieldName(dFS,dInt,const char**);
+extern dErr dFSSetFieldUnit(dFS fs,dInt fn,dUnit unit);
+extern dErr dFSGetFieldUnit(dFS fs,dInt fn,dUnit *unit);
 extern dErr dFSRegisterBoundary(dFS,dInt,dFSBStatus,dFSConstraintFunction,void*);
 extern dErr dFSRegisterBoundarySet(dFS,dMeshESH,dFSBStatus,dFSConstraintFunction,void*);
 extern dErr dFSSetFromOptions(dFS);

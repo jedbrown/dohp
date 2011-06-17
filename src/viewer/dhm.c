@@ -190,11 +190,13 @@ dErr dViewerDHMGetVecType(PetscViewer viewer,hid_t *intype)
 
   dFunctionBegin;
   if (dhm->h5t_vec < 0) {
-    hid_t vectype;
+    hid_t vectype,unitstype;
     herr_t herr;
+    err = dViewerDHMGetUnitsType(viewer,&unitstype);dCHK(err);
     vectype = H5Tcreate(H5T_COMPOUND,sizeof(dht_Vec));dH5CHK(vectype,H5Tcreate);
     herr = H5Tinsert(vectype,"fs",offsetof(dht_Vec,fs),H5T_STD_REF_DSETREG);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(vectype,"time",offsetof(dht_Vec,time),dH5T_REAL);dH5CHK(herr,H5Tinsert);
+    herr = H5Tinsert(vectype,"units",offsetof(dht_Vec,units),unitstype);dH5CHK(herr,H5Tinsert);
     herr = H5Tinsert(vectype,"internal_state",offsetof(dht_Vec,internal_state),dH5T_INT);dH5CHK(herr,H5Tinsert);
     err = dViewerDHM_H5Tcommit(viewer,"Vec_type",vectype);dCHK(err);
     dhm->h5t_vec = vectype;

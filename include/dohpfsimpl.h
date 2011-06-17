@@ -126,6 +126,7 @@ struct _p_dFS {
   dFSRotation  rot;             /**< Rotation for local vector */
   char         orderingtype[256];
   char       **fieldname;
+  dUnit       *fieldunit;
   void        *data;
 };
 
