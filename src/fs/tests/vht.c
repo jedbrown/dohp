@@ -104,6 +104,8 @@ static dErr VHTCaseUnitsSetFromOptions(VHTCase scase)
   err = dUnitsCreateUnit(units,"DENSITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-3.0,[dUNITS_MASS]=1.0},&u->Density);dCHK(err);
   err = dUnitsCreateUnit(units,"ENERGY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=2.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0},&u->Energy);dCHK(err);
   err = dUnitsCreateUnit(units,"PRESSURE",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-1.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-2.0},&u->Pressure);dCHK(err);
+  u->EnergyDensity = u->Pressure;
+  err = dUnitsCreateUnit(units,"MOMENTUM/VOLUME",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=-2.0,[dUNITS_MASS]=1.0,[dUNITS_TIME]=-1.0},&u->MomentumDensity);dCHK(err);
   err = dUnitsCreateUnit(units,"STRAINRATE",NULL,NULL,4,(dReal[4]){[dUNITS_TIME]=-1.0},&u->StrainRate);dCHK(err);
   err = dUnitsCreateUnit(units,"VELOCITY",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=1.0,[dUNITS_TIME]=-1.0},&u->Velocity);dCHK(err);
   err = dUnitsCreateUnit(units,"ACCELERATION",NULL,NULL,4,(dReal[4]){[dUNITS_LENGTH]=1.0,[dUNITS_TIME]=-2.0},&u->Acceleration);dCHK(err);
@@ -542,10 +544,28 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
   dFunctionReturn(0);
 }
-static void VHTMeshMorph(void *vctx,double *coords)
+static void VHTMeshMorph_NonDimensionalizeSI(void *vctx,double *coords)
 {
   VHT vht = vctx;
   dReal scale = dUnitNonDimensionalizeSI(vht->scase->utable.Length,1.0); // nondimensionalize 1 meter
+  double x = coords[0],y = coords[1],z = coords[2];
+  coords[0] = scale * x;
+  coords[1] = scale * y;
+  coords[2] = scale * z;
+}
+static void VHTMeshMorph_NonDimensionalize(void *vctx,double *coords)
+{
+  VHT vht = vctx;
+  dReal scale = dUnitNonDimensionalize(vht->scase->utable.Length,1.0); // nondimensionalize 1 meter
+  double x = coords[0],y = coords[1],z = coords[2];
+  coords[0] = scale * x;
+  coords[1] = scale * y;
+  coords[2] = scale * z;
+}
+static void VHTMeshMorph_Dimensionalize(void *vctx,double *coords)
+{
+  VHT vht = vctx;
+  dReal scale = dUnitDimensionalize(vht->scase->utable.Length,1.0); // dimensionalize 1 length unit
   double x = coords[0],y = coords[1],z = coords[2];
   coords[0] = scale * x;
   coords[1] = scale * y;
@@ -601,7 +621,7 @@ static dErr VHTSetFromOptions(VHT vht)
   err = dMeshSetInFile(mesh,"dblock.h5m",NULL);dCHK(err);
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshLoad(mesh);dCHK(err);
-  err = dMeshMorph(mesh,VHTMeshMorph,vht);dCHK(err);
+  err = dMeshMorph(mesh,VHTMeshMorph_NonDimensionalizeSI,vht);dCHK(err);
   err = dMeshGetRoot(mesh,&domain);dCHK(err); /* Need a taggable set */
   err = dMeshSetDuplicateEntsOnly(mesh,domain,&domain);dCHK(err);
   err = PetscObjectSetName((PetscObject)mesh,"dMesh_0");dCHK(err);
@@ -623,6 +643,12 @@ static dErr VHTSetFromOptions(VHT vht)
   err = PetscObjectSetOptionsPrefix((dObject)fsu,"u");dCHK(err);
   err = dFSSetFromOptions(fsu);dCHK(err);
   err = PetscObjectSetName((PetscObject)fsu,"dFS_U_0");dCHK(err);
+  err = dFSSetFieldName(fsu,0,"MomX");dCHK(err);
+  err = dFSSetFieldName(fsu,1,"MomY");dCHK(err);
+  err = dFSSetFieldName(fsu,2,"MomZ");dCHK(err);
+  err = dFSSetFieldUnit(fsu,0,vht->scase->utable.Pressure);dCHK(err); // Energy/Volume is the same as Pressure
+  err = dFSSetFieldUnit(fsu,1,vht->scase->utable.Pressure);dCHK(err); // Energy/Volume is the same as Pressure
+  err = dFSSetFieldUnit(fsu,2,vht->scase->utable.Pressure);dCHK(err); // Energy/Volume is the same as Pressure
   vht->fsu = fsu;
 
   err = dFSCreate(vht->comm,&fsp);dCHK(err);
@@ -632,6 +658,8 @@ static dErr VHTSetFromOptions(VHT vht)
   /* No boundaries, the pressure space has Neumann conditions when Dirichlet velocity conditions are applied */
   err = dFSSetFromOptions(fsp);dCHK(err);
   err = PetscObjectSetName((PetscObject)fsp,"dFS_P_0");dCHK(err);
+  err = dFSSetFieldName(fsp,0,"Pressure");dCHK(err);
+  err = dFSSetFieldUnit(fsp,0,vht->scase->utable.Pressure);dCHK(err);
   vht->fsp = fsp;
 
   err = dFSCreate(vht->comm,&fse);dCHK(err);
@@ -643,6 +671,8 @@ static dErr VHTSetFromOptions(VHT vht)
   err = PetscObjectSetOptionsPrefix((dObject)fse,"e");dCHK(err);
   err = dFSSetFromOptions(fse);dCHK(err);
   err = PetscObjectSetName((PetscObject)fse,"dFS_E_0");dCHK(err);
+  err = dFSSetFieldName(fse,0,"EnergyDensity");dCHK(err);
+  err = dFSSetFieldUnit(fse,0,vht->scase->utable.Pressure);dCHK(err); // Energy/Volume is the same as Pressure
   vht->fse = fse;
 
   err = dFSCreateExpandedVector(fsu,&vht->xu);dCHK(err);
@@ -659,9 +689,9 @@ static dErr VHTSetFromOptions(VHT vht)
     err = dFSCreateGlobalVector(vht->fsu,&vht->gvelocity);dCHK(err);
     err = dFSCreateGlobalVector(vht->fsp,&vht->gpressure);dCHK(err);
     err = dFSCreateGlobalVector(vht->fse,&vht->genergy);dCHK(err);
-    err = PetscObjectSetName((PetscObject)vht->gvelocity,"Velocity");dCHK(err);
+    err = PetscObjectSetName((PetscObject)vht->gvelocity,"MomentumDensity");dCHK(err);
     err = PetscObjectSetName((PetscObject)vht->gpressure,"Pressure");dCHK(err);
-    err = PetscObjectSetName((PetscObject)vht->genergy,"Energy");dCHK(err);
+    err = PetscObjectSetName((PetscObject)vht->genergy,"EnergyDensity");dCHK(err);
     err = VecGetLocalSize(vht->gvelocity,&nu);dCHK(err);
     err = VecGetLocalSize(vht->gpressure,&np);dCHK(err);
     err = VecGetLocalSize(vht->genergy,&ne);dCHK(err);
@@ -2478,10 +2508,13 @@ int main(int argc,char *argv[])
   if (viewdhm) {
     Vec Xu,Xp,Xe;
     dViewer view;
+    dMesh mesh;
     err = PetscViewerCreate(comm,&view);dCHK(err);
     err = PetscViewerSetType(view,PETSCVIEWERDHM);dCHK(err);
     err = PetscViewerFileSetName(view,dhmfilename);dCHK(err);
     err = PetscViewerFileSetMode(view,FILE_MODE_WRITE);dCHK(err);
+    err = dFSGetMesh(vht->fsu,&mesh);dCHK(err);dCHK(err);
+    err = dMeshMorph(mesh,VHTMeshMorph_Dimensionalize,vht);dCHK(err);
     err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
     err = dFSDirichletProject(vht->fsu,Xu,dFS_INHOMOGENEOUS);dCHK(err);
     err = dFSDirichletProject(vht->fsp,Xp,dFS_INHOMOGENEOUS);dCHK(err);
@@ -2489,6 +2522,7 @@ int main(int argc,char *argv[])
     err = VecView(Xu,view);dCHK(err);
     err = VecView(Xp,view);dCHK(err);
     err = VecView(Xe,view);dCHK(err);
+    err = dMeshMorph(mesh,VHTMeshMorph_NonDimensionalize,vht);dCHK(err);
     err = PetscViewerDestroy(&view);dCHK(err);
   }
 

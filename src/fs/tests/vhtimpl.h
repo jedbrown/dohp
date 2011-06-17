@@ -54,6 +54,8 @@ struct VHTUnitTable {
   dUnit Acceleration;
   dUnit Viscosity;
   dUnit Volume;
+  dUnit EnergyDensity;
+  dUnit MomentumDensity;
   dUnit EnergyPerTemperature;
   dUnit ThermalConductivity;
   dUnit HydroConductivity;
