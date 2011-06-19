@@ -553,24 +553,6 @@ static void VHTMeshMorph_NonDimensionalizeSI(void *vctx,double *coords)
   coords[1] = scale * y;
   coords[2] = scale * z;
 }
-static void VHTMeshMorph_NonDimensionalize(void *vctx,double *coords)
-{
-  VHT vht = vctx;
-  dReal scale = dUnitNonDimensionalize(vht->scase->utable.Length,1.0); // nondimensionalize 1 meter
-  double x = coords[0],y = coords[1],z = coords[2];
-  coords[0] = scale * x;
-  coords[1] = scale * y;
-  coords[2] = scale * z;
-}
-static void VHTMeshMorph_Dimensionalize(void *vctx,double *coords)
-{
-  VHT vht = vctx;
-  dReal scale = dUnitDimensionalize(vht->scase->utable.Length,1.0); // dimensionalize 1 length unit
-  double x = coords[0],y = coords[1],z = coords[2];
-  coords[0] = scale * x;
-  coords[1] = scale * y;
-  coords[2] = scale * z;
-}
 static dErr VHTSetFromOptions(VHT vht)
 {
   char scasename[256] = "Exact0";
@@ -2514,7 +2496,6 @@ int main(int argc,char *argv[])
     err = PetscViewerFileSetName(view,dhmfilename);dCHK(err);
     err = PetscViewerFileSetMode(view,FILE_MODE_WRITE);dCHK(err);
     err = dFSGetMesh(vht->fsu,&mesh);dCHK(err);dCHK(err);
-    err = dMeshMorph(mesh,VHTMeshMorph_Dimensionalize,vht);dCHK(err);
     err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
     err = dFSDirichletProject(vht->fsu,Xu,dFS_INHOMOGENEOUS);dCHK(err);
     err = dFSDirichletProject(vht->fsp,Xp,dFS_INHOMOGENEOUS);dCHK(err);
@@ -2522,7 +2503,6 @@ int main(int argc,char *argv[])
     err = VecView(Xu,view);dCHK(err);
     err = VecView(Xp,view);dCHK(err);
     err = VecView(Xe,view);dCHK(err);
-    err = dMeshMorph(mesh,VHTMeshMorph_NonDimensionalize,vht);dCHK(err);
     err = PetscViewerDestroy(&view);dCHK(err);
   }
 
