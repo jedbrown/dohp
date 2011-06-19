@@ -251,9 +251,9 @@ static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal
 {
   dReal gamma,espg,p=prm->p;
   gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
-  espg = dSqr(prm->epsilon) + gamma;
+  espg = dSqr(prm->epsilon) + 2*gamma;
   st->eta = pow(espg,(p-2)/2);
-  st->deta = (p-2)/2 * st->eta / espg;
+  st->deta = (p-2)/2 * st->eta / espg * 2;
   for (dInt i=0; i<3; i++) st->Du[i] = Du[i];
 }
 
