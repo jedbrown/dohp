@@ -532,7 +532,7 @@ int main(int argc,char *argv[])
   if (eigen) {
     PF pfeig;
     struct PLapEig pleig;
-    dReal mu,q,p,norm,kp;
+    dReal mu,q,p,xmax,kp,eig_tol,lambda_p_old,lambda_p = 0;
     dInt n,max_it;
     dBool eig_monitor;
     Vec z;
@@ -540,7 +540,8 @@ int main(int argc,char *argv[])
     err = PetscOptionsBegin(comm,NULL,"Inverse iteration eigensolver parameters",__FILE__);dCHK(err); {
       err = PetscOptionsReal("-eig_mu","an arbitrary positive number, or 0 for auto","",mu=1,&mu,NULL);dCHK(err);
       err = PetscOptionsReal("-eig_q","q should be chosen close to p","",q=p,&q,NULL);dCHK(err);
-      err = PetscOptionsInt("-eig_max_it","maximum iterations of eigen-solver","",max_it=10,&max_it,NULL);dCHK(err);
+      err = PetscOptionsInt("-eig_max_it","maximum iterations of eigen-solver","",max_it=100,&max_it,NULL);dCHK(err);
+      err = PetscOptionsReal("-eig_tol","convergence tolerance for eigenvector change in eigen-solver","",eig_tol=1e-6,&eig_tol,NULL);dCHK(err);
       err = PetscOptionsBool("-eig_monitor","monitor eigenvalue estimates","",eig_monitor=dFALSE,&eig_monitor,NULL);dCHK(err);
     } err = PetscOptionsEnd();dCHK(err);
     pleig.mu = mu;
@@ -552,27 +553,36 @@ int main(int argc,char *argv[])
     err = VecSet(x,1);dCHK(err);
     err = SNESSolve(snes,NULL,x);dCHK(err);
     err = VecDuplicate(x,&z);dCHK(err);
-    err = VecNorm(x,NORM_MAX,&norm);dCHK(err);
-    kp = pow(norm,1-p);
+    err = VecNorm(x,NORM_MAX,&xmax);dCHK(err);
+    kp = pow(xmax,1-p);
     if (mu == 0) pleig.mu = mu = kp;
-    err = dPrintf(comm,"Torsion function norm %12.6e  kp %12.6e\n",norm,kp);
+    err = dPrintf(comm,"Torsion function xmax %12.6e  kp %12.6e\n",xmax,kp);
     for (dInt i=0; i<max_it; i++) {
-      err = VecAXPBY(z,1./norm,0,x);                // z <- normalize(x)
+      dReal xnorm2,znorm2,zmax;
+      err = VecAXPBY(z,1./xmax,0,x);                // z <- normalize(x)
       err = PFApplyVec(pfeig,z,elp->rhs);dCHK(err); // rhs = mu * u^{q-1}
       err = SNESSolve(snes,NULL,x);dCHK(err);
-      err = VecNorm(x,NORM_MAX,&norm);dCHK(err);
-      //mu_q = mu * pow(norm,q-p);
+      err = VecNorm(x,NORM_MAX,&xmax);dCHK(err);
+      lambda_p_old = lambda_p;
+      lambda_p = mu / pow(xmax,p-1);
+      if (lambda_p == lambda_p_old) {
+        err = dPrintf(comm,"EIG solve stagnated tol: p % 9f  lambda % 24.18e\n",p,lambda_p);dCHK(err);
+        break;
+      }
+      err = VecAYPX(z,-xmax,x);dCHK(err);
+      err = VecNorm(x,NORM_2,&xnorm2);dCHK(err);
+      err = VecNorm(z,NORM_2,&znorm2);dCHK(err);
+      err = VecNorm(z,NORM_MAX,&zmax);dCHK(err);
       if (eig_monitor) {
-        dReal xnorm2,znorm2,lambda_p;
-        lambda_p = mu / pow(norm,p-1);
-        err = VecAYPX(z,-1,x);dCHK(err);
-        err = VecNorm(x,NORM_2,&xnorm2);dCHK(err);
-        err = VecNorm(z,NORM_2,&znorm2);dCHK(err);
-        err = dPrintf(comm,"%3d EIG solution norm2 % 12.6e  difference norm2 % 12.6e  eigenvalue estimate % 18.12e\n",i,xnorm2,znorm2,lambda_p);dCHK(err);
+        err = dPrintf(comm,"%3d EIG solution norm2 % 10.4e  difference |e|_2 % 10.4e |e|_max % 10.4e  rel % 10.4e  lambda % 24.18e\n",i,xnorm2,znorm2,zmax,zmax/xmax,lambda_p);dCHK(err);
+      }
+      if (zmax/xmax < eig_tol) {
+        err = dPrintf(comm,"EIG solve converged tol: p % 9f  lambda % 24.18e\n",p,lambda_p);dCHK(err);
+        break;
       }
     }
-    err = VecNorm(x,NORM_MAX,&norm);dCHK(err);
-    err = VecScale(x,1./norm);dCHK(err);
+    err = VecNorm(x,NORM_MAX,&xmax);dCHK(err);
+    err = VecScale(x,1./xmax);dCHK(err);
     err = PFDestroy(&pfeig);dCHK(err);
   } else {
     err = VecZeroEntries(x);dCHK(err);
