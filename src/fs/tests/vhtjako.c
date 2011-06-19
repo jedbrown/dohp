@@ -81,6 +81,7 @@ typedef struct {
   double *h,*b;
   int nx,ny;
   dBool verbose;
+  dErr (*InternalEnergy)(VHTCase,dReal,dReal,const dReal[],dScalar*);
 } VHTCase_Jako;
 static dErr JakoFindPixel(VHTCase scase,const dReal x[3],dInt *ix,dInt *iy)
 {
@@ -135,7 +136,7 @@ static dErr JakoSIAVelocity(VHTCase scase,dReal b,dReal h,dReal dh[2],dReal z,dS
   u[2] = 0; // Would need another derivative to evaluate this and it should not be a big deal for this stationary computation
   return 0;
 }
-static dErr JakoInternalEnergy(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
+static dErr JakoInternalEnergy_Smooth(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
 {
   struct VHTRheology *rheo = &scase->rheo;
   dReal z,t,T;
@@ -147,6 +148,24 @@ static dErr JakoInternalEnergy(VHTCase scase,dReal b,dReal h,const dReal x[],dSc
   T = rheo->T3 - (rheo->T3 - rheo->T0)*t; // Maximum value is at the bed and equal to T3, extends past T0
   *e = rheo->c_i * (T - rheo->T0);        // energy/mass
   dFunctionReturn(0);
+}
+static dErr JakoInternalEnergy_Sharp(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
+{
+  struct VHTRheology *rheo = &scase->rheo;
+  dReal z,t,T;
+
+  dFunctionBegin;
+  z = (x[2] - b) / (h-b); // Normalize to [0,1] plus possible fuzz
+  z = dMax(0,dMin(1,z)); // Clip to [0,1]
+  t = floor(5 * z) * 0.2;
+  T = rheo->T3 - (rheo->T3 - rheo->T0)*t; // Maximum value is at the bed and equal to T3, extends past T0
+  *e = rheo->c_i * (T - rheo->T0);        // energy/mass
+  dFunctionReturn(0);
+}
+static dErr JakoInternalEnergy(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
+{
+  VHTCase_Jako *jako = scase->data;
+  return (*jako->InternalEnergy)(scase,b,h,x,e);
 }
 static dErr VHTCaseSolution_Jako(VHTCase scase,const dReal x[3],dScalar rhou[],dScalar drhou[],dScalar *p,dScalar dp[],dScalar *E,dScalar dE[])
 {                               /* Defines inhomogeneous Dirichlet boundary conditions */
@@ -389,6 +408,15 @@ static dErr VHTCaseSetFromOptions_Jako(VHTCase scase)
     err = PetscOptionsBool("-jako_verbose","Turn on verbose output about projections","",jako->verbose,&jako->verbose,NULL);dCHK(err);
     err = PetscOptionsInt("-jako_nx","Number of pixels in x-direction for raster of input fields","",jako->nx,&jako->nx,NULL);dCHK(err);
     err = PetscOptionsInt("-jako_ny","Number of piyels in y-direction for raster of input fields","",jako->ny,&jako->ny,NULL);dCHK(err);
+    {
+      PetscFList intenergy = NULL;
+      char iname[dNAME_LEN] = "smooth";
+      err = PetscFListAdd(&intenergy,"smooth",NULL,(void(*)(void))JakoInternalEnergy_Smooth);dCHK(err);
+      err = PetscFListAdd(&intenergy,"sharp",NULL,(void(*)(void))JakoInternalEnergy_Sharp);dCHK(err);
+      err = PetscOptionsList("-jako_ienergy","Internal energy boundary conditions for Jakobshavn","",intenergy,iname,iname,sizeof iname,NULL);dCHK(err);
+      err = PetscFListFind(intenergy,scase->comm,iname,dFALSE,(void(**)(void))&jako->InternalEnergy);dCHK(err);
+      err = PetscFListDestroy(&intenergy);dCHK(err);
+    }
   } err = PetscOptionsTail();dCHK(err);
   err = VHTCaseSetUp_Jako(scase);dCHK(err);
   dFunctionReturn(0);
