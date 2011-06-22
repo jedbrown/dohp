@@ -127,19 +127,25 @@ static dErr JakoSIAVelocity(VHTCase scase,dReal b,dReal h,dReal dh[2],dReal z,dS
 {
   struct VHTRheology *rheo = &scase->rheo;
   const dReal
-    B = rheo->B0,
     p = rheo->pe,
-    n = 1./(p-1),
+    n = 1 ? 1 : 1./(p-1),
+    B = rheo->B0 * pow(2*rheo->gamma0,(n-1)/(2*n)), // reduce to Stress = B |Du|^{1/n}
     A = pow(B,-n);
   const dScalar
     slope = dSqrt(dSqr(dh[0]) + dSqr(dh[1])),
     sliding = 0,
     hmz = z > h ? 0 : (z < b ? h-b : h-z),
-    siaspeed = sliding + A / (n+1) * pow(slope,n) * (pow(h-b,n+1) - pow(hmz,n+1)),
-    speed = 0 + (siaspeed - 0) * (1 + tanh((z-b)/100))/2; // Integrate stress from the bottom
+    // The strain rate is: Du = A tau^n
+    // where: tau = rho*grav*(h-z)*dh
+    int_bz = -1. / (n+1) * (pow(hmz,n+1) - pow(h-b,n+1)), // \int_b^z (h-z)^n
+    //bstress = rheo->rhoi * dAbs(rheo->gravity[2]) * (h-b) * slope, // diagnostic
+    //rstress = dUnitNonDimensionalizeSI(scase->utable.Pressure,1e5),
+    siaspeed = sliding + A * pow(rheo->rhoi * dAbs(rheo->gravity[2]) * slope, n) * int_bz, // Integrate strain rate from the bottom
+    speed = siaspeed * (5 + 0 * (1 + tanh((z-b)/100))/2);
   u[0] = -speed / slope * dh[0];
   u[1] = -speed / slope * dh[1];
   u[2] = 0; // Would need another derivative to evaluate this and it should not be a big deal for this stationary computation
+  //printf("u0 %g  u1 %g  rho %g  grav %g  stress %g  1bar %g  dh[2] %g %g  A %g  B %g;\n",u[0],u[1],rheo->rhoi,rheo->gravity[2],bstress,rstress,dh[0],dh[1],A,B);
   return 0;
 }
 static dErr JakoInternalEnergy_Smooth(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
