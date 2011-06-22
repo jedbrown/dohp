@@ -2200,6 +2200,24 @@ static dErr KSPMonitorVHTStokesSplit(KSP ksp,PetscInt its,PetscReal norm2,void *
   err = PetscViewerASCIISubtractTab(viewer,((PetscObject)ksp)->tablevel);dCHK(err);
   dFunctionReturn(0);
 }
+static dErr SNESComputeVariableBounds_VHT(SNES snes,Vec L,Vec U)
+{
+  VHT vht;
+  dErr err;
+  Vec Lu,Lp,Le,Uu,Up,Ue;
+
+  dFunctionBegin;
+  err = SNESGetApplicationContext(snes,&vht);dCHK(err);
+  err = VHTExtractGlobalSplit(vht,L,&Lu,&Lp,&Le);dCHK(err);
+  err = VHTExtractGlobalSplit(vht,U,&Uu,&Up,&Ue);dCHK(err);
+  err = VecSet(Lu,SNES_VI_NINF);dCHK(err);
+  err = VecSet(Uu,SNES_VI_INF);dCHK(err);
+  err = VecSet(Lp,SNES_VI_NINF);dCHK(err);
+  err = VecSet(Up,SNES_VI_INF);dCHK(err);
+  err = VecSet(Le,SNES_VI_NINF);dCHK(err);
+  err = VecSet(Ue,SNES_VI_INF);dCHK(err);
+  dFunctionReturn(0);
+}
 
 // This function cannot runs separately for each field because the nodal basis may be different for each field
 static dErr VHTGetSolutionField_All(VHT vht,dFS fs,dInt fieldnumber,Vec *insoln)
@@ -2388,7 +2406,7 @@ int main(int argc,char *argv[])
   Vec R,X,Xsoln = NULL;
   SNES snes;
   KSP ksp;
-  dBool check_error,check_null,compute_explicit,use_jblock,viewdhm,snes_monitor_vht,ksp_monitor_vht,sksp_monitor_vht;
+  dBool flg,check_error,check_null,compute_explicit,use_jblock,viewdhm,snes_monitor_vht,ksp_monitor_vht,sksp_monitor_vht;
   char snesmonfilename[PETSC_MAX_PATH_LEN],kspmonfilename[PETSC_MAX_PATH_LEN],skspmonfilename[PETSC_MAX_PATH_LEN],dhmfilename[PETSC_MAX_PATH_LEN];
   dErr err;
 
@@ -2420,6 +2438,8 @@ int main(int argc,char *argv[])
   err = SNESSetFunction(snes,R,VHTFunction,vht);dCHK(err);
   err = SNESSetJacobian(snes,J,B,VHTJacobian,vht);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
+  err = PetscTypeCompare((PetscObject)snes,SNESVI,&flg);dCHK(err);
+  if (flg) {err = SNESVISetComputeVariableBounds(snes,SNESComputeVariableBounds_VHT);dCHK(err);}
   err = SNESGetKSP(snes,&ksp);dCHK(err);
   err = SNESSetApplicationContext(snes,vht);dCHK(err);
   err = KSPSetApplicationContext(ksp,vht);dCHK(err);
