@@ -410,6 +410,7 @@ static dErr VHTCaseSetUp_Jako(VHTCase scase)
 
     band = GDALGetRasterBand(jako->surface_elevation.dataset,1); // 1-based indexing
     cplerr = GDALRasterIO(band,GF_Read,0,0,jako->nx,jako->ny,jako->h,jako->nx,jako->ny,GDT_Float64,0,0);dCPLCHK(cplerr);
+    for (dInt i=0; i<jako->nx*jako->ny; i++) jako->h[i] = dUnitNonDimensionalizeSI(scase->utable.Length,jako->h[i]);
     if (jako->verbose) {err = dRealTableView(jako->ny,jako->nx,jako->h,PETSC_VIEWER_STDOUT_WORLD,"mysurf");dCHK(err);}
 
     filedata = GDALOpen(jako->bed_elevation.path, GA_ReadOnly); if (!filedata) dERROR(PETSC_COMM_SELF,PETSC_ERR_FILE_OPEN,"GDALOpen(\"%s\")",jako->bed_elevation.path);
@@ -419,6 +420,7 @@ static dErr VHTCaseSetUp_Jako(VHTCase scase)
 
     band = GDALGetRasterBand(jako->bed_elevation.dataset,1); // 1-based indexing
     cplerr = GDALRasterIO(band,GF_Read,0,0,jako->nx,jako->ny,jako->b,jako->nx,jako->ny,GDT_Float64,0,0);dCPLCHK(cplerr);
+    for (dInt i=0; i<jako->nx*jako->ny; i++) jako->b[i] = dUnitNonDimensionalizeSI(scase->utable.Length,jako->b[i]);
     if (jako->verbose) {err = dRealTableView(jako->ny,jako->nx,jako->b,PETSC_VIEWER_STDOUT_WORLD,"mybed");dCHK(err);}
   }
 
