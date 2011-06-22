@@ -155,7 +155,7 @@ static dErr JakoInternalEnergy_Smooth(VHTCase scase,dReal b,dReal h,const dReal 
   *e = rheo->c_i * (T - rheo->T0);        // energy/mass
   dFunctionReturn(0);
 }
-static dErr JakoInternalEnergy_Sharp(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
+static dErr JakoInternalEnergy_Sharp1(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
 {
   struct VHTRheology *rheo = &scase->rheo;
   dReal z,t,T;
@@ -165,6 +165,40 @@ static dErr JakoInternalEnergy_Sharp(VHTCase scase,dReal b,dReal h,const dReal x
   z = dMax(0,dMin(1,z)); // Clip to [0,1]
   t = floor(5 * z) * 0.2;
   T = rheo->T3 - (rheo->T3 - rheo->T0)*t; // Maximum value is at the bed and equal to T3, extends past T0
+  *e = rheo->c_i * (T - rheo->T0);        // energy/mass
+  //printf("b %g  h %g  H %g  z %g  t %g  T %g  e %g\n",b,h,h-b,z,t,T,e[0]);
+  dFunctionReturn(0);
+}
+static dErr JakoInternalEnergy_Sharp2(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
+{
+  struct VHTRheology *rheo = &scase->rheo;
+  dReal z,t,T;
+
+  dFunctionBegin;
+  z = (x[2] - b) / (h-b); // Normalize to [0,1] plus possible fuzz
+  z = dMax(0,dMin(1,z)); // Clip to [0,1]
+  t = z < 0.3 ? 0 : (z < 0.7 ? 2 : 1);
+  T = rheo->T3 - (rheo->T3 - rheo->T0)*t; // Maximum value is at the bed and equal to T3, extends past T0
+  *e = rheo->c_i * (T - rheo->T0);        // energy/mass
+  dFunctionReturn(0);
+}
+static dErr JakoInternalEnergy_Sharp3(VHTCase scase,dReal b,dReal h,const dReal x[],dScalar *e)
+{
+  struct VHTRheology *rheo = &scase->rheo;
+  const dReal origin[] = {5920,76765},normal[] = {1,0.4};
+  dReal xx,yy,z,t,T;
+
+  dFunctionBegin;
+  xx =  (x[0] - origin[0])*normal[0] + (x[1] - origin[1])*normal[1];
+  yy = -(x[0] - origin[0])*normal[1] + (x[1] - origin[1])*normal[0];
+  z = (x[2] - b) / (h-b); // Normalize to [0,1] plus possible fuzz
+  z = dMax(0,dMin(1,z)); // Clip to [0,1]
+  t = xx + 0*yy > -30
+    ? -2.0
+    : (z < 0.3
+       ? 0
+       : (z < 0.7 ? -2 : -1));
+  T = rheo->T3 + (rheo->T3 - rheo->T0)*t; // Maximum value is at the bed and equal to T3, extends past T0
   *e = rheo->c_i * (T - rheo->T0);        // energy/mass
   dFunctionReturn(0);
 }
@@ -418,7 +452,9 @@ static dErr VHTCaseSetFromOptions_Jako(VHTCase scase)
       PetscFList intenergy = NULL;
       char iname[dNAME_LEN] = "smooth";
       err = PetscFListAdd(&intenergy,"smooth",NULL,(void(*)(void))JakoInternalEnergy_Smooth);dCHK(err);
-      err = PetscFListAdd(&intenergy,"sharp",NULL,(void(*)(void))JakoInternalEnergy_Sharp);dCHK(err);
+      err = PetscFListAdd(&intenergy,"sharp1",NULL,(void(*)(void))JakoInternalEnergy_Sharp1);dCHK(err);
+      err = PetscFListAdd(&intenergy,"sharp2",NULL,(void(*)(void))JakoInternalEnergy_Sharp2);dCHK(err);
+      err = PetscFListAdd(&intenergy,"sharp3",NULL,(void(*)(void))JakoInternalEnergy_Sharp3);dCHK(err);
       err = PetscOptionsList("-jako_ienergy","Internal energy boundary conditions for Jakobshavn","",intenergy,iname,iname,sizeof iname,NULL);dCHK(err);
       err = PetscFListFind(intenergy,scase->comm,iname,dFALSE,(void(**)(void))&jako->InternalEnergy);dCHK(err);
       err = PetscFListDestroy(&intenergy);dCHK(err);
