@@ -159,6 +159,9 @@ struct _n_VHT {
   dBool             alldirichlet;
   dBool             split_recursive;
   dInt              domain_error;
+  struct {
+    dReal p[2],E[2];
+  } clip;
   struct VHTLog     log;
 };
 

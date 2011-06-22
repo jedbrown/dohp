@@ -443,6 +443,10 @@ static dErr VHTCreate(MPI_Comm comm,VHT *invht)
   vht->domain_error  = 2;
   vht->function_qmethod = dQUADRATURE_METHOD_FAST;
   vht->jacobian_qmethod = dQUADRATURE_METHOD_SPARSE;
+  vht->clip.p[0] = SNES_VI_NINF;
+  vht->clip.p[1] = SNES_VI_INF;
+  vht->clip.E[0] = SNES_VI_NINF;
+  vht->clip.E[1] = SNES_VI_INF;
 
   err = dCalloc(sizeof(*vht->scase),&vht->scase);dCHK(err);
   vht->scase->comm = comm;
@@ -539,6 +543,7 @@ static dErr VHTView(VHT vht,PetscViewer viewer)
     err = PetscViewerASCIIPrintf(viewer,"Hydraulic diffusivity: %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->kappa_w/rheo->rhoi),dUnitName(u->Diffusivity));dCHK(err);
     if (rheo->Kstab > 0) {err = PetscViewerASCIIPrintf(viewer,"Artificial diffusivity: %G %s\n",dUnitDimensionalize(u->Diffusivity,rheo->Kstab),dUnitName(u->Diffusivity));dCHK(err);}
   }
+  err = PetscViewerASCIIPrintf(viewer,"Clipping: p [%G,%G]  E [%G,%G]\n",vht->clip.p[0],vht->clip.p[1],vht->clip.E[0],vht->clip.E[1]);dCHK(err);
   err = dRealTableView(3,2,(const dReal*)vht->scase->bbox,PETSC_VIEWER_STDOUT_WORLD,"Mesh bounding box");dCHK(err);
 
   err = PetscViewerASCIIPopTab(viewer);dCHK(err);
@@ -594,6 +599,12 @@ static dErr VHTSetFromOptions(VHT vht)
     }
     err = PetscOptionsBool("-vht_alldirichlet","Remove the pressure null space (all Dirichlet momentum boundary conditions)","",vht->alldirichlet,&vht->alldirichlet,NULL);dCHK(err);
     err = PetscOptionsInt("-vht_domain_error","Throw an error on domain error instead of just calling SNESFunctionDomainError()","",vht->domain_error,&vht->domain_error,NULL);dCHK(err);
+    {
+      dInt two = 2;
+      err = PetscOptionsRealArray("-vht_clip_p","Clip pressure to this range","",vht->clip.p,&two,NULL);dCHK(err);
+      two = 2;
+      err = PetscOptionsRealArray("-vht_clip_E","Clip Energy density to this range","",vht->clip.E,&two,NULL);dCHK(err);
+    }
     err = PetscOptionsList("-vht_case","Which sort of case to run","",VHTCaseList,scasename,scasename,sizeof(scasename),NULL);dCHK(err);
     err = PetscOptionsBool("-vht_view","View VHT configuration","",doview,&doview,NULL);dCHK(err);
     err = VHTLogSetFromOptions(&vht->log);dCHK(err);
@@ -1540,7 +1551,31 @@ static dErr VHTCheckDomain_Private(VHT vht,SNES snes,Vec Xp,dBool *in) {
     _err = VHTCheckDomain_Private(vht,snes,Xp,&_in);dCHK(_err); \
     if (!_in) dFunctionReturn(0);               \
   } while (0)
+static dErr VecClip(Vec X,PetscReal lb,PetscReal ub)
+{
+  dErr err;
+  dInt n;
+  dScalar *x;
 
+  dFunctionBegin;
+  err = VecGetLocalSize(X,&n);dCHK(err);
+  err = VecGetArray(X,&x);dCHK(err);
+  for (dInt i=0; i<n; i++) {
+    x[i] = PetscMax(x[i],lb);
+    x[i] = PetscMin(x[i],ub);
+  }
+  err = VecRestoreArray(X,&x);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr VHTProjectOntoAdmissibleSet(VHT vht,Vec dUNUSED Xu,Vec Xp,Vec Xe)
+{
+  dErr err;
+
+  dFunctionBegin;
+  err = VecClip(Xp,vht->clip.p[0],vht->clip.p[1]);dCHK(err);
+  err = VecClip(Xe,vht->clip.E[0],vht->clip.E[1]);dCHK(err);
+  dFunctionReturn(0);
+}
 static dErr VHTFunction(SNES snes,Vec X,Vec Y,void *ctx)
 {
   VHT              vht = ctx;
@@ -1551,6 +1586,7 @@ static dErr VHTFunction(SNES snes,Vec X,Vec Y,void *ctx)
   dFunctionBegin;
   err = VHTLogEpochStart(&vht->log);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
+  err = VHTProjectOntoAdmissibleSet(vht,Xu,Xp,Xe);dCHK(err);
   VHTCheckDomain(vht,snes,Xp);
   err = VHTGetRegionIterator(vht,EVAL_FUNCTION,INSERT_VALUES,&iter);dCHK(err);
   err = dFSGetGeometryVectorExpanded(vht->fsu,&Coords);dCHK(err);
