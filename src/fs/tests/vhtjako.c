@@ -110,11 +110,17 @@ static dErr JakoGradient2(VHTCase scase,const dReal field[],dInt i,dInt j,dReal 
   VHTCase_Jako *jako = scase->data;
   const dReal dx = jako->mygeo[1],dy = jako->mygeo[5];
   const dInt nx = jako->nx,ny = jako->ny;
+  dReal fx0,fx1,fy0,fy1;
   dFunctionBegin;
   if (i+1 >= nx) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"X slope would evaluate point (%D,%D) outside of valid range %Dx%D",i+1,j,nx,ny);
   if (j-1 < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Y slope would evaluate point (%D,%D) outside of valid range %Dx%D",i,j-1,nx,ny);
-  grad[0] = (field[j*nx + i + 1] - field[j*nx + i]) / dx;
-  grad[1] = (field[(j-1)*nx + i] - field[j*nx + i]) / dy; // The raster has y axis flipped
+  fx0 = field[j*nx + i + 0] - field[j*nx + i - 1];
+  fx1 = field[j*nx + i + 1] - field[j*nx + i + 0];
+  grad[0] = (dAbs(fx0) < dAbs(fx1) ? fx0 : fx1) / dx;
+  // The raster has Y axis flipped
+  fy0 = field[(j+0)*nx + i] - field[(j+1)*nx + i];
+  fy1 = field[(j-1)*nx + i] - field[(j+0)*nx + i];
+  grad[1] = (dAbs(fy0) < dAbs(fy1) ? fy0 : fy1) / dy;
   dFunctionReturn(0);
 }
 static dErr JakoSIAVelocity(VHTCase scase,dReal b,dReal h,dReal dh[2],dReal z,dScalar u[3])
