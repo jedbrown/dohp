@@ -491,7 +491,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsBool("-nojshell","Do not use shell Jacobian","",nojshell,&nojshell,NULL);dCHK(err);
     err = PetscOptionsBool("-nocheck_error","Do not compute errors","",nocheck,&nocheck,NULL);dCHK(err);
     err = PetscOptionsBool("-viewdhm","View to a file using DHM","",viewdhm,&viewdhm,NULL);dCHK(err);
-    err = PetscOptionsBool("-eigen","Solve the eigen-problem, always use -exact 4 for this","",eigen=dFALSE,&eigen,NULL);dCHK(err);
+    err = PetscOptionsBool("-eigen","Solve the eigen-problem, always use -exact 0 for this","",eigen=dFALSE,&eigen,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   if (nojshell) {
     /* Use the preconditioning matrix in place of the Jacobian.  This will NOT converge unless the elements are actually
