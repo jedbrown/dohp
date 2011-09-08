@@ -29,7 +29,7 @@ dErr dJacobiCreate(MPI_Comm comm,dJacobi *injacobi)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dJacobiInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(jac,p_dJacobi,struct _dJacobiOps,dJACOBI_CLASSID,0,"dJacobi",comm,dJacobiDestroy,dJacobiView);dCHK(err);
+  err = PetscHeaderCreate(jac,p_dJacobi,struct _dJacobiOps,dJACOBI_CLASSID,0,"dJacobi","Basis and quadrature service","Jacobi",comm,dJacobiDestroy,dJacobiView);dCHK(err);
 
   jac->basisdegree = 10;
   jac->ruleexcess  = 5;

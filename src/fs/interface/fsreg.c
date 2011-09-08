@@ -46,7 +46,7 @@ dErr dFSCreate(MPI_Comm comm,dFS *infs)
 #endif
   {
     DM dm;
-    err = PetscHeaderCreate(dm,_p_dFS,struct _DMOps,DM_CLASSID,-1,"DM",comm,DMDestroy,DMView);dCHK(err);
+    err = PetscHeaderCreate(dm,_p_dFS,struct _DMOps,DM_CLASSID,-1,"DM","Distribution manager","DM",comm,DMDestroy,DMView);dCHK(err);
     fs = (dFS)dm;
   }
 
