@@ -287,7 +287,7 @@ avtDohpFileFormat::GetMesh(int timestate, int domain, const char *meshname)
   err = dFSGetSubElementMesh(fs,nelem,nconn,topo,off,conn);avtCHK(err);
 
   for (dInt e=0; e<nelem; e++) {
-    int econn[8];
+    vtkIdType econn[8];
     if (topo[e] != dTOPO_HEX) EXCEPTION1(InvalidZoneTypeException,topo[e]);
     if (off[e+1] - off[e] != 8) EXCEPTION1(InvalidZoneTypeException,topo[e]);
     for (dInt i=0; i<off[e+1]-off[e]; i++) {
