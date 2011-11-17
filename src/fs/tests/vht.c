@@ -1374,10 +1374,10 @@ static dErr VHTStashGetStreamlineFlux(const struct VHTStash *st,const struct VHT
   dErr err;
 
   dFunctionBegin;
+  for (dInt i=0; i<3; i++) flux[i] = 0; // Initialize here due to compiler warning bug
   err = VHTStashGetStreamlineStabilization(st,rheo,dx,u1,&stab,&stab1);dCHK(err);
   cross = rheo->supg_crosswind * stab * dDotScalar3(u,u);
   for (dInt i=0; i<3; i++) {
-    flux[i] = 0;
     for (dInt j=0; j<3; j++)
       flux[i] -= (cross + stab * u[i] * u[j]) * dE[j];
   }
