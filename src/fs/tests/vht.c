@@ -17,6 +17,7 @@ static const char help[] = "Solve viscous flow coupled to a heat transport probl
 #include <petscts.h>
 #include <dohpstring.h>
 #include <dohpviewer.h>
+#include <dohpgeom.h>
 
 #include "vhtimpl.h"
 
@@ -162,6 +163,7 @@ static dErr VHTCaseProfile_Default(VHTCase scase)
   rheo->rscale.momentum = 1;
   rheo->rscale.mass     = 1;
   rheo->rscale.energy   = 1;
+  rheo->small        = 1e-10;
   dFunctionReturn(0);
 }
 static dErr VHTCaseProfile_Ice(VHTCase scase)
@@ -199,6 +201,7 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
   rheo->rscale.momentum = 1;
   rheo->rscale.mass     = 1;
   rheo->rscale.energy   = 1e10;
+  rheo->small         = 1e-10;
   dFunctionReturn(0);
 }
 static dErr VHTCaseSetFromOptions(VHTCase scase)
@@ -250,6 +253,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_Kstab","Stabilization diffusivity, use to prevent negative diffusivity due to non-monotone splice","",NULL,rheo->Kstab,&rheo->Kstab,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_supg","Multiplier for SU/PG stabilization","",NULL,rheo->supg,&rheo->supg,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_supg_crosswind","Fraction of streamline diffusion to apply in crosswind direction","",NULL,rheo->supg_crosswind,&rheo->supg_crosswind,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_shockhmm","Multiplier for the Hughes-Mallet-Mizukami shock-capturing stabilization","",NULL,rheo->shockhmm,&rheo->shockhmm,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->mask_kinetic,&rheo->mask_kinetic,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_momtrans","Multiplier for the transport term in momentum balance","",NULL,rheo->mask_momtrans,&rheo->mask_momtrans,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_rho","Multiplier for density variation due to omega","",NULL,rheo->mask_rho,&rheo->mask_rho,NULL);dCHK(err);
@@ -259,6 +263,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = PetscOptionsReal("-rheo_rscale_momentum","Scaling for momentum residual","",rheo->rscale.momentum,&rheo->rscale.momentum,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_rscale_mass","Scaling for mass residual","",rheo->rscale.mass,&rheo->rscale.mass,NULL);dCHK(err);
     err = PetscOptionsReal("-rheo_rscale_energy","Scaling for energy residual","",rheo->rscale.energy,&rheo->rscale.energy,NULL);dCHK(err);
+    err = PetscOptionsReal("-rheo_small","Small parameter to avoid dividing by zero","",rheo->small,&rheo->small,NULL);dCHK(err);
     if (scase->setfromoptions) {err = (*scase->setfromoptions)(scase);dCHK(err);}
   } err = PetscOptionsEnd();dCHK(err);
   dFunctionReturn(0);
@@ -364,13 +369,13 @@ static dErr VHTLogStash(struct VHTLog *vlog,struct VHTRheology *rheo,const dReal
 {
   struct VHTLogEpoch *ep = &vlog->epochs[vlog->epoch];
   dScalar u1[3] = {0,0,0};
-  dReal speed,cPeclet,cReynolds,uh,uh1,Prandtl,upwind,upwind1;
+  dReal speed,cPeclet,cReynolds,uh,Prandtl,upwind,upwind1;
   VHTScalarD rho;
   dErr err;
 
   dFunctionBegin;
   VHTStashGetRho(stash,rheo,&rho);
-  VHTStashGetUH(stash,dx,u1,&uh,&uh1);
+  VHTStashGetUH(stash,dx,&uh);
   speed = dSqrt(dDotScalar3(stash->u,stash->u));
   err = VHTStashGetStreamlineStabilization(stash,rheo,dx,u1,&upwind,&upwind1);dCHK(err);
   upwind *= dDotScalar3(stash->u,stash->u);
@@ -1318,30 +1323,34 @@ static void VHTStashGetStress1(const struct VHTStash *st,const struct VHTRheolog
   dTensorSymUncompress3(SymStress1,Stress1);
   if (Sigma1) *Sigma1 = 2*st->eta.x*dColonSymScalar3(st->Dui,Dui1) + deta1*dColonSymScalar3(st->Dui,st->Dui);
 }
-static void VHTStashGetUH(const struct VHTStash *stash,const dReal dx[9],const dScalar u1[3],dReal *uh,dReal *uh1)
+static void VHTGeomTransformVecToRef(const dReal dx[9],const dScalar u[3],const dScalar u1[3],dReal ur[3],dReal ur1[3])
+{                               // Transform a physical vector (usually streamline velocity) to reference coordinates
+  dReal jinv[3][3],jdet;
+  dGeomInvert3(dx,&jinv[0][0],&jdet);
+  for (dInt i=0; i<3; i++) {
+    ur[i] = jinv[i][0]*u[0] + jinv[i][1]*u[1] + jinv[i][2]*u[2];
+    if (u1) ur1[i] = jinv[i][0]*u1[0] + jinv[i][1]*u1[1] + jinv[i][2]*u1[2];
+  }
+}
+static void VHTStashGetUH(const struct VHTStash *stash,const dReal dx[9],dReal *uh)
 {                               // Estimate the cell size in the streamline direction, multiplied by the velocity.
   const dScalar *u = stash->u;
-  dReal uh2 = 0;
-  // The factor of 2^2=4 is due to the reference element having size 2
-  for (dInt i=0; i<3; i++) uh2 += 4*dSqr(dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2]);
-  *uh = dSqrt(uh2);
-  if (u1) {
-    dReal uh21 = 0;
-    for (dInt i=0; i<3; i++) uh21 += 4*2*((dx[i*3+0]*u[0] + dx[i*3+1]*u[1] + dx[i*3+2]*u[2])
-                                          * (dx[i*3+0]*u1[0] + dx[i*3+1]*u1[1] + dx[i*3+2]*u1[2]));
-    *uh1 = 0.5 * pow(1e-10 + uh2,-0.5) * uh21;
-  }
+  dReal ur[3];
+  VHTGeomTransformVecToRef(dx,u,NULL,ur,NULL);
+  *uh = dDotScalar3(u,u) / dNormScalar3p(ur,4);
 }
 static dErr VHTStashGetStreamlineStabilization(const struct VHTStash *st,const struct VHTRheology *rheo,const dReal dx[9],const dScalar u1[3],dScalar *stab,dScalar *stab1)
 {
   const dScalar *u = st->u;
-  dReal unorm2,unorm21,uh,uh1;
+  const dReal p = 4.;
+  dReal ur[3],ur1[3],urp,urp1;
   dFunctionBegin;
-  VHTStashGetUH(st,dx,u1,&uh,&uh1);
-  unorm2 = 1e-10 + dDotScalar3(u,u);
-  unorm21 = 2*dDotScalar3(u,u1);
-  *stab = rheo->supg/2 * uh / unorm2;
-  *stab1 = rheo->supg/2 * (uh1 / unorm2 - uh/unorm2/unorm2 * unorm21);
+  VHTGeomTransformVecToRef(dx,u,u1,ur,ur1);
+  urp = rheo->small + dNormScalar3p(ur,p);
+  urp1 = 1./p * urp / (rheo->small + dPowReal(dAbs(ur[0]),p) + dPowReal(dAbs(ur[1]),p) + dPowReal(dAbs(ur[2]),p))
+    * (p*dPowReal(dAbs(ur[0]),p-1)*dSign(ur[0])*ur1[0] + p*dPowReal(dAbs(ur[1]),p-1)*dSign(ur[1])*ur1[1] + p*dPowReal(dAbs(ur[2]),p)*dSign(ur[2])*ur1[2]);
+  *stab = rheo->supg / urp;
+  *stab1 = - *stab / urp * urp1;
   dFunctionReturn(0);
 }
 static dErr VHTStashGetStreamlineFlux(const struct VHTStash *st,const struct VHTRheology *rheo,const dReal dx[9],dScalar flux[3])
@@ -1383,6 +1392,37 @@ static dErr VHTStashGetStreamlineFlux1(const struct VHTStash *st,const struct VH
   }
   dFunctionReturn(0);
 }
+static dErr VHTStashGetShockStabilization(const struct VHTStash *st,const struct VHTRheology *rheo,const dReal dx[9],dScalar *kstab,dScalar *kstab1)
+{ // Computes nonlinear rank-1 diffusion tensor: kstab \outer kstab
+  // kstab = u \cdot dE dE / |dE|^2         interpret as projection of u in direction dE
+  const dScalar *dE = st->dE,*u = st->u;
+  const dReal p = 4.;
+  dScalar u_par[3],ur_par[3];
+  dReal urp_par;
+
+  dFunctionBegin;
+  for (dInt i=0; i<3; i++) u_par[i] = dDotScalar3(u,dE) * dE[i] / (rheo->small + dDotScalar3(dE,dE));
+  VHTGeomTransformVecToRef(dx,u_par,NULL,ur_par,NULL);
+  urp_par = rheo->small + dNormScalar3p(ur_par,p);
+  for (dInt i=0; i<3; i++) kstab[i] = dSqrt(rheo->shockhmm / urp_par) * ur_par[i];
+  if (kstab1) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"No derivative of shock stabilization");
+  dFunctionReturn(0);
+}
+static dErr VHTStashGetShockFlux(const struct VHTStash *st,const struct VHTRheology *rheo,const dReal dx[9],dScalar flux[3])
+{
+  const dScalar *dE = st->dE;
+  dReal kstab[3];
+  dErr err;
+
+  dFunctionBegin;
+  err = VHTStashGetShockStabilization(st,rheo,dx,kstab,NULL);dCHK(err);
+  for (dInt i=0; i<3; i++) {
+    flux[i] = 0;
+    for (dInt j=0; j<3; j++)
+      flux[i] -= kstab[i] * kstab[j] * dE[j];
+  }
+  dFunctionReturn(0);
+}
 static dErr VHTPointwiseComputeStash(struct VHTRheology *rheo,const dScalar rhou[3],const dScalar drhou[9],const dScalar p[1],const dScalar dp[3],const dScalar E[1],const dScalar dE[3],struct VHTStash *st)
 {
   dErr err;
@@ -1409,7 +1449,7 @@ static dErr VHTPointwiseFunction(VHTCase scase,const dReal x[3],const dScalar dx
                                  struct VHTStash *st, dScalar rhou_[3],dScalar drhou_[6],dScalar p_[1],dScalar E_[1],dScalar dE_[3])
 {
   struct VHTRheology *rheo = &scase->rheo;
-  dScalar frhou[3],fp[1],fE[1],supgflux[3],heatflux[3],Sigma,symstress[6],stress[9];
+  dScalar frhou[3],fp[1],fE[1],supgflux[3],shockflux[3],heatflux[3],Sigma,symstress[6],stress[9];
   dErr err;
   VHTScalarD rho;
 
@@ -1417,8 +1457,9 @@ static dErr VHTPointwiseFunction(VHTCase scase,const dReal x[3],const dScalar dx
   err = VHTPointwiseComputeStash(rheo,rhou,drhou,p,dp,E,dE,st);dCHK(err);
   VHTStashGetRho(st,rheo,&rho);
   err = VHTStashGetStreamlineFlux(st,rheo,dx,supgflux);dCHK(err);
+  err = VHTStashGetShockFlux(st,rheo,dx,shockflux);dCHK(err);
   scase->forcing(scase,x,frhou,fp,fE);
-  for (dInt i=0; i<3; i++) heatflux[i] = -st->K[0]*dp[i] - st->K[1]*dE[i] + supgflux[i];
+  for (dInt i=0; i<3; i++) heatflux[i] = -st->K[0]*dp[i] - st->K[1]*dE[i] + supgflux[i] + shockflux[i];
   for (dInt i=0; i<6; i++) symstress[i] = st->eta.x * st->Dui[i] - (i<3)*(p[0]+rheo->p0); // eta Du - p I
   dTensorSymUncompress3(symstress,stress);
   Sigma = st->eta.x*dColonSymScalar3(st->Dui,st->Dui);                         // Strain heating
