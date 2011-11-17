@@ -3,6 +3,7 @@
 #include <dohpviewer.h>
 #include <iMesh_extensions.h>
 #include <MBParallelConventions.h>
+#include <errno.h>
 
 const char *const iBase_ErrorString[] = {
   [iBase_SUCCESS] = "iBase_SUCCESS",
@@ -845,7 +846,7 @@ dErr dMeshLoad(dMesh mesh)
     err = MPI_Comm_rank(((dObject)mesh)->comm,&rank);dCHK(err);
     if (!rank) {
       file = fopen(mesh->infile,"r");
-      if (!file) dERROR(PETSC_COMM_SELF,1,"Could not open %s for reading",mesh->infile);
+      if (!file) dERROR(PETSC_COMM_SELF,1,"Could not open %s for reading: %s",mesh->infile,strerror(errno));
       if (fclose(file)) dERROR(PETSC_COMM_SELF,1,"Error closing %s",mesh->infile);
     }
     if (mesh->ops->load) {
