@@ -28,12 +28,22 @@ static const char help[] = "Solve viscous flow coupled to a heat transport probl
 #else
 #  define VHTAssertRange(val,low,high) do {} while (0)
 #endif
+
+#if 0
+#  define VHTAssertRangeClip(val,low,high) do {                         \
+    if ((val) < (low)-1e-10) (val) = (low);                             \
+    else if ((val) > (high)+1e-10) (val) = (high);                      \
+  } while (0)
+#else
+#  define VHTAssertRangeClip(val,low,high) VHTAssertRange((val),(low),(high))
+#endif
+
 PetscFList VHTCaseList = NULL;
 
 #define VHTCaseType char*
 
 static void VHTStashGetRho(const struct VHTStash *st,const struct VHTRheology *rheo,VHTScalarD *rho);
-static void VHTStashGetUH(const struct VHTStash *stash,const dReal dx[9],const dScalar u1[3],dReal *uh,dReal *uh1);
+static void VHTStashGetUH(const struct VHTStash *stash,const dReal dx[9],dReal *uh);
 static dErr VHTStashGetStreamlineStabilization(const struct VHTStash *st,const struct VHTRheology *rheo,const dReal dx[9],const dScalar u1[3],dScalar *stab,dScalar *stab1);
 
 dErr VHTCaseRegister(const char *name,VHTCaseCreateFunction screate)
@@ -1155,7 +1165,7 @@ static dErr VHTRheoSolveEqStateAdjoint_splice(struct VHTRheology *rheo,const dSc
   o2pp = o2ax*x1p*a1p + o2bx*x1p*b1p + o2xx*x1p*x1p;
   o2pE = o2ax*x1E*a1p + o2bx*x1E*b1p + o2xx*x1E*x1p;
   o2EE = o2ax*x1E*a1E + o2bx*x1E*b1E + o2xx*x1E*x1E;
-  VHTAssertRange(omega->x,0,1);
+  VHTAssertRangeClip(omega->x,0,1);
 
   // Diffusivity with respect to dp and dE, flux is: -Kp dp - KE dE
   K[0] = rheo->k_T * T->dp + rheo->Latent * rheo->kappa_w * omega->dp;
@@ -1195,7 +1205,7 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   T2pE = Ygg[0]*G1E*G1p/rheo->c_i;
   T2Ep = Ygg[0]*G1p*G1E/rheo->c_i;
   T2EE = Ygg[0]*G1E*G1E/rheo->c_i;
-  VHTAssertRange(T->x,dMax(0,rheo->T0-40),rheo->T3+1);
+  VHTAssertRangeClip(T->x,dMax(0,rheo->T0-40),rheo->T3+1);
 
   MeltFractionFromY = rheo->rhoi / (rheo->rhow * rheo->Latent); // kg/Joule, should be: rhoi*Y[1]/(rhow*L + (rhow-rhoi)*Y[1])
   omega->x = MeltFractionFromY * Y[1];
@@ -1208,7 +1218,7 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   omega2[0] = o2pp;
   omega2[1] = o2pE;
   omega2[2] = o2EE;
-  VHTAssertRange(omega->x,0,1);
+  VHTAssertRangeClip(omega->x,0,1);
 
   rho->x = (1 - rheo->mask_rho*omega->x) * rheo->rhoi + rheo->mask_rho*omega->x * rheo->rhow;
   rho->dp = (rheo->rhow - rheo->rhoi) * rheo->mask_rho*omega->dp;
@@ -1253,7 +1263,7 @@ static dErr VHTRheoArrhenius(struct VHTRheology *rheo,dScalar p,const VHTScalarD
   B->x  = rheo->B0 * exp(exparg) * wpow;
   B->dp = rheo->B0 * exp(exparg) * (exparg1p*wpow + wpow1p);
   B->dE = rheo->B0 * exp(exparg) * (exparg1E*wpow + wpow1E);
-  VHTAssertRange(exparg,-10,10);
+  VHTAssertRangeClip(exparg,-10,10);
   dFunctionReturn(0);
 }
 static dErr VHTRheoViscosity(struct VHTRheology *rheo,dScalar p,VHTScalarD *T,VHTScalarD *omega,const dScalar Du[6],VHTScalarD *eta,dScalar *eta1gamma)
@@ -1270,7 +1280,7 @@ static dErr VHTRheoViscosity(struct VHTRheology *rheo,dScalar p,VHTScalarD *T,VH
   err = VHTRheoArrhenius(rheo,p,T,omega,&B);dCHK(err);
   VHTAssertRange(gamma_reg,dSqr(rheo->eps),1e20);
   eta->x = B.x * power;
-  VHTAssertRange(eta->x,rheo->eta_min,rheo->eta_max);
+  VHTAssertRangeClip(eta->x,rheo->eta_min,rheo->eta_max);
   eta->dp = B.dp * power;
   eta->dE = B.dE * power;
   *eta1gamma = B.x * power1gamma / rheo->gamma0;
