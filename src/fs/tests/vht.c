@@ -2438,7 +2438,8 @@ int main(int argc,char *argv[])
   err = SNESSetFunction(snes,R,VHTFunction,vht);dCHK(err);
   err = SNESSetJacobian(snes,J,B,VHTJacobian,vht);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
-  err = PetscTypeCompare((PetscObject)snes,SNESVI,&flg);dCHK(err);
+  err = PetscTypeCompare((PetscObject)snes,SNESVIRS,&flg);dCHK(err);
+  if (!flg) {  err = PetscTypeCompare((PetscObject)snes,SNESVISS,&flg);dCHK(err);}
   if (flg) {err = SNESVISetComputeVariableBounds(snes,SNESComputeVariableBounds_VHT);dCHK(err);}
   err = SNESGetKSP(snes,&ksp);dCHK(err);
   err = SNESSetApplicationContext(snes,vht);dCHK(err);
