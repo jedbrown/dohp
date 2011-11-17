@@ -254,6 +254,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_supg","Multiplier for SU/PG stabilization","",NULL,rheo->supg,&rheo->supg,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_supg_crosswind","Fraction of streamline diffusion to apply in crosswind direction","",NULL,rheo->supg_crosswind,&rheo->supg_crosswind,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_shockhmm","Multiplier for the Hughes-Mallet-Mizukami shock-capturing stabilization","",NULL,rheo->shockhmm,&rheo->shockhmm,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_expstab","Multiplier for the exponential low-temperature stabilization","",NULL,rheo->expstab,&rheo->expstab,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->mask_kinetic,&rheo->mask_kinetic,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_momtrans","Multiplier for the transport term in momentum balance","",NULL,rheo->mask_momtrans,&rheo->mask_momtrans,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_rho","Multiplier for density variation due to omega","",NULL,rheo->mask_rho,&rheo->mask_rho,NULL);dCHK(err);
@@ -1194,6 +1195,7 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
     em1p = rheo->c_i * Tm1p;
   dScalar e,T2pp,T2pE,T2Ep,T2EE,o2pp,o2pE,o2Ep,o2EE;
   dScalar G,G1p,G1E,Y[2],Yg[2],Ygg[2],MeltFractionFromY,r,r1p,r1E;
+  VHTScalarD Kexpstabmem,*Kexpstab = &Kexpstabmem;
   dErr err;
 
   dFunctionBegin;
@@ -1240,6 +1242,18 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   K1[0][1] = rheo->k_T * T2pE + rheo->Latent * rheo->kappa_w * (r1E * omega->dp + r * o2pE);
   K1[1][0] = rheo->k_T * T2Ep + rheo->Latent * rheo->kappa_w * (r1p * omega->dE + r * o2Ep);
   K1[1][1] = rheo->k_T * T2EE + rheo->Latent * rheo->kappa_w * (r1E * omega->dE + r * o2EE);
+
+  // Extra stabilizing thermal diffusion, grows exponentially for non-physical temperatures
+  Kexpstab->x = rheo->expstab * exp(10*(2*rheo->T0 - rheo->T3 - T->x) / (rheo->T3 - rheo->T0));
+  Kexpstab->dp = Kexpstab->x * -10 / (rheo->T3 - rheo->T0) * T->dp;
+  Kexpstab->dE = Kexpstab->x * -10 / (rheo->T3 - rheo->T0) * T->dE;
+  K[0] += Kexpstab->x * T->dp;
+  K[1] += Kexpstab->x * T->dE;
+  K1[0][0] = Kexpstab->dp * T->dp + Kexpstab->x * T2pp;
+  K1[0][1] = Kexpstab->dE * T->dp + Kexpstab->x * T2pE;
+  K1[1][0] = Kexpstab->dp * T->dE + Kexpstab->x * T2Ep;
+  K1[1][1] = Kexpstab->dE * T->dE + Kexpstab->x * T2EE;
+
   K[1] += rheo->Kstab; // Stabilization because non-monotone splice functions can create negative diffusivity
   if (K[1] < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"Computed negative diffusivity %G, perhaps -rheo_Kstab is needed",K[1]);
   dFunctionReturn(0);

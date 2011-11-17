@@ -33,6 +33,7 @@ struct VHTRheology {
   dReal supg;                   /* Multiplier for SU/PG stabilization */
   dReal supg_crosswind;         /* Fraction of streamline diffusion to put in the cross-wind direction */
   dReal shockhmm;               /* Multiplier for Hughes-Mallet-Mizukami shock-capturing term */
+  dReal expstab;                /* Multiplier for the exponential low-temperature stabilization */
   dReal mask_kinetic;           /* Parameter to turn on the use of kinetic energy when computing velocity */
   dReal mask_momtrans;          /* Multiplier for the transport term in momentum balance */
   dReal mask_rho;               /* Multiplier for the true rho */
