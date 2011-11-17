@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 600       /* realpath() is in stdlib.h */
+
 #include <dohpfs.h>
 #include <dohpvec.h>
 #include <dohpstring.h>
@@ -268,12 +270,12 @@ dErr dFSLoadIntoFS_Cont_DHM(PetscViewer viewer,const char name[],dFS fs)
       hid_t mstring,strspace;
       dMesh mesh;
       char *imeshstr;           /* We are reading to a vlen string so HDF5 will allocate memory */
-      char imeshpath[PETSC_MAX_PATH_LEN],tmp[PETSC_MAX_PATH_LEN];
+      char imeshpath[PETSC_MAX_PATH_LEN],tmp[PATH_MAX];
       const char *filepath;
       err = dViewerDHMGetStringTypes(viewer,NULL,&mstring,&strspace);dCHK(err);
       herr = H5Dread(meshobj,mstring,H5S_ALL,H5S_ALL,H5P_DEFAULT,&imeshstr);dH5CHK(herr,H5Dread);
       err = PetscViewerFileGetName(viewer,&filepath);dCHK(err);
-      err = dStrcpyS(tmp,sizeof tmp,filepath);dCHK(err);
+      realpath(filepath,tmp);
       err = PetscSNPrintf(imeshpath,sizeof imeshpath,"%s/%s",dirname(tmp),imeshstr);dCHK(err);
       if (debug) {err = dPrintf(PETSC_COMM_SELF,"imeshstr = '%s', imeshpath = '%s'\n",imeshstr,imeshpath);dCHK(err);}
       err = dFSGetMesh(fs,&mesh);dCHK(err);
