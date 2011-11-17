@@ -1646,6 +1646,41 @@ static dErr VHTProjectOntoAdmissibleSet(VHT vht,Vec dUNUSED Xu,Vec Xp,Vec Xe)
   err = VecClip(Xe,vht->clip.E[0],vht->clip.E[1]);dCHK(err);
   dFunctionReturn(0);
 }
+static dErr VHTViewDHM(VHT vht,const char *fname,Vec X)
+{
+  Vec Xu,Xp,Xe;
+  dViewer view;
+  dMesh mesh;
+  dErr err;
+
+  dFunctionBegin;
+  err = PetscViewerCreate(vht->comm,&view);dCHK(err);
+  err = PetscViewerSetType(view,PETSCVIEWERDHM);dCHK(err);
+  err = PetscViewerFileSetName(view,fname);dCHK(err);
+  err = PetscViewerFileSetMode(view,FILE_MODE_WRITE);dCHK(err);
+  err = dFSGetMesh(vht->fsu,&mesh);dCHK(err);dCHK(err);
+  err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
+  err = dFSDirichletProject(vht->fsu,Xu,dFS_INHOMOGENEOUS);dCHK(err);
+  err = dFSDirichletProject(vht->fsp,Xp,dFS_INHOMOGENEOUS);dCHK(err);
+  err = dFSDirichletProject(vht->fse,Xe,dFS_INHOMOGENEOUS);dCHK(err);
+  err = VecView(Xu,view);dCHK(err);
+  err = VecView(Xp,view);dCHK(err);
+  err = VecView(Xe,view);dCHK(err);
+  err = PetscViewerDestroy(&view);dCHK(err);
+  dFunctionReturn(0);
+}
+static dErr VHTFunctionMonitorDHM(VHT vht,SNES snes,Vec X)
+{
+  dErr err;
+  dInt it;
+  char fname[dMAX_PATH_LEN];
+
+  dFunctionBegin;
+  err = SNESGetIterationNumber(snes,&it);dCHK(err);
+  err = PetscSNPrintf(fname,sizeof fname,"vht-monitor-%03d.dhm",it);dCHK(err);
+  err = VHTViewDHM(vht,fname,X);dCHK(err);
+  dFunctionReturn(0);
+}
 static dErr VHTFunction(SNES snes,Vec X,Vec Y,void *ctx)
 {
   VHT              vht = ctx;
@@ -1655,6 +1690,7 @@ static dErr VHTFunction(SNES snes,Vec X,Vec Y,void *ctx)
 
   dFunctionBegin;
   err = VHTLogEpochStart(&vht->log);dCHK(err);
+  err = VHTFunctionMonitorDHM(vht,snes,X);dCHK(err);
   err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
   err = VHTProjectOntoAdmissibleSet(vht,Xu,Xp,Xe);dCHK(err);
   VHTCheckDomain(vht,snes,Xp);
@@ -2502,6 +2538,7 @@ int main(int argc,char *argv[])
     err = PetscOptionsString("-snes_monitor_vht","Monitor norm of function split into components","SNESMonitorSet","stdout",snesmonfilename,sizeof snesmonfilename,&snes_monitor_vht);dCHK(err);
     err = PetscOptionsString("-ksp_monitor_vht","Monitor norm of function split into components","KSPMonitorSet","stdout",kspmonfilename,sizeof kspmonfilename,&ksp_monitor_vht);dCHK(err);
     err = PetscOptionsString("-fieldsplit_s_ksp_monitor_vht","Monitor norm of function split into components","KSPMonitorSet","stdout",skspmonfilename,sizeof skspmonfilename,&sksp_monitor_vht);dCHK(err);
+    err = PetscOptionsBool("-vht_function_monitor_dhm","Monitor VHT residual evaluations by writing to a file","VHTFunctionMonitorDHM",vht->function_monitor,&vht->function_monitor,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   err = VHTGetMatrices(vht,use_jblock,&J,&B);dCHK(err);
   err = SNESCreate(comm,&snes);dCHK(err);
@@ -2614,24 +2651,7 @@ int main(int argc,char *argv[])
     err = dPrintf(comm,"Integral energy error   0 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N0e[0],N0e[1],N0e[2]);dCHK(err);
     err = dPrintf(comm,"Integral energy error   1 |x|_1 %8.2e  |x|_2 %8.2e  |x|_inf %8.2e\n",N1e[0],N1e[1],N1e[2]);dCHK(err);
   }
-  if (viewdhm) {
-    Vec Xu,Xp,Xe;
-    dViewer view;
-    dMesh mesh;
-    err = PetscViewerCreate(comm,&view);dCHK(err);
-    err = PetscViewerSetType(view,PETSCVIEWERDHM);dCHK(err);
-    err = PetscViewerFileSetName(view,dhmfilename);dCHK(err);
-    err = PetscViewerFileSetMode(view,FILE_MODE_WRITE);dCHK(err);
-    err = dFSGetMesh(vht->fsu,&mesh);dCHK(err);dCHK(err);
-    err = VHTExtractGlobalSplit(vht,X,&Xu,&Xp,&Xe);dCHK(err);
-    err = dFSDirichletProject(vht->fsu,Xu,dFS_INHOMOGENEOUS);dCHK(err);
-    err = dFSDirichletProject(vht->fsp,Xp,dFS_INHOMOGENEOUS);dCHK(err);
-    err = dFSDirichletProject(vht->fse,Xe,dFS_INHOMOGENEOUS);dCHK(err);
-    err = VecView(Xu,view);dCHK(err);
-    err = VecView(Xp,view);dCHK(err);
-    err = VecView(Xe,view);dCHK(err);
-    err = PetscViewerDestroy(&view);dCHK(err);
-  }
+  if (viewdhm) {err = VHTViewDHM(vht,dhmfilename,X);dCHK(err);}
 
   err = VecDestroy(&R);dCHK(err);
   err = VecDestroy(&X);dCHK(err);
