@@ -102,7 +102,10 @@ static inline dReal dMin(dReal a,dReal b) { return (a < b) ? a : b; }
 static inline dReal dAbs(dScalar a) { return fabs(a); }
 static inline dScalar dSqr(dScalar a) { return a * a; }
 static inline dInt dSqrInt(dInt a) { return a * a; }
+static inline dInt dSign(dReal a) { return a < 0 ? -1 : (a > 0); }
 static inline dReal dSqrt(dReal a) { return sqrt(a); }
+static inline dReal dPowReal(dReal a,dReal p) { return pow(a,p); }
+static inline dReal dNormScalar3p(const dScalar a[3],const dReal p) { return dPowReal(dPowReal(dAbs(a[0]),p) + dPowReal(dAbs(a[1]),p) + dPowReal(dAbs(a[2]),p), 1./p); }
 static inline dScalar dDotScalar3(const dScalar a[3],const dScalar b[3]) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
 static inline dScalar dDotScalarColumn3(const dScalar a[3],const dScalar b[9],dInt i) { return a[0]*b[0*3+i] + a[1]*b[1*3+i] + a[2]*b[2*3+i]; } // x.T * A[:,i]
 static inline dScalar dColonSymScalar3(const dScalar a[6],const dScalar b[6])
