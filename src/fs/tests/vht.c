@@ -163,7 +163,9 @@ static dErr VHTCaseProfile_Default(VHTCase scase)
   rheo->rscale.momentum = 1;
   rheo->rscale.mass     = 1;
   rheo->rscale.energy   = 1;
-  rheo->small        = 1e-10;
+  rheo->small         = 1e-10;
+  rheo->expstab       = 0;
+  rheo->expstab_rate  = 2;
   dFunctionReturn(0);
 }
 static dErr VHTCaseProfile_Ice(VHTCase scase)
@@ -202,6 +204,8 @@ static dErr VHTCaseProfile_Ice(VHTCase scase)
   rheo->rscale.mass     = 1;
   rheo->rscale.energy   = 1e10;
   rheo->small         = 1e-10;
+  rheo->expstab       = 0;
+  rheo->expstab_rate  = 2;
   dFunctionReturn(0);
 }
 static dErr VHTCaseSetFromOptions(VHTCase scase)
@@ -255,6 +259,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     err = dOptionsRealUnits("-rheo_supg_crosswind","Fraction of streamline diffusion to apply in crosswind direction","",NULL,rheo->supg_crosswind,&rheo->supg_crosswind,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_shockhmm","Multiplier for the Hughes-Mallet-Mizukami shock-capturing stabilization","",NULL,rheo->shockhmm,&rheo->shockhmm,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_expstab","Multiplier for the exponential low-temperature stabilization","",NULL,rheo->expstab,&rheo->expstab,NULL);dCHK(err);
+    err = dOptionsRealUnits("-rheo_expstab_rate","Inverse characteristic width of exponential low-temperature stabilization","",NULL,rheo->expstab_rate,&rheo->expstab_rate,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_kinetic","Coefficient of kinetic energy used to determine internal energy","",NULL,rheo->mask_kinetic,&rheo->mask_kinetic,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_momtrans","Multiplier for the transport term in momentum balance","",NULL,rheo->mask_momtrans,&rheo->mask_momtrans,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_mask_rho","Multiplier for density variation due to omega","",NULL,rheo->mask_rho,&rheo->mask_rho,NULL);dCHK(err);
@@ -1244,9 +1249,9 @@ static dErr VHTRheoSolveEqStateAdjoint_separate(struct VHTRheology *rheo,const d
   K1[1][1] = rheo->k_T * T2EE + rheo->Latent * rheo->kappa_w * (r1E * omega->dE + r * o2EE);
 
   // Extra stabilizing thermal diffusion, grows exponentially for non-physical temperatures
-  Kexpstab->x = rheo->expstab * exp(10*(2*rheo->T0 - rheo->T3 - T->x) / (rheo->T3 - rheo->T0));
-  Kexpstab->dp = Kexpstab->x * -10 / (rheo->T3 - rheo->T0) * T->dp;
-  Kexpstab->dE = Kexpstab->x * -10 / (rheo->T3 - rheo->T0) * T->dE;
+  Kexpstab->x = rheo->expstab * exp(rheo->expstab_rate*(2*rheo->T0 - rheo->T3 - T->x) / (rheo->T3 - rheo->T0));
+  Kexpstab->dp = Kexpstab->x * -rheo->expstab_rate / (rheo->T3 - rheo->T0) * T->dp;
+  Kexpstab->dE = Kexpstab->x * -rheo->expstab_rate / (rheo->T3 - rheo->T0) * T->dE;
   K[0] += Kexpstab->x * T->dp;
   K[1] += Kexpstab->x * T->dE;
   K1[0][0] = Kexpstab->dp * T->dp + Kexpstab->x * T2pp;
