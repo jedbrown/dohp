@@ -86,7 +86,7 @@ extern dErr dFSGetElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restric
 extern dErr dFSRestoreElements(dFS,dInt*,dInt*restrict*,dRule*restrict*,dEFS*restrict*,dInt*restrict*,dReal(*restrict*)[3]);
 #endif
 extern dErr dFSMatSetValuesBlockedExpanded(dFS,Mat,dInt,const dInt[],dInt,const dInt[],const dScalar[],InsertMode);
-extern dErr dFSGetMatrix(dFS,const MatType,Mat*);
+extern dErr dFSCreateMatrix(dFS,const MatType,Mat*);
 extern dErr dFSSetOptionsPrefix(dFS,const char[]);
 extern dErr dFSBuildSpace(dFS);
 extern dErr dFSGetSubElementMeshSize(dFS,dInt*,dInt*,dInt *);

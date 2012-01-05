@@ -999,9 +999,9 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
   err = MatSetOptionsPrefix(Jee,"Jee_");dCHK(err);
 
   /* Blocks to be used for preconditioning */
-  err = dFSGetMatrix(vht->fsu,vht->mattype_Buu,&Buu);dCHK(err);
-  err = dFSGetMatrix(vht->fsp,vht->mattype_Bpp,&Bpp);dCHK(err);
-  err = dFSGetMatrix(vht->fse,vht->mattype_Bee,&Bee);dCHK(err);
+  err = dFSCreateMatrix(vht->fsu,vht->mattype_Buu,&Buu);dCHK(err);
+  err = dFSCreateMatrix(vht->fsp,vht->mattype_Bpp,&Bpp);dCHK(err);
+  err = dFSCreateMatrix(vht->fse,vht->mattype_Bee,&Bee);dCHK(err);
   err = MatSetOptionsPrefix(Buu,"Buu_");dCHK(err);
   err = MatSetOptionsPrefix(Bpp,"Bpp_");dCHK(err);
   err = MatSetOptionsPrefix(Bee,"Bee_");dCHK(err);

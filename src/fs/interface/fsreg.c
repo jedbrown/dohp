@@ -20,7 +20,7 @@ static const struct _DMOps  defaultFSDMOps = { .view               = (PetscError
                                                .setfromoptions     = (PetscErrorCode(*)(DM))dFSSetFromOptions,
                                                .createglobalvector = (PetscErrorCode(*)(DM,Vec*))dFSCreateGlobalVector,
                                                .createlocalvector  = (PetscErrorCode(*)(DM,Vec*))dFSCreateExpandedVector,
-                                               .getmatrix          = (PetscErrorCode(*)(DM,const MatType,Mat*))dFSGetMatrix,
+                                               .creatematrix       = (PetscErrorCode(*)(DM,const MatType,Mat*))dFSCreateMatrix,
                                                .destroy            = DMDestroy_dFS,
                                                /*
                                                 * I think that these don't make sense with the current design.  In

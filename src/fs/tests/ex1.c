@@ -548,7 +548,7 @@ static dErr doProjection(dFS fs)
   err = VecDuplicate(proj.x,&proj.y);dCHK(err);
 
   err = dFSCreateGlobalVector(fs,&r);dCHK(err);
-  err = dFSGetMatrix(fs,MATSEQAIJ,&Jp);dCHK(err);
+  err = dFSCreateMatrix(fs,MATSEQAIJ,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
   err = MatSeqAIJSetPreallocation(Jp,27,NULL);dCHK(err);
   J = Jp;                       /* Use -snes_mf_operator to apply J matrix-free instead of actually using Jp as the Krylov matrix */

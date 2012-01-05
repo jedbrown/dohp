@@ -159,7 +159,7 @@ int main(int argc,char *argv[])
 
   err = BUView(bu,viewer);dCHK(err);
 
-  err = dFSGetMatrix(bu->fs,MATSEQAIJ,&Jp);dCHK(err);
+  err = dFSCreateMatrix(bu->fs,MATSEQAIJ,&Jp);dCHK(err);
   err = BUAssemble(bu,Jp);dCHK(err);
   err = MatView(Jp,viewer);dCHK(err);
 

@@ -412,8 +412,8 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   err = MatDestroy(&B);dCHK(err);
 
   /* Create real matrix to be used for preconditioning */
-  err = dFSGetMatrix(stk->fsu,stk->mattype_Ap,&Ap);dCHK(err);
-  err = dFSGetMatrix(stk->fsp,stk->mattype_Dp,&Dp);dCHK(err);
+  err = dFSCreateMatrix(stk->fsu,stk->mattype_Ap,&Ap);dCHK(err);
+  err = dFSCreateMatrix(stk->fsp,stk->mattype_Dp,&Dp);dCHK(err);
   err = MatSetOptionsPrefix(Ap,"Ap_");dCHK(err);
   err = MatSetOptionsPrefix(Dp,"Dp_");dCHK(err);
   err = MatSetOption(Ap,MAT_SYMMETRIC,PETSC_TRUE);dCHK(err);
@@ -428,7 +428,7 @@ static dErr StokesGetMatrices(Stokes stk,dBool use_jblock,Mat *J,Mat *Jp)
   {                             /* Allocate for the pressure Poisson, used by PCLSC */
     Mat L;
     Vec Mdiag;
-    err = dFSGetMatrix(stk->fsp,stk->mattype_Dp,&L);dCHK(err);
+    err = dFSCreateMatrix(stk->fsp,stk->mattype_Dp,&L);dCHK(err);
     err = MatSetOptionsPrefix(L,"stokes_L_");dCHK(err);
     err = MatSetFromOptions(L);dCHK(err);
     err = PetscObjectCompose((dObject)Dp,"LSC_L",(dObject)L);dCHK(err);

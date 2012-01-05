@@ -767,7 +767,7 @@ static dErr MatGetVecs_DohpFS(Mat A,Vec *x,Vec *y)
   dFunctionReturn(0);
 }
 
-dErr dFSGetMatrix(dFS fs,const MatType mtype,Mat *inJ)
+dErr dFSCreateMatrix(dFS fs,const MatType mtype,Mat *inJ)
 {
   Mat    J;
   dInt   bs,n,perrow;

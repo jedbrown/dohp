@@ -633,7 +633,7 @@ int main(int argc,char *argv[])
 
   err = dFSCreateGlobalVector(fs,&r);dCHK(err);
   err = PetscOptionsGetString(NULL,"-q1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
-  err = dFSGetMatrix(fs,mtype,&Jp);dCHK(err);
+  err = dFSCreateMatrix(fs,mtype,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
   err = MatSetFromOptions(Jp);dCHK(err);
 
@@ -690,7 +690,7 @@ int main(int argc,char *argv[])
       err = dNew(PC_Ellip,&pce);dCHK(err);
       pce->elp = elp;
       err = PetscOptionsGetString(NULL,"-mq1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
-      err = dFSGetMatrix(fs,mtype,&pce->Mq1);dCHK(err);
+      err = dFSCreateMatrix(fs,mtype,&pce->Mq1);dCHK(err);
       err = MatSetOptionsPrefix(pce->Mq1,"mq1");dCHK(err);
       err = MatSetFromOptions(pce->Mq1);dCHK(err);
       err = VecDuplicate(x,&pce->Mdiag);dCHK(err);

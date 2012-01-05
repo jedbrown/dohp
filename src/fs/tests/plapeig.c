@@ -482,7 +482,7 @@ int main(int argc,char *argv[])
 
   err = dFSCreateGlobalVector(fs,&r);dCHK(err);
   err = PetscOptionsGetString(NULL,"-q1mat_type",mtype,sizeof(mtype),NULL);dCHK(err);
-  err = dFSGetMatrix(fs,mtype,&Jp);dCHK(err);
+  err = dFSCreateMatrix(fs,mtype,&Jp);dCHK(err);
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
   err = MatSetFromOptions(Jp);dCHK(err);
 
