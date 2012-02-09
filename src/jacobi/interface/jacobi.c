@@ -31,8 +31,6 @@ dErr dJacobiCreate(MPI_Comm comm,dJacobi *injacobi)
 #endif
   err = PetscHeaderCreate(jac,p_dJacobi,struct _dJacobiOps,dJACOBI_CLASSID,0,"dJacobi","Basis and quadrature service","Jacobi",comm,dJacobiDestroy,dJacobiView);dCHK(err);
 
-  jac->basisdegree = 10;
-  jac->ruleexcess  = 5;
   jac->setupcalled = 0;
   jac->data        = 0;
   err = PetscMemcpy(jac->ops,&_defaultOps,sizeof(struct _dJacobiOps));dCHK(err);
@@ -89,8 +87,6 @@ dErr dJacobiSetFromOptions(dJacobi jac)
   if (!((PetscObject)jac)->type_name) {
     err = dJacobiSetType(jac,type);dCHK(err);
   }
-  err = PetscOptionsInt("-djac_basis_degree","Max basis degree","dJacobiSetDegrees",jac->basisdegree,&jac->basisdegree,PETSC_NULL);dCHK(err);
-  err = PetscOptionsInt("-djac_rule_excess","Excess quadrature points","dJacobiSetDegrees",jac->ruleexcess,&jac->ruleexcess,PETSC_NULL);dCHK(err);
   if (jac->ops->SetFromOptions) {
     err = jac->ops->SetFromOptions(jac);dCHK(err);
   }
@@ -131,8 +127,6 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"type: %s\n",
                                   ((PetscObject)jac)->type_name ? ((PetscObject)jac)->type_name : "type not set");dCHK(err);
-    err = PetscViewerASCIIPrintf(viewer,"max basis degree: %d\n",jac->basisdegree);dCHK(err);
-    err = PetscViewerASCIIPrintf(viewer,"rule excess: %d\n",jac->ruleexcess);dCHK(err);
     if (jac->ops->View) {
       err = (*jac->ops->View)(jac,viewer);dCHK(err);
     } else {

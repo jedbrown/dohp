@@ -82,8 +82,6 @@ struct _dJacobiOps {
 */
 struct p_dJacobi {
   PETSCHEADER(struct _dJacobiOps);
-  dInt basisdegree;         /**< the maximum degree basis functions to be supported */
-  dInt ruleexcess;          /**< the amount of over-integration to be supported */
   bool setupcalled;
   dQuadrature quad[dQUADRATURE_METHOD_INVALID];
   void *data;                   /**< private implementation context */
