@@ -3,7 +3,7 @@
 #include <dohpgeom.h>
 
 dClassId dJACOBI_CLASSID,dQUADRATURE_CLASSID;
-PetscLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
+PetscLogEvent dLOG_EFSApply;
 PetscBool dJacobiRegisterAllCalled;
 
 const char *dGaussFamilies[] = {"gauss","lobatto","radau","dGaussFamily","dGAUSS_",0};
@@ -201,7 +201,6 @@ dErr dJacobiInitializePackage(const char path[])
   err = PetscClassIdRegister("Jacobi context",&dJACOBI_CLASSID);dCHK(err);
   err = PetscClassIdRegister("Quadrature context",&dQUADRATURE_CLASSID);dCHK(err);
   err = PetscLogEventRegister("dEFSApply",       dJACOBI_CLASSID,&dLOG_EFSApply);dCHK(err);
-  err = PetscLogEventRegister("dRuleComputeGeom",dJACOBI_CLASSID,&dLOG_RuleComputeGeometry);dCHK(err);
   err = dJacobiRegisterAll(path);dCHK(err);
   err = dQuadratureRegisterAll(path);dCHK(err);
   err = PetscRegisterFinalize(dJacobiFinalizePackage);dCHK(err);
@@ -384,28 +383,6 @@ dErr dRuleGetTensorNodeWeight(dRule rule,dInt *dim,dInt nnodes[3],const dReal *c
   dFunctionBegin;
   dValidPointer(rule,1);
   err = (*rule->ops.getTensorNodeWeight)(rule,dim,nnodes,coord,weight);dCHK(err);
-  dFunctionReturn(0);
-}
-
-/** Compute coordinate transforms required to differentiate and integrate in physical space.
-* @note This should not be the responsibility of the Rule, it really doesn't depend on internal details, and instead
-* depends on how the coordinates and derivatives are evaluated on the quadrature points.
-*
-* @param[in] rule to get geometries on
-* @param[in] vtx coordinates of corners of this element
-* @param[out] global coordinates of quadrature points
-* @param[out] jinv derivative of reference coordinates with respect to physical coordinates
-* @param[out] jdet determinant of Jacobian (derivative of physical w.r.t. reference coordinates)
-**/
-dErr dRuleComputeGeometry(dRule rule,const dReal vtx[restrict][3],dReal qg[restrict][3],dReal jinv[restrict][3][3],dReal jdet[restrict])
-{
-  dErr err;
-
-  dFunctionBegin;
-  dValidPointer(rule,1);
-  err = PetscLogEventBegin(dLOG_RuleComputeGeometry,0,0,0,0);dCHK(err);
-  err = rule->ops.computeGeometry(rule,vtx,qg,jinv,jdet);dCHK(err);
-  err = PetscLogEventEnd(dLOG_RuleComputeGeometry,0,0,0,0);dCHK(err);
   dFunctionReturn(0);
 }
 

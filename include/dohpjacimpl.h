@@ -5,7 +5,7 @@
 
 dEXTERN_C_BEGIN
 
-extern dLogEvent dLOG_RuleComputeGeometry,dLOG_EFSApply;
+extern dLogEvent dLOG_EFSApply;
 
 /**
 * The Ops table is directly included in the dRule struct.  There should only be one ops table for each quadrature order
