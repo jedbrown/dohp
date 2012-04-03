@@ -3,7 +3,7 @@
 
 #include "dohpfs.h"
 #include "dohp.h"
-#include <private/dmimpl.h>
+#include <petsc-private/dmimpl.h>
 
 dEXTERN_C_BEGIN
 

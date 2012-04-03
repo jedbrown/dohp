@@ -27,7 +27,7 @@
 
 #define dH5CHK(hret,func) if ((hret) < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB, #func)
 
-#include <private/viewerimpl.h>
+#include <petsc-private/viewerimpl.h>
 #include <dohpviewer.h>
 #include <dohpfs.h>
 
