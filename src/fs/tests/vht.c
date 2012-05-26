@@ -2258,7 +2258,6 @@ static dErr KSPMonitorVHTSplit(KSP ksp,PetscInt its,PetscReal norm2,void *ctx)
   err = VecCopy(resid,work);dCHK(err);
   err = KSPGetPC(ksp,&pc);dCHK(err);
   err = PCGetOperators(pc,&A,&B,PETSC_NULL);dCHK(err);
-  if (A == B) {err = MatUnScaleSystem(A,work,PETSC_NULL);dCHK(err);}
   err = VecNorm(work,NORM_2,&scnorm);dCHK(err);
   err = VHTVecNormsSplit(vht,work,NORM_2,norms);dCHK(err);
   err = VecDestroy(&work);dCHK(err);
@@ -2292,7 +2291,6 @@ static dErr KSPMonitorVHTStokesSplit(KSP ksp,PetscInt its,PetscReal norm2,void *
   err = VecCopy(resid,work);dCHK(err);
   err = KSPGetPC(ksp,&pc);dCHK(err);
   err = PCGetOperators(pc,&A,&B,PETSC_NULL);dCHK(err);
-  if (A == B) {err = MatUnScaleSystem(A,work,PETSC_NULL);dCHK(err);}
   err = VecNorm(work,NORM_2,&scnorm);dCHK(err);
   err = VHTVecNormsSplitStokes(vht,work,NORM_2,norms);dCHK(err);
   err = VecDestroy(&work);dCHK(err);
