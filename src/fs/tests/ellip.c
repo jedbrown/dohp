@@ -684,7 +684,7 @@ int main(int argc,char *argv[])
     dBool  isshell;
     err = SNESGetKSP(snes,&ksp);dCHK(err);
     err = KSPGetPC(ksp,&pc);dCHK(err);
-    err = PetscTypeCompare((dObject)pc,PCSHELL,&isshell);dCHK(err);
+    err = PetscObjectTypeCompare((dObject)pc,PCSHELL,&isshell);dCHK(err);
     if (isshell) {
       PC_Ellip *pce;
       err = dNew(PC_Ellip,&pce);dCHK(err);

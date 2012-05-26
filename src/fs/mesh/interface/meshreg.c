@@ -65,7 +65,7 @@ dErr dMeshSetType(dMesh mesh,const dMeshType type)
   dFunctionBegin;
   PetscValidHeaderSpecific(mesh,dMESH_CLASSID,1);
   PetscValidCharPointer(type,2);
-  err = PetscTypeCompare((PetscObject)mesh,type,&match);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)mesh,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dMeshRegisterAllCalled) {err = dMeshRegisterAll(NULL);dCHK(err);}
   err = PetscFListFind(dMeshList,((PetscObject)mesh)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);

@@ -821,7 +821,7 @@ static dErr MatNestGetVHT(Mat A,VHT *vht)
 
   dFunctionBegin;
   err = MatNestGetSubMat(A,0,0,&B);dCHK(err);
-  err = PetscTypeCompare((PetscObject)B,MATNEST,&flg);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)B,MATNEST,&flg);dCHK(err);
   if (flg) {err = MatNestGetSubMat(B,0,0,&C);dCHK(err);}
   else C = B;
   err = MatShellGetContext(C,(void**)vht);dCHK(err);
@@ -2545,8 +2545,8 @@ int main(int argc,char *argv[])
   err = SNESSetFunction(snes,R,VHTFunction,vht);dCHK(err);
   err = SNESSetJacobian(snes,J,B,VHTJacobian,vht);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
-  err = PetscTypeCompare((PetscObject)snes,SNESVIRS,&flg);dCHK(err);
-  if (!flg) {  err = PetscTypeCompare((PetscObject)snes,SNESVISS,&flg);dCHK(err);}
+  err = PetscObjectTypeCompare((PetscObject)snes,SNESVIRS,&flg);dCHK(err);
+  if (!flg) {  err = PetscObjectTypeCompare((PetscObject)snes,SNESVISS,&flg);dCHK(err);}
   if (flg) {err = SNESVISetComputeVariableBounds(snes,SNESComputeVariableBounds_VHT);dCHK(err);}
   err = SNESGetKSP(snes,&ksp);dCHK(err);
   err = SNESSetApplicationContext(snes,vht);dCHK(err);

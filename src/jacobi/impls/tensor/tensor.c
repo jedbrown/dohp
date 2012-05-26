@@ -124,7 +124,7 @@ dErr TensorBasisView(const TensorBasis basis,PetscViewer viewer) /* exported so 
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"TensorBasis with rule=%d basis=%d.\n",basis->Q,basis->P);dCHK(err);
   err = dRealTableView(basis->Q,basis->P,basis->interp,viewer,"interp");dCHK(err);
@@ -182,7 +182,7 @@ static dErr dJacobiView_Tensor(dJacobi jac,dViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Tensor based Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);

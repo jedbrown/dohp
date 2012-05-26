@@ -110,7 +110,7 @@ dErr dQuadratureView(dQuadrature quad,PetscViewer viewer)
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(quad,1,viewer,2);
 
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscViewerASCIIPrintf(viewer,"dQuadobi object:(%s)\n",
                                   ((PetscObject)quad)->prefix ? ((PetscObject)quad)->prefix : "no prefix");dCHK(err);
@@ -137,7 +137,7 @@ dErr dQuadratureSetType(dQuadrature quad,dQuadratureType type)
   dFunctionBegin;
   PetscValidHeaderSpecific(quad,dQUADRATURE_CLASSID,1);
   PetscValidCharPointer(type,2);
-  err = PetscTypeCompare((PetscObject)quad,type,&match);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)quad,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dQuadratureRegisterAllCalled) {err = dQuadratureRegisterAll(NULL);dCHK(err);}
   err = PetscFListFind(dQuadratureList,((PetscObject)quad)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);

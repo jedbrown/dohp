@@ -255,7 +255,7 @@ static dErr dJacobiView_Modal(dJacobi jac,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Modal Jacobi\n");dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"Cache of EFS\n");dCHK(err);

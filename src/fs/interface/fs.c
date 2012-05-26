@@ -279,7 +279,7 @@ dErr dFSView(dFS fs,dViewer viewer)
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(fs,1,viewer,2);
 
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscViewerASCIIPrintf(viewer,"dFS object:(%s)\n",
                                   ((dObject)fs)->prefix ? ((dObject)fs)->prefix : "no prefix");dCHK(err);
@@ -550,7 +550,7 @@ dErr dFSGlobalToExpanded(dFS fs,Vec g,Vec x,dFSHomogeneousMode hmode,InsertMode 
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(g,VEC_CLASSID,2);
   dValidHeader(x,VEC_CLASSID,3);
-  err = PetscTypeCompare((PetscObject)g,VECDOHP,&flg);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)g,VECDOHP,&flg);dCHK(err);
   if (flg) {
     gd = g;
   } else {                      /* Cannot take the closure of a "normal" vector */
@@ -599,7 +599,7 @@ dErr dFSExpandedToGlobal(dFS fs,Vec x,Vec g,dFSHomogeneousMode hmode,InsertMode 
   dValidHeader(fs,DM_CLASSID,1);
   dValidHeader(g,VEC_CLASSID,2);
   dValidHeader(x,VEC_CLASSID,3);
-  err = PetscTypeCompare((PetscObject)g,VECDOHP,&isdohp);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)g,VECDOHP,&isdohp);dCHK(err);
   if (isdohp) {
     gd = g;
   } else {                      /* Cannot take the closure of a "normal" vector */
@@ -672,7 +672,7 @@ dErr dFSDirichletProject(dFS fs,Vec X,dFSHomogeneousMode hmode)
   dScalar *x;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)X,VECDOHP,&isdohp);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)X,VECDOHP,&isdohp);dCHK(err);
   if (isdohp) {err = VecDohpGetClosure(X,&Xc);dCHK(err);}
   else Xc = X;
   switch (hmode) {
@@ -936,7 +936,7 @@ dErr VecDohpGetFS(Vec X,dFS *fs)
   dFunctionBegin;
   dValidHeader(X,VEC_CLASSID,1);
   dValidPointer(fs,2);
-  err = PetscTypeCompare((PetscObject)X,VECDOHP,&isdohp);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)X,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(((PetscObject)X)->comm,PETSC_ERR_ARG_WRONG,"Vector is not of type DOHP");
   err = PetscObjectQuery((PetscObject)X,"dFS",(PetscObject*)fs);dCHK(err);
   dFunctionReturn(0);

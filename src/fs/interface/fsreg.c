@@ -75,7 +75,7 @@ dErr dFSSetType(dFS fs,const dFSType type)
   dFunctionBegin;
   PetscValidHeaderSpecific(fs,DM_CLASSID,1);
   PetscValidCharPointer(type,2);
-  err = PetscTypeCompare((PetscObject)fs,type,&match);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dFSRegisterAllCalled) {err = dFSRegisterAll(NULL);dCHK(err);}
   err = PetscFListFind(dFSList,((PetscObject)fs)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);

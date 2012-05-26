@@ -47,7 +47,7 @@ dErr dJacobiSetType(dJacobi jac,const dJacobiType type)
   dFunctionBegin;
   PetscValidHeaderSpecific(jac,dJACOBI_CLASSID,1);
   PetscValidCharPointer(type,2);
-  err = PetscTypeCompare((PetscObject)jac,type,&match);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)jac,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dJacobiRegisterAllCalled) {err = dJacobiRegisterAll(NULL);dCHK(err);}
   err = PetscFListFind(dJacobiList,((PetscObject)jac)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
@@ -120,7 +120,7 @@ dErr dJacobiView(dJacobi jac,PetscViewer viewer)
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(jac,1,viewer,2);
 
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscViewerASCIIPrintf(viewer,"dJacobi object:(%s)\n",
                                   ((PetscObject)jac)->prefix ? ((PetscObject)jac)->prefix : "no prefix");dCHK(err);

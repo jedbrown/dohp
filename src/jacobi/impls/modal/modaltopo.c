@@ -8,7 +8,7 @@ static dErr ModalBasisView(dInt Q,dInt P,const dReal interp[],const dReal deriv[
   dErr   err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"Modal basis with %d point rule and %d point basis.\n",Q,P);dCHK(err);
   err = dRealTableView(Q,P,interp,viewer,"interp");dCHK(err);
@@ -22,7 +22,7 @@ static dErr dEFSView_Modal_Private(const dEFS_Modal *modal,const char *name,Pets
   dErr   err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (ascii) {
     err = PetscViewerASCIIPrintf(viewer,"dEFS type %s\n",name);dCHK(err);
     err = PetscViewerASCIIPrintf(viewer,"based on dRule:\n");dCHK(err);

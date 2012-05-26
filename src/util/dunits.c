@@ -241,7 +241,7 @@ dErr dUnitsView(dUnits un,dViewer viewer)
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(un,1,viewer,2);
 
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (iascii) {
     err = PetscObjectPrintClassNamePrefixType((PetscObject)un,viewer,"Units Manager");dCHK(err);
     err = PetscViewerASCIIPushTab(viewer);dCHK(err);

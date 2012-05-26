@@ -34,7 +34,7 @@ dErr VecDohpGetClosure(Vec v,Vec *c)
   dFunctionBegin;
   dValidHeader(v,VEC_CLASSID,1);
   dValidPointer(c,2);
-  err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
+  err = PetscObjectTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(PETSC_COMM_SELF,1,"Vector type %s does not have closure",((dObject)v)->type_name);
   vmpi = v->data;
   if (!vmpi->localrep) dERROR(PETSC_COMM_SELF,1,"Vector has no closure");
@@ -52,7 +52,7 @@ dErr VecDohpRestoreClosure(Vec v,Vec *c)
   dFunctionBegin;
   dValidHeader(v,VEC_CLASSID,1);
   dValidPointer(c,2);
-  err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
+  err = PetscObjectTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(PETSC_COMM_SELF,1,"Vector type %s does not have closure",((dObject)v)->type_name);
   if (*c != ((Vec_MPI*)v->data)->localrep) dERROR(PETSC_COMM_SELF,1,"attempting to restore incorrect closure");
   err = VecStateSync_Private(v,*c);dCHK(err);
@@ -69,7 +69,7 @@ dErr VecDohpZeroEntries(Vec v)
 
   dFunctionBegin;
   dValidHeader(v,VEC_CLASSID,1);
-  err = PetscTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
+  err = PetscObjectTypeCompare((dObject)v,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Vector type %s",((dObject)v)->type_name);
   err = VecDohpGetClosure(v,&c);dCHK(err);
   err = VecZeroEntries(c);dCHK(err);
@@ -132,7 +132,7 @@ dErr VecCreateDohp(MPI_Comm comm,dInt bs,dInt n,dInt nc,dInt nghosts,const dInt 
   *v = 0;
   err = VecCreateGhostBlock(comm,bs,nc*bs,PETSC_DECIDE,nghosts,ghosts,&vc);dCHK(err);
   err = VecGetArray(vc,&a);dCHK(err);
-  err = VecCreateMPIWithArray(comm,n*bs,PETSC_DECIDE,a,&vg);dCHK(err);
+  err = VecCreateMPIWithArray(comm,bs,n*bs,PETSC_DECIDE,a,&vg);dCHK(err);
   err = VecRestoreArray(vc,&a);dCHK(err);
   err = VecSetBlockSize(vg,bs);dCHK(err);
   vmpi = vg->data;
@@ -171,7 +171,7 @@ dErr VecDohpCreateDirichletCache(Vec gvec,Vec *dcache,VecScatter *dscat)
   dValidHeader(gvec,VEC_CLASSID,1);
   dValidPointer(dcache,2);
   dValidPointer(dscat,3);
-  err = PetscTypeCompare((PetscObject)gvec,VECDOHP,&isdohp);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)gvec,VECDOHP,&isdohp);dCHK(err);
   if (!isdohp) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"Vec type %s",((PetscObject)gvec)->type_name);
   err = PetscObjectGetComm((PetscObject)gvec,&comm);dCHK(err);
   err = VecGetLocalSize(gvec,&n);dCHK(err);

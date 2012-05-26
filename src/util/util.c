@@ -59,7 +59,7 @@ dErr dRealTableView(dInt m,dInt n,const dReal mat[],dViewer viewer,const char *f
   va_start(Argp,format);
   err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
   va_end(Argp);
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   if (!mat) {
     err = PetscViewerASCIIPrintf(viewer,"%10s: null %D*%D\n",name,m,n);dCHK(err);
@@ -89,7 +89,7 @@ dErr dIntTableView(dInt m,dInt n,const dInt mat[],dViewer viewer,const char *for
   va_start(Argp,format);
   err = PetscVSNPrintf(name,sizeof name,format,&fullLen,Argp);dCHK(err);
   va_end(Argp);
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   if (!mat) {
     err = PetscViewerASCIIPrintf(viewer,"%10s: null %D*%D\n",name,m,n);dCHK(err);

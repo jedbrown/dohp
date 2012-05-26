@@ -9,7 +9,7 @@ dErr TensorRuleView(TensorRule rule,PetscViewer viewer)
   dErr err;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dFunctionReturn(0);
   err = PetscViewerASCIIPrintf(viewer,"TensorRule with %d nodes.\n",rule->size);dCHK(err);
   err = dRealTableView(1,rule->size,rule->coord,viewer,"q");dCHK(err);
@@ -406,7 +406,7 @@ static dErr dQuadratureView_Tensor(dQuadrature quad,PetscViewer viewer)
   dBool  iascii;
 
   dFunctionBegin;
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
   if (!iascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
   err = PetscViewerASCIIPrintf(viewer,"Tensor Quadrature: %s\n",dGaussFamilies[tnsr->family]);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"alpha %g  beta %g\n",tnsr->alpha,tnsr->beta);dCHK(err);

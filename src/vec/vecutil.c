@@ -32,7 +32,7 @@ dErr VecBlockView(Vec X,dViewer viewer)
   dValidHeader(X,VEC_CLASSID,1);
   if (!viewer) {err = PetscViewerASCIIGetStdout(((PetscObject)X)->comm,&viewer);dCHK(err);}
   dValidHeader(viewer,PETSC_VIEWER_CLASSID,2);
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&ascii);dCHK(err);
   if (!ascii) dERROR(PETSC_COMM_SELF,PETSC_ERR_SUP,"only ASCII");
 
   err = VecGetLocalSize(X,&m);dCHK(err);

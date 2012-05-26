@@ -71,8 +71,8 @@ dErr dMeshView(dMesh m,PetscViewer viewer)
   }
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2);
   PetscCheckSameComm(m,1,viewer,2);
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&idhm);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERDHM,&idhm);dCHK(err);
   if (iascii) {
     err = PetscObjectGetType((PetscObject)m,&type);dCHK(err);
     if (((PetscObject)m)->prefix) {
@@ -139,7 +139,7 @@ dErr dMeshSetView(dMesh m,dMeshESH root,PetscViewer viewer)
 
   dFunctionBegin;
   if (!viewer) {err = PetscViewerASCIIGetStdout(((dObject)m)->comm,&viewer);dCHK(err);}
-  err = PetscTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&flg);dCHK(err);
+  err = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&flg);dCHK(err);
   if (!flg) dFunctionReturn(0);
   err = PetscViewerASCIIPushTab(viewer);dCHK(err);
   {
