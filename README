@@ -1,25 +1,23 @@
-Dohp aims to be a very efficient implementation of the hp-version of
-the finite element method.  It exploits the tensor product structure
-of nodal bases on hexahedra to significantly reduce the memory
-requirements and computational cost compared to low-order elements.
-It uses Q1 elements on the nodes of the high-order basis to assemble a
-preconditioning matrix which is much sparser than Q2 elements.
-Preliminary results show that memory and solver runtime for arbitrary
-order (2-10 or so) is half that required by a standard Q2
-approximation.
+Dohp aims to be a very efficient implementation of the hp-version of the
+finite element method.  It exploits the tensor product structure of
+nodal bases on hexahedra to significantly reduce the memory requirements
+and computational cost compared to low-order elements.  It typically
+forms a preconditioning matrix using an embedded Q1 discretization,
+which is much sparser than Q2 elements. Preliminary results show that
+memory and solver runtime for arbitrary order (2-10 or so) is half that
+required by a standard Q2 approximation. The methods are summarized in
+[1] and Dohp is used to solve nonlinear eigenproblems in [2].
 
-Dohp development is primarily focused on scalable solution of
-indefinite problems such as those found in incompressible flow and
-PDE-constrained optimization.
-
-Dohp currently depends on development versions of PETSc [1] and MOAB [2].
-Additionally, some tests depend on SymPy [2] to manufacture the forcing
+Dohp currently depends on development versions of PETSc [3] and MOAB [4].
+Additionally, some tests depend on SymPy [5] to manufacture the forcing
 terms for exact solutions.
 
 If you are interested in Dohp, please let me know (jed at 59A2 dot org)
 and I'll fill you in on the design and how to get it installed (and
 update this README).
 
-[1] http://mcs.anl.gov/petsc
-[2] http://trac.mcs.anl.gov/projects/ITAPS
-[3] http://sympy.org
+[1] http://dx.doi.org/10.1007/s10915-010-9396-8
+[2] http://dx.doi.org/10.1007/s10915-011-9540-0 or http://arxiv.org/pdf/1011.3172v2
+[3] http://mcs.anl.gov/petsc
+[4] http://trac.mcs.anl.gov/projects/ITAPS
+[5] http://sympy.org
