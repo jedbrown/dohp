@@ -90,6 +90,7 @@
 #define dValidHandlePointer(p,a) dValidPointerNamedSpecific((p),void*,"void*",(a))
 #define dValidScalarPointer(p,a) dValidPointerSpecific((p),"dScalar",(a))
 #define dValidRealPointer(p,a) dValidPointerSpecific((p),"dReal",(a))
+#define dValidFunctionPointer(p,a) do {if (!(p)) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_BADPTR,"Null Function Pointer: Parameter #%d",(a)); } while (0)
 
 #define dNonNullElse(a,b) ((a)?(a):(b))
 #define dStrlen(s,l) PetscStrlen((s),(l))

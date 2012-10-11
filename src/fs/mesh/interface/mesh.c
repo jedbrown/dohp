@@ -1327,7 +1327,7 @@ dErr dMeshMorph(dMesh mesh,void (*morph)(void*,double*),void *ctx)
 
   dFunctionBegin;
   dValidHeader(mesh,dMESH_CLASSID,1);
-  dValidCharPointer(morph,2);   /* It's actually a function pointer */
+  dValidFunctionPointer(morph,2);   /* It's actually a function pointer */
   dValidPointer(ctx,3);
   mi = mesh->mi;
   iMesh_getEntities(mi,mesh->root,iBase_VERTEX,iMesh_ALL_TOPOLOGIES,&ents,&ents_a,&ents_s,&ierr);dICHK(mi,ierr);
