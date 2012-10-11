@@ -813,8 +813,8 @@ dErr dFSCreateMatrix(dFS fs,const MatType mtype,Mat *inJ)
 
 /* We call these directly because otherwise MatGetArray spends huge amounts of time in PetscMallocValidate (unless error
 * checking is disabled) */
-extern PetscErrorCode MatGetArray_SeqAIJ(Mat A,PetscScalar *array[]);
-extern PetscErrorCode MatRestoreArray_SeqAIJ(Mat A,PetscScalar *array[]);
+extern PetscErrorCode MatSeqAIJGetArray_SeqAIJ(Mat A,PetscScalar *array[]);
+extern PetscErrorCode MatSeqAIJRestoreArray_SeqAIJ(Mat A,PetscScalar *array[]);
 
 // We call these directly because otherwise profiling events are done, which adds overhead.
 #if !defined dUSE_LOG_FINEGRAIN
@@ -850,7 +850,7 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
 #else
   err = MatGetRowIJ_SeqAIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
 #endif
-  err = MatGetArray_SeqAIJ(E,&ca);dCHK(err);
+  err = MatSeqAIJGetArray_SeqAIJ(E,&ca);dCHK(err);
   for (i=0,lm=0; i<m; i++) {
     /* Count the number of columns in constraint matrix for each row of input matrix, this will be the total number of
     * rows in result matrix */
@@ -893,7 +893,7 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
     err = PetscLogFlops((ci[row+1]-ci[row])*ln);dCHK(err);
   }
 
-  err = MatRestoreArray_SeqAIJ(E,&ca);dCHK(err);
+  err = MatSeqAIJRestoreArray_SeqAIJ(E,&ca);dCHK(err);
 #if defined dUSE_DEBUG
   err = MatRestoreRowIJ(E,0,dFALSE,dFALSE,&cn,&ci,&cj,&done);dCHK(err);
   if (!done) dERROR(PETSC_COMM_SELF,1,"Failed to return indices");
