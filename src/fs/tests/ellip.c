@@ -102,16 +102,18 @@ static void EllipExact_3_Forcing(const struct EllipExactCtx *ctx,const struct El
   f[0] = pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p/2))*(1 - p/2)*(-2*c*x*z + b*pow(y,2))*(-2*c*x*(-2*c*x*z + b*pow(y,2)) - 2*c*z*(c*(1 - pow(z,2)) + 3*a*pow(x,2)) + 4*z*pow(b,2)*pow(y,2)) + pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p/2))*(1 - p/2)*(c*(1 - pow(z,2)) + 3*a*pow(x,2))*(-2*c*z*(-2*c*x*z + b*pow(y,2)) + 6*a*x*(c*(1 - pow(z,2)) + 3*a*pow(x,2))) + 2*b*y*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-2 + p/2))*(1 - p/2)*(2*b*y*(-2*c*x*z + b*pow(y,2)) + 4*y*pow(b,2)*pow(z,2)) - 6*a*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-1 + p/2)) - 2*b*z*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-1 + p/2)) + 2*c*x*pow((pow(e,2) + pow((-2*c*x*z + b*pow(y,2)),2)/2 + pow((c*(1 - pow(z,2)) + 3*a*pow(x,2)),2)/2 + 2*pow(b,2)*pow(y,2)*pow(z,2)),(-1 + p/2));
 }
 
-static void EllipExact_4_Solution(const struct EllipExactCtx dUNUSED *ctx,const struct EllipParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar u[1],dScalar du[3])
+static void EllipExact_4_Solution(const struct EllipExactCtx dUNUSED *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar u[1],dScalar du[3])
 { // This is not actually an exact solution
-  u[0] = 0;
-  du[0] = 0;
-  du[1] = 0;
-  du[2] = 0;
+  const dReal x = xyz[0],y = xyz[1],z = xyz[2];
+  u[0] = sin(PETSC_PI*x)*sin(PETSC_PI*y)*sin(PETSC_PI*z);
+  du[0] = PETSC_PI*cos(PETSC_PI*x)*sin(PETSC_PI*y)*sin(PETSC_PI*z);
+  du[1] = PETSC_PI*sin(PETSC_PI*x)*cos(PETSC_PI*y)*sin(PETSC_PI*z);
+  du[2] = PETSC_PI*sin(PETSC_PI*x)*sin(PETSC_PI*y)*cos(PETSC_PI*z);
 }
-static void EllipExact_4_Forcing(const struct EllipExactCtx *ctx,const struct EllipParam dUNUSED *prm,const dReal dUNUSED xyz[3],dScalar f[1])
+static void EllipExact_4_Forcing(const struct EllipExactCtx dUNUSED *ctx,const struct EllipParam dUNUSED *prm,const dReal xyz[3],dScalar f[1])
 {
-  f[0] = ctx->a;
+  const dReal x = xyz[0],y = xyz[1],z = xyz[2];
+  f[0] = 3*PETSC_PI*PETSC_PI*sin(PETSC_PI*x)*sin(PETSC_PI*y)*sin(PETSC_PI*z);
 }
 
 struct EllipStore {
