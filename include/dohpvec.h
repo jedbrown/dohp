@@ -1,8 +1,8 @@
 #ifndef _DOHPVEC_H
 #define _DOHPVEC_H
 
-#include <petscvec.h>
 #include "dohptype.h"
+#include <petscvec.h>
 
 dEXTERN_C_BEGIN
 

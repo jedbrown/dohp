@@ -23,6 +23,7 @@
 #if !defined _DHM_H
 #define _DHM_H
 
+#include "dohptype.h"
 #include <hdf5.h>
 
 #define dH5CHK(hret,func) if ((hret) < 0) dERROR(PETSC_COMM_SELF,PETSC_ERR_LIB, #func)

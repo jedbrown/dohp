@@ -1,6 +1,8 @@
 #ifndef _DOHPTYPE_H
 #define _DOHPTYPE_H
 
+#define _POSIX_C_SOURCE 199309L
+
 #include <dohpconfig.h>
 #include <petscconf.h>
 #include <iMesh.h>

@@ -9,6 +9,7 @@
 *
 */
 
+#include <dohptype.h>
 #include "tensorimpl.h"
 #include "polylib.h"
 #include "optimalscale.h"

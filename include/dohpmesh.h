@@ -1,8 +1,8 @@
 #ifndef _DOHPMESH_H
 #define _DOHPMESH_H
 
-#include <petscsys.h>
 #include <dohptype.h>
+#include <petscsys.h>
 #include <dohpjacobi.h>
 
 #ifdef dHAVE_ITAPS_REL

@@ -1,8 +1,8 @@
 #ifndef _TENSOR_H
 #define _TENSOR_H
 
-#include <dohpkhash.h>
 #include <dohpjacimpl.h>
+#include <dohpkhash.h>
 #include <dohp.h>
 
 dEXTERN_C_BEGIN
