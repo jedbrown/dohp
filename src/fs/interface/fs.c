@@ -829,7 +829,8 @@ dErr dFSMatSetValuesBlockedExpanded(dFS fs,Mat A,dInt m,const dInt idxm[],dInt n
   dScalar lvs[1024],lvts[1024];
   Mat E;
   dInt lm,ln,*lidxm = lidxms,*lidxn = lidxns;
-  dInt bs,i,j,li,lj,row,col,cn,*ci,*cj;
+  dInt bs,i,j,li,lj,row,col,cn;
+  const dInt *ci,*cj;
   dScalar *lv = lvs,*lvt = lvts,*ca;
   dBool  done;
   dErr err;

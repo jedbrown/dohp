@@ -420,7 +420,8 @@ static dErr dFSGetSubElementMesh_Cont(dFS fs,dInt nsubelems,dInt nsubconn,dEntTo
   dMeshESH domain;
   dRuleset ruleset;
   dRulesetIterator iter;
-  dInt     sub,subc,nnz,*ai,*aj;
+  const dInt *ai,*aj;
+  dInt     sub,subc,nnz;
   dBool    done;
   Mat      E1;
 
