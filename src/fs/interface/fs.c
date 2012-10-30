@@ -798,6 +798,7 @@ dErr dFSCreateMatrix(dFS fs,const MatType mtype,Mat *inJ)
     err = MatMPIAIJSetPreallocation(J,bs*perrow,NULL,bs*25,NULL);dCHK(err);
   }
   err = MatSetBlockSize(J,bs);dCHK(err);
+  err = MatSetOption(J,MAT_NEW_NONZERO_LOCATION_ERR,PETSC_FALSE);dCHK(err);
   err = DMGetLocalToGlobalMapping((DM)fs,&mapping);dCHK(err);
   err = MatSetLocalToGlobalMapping(J,mapping,mapping);dCHK(err);
   err = DMGetLocalToGlobalMappingBlock((DM)fs,&bmapping);dCHK(err);
