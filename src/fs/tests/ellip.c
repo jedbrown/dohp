@@ -341,6 +341,17 @@ static inline void EllipPointwiseComputeStore(struct EllipParam *prm,const dReal
   st->lambda_exp_u = prm->lambda != 0 ? prm->lambda * exp(u[0]) : 0;
 }
 
+static inline void EllipPointwiseObjective(struct EllipParam *prm,struct EllipExact *exact,struct EllipExactCtx *exactctx,
+                                           const dReal x[3],dReal weight,const dScalar u[1],const dScalar Du[3],dReal *obj)
+{
+  dScalar f[1],gamma;
+  exact->forcing(exactctx,prm,x,f);
+  *obj -= weight * f[0] * u[0]; /* affine term */
+  *obj -= prm->lambda * exp(u[0]); /* this term is non-convex */
+  gamma = 0.5 * (dSqr(Du[0]) + dSqr(Du[1]) + dSqr(Du[2]));
+  *obj += pow(gamma,prm->p/2);  /* Convex p-Laplacian term, has corner at Du=0 */
+}
+
 static inline void EllipPointwiseFunction(struct EllipParam *prm,struct EllipExact *exact,struct EllipExactCtx *exactctx,
                                           const dReal x[3],dReal weight,const dScalar u[1],const dScalar Du[3],
                                           struct EllipStore *st,dScalar v[1],dScalar Dv[3])
@@ -365,6 +376,11 @@ static inline void EllipPointwiseJacobian(struct EllipParam dUNUSED *prm,const s
   for (dInt i=0; i<3; i++) Dv[i] = etaw*Du[i] - dotw*st->sqrt_mdeta_Du[i];
 }
 
+static dErr EllipObjective(SNES dUNUSED snes,Vec gx,PetscReal *objective,void *ctx)
+{
+  Ellip elp = ctx;
+  Vec Coords;
+  dRulesetIterator iter;
 static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
 {
   Ellip elp = ctx;
