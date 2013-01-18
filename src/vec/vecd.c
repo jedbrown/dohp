@@ -110,8 +110,8 @@ static dErr VecDuplicate_Dohp(Vec x,Vec *iny)
   y->stash.donotstash   = x->stash.donotstash;
   y->stash.ignorenegidx = x->stash.ignorenegidx;
 
-  err = PetscOListDuplicate(((dObject)x)->olist,&((dObject)y)->olist);dCHK(err);
-  err = PetscFListDuplicate(((dObject)x)->qlist,&((dObject)y)->qlist);dCHK(err);
+  err = PetscObjectListDuplicate(((dObject)x)->olist,&((dObject)y)->olist);dCHK(err);
+  err = PetscFunctionListDuplicate(((dObject)x)->qlist,&((dObject)y)->qlist);dCHK(err);
   y->map->bs   = x->map->bs;
   y->bstash.bs = x->bstash.bs;
 

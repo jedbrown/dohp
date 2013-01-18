@@ -63,7 +63,7 @@ typedef double dScalar;
 typedef int dErr;               /* PetscErrorCode */
 typedef int dClassId;            /* PetscClassId */
 typedef int dLogEvent;          /* PetscLogEvent */
-typedef struct _n_PetscFList  *dFList;
+typedef struct _n_PetscFunctionList  *dFList;
 typedef struct _p_PetscObject *dObject;
 typedef struct _p_PetscViewer *dViewer;
 

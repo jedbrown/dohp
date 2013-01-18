@@ -9,7 +9,7 @@ PetscBool dJacobiRegisterAllCalled;
 const char *dGaussFamilies[] = {"gauss","lobatto","radau","dGaussFamily","dGAUSS_",0};
 
 static dBool dJacobiPackageInitialized;
-PetscFList dJacobiList = NULL;
+PetscFunctionList dJacobiList = NULL;
 
 static const struct _dJacobiOps _defaultOps = {
   .View = 0,
@@ -50,7 +50,7 @@ dErr dJacobiSetType(dJacobi jac,const dJacobiType type)
   err = PetscObjectTypeCompare((PetscObject)jac,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dJacobiRegisterAllCalled) {err = dJacobiRegisterAll(NULL);dCHK(err);}
-  err = PetscFListFind(dJacobiList,((PetscObject)jac)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
+  err = PetscFunctionListFind(((PetscObject)jac)->comm,dJacobiList,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dJacobi type %s",type);
   if (jac->ops->Destroy) { err = (*jac->ops->Destroy)(jac);dCHK(err); }
   err = PetscMemcpy(jac->ops,&_defaultOps,sizeof(_defaultOps));dCHK(err);
@@ -167,8 +167,8 @@ dErr dJacobiRegister(const char name[],const char path[],const char cname[],dErr
   dErr err;
 
   dFunctionBegin;
-  err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&dJacobiList,name,fullname,(void (*)(void))create);dCHK(err);
+  err = PetscFunctionListConcat(path,cname,fullname);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&dJacobiList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 

@@ -5,7 +5,7 @@
 PetscLogEvent dLOG_Q1HexComputeQuadrature,dLOG_FSMatSetValuesExpanded;
 dClassId dFSROT_CLASSID;
 PetscBool dFSRegisterAllCalled;
-PetscFList dFSList;
+PetscFunctionList dFSList;
 static dBool dFSPackageInitialized;
 
 /**
@@ -78,7 +78,7 @@ dErr dFSSetType(dFS fs,const dFSType type)
   err = PetscObjectTypeCompare((PetscObject)fs,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dFSRegisterAllCalled) {err = dFSRegisterAll(NULL);dCHK(err);}
-  err = PetscFListFind(dFSList,((PetscObject)fs)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
+  err = PetscFunctionListFind(((PetscObject)fs)->comm,dFSList,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dFS type %s",type);
   if (fs->ops->impldestroy) { err = (*fs->ops->impldestroy)(fs);dCHK(err); }
   err = PetscMemcpy(((DM)fs)->ops,&defaultFSDMOps,sizeof(defaultFSDMOps));dCHK(err);
@@ -98,7 +98,7 @@ dErr dFSSetOrderingType(dFS fs,const MatOrderingType order)
   dValidCharPointer(order,2);
   if (fs->spacebuilt) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_WRONGSTATE,"Must set ordering before building the space");
   if (!MatOrderingRegisterAllCalled) {err = MatOrderingRegisterAll(NULL);dCHK(err);}
-  err = PetscFListFind(MatOrderingList,((dObject)fs)->comm,order,dTRUE,(void(**)(void))&r);dCHK(err);
+  err = PetscFunctionListFind(((dObject)fs)->comm,MatOrderingList,order,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(((dObject)fs)->comm,PETSC_ERR_ARG_OUTOFRANGE,"Unknown or unregistered type: %s",order);
   err = dStrcpyS(fs->orderingtype,sizeof(fs->orderingtype),order);dCHK(err);
   dFunctionReturn(0);
@@ -144,8 +144,8 @@ dErr dFSRegister(const char name[],const char path[],const char cname[],dErr(*cr
   dErr err;
 
   dFunctionBegin;
-  err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&dFSList,name,fullname,(void (*)(void))create);dCHK(err);
+  err = PetscFunctionListConcat(path,cname,fullname);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&dFSList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 

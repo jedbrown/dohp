@@ -18,7 +18,7 @@ static const char help[] = "Solve non-Newtonian Stokes problem using dual order 
 
 #include "stokesimpl.h"
 
-PetscFList StokesCaseList = NULL;
+PetscFunctionList StokesCaseList = NULL;
 
 #define StokesCaseType char*
 
@@ -26,7 +26,7 @@ dErr StokesCaseRegister(const char *name,StokesCaseCreateFunction screate)
 {
   dErr err;
   dFunctionBegin;
-  err = PetscFListAdd(&StokesCaseList,name,"",(void(*)(void))screate);dCHK(err);
+  err = PetscFunctionListAdd(&StokesCaseList,name,"",(void(*)(void))screate);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr StokesCaseFind(const char *name,StokesCaseCreateFunction *screate)
@@ -34,7 +34,7 @@ static dErr StokesCaseFind(const char *name,StokesCaseCreateFunction *screate)
   dErr err;
 
   dFunctionBegin;
-  err = PetscFListFind(StokesCaseList,PETSC_COMM_WORLD,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
+  err = PetscFunctionListFind(StokesCaseList,PETSC_COMM_WORLD,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
   if (!*screate) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_UNKNOWN_TYPE,"Stokes Case \"%s\" could not be found",name);
   dFunctionReturn(0);
 }

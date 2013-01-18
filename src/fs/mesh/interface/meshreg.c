@@ -4,7 +4,7 @@
 dClassId dMESH_CLASSID;
 PetscBool dMeshRegisterAllCalled;
 PetscLogEvent dLOG_MeshLoad;
-PetscFList dMeshList;
+PetscFunctionList dMeshList;
 static PetscBool dMeshPackageInitialized;
 
 const char *const dMeshGenTypes[] = {"NONE","BLOCK","dMeshGenType","dMESHGEN_",0};
@@ -68,7 +68,7 @@ dErr dMeshSetType(dMesh mesh,const dMeshType type)
   err = PetscObjectTypeCompare((PetscObject)mesh,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dMeshRegisterAllCalled) {err = dMeshRegisterAll(NULL);dCHK(err);}
-  err = PetscFListFind(dMeshList,((PetscObject)mesh)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
+  err = PetscFunctionListFind(((PetscObject)mesh)->comm,dMeshList,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dMesh type %s",type);
   if (mesh->ops->destroy) { err = (*mesh->ops->destroy)(mesh);dCHK(err); }
   err = (*r)(mesh);dCHK(err);
@@ -82,8 +82,8 @@ dErr dMeshRegister(const char name[],const char path[],const char cname[],dErr(*
   dErr err;
 
   dFunctionBegin;
-  err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&dMeshList,name,fullname,(void (*)(void))create);dCHK(err);
+  err = PetscFunctionListConcat(path,cname,fullname);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&dMeshList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 

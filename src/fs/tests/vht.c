@@ -39,7 +39,7 @@ static const char help[] = "Solve viscous flow coupled to a heat transport probl
 #  define VHTAssertRangeClip(val,low,high) VHTAssertRange((val),(low),(high))
 #endif
 
-PetscFList VHTCaseList = NULL;
+PetscFunctionList VHTCaseList = NULL;
 
 #define VHTCaseType char*
 
@@ -51,7 +51,7 @@ dErr VHTCaseRegister(const char *name,VHTCaseCreateFunction screate)
 {
   dErr err;
   dFunctionBegin;
-  err = PetscFListAdd(&VHTCaseList,name,"",(void(*)(void))screate);dCHK(err);
+  err = PetscFunctionListAdd(&VHTCaseList,name,"",(void(*)(void))screate);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTCaseFind(const char *name,VHTCaseCreateFunction *screate)
@@ -59,7 +59,7 @@ static dErr VHTCaseFind(const char *name,VHTCaseCreateFunction *screate)
   dErr err;
 
   dFunctionBegin;
-  err = PetscFListFind(VHTCaseList,PETSC_COMM_WORLD,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
+  err = PetscFunctionListFind(VHTCaseList,PETSC_COMM_WORLD,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
   if (!*screate) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_UNKNOWN_TYPE,"VHT Case \"%s\" could not be found",name);
   dFunctionReturn(0);
 }
@@ -212,17 +212,17 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
 {
   struct VHTRheology *rheo = &scase->rheo;
   struct VHTUnitTable *u = &scase->utable;
-  PetscFList profiles = NULL;
+  PetscFunctionList profiles = NULL;
   char prof[256] = "default";
   dErr (*rprof)(VHTCase);
   dErr err;
 
   dFunctionBegin;
-  err = PetscFListAdd(&profiles,"default",NULL,(void(*)(void))VHTCaseProfile_Default);dCHK(err);
-  err = PetscFListAdd(&profiles,"ice",NULL,(void(*)(void))VHTCaseProfile_Ice);dCHK(err);
+  err = PetscFunctionListAdd(&profiles,"default",NULL,(void(*)(void))VHTCaseProfile_Default);dCHK(err);
+  err = PetscFunctionListAdd(&profiles,"ice",NULL,(void(*)(void))VHTCaseProfile_Ice);dCHK(err);
   err = PetscOptionsBegin(scase->comm,NULL,"VHTCase options",__FILE__);dCHK(err); {
     err = PetscOptionsList("-rheo_profile","Rheological profile","",profiles,prof,prof,sizeof prof,NULL);dCHK(err);
-    err = PetscFListFind(profiles,scase->comm,prof,PETSC_FALSE,(void(**)(void))&rprof);dCHK(err);
+    err = PetscFunctionListFind(profiles,scase->comm,prof,PETSC_FALSE,(void(**)(void))&rprof);dCHK(err);
     err = (*rprof)(scase);dCHK(err);
     rheo->mask_kinetic  = 0;
     rheo->mask_momtrans = 1;
@@ -230,7 +230,7 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
     rheo->mask_Ep       = 1;
     rheo->eta_min       = 1e-10 * rheo->B0;
     rheo->eta_max       = 1e5 * rheo->B0;
-    err = PetscFListDestroy(&profiles);dCHK(err);
+    err = PetscFunctionListDestroy(&profiles);dCHK(err);
     err = dOptionsRealUnits("-rheo_B0","Viscosity at reference strain rate and temperature","",u->Viscosity,rheo->B0,&rheo->B0,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_Bomega","Softening due to water content","",NULL,rheo->Bomega,&rheo->Bomega,NULL);dCHK(err);
     err = dOptionsRealUnits("-rheo_R","Ideal gas constant","",u->EnergyPerTemperature,rheo->R,&rheo->R,NULL);dCHK(err);

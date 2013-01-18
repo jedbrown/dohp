@@ -52,7 +52,7 @@ struct _n_Stokes {
   dBool                  alldirichlet;
 };
 
-extern PetscFList StokesCaseList;
+extern PetscFunctionList StokesCaseList;
 dErr StokesCaseRegister(const char *name,StokesCaseCreateFunction screate);
 
 dErr StokesCaseRegisterAll_Exact(void); /* Defined in generated stokesexact.c */

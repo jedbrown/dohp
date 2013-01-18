@@ -170,7 +170,7 @@ struct _n_VHT {
   struct VHTLog     log;
 };
 
-extern PetscFList VHTCaseList;
+extern PetscFunctionList VHTCaseList;
 dErr VHTCaseRegister(const char *name,VHTCaseCreateFunction screate);
 
 dErr VHTCaseRegisterAll_Exact(void); /* Defined in generated vhtexact.c */

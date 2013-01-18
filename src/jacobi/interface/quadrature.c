@@ -1,7 +1,7 @@
 #include <dohpjacimpl.h>
 #include <dohp.h>
 
-PetscFList dQuadratureList;
+PetscFunctionList dQuadratureList;
 PetscBool dQuadratureRegisterAllCalled;
 
 const char *const dQuadratureMethods[] = {"FAST","SPARSE","SELF","dQuadratureMethod","dQUADRATURE_METHOD_",0};
@@ -140,7 +140,7 @@ dErr dQuadratureSetType(dQuadrature quad,dQuadratureType type)
   err = PetscObjectTypeCompare((PetscObject)quad,type,&match);dCHK(err);
   if (match) dFunctionReturn(0);
   if (!dQuadratureRegisterAllCalled) {err = dQuadratureRegisterAll(NULL);dCHK(err);}
-  err = PetscFListFind(dQuadratureList,((PetscObject)quad)->comm,type,dTRUE,(void(**)(void))&r);dCHK(err);
+  err = PetscFunctionListFind(((PetscObject)quad)->comm,dQuadratureList,type,dTRUE,(void(**)(void))&r);dCHK(err);
   if (!r) dERROR(PETSC_COMM_SELF,1,"Unable to find requested dQuadrature type %s",type);
   if (quad->ops->Destroy) { err = (*quad->ops->Destroy)(quad);dCHK(err); }
   err = PetscMemzero(quad->ops,sizeof(quad->ops));dCHK(err);
@@ -155,8 +155,8 @@ dErr dQuadratureRegister(const char name[],const char path[],const char cname[],
   dErr err;
 
   dFunctionBegin;
-  err = PetscFListConcat(path,cname,fullname);dCHK(err);
-  err = PetscFListAdd(&dQuadratureList,name,fullname,(void (*)(void))create);dCHK(err);
+  err = PetscFunctionListConcat(path,cname,fullname);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&dQuadratureList,name,fullname,(void (*)(void))create);dCHK(err);
   dFunctionReturn(0);
 }
 
