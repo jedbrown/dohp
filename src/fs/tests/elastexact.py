@@ -21,7 +21,7 @@ class ElastExact(Exact):
         Pi = F * S                      # First Piola-Kirchoff tensor
         #L0 = 0.5*(dv + dv.T + dv.T*H + H.T*dv).dot(S) # Obviously symmetric form
         #L1 = (F.T * dv).dot(S)                        # Equivalent because S is symmetric
-        L2 = dv.dot(Pi)                               # Move F to the other side of the contraction by identity (obvious in index notation)
+        L2 = dv.vec().dot(Pi.vec())     # Move F to the other side of the contraction by identity (obvious in index notation)
         return L2
     def exact_prototype(self):
         return 'void %(name)s_Solution(const struct ElastExactCtx *ctx,const dReal x[3],dScalar u[3],dScalar du[9])' % dict(name=self.name)
