@@ -381,6 +381,29 @@ static dErr EllipObjective(SNES dUNUSED snes,Vec gx,PetscReal *objective,void *c
   Ellip elp = ctx;
   Vec Coords;
   dRulesetIterator iter;
+  dReal obj;
+  dErr err;
+
+  dFunctionBegin;
+  obj = 0;
+  err = dFSGetGeometryVectorExpanded(elp->fs,&Coords);dCHK(err);
+  err = EllipGetRegionIterator(elp,EVAL_FUNCTION,&iter);dCHK(err);
+  err = dRulesetIteratorStart(iter,Coords,dFS_INHOMOGENEOUS,NULL,gx,dFS_INHOMOGENEOUS,NULL);dCHK(err);
+  while (dRulesetIteratorHasPatch(iter)) {
+    const dScalar *jw;
+    dScalar *x,*dx,*u,*du;
+    dInt Q;
+    err = dRulesetIteratorGetPatchApplied(iter,&Q,&jw, &x,&dx,NULL,NULL, &u,&du,NULL,NULL);dCHK(err);
+    for (dInt i=0; i<Q; i++) {
+      EllipPointwiseObjective(&elp->param,&elp->exact,&elp->exactctx,&x[i*3],jw[i],&u[i],&du[i*3],&obj);
+    }
+    err = dRulesetIteratorNextPatch(iter);dCHK(err);
+  }
+  err = dRulesetIteratorFinish(iter);dCHK(err);
+  *objective = obj;
+  dFunctionReturn(0);
+}
+
 static dErr EllipFunction(SNES dUNUSED snes,Vec gx,Vec gy,void *ctx)
 {
   Ellip elp = ctx;
@@ -637,7 +660,7 @@ int main(int argc,char *argv[])
   Mat J,Jp;
   Vec r,x,soln;
   SNES snes;
-  dBool  nojshell,nocheck,viewdhm;
+  dBool  nojshell,nocheck,viewdhm,objective;
   dErr err;
 
   err = dInitialize(&argc,&argv,NULL,help);dCHK(err);
@@ -655,11 +678,12 @@ int main(int argc,char *argv[])
   err = MatSetOptionsPrefix(Jp,"q1");dCHK(err);
   err = MatSetFromOptions(Jp);dCHK(err);
 
-  nojshell = dFALSE; nocheck = dFALSE; viewdhm = dFALSE;
+  nojshell = dFALSE; nocheck = dFALSE; viewdhm = dFALSE; objective = dFALSE;
   err = PetscOptionsBegin(elp->comm,NULL,"Elliptic solver options",__FILE__);dCHK(err); {
     err = PetscOptionsBool("-nojshell","Do not use shell Jacobian","",nojshell,&nojshell,NULL);dCHK(err);
     err = PetscOptionsBool("-nocheck_error","Do not compute errors","",nocheck,&nocheck,NULL);dCHK(err);
     err = PetscOptionsBool("-viewdhm","View to a file using DHM","",viewdhm,&viewdhm,NULL);dCHK(err);
+    err = PetscOptionsBool("-objective","Provide objective functional to SNES","",objective,&objective,NULL);dCHK(err);
   } err = PetscOptionsEnd();dCHK(err);
   if (nojshell) {
     /* Use the preconditioning matrix in place of the Jacobian.  This will NOT converge unless the elements are actually
@@ -675,6 +699,7 @@ int main(int argc,char *argv[])
     err = MatShellSetOperation(J,MATOP_MULT,(void(*)(void))EllipShellMatMult);dCHK(err);
   }
   err = SNESCreate(comm,&snes);dCHK(err);
+  if (objective) {err = SNESSetObjective(snes,EllipObjective,elp);dCHK(err);}
   err = SNESSetFunction(snes,r,EllipFunction,elp);dCHK(err);
   err = SNESSetJacobian(snes,J,Jp,EllipJacobian,elp);dCHK(err);
   err = SNESSetTolerances(snes,PETSC_DEFAULT,1e-10,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);dCHK(err);
