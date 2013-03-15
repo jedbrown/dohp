@@ -51,7 +51,7 @@ dErr VHTCaseRegister(const char *name,VHTCaseCreateFunction screate)
 {
   dErr err;
   dFunctionBegin;
-  err = PetscFunctionListAdd(&VHTCaseList,name,"",(void(*)(void))screate);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&VHTCaseList,name,"",(void(*)(void))screate);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr VHTCaseFind(const char *name,VHTCaseCreateFunction *screate)
@@ -59,7 +59,7 @@ static dErr VHTCaseFind(const char *name,VHTCaseCreateFunction *screate)
   dErr err;
 
   dFunctionBegin;
-  err = PetscFunctionListFind(VHTCaseList,PETSC_COMM_WORLD,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
+  err = PetscFunctionListFind(PETSC_COMM_WORLD,VHTCaseList,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
   if (!*screate) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_UNKNOWN_TYPE,"VHT Case \"%s\" could not be found",name);
   dFunctionReturn(0);
 }
@@ -218,11 +218,11 @@ static dErr VHTCaseSetFromOptions(VHTCase scase)
   dErr err;
 
   dFunctionBegin;
-  err = PetscFunctionListAdd(&profiles,"default",NULL,(void(*)(void))VHTCaseProfile_Default);dCHK(err);
-  err = PetscFunctionListAdd(&profiles,"ice",NULL,(void(*)(void))VHTCaseProfile_Ice);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&profiles,"default",NULL,(void(*)(void))VHTCaseProfile_Default);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&profiles,"ice",NULL,(void(*)(void))VHTCaseProfile_Ice);dCHK(err);
   err = PetscOptionsBegin(scase->comm,NULL,"VHTCase options",__FILE__);dCHK(err); {
     err = PetscOptionsList("-rheo_profile","Rheological profile","",profiles,prof,prof,sizeof prof,NULL);dCHK(err);
-    err = PetscFunctionListFind(profiles,scase->comm,prof,PETSC_FALSE,(void(**)(void))&rprof);dCHK(err);
+    err = PetscFunctionListFind(scase->comm,profiles,prof,PETSC_FALSE,(void(**)(void))&rprof);dCHK(err);
     err = (*rprof)(scase);dCHK(err);
     rheo->mask_kinetic  = 0;
     rheo->mask_momtrans = 1;

@@ -26,7 +26,7 @@ dErr StokesCaseRegister(const char *name,StokesCaseCreateFunction screate)
 {
   dErr err;
   dFunctionBegin;
-  err = PetscFunctionListAdd(&StokesCaseList,name,"",(void(*)(void))screate);dCHK(err);
+  err = PetscFunctionListAdd(PETSC_COMM_WORLD,&StokesCaseList,name,"",(void(*)(void))screate);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr StokesCaseFind(const char *name,StokesCaseCreateFunction *screate)
@@ -34,7 +34,7 @@ static dErr StokesCaseFind(const char *name,StokesCaseCreateFunction *screate)
   dErr err;
 
   dFunctionBegin;
-  err = PetscFunctionListFind(StokesCaseList,PETSC_COMM_WORLD,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
+  err = PetscFunctionListFind(PETSC_COMM_WORLD,StokesCaseList,name,PETSC_FALSE,(void(**)(void))screate);dCHK(err);
   if (!*screate) dERROR(PETSC_COMM_SELF,PETSC_ERR_ARG_UNKNOWN_TYPE,"Stokes Case \"%s\" could not be found",name);
   dFunctionReturn(0);
 }
