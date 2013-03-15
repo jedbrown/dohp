@@ -1,5 +1,5 @@
 #include <dohpvec.h>
-#include <dohp.h>
+#include <dohpimpl.h>
 
 dErr VecCreateRedimensioned(Vec X,dInt bs,Vec *Y)
 {

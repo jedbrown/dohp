@@ -13,6 +13,7 @@ install_files (/include FILES
   dohp.h                        # macros, optional for users, used heavily internally
   dohpgeom.h                    # inlined geometry primitives
   # private headers, we install them only so that users can extend Dohp
+  dohpimpl.h
   dohpfsimpl.h
   dohpjacimpl.h
   dohpmeshimpl.h

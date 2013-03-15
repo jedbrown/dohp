@@ -5,7 +5,7 @@
 #include <dohpvec.h>
 #include <dohpsys.h>
 #include <dohpunits.h>
-#include <dohp.h>
+#include <dohpimpl.h>
 
 struct VHTRheology {
   dReal B0;                     /* Viscosity at reference strain rate and temperature */

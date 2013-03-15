@@ -2,6 +2,7 @@
 #define _JACIMPL_H
 
 #include "dohpjacobi.h"
+#include "dohpimpl.h"
 
 dEXTERN_C_BEGIN
 

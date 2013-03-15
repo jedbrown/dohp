@@ -1,5 +1,5 @@
 #include <dohpvec.h>
-#include <dohp.h>
+#include <dohpimpl.h>
 
 #include "../src/vec/vec/impls/mpi/pvecimpl.h" /* To have access to Vec_MPI (.localrep) and VecCreate_MPI_Private */
 

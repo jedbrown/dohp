@@ -1,5 +1,5 @@
 #include <dohpunits.h>
-#include <dohp.h>
+#include <dohpimpl.h>
 
 PetscClassId dUNITS_CLASSID;
 static dBool dUnitsPackageInitialized;

@@ -2,6 +2,7 @@
 #define _DMESHIMPL_H
 
 #include "dohpmesh.h"
+#include "dohpimpl.h"
 
 struct _dMeshOps {
   dErr (*orientfacets)(dMesh);

@@ -2,7 +2,7 @@
 #define _DOHPFSIMPL_H
 
 #include "dohpfs.h"
-#include "dohp.h"
+#include "dohpimpl.h"
 #include <petsc-private/dmimpl.h>
 
 dEXTERN_C_BEGIN

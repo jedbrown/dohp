@@ -3,7 +3,7 @@ static const char help[] = "Unit test for coordinate evaluation\n\n";
 #include <dohpfs.h>
 #include <dohpvec.h>
 #include <dohpsys.h>
-#include <dohp.h>
+#include <dohpimpl.h>
 #include <petscpf.h>
 
 #define ALEN(a) ((dInt)(sizeof(a)/sizeof((a)[0])))

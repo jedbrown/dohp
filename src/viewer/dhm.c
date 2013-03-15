@@ -1,5 +1,5 @@
 #include <dohpviewerdhm.h>
-#include <dohp.h>
+#include <dohpimpl.h>
 #include <dohpstring.h>
 #include <string.h>
 
