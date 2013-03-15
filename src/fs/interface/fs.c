@@ -784,6 +784,7 @@ dErr dFSCreateMatrix(dFS fs,const MatType mtype,Mat *inJ)
   err = MatCreate(((dObject)fs)->comm,&J);dCHK(err);
   err = MatSetSizes(J,bs*n,bs*n,PETSC_DETERMINE,PETSC_DETERMINE);dCHK(err);
   err = MatSetType(J,mtype);dCHK(err);
+  err = MatSetBlockSize(J,bs);dCHK(err);
   perrow = 27;
   err = PetscOptionsGetInt(((dObject)fs)->prefix,"-mat_prealloc",&perrow,NULL);dCHK(err);
   err = MatSeqBAIJSetPreallocation(J,bs,perrow,NULL);dCHK(err);         /* \bug incorrect for unstructured meshes */
@@ -797,7 +798,6 @@ dErr dFSCreateMatrix(dFS fs,const MatType mtype,Mat *inJ)
     err = MatSeqAIJSetPreallocation(J,bs*perrow,NULL);dCHK(err);
     err = MatMPIAIJSetPreallocation(J,bs*perrow,NULL,bs*25,NULL);dCHK(err);
   }
-  err = MatSetBlockSize(J,bs);dCHK(err);
   err = MatSetOption(J,MAT_NEW_NONZERO_LOCATION_ERR,PETSC_FALSE);dCHK(err);
   err = DMGetLocalToGlobalMapping((DM)fs,&mapping);dCHK(err);
   err = MatSetLocalToGlobalMapping(J,mapping,mapping);dCHK(err);
