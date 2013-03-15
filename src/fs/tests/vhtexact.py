@@ -14,7 +14,7 @@ MASK = 0
 MASK2 = 0
 
 def SecondInvariant(Du):
-    return 0.5*Du.dot(Du)
+    return 0.5*tensorcolon(Du,Du)
 def const(x):
     def f(y): return x
     return f
@@ -116,9 +116,9 @@ class VHTExact(Exact):
         eta = self.eta(p, T, omega, gamma)
         heatflux = -k_T * dT - L * (1-omega)*rhoi / rho * kappa_w * domega;
         (rhou_,p_,E_), (drhou_,dp_,dE_) = self.unpack(V,dV)
-        conserve_momentum = -drhou_.dot(mask_momtrans*rhou*u.T - eta*Dui + p*I) - rhou_.dot(rho*gravvec)
+        conserve_momentum = -tensorcolon(drhou_, mask_momtrans*rhou*u.T - eta*Dui + p*I) - rhou_.dot(rho*gravvec)
         conserve_mass     = -p_ * drhou.trace()
-        conserve_energy   = -dE_.dot((E+mask_Ep*(p+p0))*u + heatflux - Kstab*dE) -E_*(eta*Dui.dot(Dui) + rhou.dot(gravvec))
+        conserve_energy   = -dE_.dot((E+mask_Ep*(p+p0))*u + heatflux - Kstab*dE) -E_*(eta*tensorcolon(Dui,Dui) + rhou.dot(gravvec))
         return conserve_momentum + conserve_mass + conserve_energy
     def create_prototype(self, definition=False):
         return 'dErr VHTCaseCreate_%(name)s(VHTCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))

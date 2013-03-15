@@ -6,7 +6,7 @@ from sympy import Matrix, ccode
 from dohpexact import *
 
 def SecondInvariant(Du):
-    return 0.5*Du.dot(Du)
+    return 0.5*tensorcolon(Du,Du)
 
 class StokesExact(Exact):
     def __init__(self, name=None, model='B eps pe', param='a b c'):
@@ -21,7 +21,7 @@ class StokesExact(Exact):
         Dv = sym(dV[:3,:])
         gamma = SecondInvariant(Du)
         eta = self.eta(gamma)
-        return eta*Dv.dot(Du) - q*Du.trace() - p*Dv.trace()
+        return eta*tensorcolon(Dv,Du) - q*Du.trace() - p*Dv.trace()
     def create_prototype(self, definition=False):
         return 'dErr StokesCaseCreate_%(name)s(StokesCase case)%(term)s' % dict(name=self.name, term=('' if definition else ';'))
     def solution_prototype(self):

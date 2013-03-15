@@ -24,6 +24,10 @@ def sym(A):
 def divergence(F, X):
     assert(F.cols == X.rows)
     return sum(sympy.diff(F[i],X[i]) for i in range(X.rows))
+def tensorcolon(A, B):
+    assert A.rows == B.rows
+    assert A.cols == B.cols
+    return A.vec().dot(B.vec())
 def asvector(A):
     m,n = A.shape
     return A.reshape(m*n,1)
@@ -81,12 +85,12 @@ class Exact:
     def ffieldname(self,i,prefix='',array=True):
         return self.joinname(prefix+'f',array,self.fieldseek(i))
     def fieldmatrices(self,prefix='',array=False):
-        U = Matrix([self.fieldname(i,prefix,array) for i in range(self.nfields)])
-        dU = Matrix([self.dfieldname(i*3+j,prefix,array) for i in range(self.nfields) for j in range(3)]).reshape(self.nfields,3)
+        U = Matrix([[self.fieldname(i,prefix,array)] for i in range(self.nfields)])
+        dU = Matrix([[self.dfieldname(i*3+j,prefix,array)] for i in range(self.nfields) for j in range(3)]).reshape(self.nfields,3)
         def d2name(dsym,k):
             'convert prefix_dsymname_i_j to prefix_d2symname_i_j_k'
             return prefix + 'd2' + dsym.name[len(prefix)+1:] + '_%d' % k
-        d2U = Matrix([d2name(dsym,j) for dsym in asvector(dU) for j in range(3)]).reshape(self.nfields*3,3)
+        d2U = Matrix([[d2name(dsym,j)] for dsym in asvector(dU) for j in range(3)]).reshape(self.nfields*3,3)
         return U, dU, d2U
     def _meta_add(self,attr,symnames):
         if isinstance(symnames,str): symnames = symnames.split()
