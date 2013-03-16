@@ -189,8 +189,9 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
 # define dFree7(a,b,c,d,e,f,g) dFree(a)
 #endif
 
+#if defined(PETSC_USE_DEBUG)
 /* This is like PetscFunctionBegin, but does not check __FUNCT__ because we have C99 */
-#define dFunctionBegin                                                  \
+#  define dFunctionBegin                                                \
   do {                                                                  \
     PetscStack* petscstackp;                                            \
     petscstackp = (PetscStack*)PetscThreadLocalGetValue(petscstack);    \
@@ -203,6 +204,9 @@ static inline void *dNextAlignedAddr(size_t alignment,void *ptr)
       petscstackp->currentsize++;                                       \
     }                                                                   \
   } while (0)
+#else
+#  define dFunctionBegin do {} while(0)
+#endif
 
 #define dFunctionReturn(a) PetscFunctionReturn(a)
 
