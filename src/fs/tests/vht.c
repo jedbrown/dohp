@@ -2452,7 +2452,7 @@ static dErr ComputeExplicit(SNES snes,Vec U)
   err = SNESComputeJacobian(snes,U,&J,&Jp,&mstruct);dCHK(err);
   err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
   err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
-  err = SNESDefaultComputeJacobian(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
+  err = SNESComputeJacobianDefault(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
   err = MatSetOptionsPrefix(expmat,"explicit_");dCHK(err);
   err = MatSetOptionsPrefix(expmat_fd,"explicit_fd_");dCHK(err);
   err = MatSetFromOptions(expmat);dCHK(err);

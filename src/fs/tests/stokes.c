@@ -999,7 +999,7 @@ static dErr CheckNullSpace(SNES snes,Vec residual,dBool compute_explicit)
     err = MatGetLocalSize(J,&m,&n);dCHK(err);
     err = MatComputeExplicitOperator(J,&expmat);dCHK(err);
     err = MatDuplicate(expmat,MAT_DO_NOT_COPY_VALUES,&expmat_fd);dCHK(err);
-    err = SNESDefaultComputeJacobian(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
+    err = SNESComputeJacobianDefault(snes,U,&expmat_fd,&expmat_fd,&mstruct,NULL);dCHK(err);
     err = MatSetOptionsPrefix(expmat,"explicit_");dCHK(err);
     err = MatSetOptionsPrefix(expmat_fd,"explicit_fd_");dCHK(err);
     err = MatSetFromOptions(expmat);dCHK(err);
@@ -1090,7 +1090,7 @@ int main(int argc,char *argv[])
   err = SNESSetFunction(snes,r,StokesFunction,stk);dCHK(err);
   switch (3) {
     case 1:
-      err = SNESSetJacobian(snes,J,Jp,SNESDefaultComputeJacobian,stk);dCHK(err); break;
+      err = SNESSetJacobian(snes,J,Jp,SNESComputeJacobianDefault,stk);dCHK(err); break;
     case 2: {
       ISColoring iscolor;
       err = MatGetColoring(Jp,MATCOLORINGID,&iscolor);dCHK(err);
@@ -1098,7 +1098,7 @@ int main(int argc,char *argv[])
       err = ISColoringDestroy(&iscolor);dCHK(err);
       err = MatFDColoringSetFunction(fdcolor,(PetscErrorCode(*)(void))StokesFunction,stk);dCHK(err);
       err = MatFDColoringSetFromOptions(fdcolor);dCHK(err);
-      err = SNESSetJacobian(snes,J,Jp,SNESDefaultComputeJacobianColor,fdcolor);dCHK(err);
+      err = SNESSetJacobian(snes,J,Jp,SNESComputeJacobianDefaultColor,fdcolor);dCHK(err);
     } break;
     case 3:
       err = SNESSetJacobian(snes,J,Jp,StokesJacobian,stk);dCHK(err);
