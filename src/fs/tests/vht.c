@@ -14,10 +14,10 @@ static const char help[] = "Solve viscous flow coupled to a heat transport probl
   "  int_Omega eta Dv:Du + eta' (Dv:Dw)(Dw:Du) - p div(v) - q div(u) = 0\n"
   "The problem is linear for p=2, an incompressible for g=0\n\n";
 
-#include <petscts.h>
 #include <dohpstring.h>
 #include <dohpviewer.h>
 #include <dohpgeom.h>
+#include <petscts.h>
 
 #include "vhtimpl.h"
 
