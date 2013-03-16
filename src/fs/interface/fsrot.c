@@ -49,7 +49,7 @@ dErr dFSRotationCreate(dFS fs,IS is,dReal rmat[],dInt ns[],Vec v,dFSRotation *in
   dValidHeader(v,VEC_CLASSID,5);
   dValidPointer(inrot,6);
   *inrot = 0;
-  err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_CLASSID,0,"dFSRotation","Local function space rotation","FS",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
+  err = PetscHeaderCreate(rot,_p_dFSRotation,struct _dFSRotationOps,dFSROT_CLASSID,"dFSRotation","Local function space rotation","FS",PETSC_COMM_SELF,dFSRotationDestroy,dFSRotationView);dCHK(err);
 
   err = dFSGetBlockSize(fs,&bs);dCHK(err);
   rot->bs = bs;

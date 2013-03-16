@@ -457,15 +457,15 @@ static dErr VHTCaseSetFromOptions_Jako(VHTCase scase)
     err = PetscOptionsInt("-jako_nx","Number of pixels in x-direction for raster of input fields","",jako->nx,&jako->nx,NULL);dCHK(err);
     err = PetscOptionsInt("-jako_ny","Number of piyels in y-direction for raster of input fields","",jako->ny,&jako->ny,NULL);dCHK(err);
     {
-      PetscFList intenergy = NULL;
+      PetscFunctionList intenergy = NULL;
       char iname[dNAME_LEN] = "smooth";
-      err = PetscFListAdd(&intenergy,"smooth",NULL,(void(*)(void))JakoInternalEnergy_Smooth);dCHK(err);
-      err = PetscFListAdd(&intenergy,"sharp1",NULL,(void(*)(void))JakoInternalEnergy_Sharp1);dCHK(err);
-      err = PetscFListAdd(&intenergy,"sharp2",NULL,(void(*)(void))JakoInternalEnergy_Sharp2);dCHK(err);
-      err = PetscFListAdd(&intenergy,"sharp3",NULL,(void(*)(void))JakoInternalEnergy_Sharp3);dCHK(err);
+      err = PetscFunctionListAdd(PETSC_COMM_WORLD,&intenergy,"smooth",NULL,(void(*)(void))JakoInternalEnergy_Smooth);dCHK(err);
+      err = PetscFunctionListAdd(PETSC_COMM_WORLD,&intenergy,"sharp1",NULL,(void(*)(void))JakoInternalEnergy_Sharp1);dCHK(err);
+      err = PetscFunctionListAdd(PETSC_COMM_WORLD,&intenergy,"sharp2",NULL,(void(*)(void))JakoInternalEnergy_Sharp2);dCHK(err);
+      err = PetscFunctionListAdd(PETSC_COMM_WORLD,&intenergy,"sharp3",NULL,(void(*)(void))JakoInternalEnergy_Sharp3);dCHK(err);
       err = PetscOptionsList("-jako_ienergy","Internal energy boundary conditions for Jakobshavn","",intenergy,iname,iname,sizeof iname,NULL);dCHK(err);
-      err = PetscFListFind(intenergy,scase->comm,iname,dFALSE,(void(**)(void))&jako->InternalEnergy);dCHK(err);
-      err = PetscFListDestroy(&intenergy);dCHK(err);
+      err = PetscFunctionListFind(scase->comm,intenergy,iname,dFALSE,(void(**)(void))&jako->InternalEnergy);dCHK(err);
+      err = PetscFunctionListDestroy(&intenergy);dCHK(err);
     }
   } err = PetscOptionsTail();dCHK(err);
   err = VHTCaseSetUp_Jako(scase);dCHK(err);

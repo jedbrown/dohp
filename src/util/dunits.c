@@ -68,7 +68,7 @@ dErr dUnitsCreate(MPI_Comm comm,dUnits *units)
 #if !defined(PETSC_USE_DYNAMIC_LIBRARIES)
   err = dUnitsInitializePackage(PETSC_NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(un,_p_dUnits,int,dUNITS_CLASSID,0,"dUnits","Dimensionalization and non-dimensionalization","Units",comm,dUnitsDestroy,dUnitsView);dCHK(err);
+  err = PetscHeaderCreate(un,_p_dUnits,int,dUNITS_CLASSID,"dUnits","Dimensionalization and non-dimensionalization","Units",comm,dUnitsDestroy,dUnitsView);dCHK(err);
   un->nalloc = 128;
   err = dCallocA(un->nalloc,&un->list);dCHK(err);
 

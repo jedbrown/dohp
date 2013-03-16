@@ -182,7 +182,7 @@ dErr dQuadratureCreate(MPI_Comm comm,dQuadrature *inquad)
 #if !defined PETSC_USE_DYNAMIC_LIBRARIES
   err = dJacobiInitializePackage(NULL);dCHK(err);
 #endif
-  err = PetscHeaderCreate(quad,p_dQuadrature,struct _dQuadratureOps,dQUADRATURE_CLASSID,0,"dQuadrature","Quadrature rule service","Jacobi",comm,dQuadratureDestroy,dQuadratureView);dCHK(err);
+  err = PetscHeaderCreate(quad,p_dQuadrature,struct _dQuadratureOps,dQUADRATURE_CLASSID,"dQuadrature","Quadrature rule service","Jacobi",comm,dQuadratureDestroy,dQuadratureView);dCHK(err);
 
   *inquad = quad;
   dFunctionReturn(0);

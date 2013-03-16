@@ -20,7 +20,7 @@ dErr dMeshCreate(MPI_Comm comm,dMesh *inm)
   err = dMeshInitializePackage(PETSC_NULL);dCHK(err);
 #endif
   *inm = 0;
-  err = PetscHeaderCreate(m,_p_dMesh,struct _dMeshOps,dMESH_CLASSID,0,"dMesh","Mesh topology","Mesh",comm,dMeshDestroy,dMeshView);dCHK(err);
+  err = PetscHeaderCreate(m,_p_dMesh,struct _dMeshOps,dMESH_CLASSID,"dMesh","Mesh topology","Mesh",comm,dMeshDestroy,dMeshView);dCHK(err);
   *inm = m;
   dFunctionReturn(0);
 }
