@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
   err = dMeshSetFromOptions(mesh);dCHK(err);
   err = dMeshGetRoot(mesh,&root);dCHK(err);
 
-  err = PetscOptionsBegin(((PetscObject)mesh)->comm,NULL,"dohpblock: create cartesian meshes",NULL);dCHK(err);
+  err = PetscOptionsBegin(PetscObjectComm((PetscObject)mesh),NULL,"dohpblock: create cartesian meshes",NULL);dCHK(err);
   {
     err = PetscOptionsString("-o","outfile","none",outfile,outfile,sizeof(outfile),NULL);dCHK(err);
     err = PetscOptionsBool("-do_geom","create geometric models","none",do_geom=dTRUE,&do_geom,NULL);dCHK(err);

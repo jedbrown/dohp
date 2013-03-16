@@ -133,7 +133,7 @@ static dErr VHTCaseUnitsSetFromOptions(VHTCase scase)
   err = PetscOptionsGetBool(NULL,"-units_view",&flg,NULL);dCHK(err);
   if (flg) {
     PetscViewer viewer;
-    err = PetscViewerASCIIGetStdout(((PetscObject)units)->comm,&viewer);dCHK(err);
+    err = PetscViewerASCIIGetStdout(PetscObjectComm((PetscObject)units),&viewer);dCHK(err);
     err = dUnitsView(units,viewer);dCHK(err);
   }
   dFunctionReturn(0);
@@ -1028,7 +1028,7 @@ static dErr VHTGetMatrices(VHT vht,dBool use_jblock,Mat *J,Mat *B)
     err = MatSetOptionsPrefix(Bss,"Bss_");dCHK(err);
     err = MatGetLocalToGlobalMapping(Buu,&ltogs[0],NULL);dCHK(err);
     err = MatGetLocalToGlobalMapping(Bpp,&ltogs[1],NULL);dCHK(err);
-    err = ISLocalToGlobalMappingConcatenate(((PetscObject)Bss)->comm,2,ltogs,&ltogcat);dCHK(err);
+    err = ISLocalToGlobalMappingConcatenate(PetscObjectComm((PetscObject)Bss),2,ltogs,&ltogcat);dCHK(err);
     err = MatSetLocalToGlobalMapping(Bss,ltogcat,ltogcat);dCHK(err);
     err = ISLocalToGlobalMappingDestroy(&ltogcat);dCHK(err);
     err = MatCreateNest(vht->comm,2,allis,2,allis,((Mat[]){Bss,NULL,NULL,Bee}),B);dCHK(err);
@@ -2105,8 +2105,8 @@ static dErr VHTJacobian(SNES dUNUSED snes,Vec X,Mat *J,Mat *B,MatStructure *stru
     err = MatNestGetSubMat(Jss,0,0,&Juu);dCHK(err);
     err = MatNestGetSubMat(*B,0,0,&Bss);dCHK(err);
     err = MatNestGetSubMat(Bss,0,0,&Buu);dCHK(err);
-    viewer = PETSC_VIEWER_DRAW_(((PetscObject)Juu)->comm);
-    ascviewer = PETSC_VIEWER_STDOUT_(((PetscObject)Juu)->comm);
+    viewer = PETSC_VIEWER_DRAW_(PetscObjectComm((PetscObject)Juu));
+    ascviewer = PETSC_VIEWER_STDOUT_(PetscObjectComm((PetscObject)Juu));
     err = MatComputeExplicitOperator(Juu,&Juu_ex);dCHK(err);
     err = PetscViewerPushFormat(viewer,PETSC_VIEWER_DRAW_CONTOUR);dCHK(err);
     err = PetscViewerASCIIPrintf(ascviewer,"Matrix-free operator Juu\n");dCHK(err);
@@ -2229,13 +2229,15 @@ static dErr SNESMonitorVHTSplit(SNES snes,PetscInt its,PetscReal norm2,void *ctx
   dErr err;
   Vec F;
   dReal norms[3];
+  dInt tablevel;
 
   dFunctionBegin;
   err = SNESGetFunction(snes,&F,NULL,(void**)&vht);dCHK(err);
   err = VHTVecNormsSplit(vht,F,NORM_2,norms);dCHK(err);
-  err = PetscViewerASCIIAddTab(viewer,((PetscObject)snes)->tablevel);dCHK(err);
+  err = PetscObjectGetTabLevel((PetscObject)snes,&tablevel);dCHK(err);
+  err = PetscViewerASCIIAddTab(viewer,tablevel);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"%3D SNES Function norm %12.6e  VHT norms % 12.6e % 12.6e % 12.6e\n",its,(double)norm2,norms[0],norms[1],norms[2]);dCHK(err);
-  err = PetscViewerASCIISubtractTab(viewer,((PetscObject)snes)->tablevel);dCHK(err);
+  err = PetscViewerASCIISubtractTab(viewer,tablevel);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr KSPMonitorVHTSplit(KSP ksp,PetscInt its,PetscReal norm2,void *ctx)
@@ -2249,6 +2251,7 @@ static dErr KSPMonitorVHTSplit(KSP ksp,PetscInt its,PetscReal norm2,void *ctx)
   char normtype[dSTR_LEN];
   KSPNormType ntype;
   PC pc;
+  dInt tablevel;
 
   dFunctionBegin;
   err = KSPGetApplicationContext(ksp,&vht);dCHK(err);
@@ -2266,9 +2269,10 @@ static dErr KSPMonitorVHTSplit(KSP ksp,PetscInt its,PetscReal norm2,void *ctx)
   err = KSPGetNormType(ksp,&ntype);dCHK(err);
   err = PetscStrncpy(normtype,KSPNormTypes[ntype],sizeof normtype);dCHK(err);
   err = PetscStrtolower(normtype);dCHK(err);
-  err = PetscViewerASCIIAddTab(viewer,((PetscObject)ksp)->tablevel);dCHK(err);
+  err = PetscObjectGetTabLevel((PetscObject)ksp,&tablevel);dCHK(err);
+  err = PetscViewerASCIIAddTab(viewer,tablevel);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"%3D KSP %s norm % 12.6e true % 12.6e rel % 12.6e  VHT % 12.6e % 12.6e % 12.6e\n",its,normtype,norm2,scnorm,scnorm/bnorm,norms[0],norms[1],norms[2]);dCHK(err);
-  err = PetscViewerASCIISubtractTab(viewer,((PetscObject)ksp)->tablevel);dCHK(err);
+  err = PetscViewerASCIISubtractTab(viewer,tablevel);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr KSPMonitorVHTStokesSplit(KSP ksp,PetscInt its,PetscReal norm2,void *ctx)
@@ -2282,6 +2286,7 @@ static dErr KSPMonitorVHTStokesSplit(KSP ksp,PetscInt its,PetscReal norm2,void *
   char normtype[dSTR_LEN];
   KSPNormType ntype;
   PC pc;
+  dInt tablevel;
 
   dFunctionBegin;
   err = KSPGetApplicationContext(ksp,&vht);dCHK(err);
@@ -2299,9 +2304,10 @@ static dErr KSPMonitorVHTStokesSplit(KSP ksp,PetscInt its,PetscReal norm2,void *
   err = KSPGetNormType(ksp,&ntype);dCHK(err);
   err = PetscStrncpy(normtype,KSPNormTypes[ntype],sizeof normtype);dCHK(err);
   err = PetscStrtolower(normtype);dCHK(err);
-  err = PetscViewerASCIIAddTab(viewer,((PetscObject)ksp)->tablevel);dCHK(err);
+  err = PetscObjectGetTabLevel((PetscObject)ksp,&tablevel);dCHK(err);
+  err = PetscViewerASCIIAddTab(viewer,tablevel);dCHK(err);
   err = PetscViewerASCIIPrintf(viewer,"%3D KSP %s norm % 12.6e true % 12.6e rel % 12.6e  VHTStokes % 12.6e % 12.6e\n",its,normtype,norm2,scnorm,scnorm/bnorm,norms[0],norms[1]);dCHK(err);
-  err = PetscViewerASCIISubtractTab(viewer,((PetscObject)ksp)->tablevel);dCHK(err);
+  err = PetscViewerASCIISubtractTab(viewer,tablevel);dCHK(err);
   dFunctionReturn(0);
 }
 static dErr SNESComputeVariableBounds_VHT(SNES snes,Vec L,Vec U)
@@ -2543,20 +2549,20 @@ int main(int argc,char *argv[])
   err = SNESSetFunction(snes,R,VHTFunction,vht);dCHK(err);
   err = SNESSetJacobian(snes,J,B,VHTJacobian,vht);dCHK(err);
   err = SNESSetFromOptions(snes);dCHK(err);
-  err = PetscObjectTypeCompare((PetscObject)snes,SNESVIRS,&flg);dCHK(err);
-  if (!flg) {  err = PetscObjectTypeCompare((PetscObject)snes,SNESVISS,&flg);dCHK(err);}
+  err = PetscObjectTypeCompare((PetscObject)snes,SNESVINEWTONRSLS,&flg);dCHK(err);
+  if (!flg) {  err = PetscObjectTypeCompare((PetscObject)snes,SNESVINEWTONSSLS,&flg);dCHK(err);}
   if (flg) {err = SNESVISetComputeVariableBounds(snes,SNESComputeVariableBounds_VHT);dCHK(err);}
   err = SNESGetKSP(snes,&ksp);dCHK(err);
   err = SNESSetApplicationContext(snes,vht);dCHK(err);
   err = KSPSetApplicationContext(ksp,vht);dCHK(err);
   if (snes_monitor_vht) {
     PetscViewer monviewer;
-    err = PetscViewerASCIIOpen(((PetscObject)snes)->comm,snesmonfilename,&monviewer);dCHK(err);
+    err = PetscViewerASCIIOpen(PetscObjectComm((PetscObject)snes),snesmonfilename,&monviewer);dCHK(err);
     err = SNESMonitorSet(snes,SNESMonitorVHTSplit,monviewer,(PetscErrorCode (*)(void**))PetscViewerDestroy);dCHK(err);
   }
   if (ksp_monitor_vht) {
     PetscViewer monviewer;
-    err = PetscViewerASCIIOpen(((PetscObject)ksp)->comm,kspmonfilename,&monviewer);dCHK(err);
+    err = PetscViewerASCIIOpen(PetscObjectComm((PetscObject)ksp),kspmonfilename,&monviewer);dCHK(err);
     err = KSPMonitorSet(ksp,KSPMonitorVHTSplit,monviewer,(PetscErrorCode (*)(void**))PetscViewerDestroy);dCHK(err);
   }
   {
@@ -2577,7 +2583,7 @@ int main(int argc,char *argv[])
       err = KSPSetApplicationContext(stk_ksp,vht);dCHK(err);
       if (sksp_monitor_vht) {
         PetscViewer monviewer;
-        err = PetscViewerASCIIOpen(((PetscObject)stk_ksp)->comm,kspmonfilename,&monviewer);dCHK(err);
+        err = PetscViewerASCIIOpen(PetscObjectComm((PetscObject)stk_ksp),kspmonfilename,&monviewer);dCHK(err);
         err = KSPMonitorSet(stk_ksp,KSPMonitorVHTStokesSplit,monviewer,(PetscErrorCode (*)(void**))PetscViewerDestroy);dCHK(err);
       }
       err = PetscFree(subksp);dCHK(err);
